@@ -88,7 +88,7 @@ class ManagerProcess(ABC):
     self.stop(sig=signal.SIGKILL)
     self.start()
 
-  def check_watchdog(self, started: bool) -> None:
+  def check_watchdog(self, started: bool, params: Params) -> None:
     if self.watchdog_max_dt is None or self.proc is None:
       return
 
@@ -238,7 +238,7 @@ class DaemonProcess(ManagerProcess):
     self.params = None
 
   @staticmethod
-  def should_run(started, params, CP):
+  def should_run(started, params, CP, classic_model, frogpilot_toggles):
     return True
 
   def prepare(self) -> None:
@@ -274,18 +274,18 @@ class DaemonProcess(ManagerProcess):
 
 
 def ensure_running(procs: ValuesView[ManagerProcess], started: bool, params=None, CP: car.CarParams=None,
-                   not_run: list[str] | None=None) -> list[ManagerProcess]:
+                   not_run: list[str] | None=None, classic_model=False, frogpilot_toggles=None) -> list[ManagerProcess]:
   if not_run is None:
     not_run = []
 
   running = []
   for p in procs:
-    if p.enabled and p.name not in not_run and p.should_run(started, params, CP):
+    if p.enabled and p.name not in not_run and p.should_run(started, params, CP, classic_model, frogpilot_toggles):
       running.append(p)
     else:
       p.stop(block=False)
 
-    p.check_watchdog(started)
+    p.check_watchdog(started, params)
 
   for p in running:
     p.start()

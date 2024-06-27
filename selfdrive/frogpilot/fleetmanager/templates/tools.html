@@ -1,0 +1,71 @@
+{% extends "layout.html" %}
+
+{% block title %}
+Tools
+{% endblock %}
+
+{% block main %}
+<style>
+  .center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    flex-wrap: wrap;
+  }
+  .textarea-container {
+    width: 80%;
+    margin-top: 20px;
+  }
+  textarea {
+    width: 100%;
+    height: 200px;
+  }
+  button {
+    margin-top: 10px;
+  }
+</style>
+
+<div class="center">
+  <h1>Toggle Values</h1>
+  <div class="textarea-container">
+    <textarea id="toggleValuesBox" placeholder='Retrieve or restore toggle values.'></textarea>
+    <button type="button" id="retrieveButton">Retrieve Toggle Values</button>
+    <button type="button" id="restoreButton">Submit Toggle Values</button>
+  </div>
+</div>
+
+<script>
+  const toggleValuesBox = document.getElementById('toggleValuesBox');
+  const retrieveButton = document.getElementById('retrieveButton');
+  const restoreButton = document.getElementById('restoreButton');
+
+  retrieveButton.addEventListener('click', function() {
+    fetch('/get_toggle_values')
+      .then(response => response.text())
+      .then(data => {
+        toggleValuesBox.value = data.trim();
+      })
+      .catch(error => console.error('Error fetching toggle values:', error));
+  });
+
+  restoreButton.addEventListener('click', function() {
+    const inputData = toggleValuesBox.value;
+
+    fetch('/store_toggle_values', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: inputData.trim() }),
+    })
+    .then(response => response.json().then(data => ({ status: response.status, body: data })))
+    .then(result => {
+      if (result.status === 200) {
+        alert('Values stored successfully.');
+      } else {
+        alert('Error storing values: ' + result.body.error);
+      }
+    })
+    .catch(error => console.error('Error storing toggle values:', error));
+  });
+</script>
+{% endblock %}
