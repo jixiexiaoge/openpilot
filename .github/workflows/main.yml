@@ -1,0 +1,43 @@
+name: Sync Forks
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天同步一次
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.ACTIONS_PAT }}
+
+    - name: Set up Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+    - name: Add remote repositories
+      run: |
+        git remote add frogpilot https://github.com/FrogAi/FrogPilot
+        git remote add sunnypilot https://github.com/sunnypilot/sunnypilot 
+        git remote add garrettpall https://github.com/garrettpall/openpilot
+        
+    - name: Fetch and merge frogpilot-mazda-compiled
+      run: |
+        git fetch garrettpall
+        git checkout -B frogpilot-mazda-cslc-compiled garrettpall/frogpilot-mazda-cslc-compiled
+        git push origin frogpilot-mazda-cslc-compiled --force 
+
+
+
+    - name: Fetch and merge FrogPilot
+      run: |
+        git fetch frogpilot
+        git checkout -B FrogPilot frogpilot/FrogPilot
+        git push origin FrogPilot --force
+        
