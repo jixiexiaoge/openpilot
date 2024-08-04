@@ -1,0 +1,31 @@
+name: Sync  Branches
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天运行一次，UTC时间0点0分
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout target repository
+      uses: actions/checkout@v2
+      with:
+        repository: jixiexiaoge/openpilot
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Setup Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+    - name: Fetch all branches from source repository
+      run: |
+        git remote add source https://github.com/jixiexiaoge/FrogPilot.git
+        git fetch source
+        for branch in $(git branch -r | grep source/ | grep -v '\->' | sed 's|source/||'); do
+          git checkout -b $branch source/$branch || git checkout $branch && git pull source $branch
+          git push origin $branch
+        done
