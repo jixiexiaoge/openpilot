@@ -25,6 +25,8 @@ jobs:
         git clone --branch FrogPilot https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
         git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
+        git fetch origin
+        git rebase origin/FrogPilot
         git push myrepo FrogPilot --force
         cd ..
         rm -rf temp_repo
@@ -38,6 +40,8 @@ jobs:
         git clone --branch FrogPilot-Previous https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
         git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
+        git fetch origin
+        git rebase origin/FrogPilot-Previous
         git push myrepo FrogPilot-Previous --force
         cd ..
         rm -rf temp_repo
