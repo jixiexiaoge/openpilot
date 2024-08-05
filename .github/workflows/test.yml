@@ -17,21 +17,27 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Sync FrogPilot branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git clone https://github.com/FrogAi/FrogPilot.git temp_repo
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git clone --branch FrogPilot https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
-        git checkout FrogPilot
-        git remote add myrepo https://github.com/jixiexiaoge/openpilot.git
+        git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
         git push myrepo FrogPilot --force
         cd ..
         rm -rf temp_repo
     
     - name: Sync FrogPilot-Previous branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git clone https://github.com/FrogAi/FrogPilot.git temp_repo
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git clone --branch FrogPilot-Previous https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
-        git checkout FrogPilot-Previous
-        git remote add myrepo https://github.com/jixiexiaoge/openpilot.git
+        git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
         git push myrepo FrogPilot-Previous --force
         cd ..
         rm -rf temp_repo
