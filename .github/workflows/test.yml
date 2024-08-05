@@ -1,31 +1,37 @@
-name: Sync  Branches
+name: Sync FrogPilot branches
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天运行一次，UTC时间0点0分
+    - cron: '0 0 * * *' # 每天UTC时间午夜12点触发
+  workflow_dispatch: # 允许手动触发工作流
 
 jobs:
-  sync:
+  sync-branches:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout target repository
+    - name: Checkout repository
       uses: actions/checkout@v2
       with:
         repository: jixiexiaoge/openpilot
         token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
-
-    - name: Setup Git
+    
+    - name: Sync FrogPilot branch
       run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-    - name: Fetch all branches from source repository
+        git clone https://github.com/FrogAi/FrogPilot.git temp_repo
+        cd temp_repo
+        git checkout FrogPilot
+        git remote add myrepo https://github.com/jixiexiaoge/openpilot.git
+        git push myrepo FrogPilot --force
+        cd ..
+        rm -rf temp_repo
+    
+    - name: Sync FrogPilot-Previous branch
       run: |
-        git remote add source https://github.com/jixiexiaoge/FrogPilot.git
-        git fetch source
-        for branch in $(git branch -r | grep source/ | grep -v '\->' | sed 's|source/||'); do
-          git checkout -b $branch source/$branch || git checkout $branch && git pull source $branch
-          git push origin $branch
-        done
+        git clone https://github.com/FrogAi/FrogPilot.git temp_repo
+        cd temp_repo
+        git checkout FrogPilot-Previous
+        git remote add myrepo https://github.com/jixiexiaoge/openpilot.git
+        git push myrepo FrogPilot-Previous --force
+        cd ..
+        rm -rf temp_repo
