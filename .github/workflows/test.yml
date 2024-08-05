@@ -14,34 +14,30 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: jixiexiaoge/openpilot
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.FP_TOKEN }}
     
     - name: Sync FrogPilot branch
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        FP_TOKEN: ${{ secrets.FP_TOKEN }}
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git clone --branch FrogPilot https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
+        git clone --branch FrogPilot https://x-access-token:${{ secrets.FP_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
-        git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
-        git fetch origin
-        git rebase origin/FrogPilot
+        git remote add myrepo https://x-access-token:${{ secrets.FP_TOKEN }}@github.com/jixiexiaoge/openpilot.git
         git push myrepo FrogPilot --force
         cd ..
         rm -rf temp_repo
     
     - name: Sync FrogPilot-Previous branch
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        FP_TOKEN: ${{ secrets.FP_TOKEN }}
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git clone --branch FrogPilot-Previous https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
+        git clone --branch FrogPilot-Previous https://x-access-token:${{ secrets.FP_TOKEN }}@github.com/FrogAi/FrogPilot.git temp_repo
         cd temp_repo
-        git remote add myrepo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jixiexiaoge/openpilot.git
-        git fetch origin
-        git rebase origin/FrogPilot-Previous
+        git remote add myrepo https://x-access-token:${{ secrets.FP_TOKEN }}@github.com/jixiexiaoge/openpilot.git
         git push myrepo FrogPilot-Previous --force
         cd ..
         rm -rf temp_repo
