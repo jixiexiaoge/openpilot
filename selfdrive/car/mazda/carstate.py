@@ -3,7 +3,7 @@ from openpilot.common.conversions import Conversions as CV
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
-from openpilot.selfdrive.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags
+from openpilot.selfdrive.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, Buttons
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -28,6 +28,17 @@ class CarState(CarStateBase):
 
     self.prev_distance_button = self.distance_button
     self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
+
+    self.prev_cruise_buttons = self.cruise_buttons
+
+    if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
+      self.cruise_buttons = Buttons.SET_PLUS
+    elif bool(cp.vl["CRZ_BTNS"]["SET_M"]):
+      self.cruise_buttons = Buttons.SET_MINUS
+    elif bool(cp.vl["CRZ_BTNS"]["RES"]):
+      self.cruise_buttons = Buttons.RESUME
+    else:
+      self.cruise_buttons = Buttons.NONE
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],

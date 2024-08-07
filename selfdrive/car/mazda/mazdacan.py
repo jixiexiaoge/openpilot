@@ -1,4 +1,5 @@
 from openpilot.selfdrive.car.mazda.values import Buttons, MazdaFlags
+from openpilot.common.conversions import Conversions as CV
 
 
 def create_steering_control(packer, CP, frame, apply_steer, lkas):
@@ -92,20 +93,22 @@ def create_button_cmd(packer, CP, counter, button):
 
   can = int(button == Buttons.CANCEL)
   res = int(button == Buttons.RESUME)
+  inc = int(button == Buttons.SET_PLUS)
+  dec = int(button == Buttons.SET_MINUS)
 
   if CP.flags & MazdaFlags.GEN1:
     values = {
       "CAN_OFF": can,
       "CAN_OFF_INV": (can + 1) % 2,
 
-      "SET_P": 0,
-      "SET_P_INV": 1,
+      "SET_P": inc,
+      "SET_P_INV": (inc + 1) % 2,
 
       "RES": res,
       "RES_INV": (res + 1) % 2,
 
-      "SET_M": 0,
-      "SET_M_INV": 1,
+      "SET_M": dec,
+      "SET_M_INV": (dec + 1) % 2,
 
       "DISTANCE_LESS": 0,
       "DISTANCE_LESS_INV": 1,
@@ -126,3 +129,33 @@ def create_button_cmd(packer, CP, counter, button):
     }
 
     return packer.make_can_msg("CRZ_BTNS", 0, values)
+
+def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, frogpilot_variables, accel):
+  cruiseBtn = Buttons.NONE
+
+  MS_CONVERT = CV.MS_TO_KPH if frogpilot_variables.is_metric else CV.MS_TO_MPH
+
+  speedSetPoint = int(round(CS.out.cruiseState.speed * MS_CONVERT))
+  slcSet = int(round(slcSet * MS_CONVERT))
+
+  if not frogpilot_variables.experimentalMode:
+    if slcSet + 5 < Vego * MS_CONVERT:
+      slcSet = slcSet - 10 # 10 lower to increase deceleration until with 5
+  else:
+    slcSet = int(round((Vego + 5 * accel) * MS_CONVERT))
+
+  if frogpilot_variables.is_metric: # Default is by 5 kph
+    slcSet = int(round(slcSet/5.0)*5.0)
+    speedSetPoint = int(round(speedSetPoint/5.0)*5.0)
+
+  if slcSet < speedSetPoint and speedSetPoint > (30 if frogpilot_variables.is_metric else 20):
+    cruiseBtn = Buttons.SET_MINUS
+  elif slcSet > speedSetPoint:
+    cruiseBtn = Buttons.SET_PLUS
+  else:
+    cruiseBtn = Buttons.NONE
+
+  if (cruiseBtn != Buttons.NONE):
+    return [create_button_cmd(packer, controller.CP, controller.frame // 10, cruiseBtn)]
+  else:
+    return []
