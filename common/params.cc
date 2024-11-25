@@ -539,6 +539,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"UnlockDoors", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_VEHICLES},
     {"Updated", PERSISTENT},
     {"UpdateWheelImage", PERSISTENT},
+    {"UseFrogServer", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_OTHER},
     {"UseSI", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_VISUALS},
     {"UseStockColors", CLEAR_ON_MANAGER_START},
     {"UseVienna", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},

@@ -4,6 +4,7 @@ import os
 import random
 import time
 
+from datetime import date
 from types import SimpleNamespace
 
 from cereal import car
@@ -11,6 +12,7 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params, UnknownKeyName
+from openpilot.common.time import system_time_valid
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
@@ -57,6 +59,9 @@ def has_prime():
 
 def update_frogpilot_toggles():
   params_memory.put_bool("FrogPilotTogglesUpdated", True)
+
+def use_frogpilot_server():
+  return get_build_metadata().channel == "FrogPilot-Testing" and (date.today() - date(2025, 1, 1)).days // 7 % 2 == 0
 
 frogpilot_default_params: list[tuple[str, bool | bytes | int | float | str]] = [
   ("AccelerationPath", 1),
@@ -337,6 +342,7 @@ frogpilot_default_params: list[tuple[str, bool | bytes | int | float | str]] = [
   ("TurnDesires", 0),
   ("UnlimitedLength", 1),
   ("UnlockDoors", 1),
+  ("UseFrogServer", 1),
   ("UseSI", 1),
   ("UseVienna", 0),
   ("VisionTurnControl", 1),
@@ -358,6 +364,8 @@ class FrogPilotVariables:
 
     self.frogpilot_toggles.frogs_go_moo = os.path.isfile("/persist/frogsgomoo.py")
     self.frogpilot_toggles.block_user = self.development_branch and not self.frogpilot_toggles.frogs_go_moo
+
+    self.use_frogpilot_server = params.get_bool("UseFrogServer")
 
   def update(self, started):
     openpilot_installed = params.get_bool("HasAcceptedTerms")
@@ -711,6 +719,8 @@ class FrogPilotVariables:
     toggle.toyota_doors = car_make == "toyota" and params.get_bool("ToyotaDoors")
     toggle.lock_doors = toggle.toyota_doors and params.get_bool("LockDoors")
     toggle.unlock_doors = toggle.toyota_doors and params.get_bool("UnlockDoors")
+
+    toggle.use_frogpilot_server = self.use_frogpilot_server or use_frogpilot_server() and system_time_valid() and not started
 
     toggle.volt_sng = car_model == "CHEVROLET_VOLT" and params.get_bool("VoltSNG")
 
