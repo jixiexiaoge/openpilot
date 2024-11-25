@@ -280,6 +280,8 @@ typedef struct UIScene {
   int stopped_equivalence;
   int tethering_config;
 
+  std::optional<bool> use_frogpilot_server;
+
   std::string speed_limit_source;
 
 } UIScene;

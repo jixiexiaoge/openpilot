@@ -460,6 +460,9 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.storage_used_metrics = scene.frogpilot_toggles.value("storage_used_metrics").toBool();
   scene.tethering_config = scene.frogpilot_toggles.value("tethering_config").toDouble();
   scene.unlimited_road_ui_length = scene.frogpilot_toggles.value("unlimited_road_ui_length").toBool();
+  if (!scene.use_frogpilot_server.has_value()) {
+    scene.use_frogpilot_server = scene.frogpilot_toggles.value("use_frogpilot_server").toBool();
+  }
   scene.use_si_metrics = scene.frogpilot_toggles.value("use_si_metrics").toBool();
   scene.use_stock_colors = (scene.frogpilot_toggles.value("color_scheme").toString() == "stock");
   scene.use_stock_wheel = (scene.frogpilot_toggles.value("wheel_image").toString() == "stock");
