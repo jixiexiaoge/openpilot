@@ -2,136 +2,78 @@
 import json
 import math
 
-from openpilot.common.numpy_fast import interp
-
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import calculate_distance_to_point
-from openpilot.selfdrive.frogpilot.frogpilot_variables import TO_RADIANS, params_memory
+from openpilot.selfdrive.frogpilot.frogpilot_variables import PLANNER_TIME, TO_RADIANS, params_memory
 
-TARGET_JERK = -0.6   # m/s^3 should match up with the long planner
-TARGET_ACCEL = -1.2  # m/s^2 should match up with the long planner
-TARGET_OFFSET = 1.0  # seconds - This controls how soon before the curve you reach the target velocity. It also helps
-                     # reach the target velocity when innacuracies in the distance modeling logic would cause overshoot.
-                     # The value is multiplied against the target velocity to determine the additional distance. This is
-                     # done to keep the distance calculations consistent but results in the offset actually being less
-                     # time than specified depending on how much of a speed diffrential there is between v_ego and the
-                     # target velocity.
+def calculate_curvature(p1, p2, p3):
+  lat1, lon1 = p1
+  lat2, lon2 = p2
+  lat3, lon3 = p3
 
-def calculate_velocity(t, target_jerk, a_ego, v_ego):
-  return v_ego + a_ego * t + target_jerk/2 * (t ** 2)
+  lat1_rad, lon1_rad = lat1 * TO_RADIANS, lon1 * TO_RADIANS
+  lat2_rad, lon2_rad = lat2 * TO_RADIANS, lon2 * TO_RADIANS
+  lat3_rad, lon3_rad = lat3 * TO_RADIANS, lon3 * TO_RADIANS
 
-def calculate_distance(t, target_jerk, a_ego, v_ego):
-  return t * v_ego + a_ego/2 * (t ** 2) + target_jerk/6 * (t ** 3)
+  side_a = calculate_distance_to_point(lat2_rad, lon2_rad, lat3_rad, lon3_rad)
+  side_b = calculate_distance_to_point(lat1_rad, lon1_rad, lat3_rad, lon3_rad)
+  side_c = calculate_distance_to_point(lat1_rad, lon1_rad, lat2_rad, lon2_rad)
+
+  s = (side_a + side_b + side_c) / 2
+
+  area_squared = s * (s - side_a) * (s - side_b) * (s - side_c)
+  if area_squared <= 0:
+    return 0
+
+  area = math.sqrt(area_squared)
+
+  radius = (side_a * side_b * side_c) / (4 * area)
+  if radius == 0:
+    return 0
+
+  curvature = 1 / radius
+  return curvature
 
 class MapTurnSpeedController:
-  def __init__(self):
-    self.target_lat = 0.0
-    self.target_lon = 0.0
-    self.target_v = 0.0
+  def get_map_curvature(self, v_ego):
+    target_velocities = json.loads(params_memory.get("MapTargetVelocities", "{}"))
 
-  def target_speed(self, v_ego, a_ego, frogpilot_toggles) -> float:
-    lat = 0.0
-    lon = 0.0
-    try:
-      position = json.loads(params_memory.get("LastGPSPosition"))
-      lat = position["latitude"]
-      lon = position["longitude"]
-    except: return 0.0
+    position = json.loads(params_memory.get("LastGPSPosition", "{}"))
+    current_latitude = position["latitude"]
+    current_longitude = position["longitude"]
 
-    try:
-      target_velocities = json.loads(params_memory.get("MapTargetVelocities"))
-    except: return 0.0
-
-    min_dist = 1000
-    min_idx = 0
     distances = []
+    minimum_idx = 0
+    minimum_distance = 1000.0
 
-    # find our location in the path
-    for i in range(len(target_velocities)):
-      target_velocity = target_velocities[i]
-      tlat = target_velocity["latitude"]
-      tlon = target_velocity["longitude"]
-      d = calculate_distance_to_point(lat * TO_RADIANS, lon * TO_RADIANS, tlat * TO_RADIANS, tlon * TO_RADIANS)
-      distances.append(d)
-      if d < min_dist:
-        min_dist = d
-        min_idx = i
+    for i, target_velocity in enumerate(target_velocities):
+      latitude = target_velocity["latitude"]
+      longitude = target_velocity["longitude"]
 
-    # only look at values from our current position forward
-    forward_points = target_velocities[min_idx:]
-    forward_distances = distances[min_idx:]
+      distance = calculate_distance_to_point(current_latitude * TO_RADIANS, current_longitude * TO_RADIANS, latitude * TO_RADIANS, longitude * TO_RADIANS)
+      distances.append(distance)
 
-    # find velocities that we are within the distance we need to adjust for
-    valid_velocities = []
-    for i in range(len(forward_points)):
-      target_velocity = forward_points[i]
-      tlat = target_velocity["latitude"]
-      tlon = target_velocity["longitude"]
-      tv = target_velocity["velocity"]
-      if tv > v_ego:
-        continue
+      if distance < minimum_distance:
+        minimum_distance = distance
+        minimum_idx = i
 
-      d = forward_distances[i]
+    forward_distances = distances[minimum_idx:]
 
-      a_diff = (a_ego - TARGET_ACCEL)
-      accel_t = abs(a_diff / TARGET_JERK)
-      min_accel_v = calculate_velocity(accel_t, TARGET_JERK, a_ego, v_ego) / frogpilot_toggles.turn_aggressiveness
+    cumulative_distance = 0.0
+    target_idx = None
 
-      max_d = 0
-      if tv > min_accel_v:
-        # calculate time needed based on target jerk
-        a = 0.5 * TARGET_JERK
-        b = a_ego
-        c = v_ego - tv
-        t_a = -1 * ((b**2 - 4 * a * c) ** 0.5 + b) / 2 * a
-        t_b = ((b**2 - 4 * a * c) ** 0.5 - b) / 2 * a
-        if not isinstance(t_a, complex) and t_a > 0:
-          t = t_a
-        else:
-          t = t_b
-        if isinstance(t, complex):
-          continue
+    for i, distance in enumerate(forward_distances):
+      cumulative_distance += distance
+      if cumulative_distance >= PLANNER_TIME * v_ego:
+        target_idx = i
+        break
 
-        max_d = max_d + calculate_distance(t, TARGET_JERK, a_ego, v_ego)
+    forward_points = target_velocities[minimum_idx:]
 
-      else:
-        t = accel_t
-        max_d = calculate_distance(t, TARGET_JERK, a_ego, v_ego)
+    if target_idx is None or target_idx == 0 or target_idx >= len(forward_points) - 1:
+      return 1e-6
 
-        # calculate additional time needed based on target accel
-        t = abs((min_accel_v - tv) / TARGET_ACCEL)
-        max_d += calculate_distance(t, 0, TARGET_ACCEL, min_accel_v)
+    p1 = (forward_points[target_idx - 1]["latitude"], forward_points[target_idx - 1]["longitude"])
+    p2 = (forward_points[target_idx]["latitude"], forward_points[target_idx]["longitude"])
+    p3 = (forward_points[target_idx + 1]["latitude"], forward_points[target_idx + 1]["longitude"])
 
-      if d < (max_d + tv * TARGET_OFFSET) * frogpilot_toggles.curve_sensitivity:
-        valid_velocities.append((float(tv), tlat, tlon))
-
-    # Find the smallest velocity we need to adjust for
-    min_v = 100.0
-    target_lat = 0.0
-    target_lon = 0.0
-    for tv, lat, lon in valid_velocities:
-      if tv < min_v:
-        min_v = tv
-        target_lat = lat
-        target_lon = lon
-
-    if self.target_v < min_v and not (self.target_lat == 0 and self.target_lon == 0):
-      for i in range(len(forward_points)):
-        target_velocity = forward_points[i]
-        tlat = target_velocity["latitude"]
-        tlon = target_velocity["longitude"]
-        tv = target_velocity["velocity"]
-        if tv > v_ego:
-          continue
-
-        if tlat == self.target_lat and tlon == self.target_lon and tv == self.target_v:
-          return float(self.target_v)
-      # not found so lets reset
-      self.target_v = 0.0
-      self.target_lat = 0.0
-      self.target_lon = 0.0
-
-    self.target_v = min_v
-    self.target_lat = target_lat
-    self.target_lon = target_lon
-
-    return min_v
+    return max(calculate_curvature(p1, p2, p3), 1e-6)
