@@ -110,10 +110,7 @@ class FrogPilotPlanner:
     frogpilotPlan.vtscControllingCurve = bool(self.frogpilot_vcruise.mtsc_target > self.frogpilot_vcruise.vtsc_target)
     frogpilotPlan.vtscSpeed = float(self.frogpilot_vcruise.vtsc_target)
 
-    frogpilotPlan.desiredFollowDistance = self.frogpilot_following.safe_obstacle_distance - self.frogpilot_following.stopped_equivalence_factor
-    frogpilotPlan.safeObstacleDistance = self.frogpilot_following.safe_obstacle_distance
-    frogpilotPlan.safeObstacleDistanceStock = self.frogpilot_following.safe_obstacle_distance_stock
-    frogpilotPlan.stoppedEquivalenceFactor = self.frogpilot_following.stopped_equivalence_factor
+    frogpilotPlan.desiredFollowDistance = self.frogpilot_following.desired_follow_distance
 
     frogpilotPlan.experimentalMode = self.cem.experimental_mode or self.frogpilot_vcruise.slc.experimental_mode
 

@@ -38,15 +38,16 @@ private:
   bool turnSignalLeft;
   bool turnSignalRight;
 
-  float accelerationJerk;
-  float accelerationJerkDifference;
+  float currentAcceleration;
   float fps;
   float friction;
   float latAccel;
-  float speedJerk;
-  float speedJerkDifference;
   float steer;
 
+  int accelerationJerk;
+  int accelerationJerkDifference;
+  int speedJerk;
+  int speedJerkDifference;
   int steeringAngleDeg;
 
   QPoint timeoutPoint = QPoint(420, 69);

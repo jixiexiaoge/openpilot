@@ -88,7 +88,7 @@ void AnnotatedCameraWidget::updateState(int alert_height, const UIState &s) {
   status = s.status;
 
   // update engageability/experimental mode button
-  experimental_btn->updateState(s, leadInfo);
+  experimental_btn->updateState(s);
 
   // update DM icon
   auto dm_state = sm["driverMonitoringState"].getDriverMonitoringState();
@@ -760,9 +760,10 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
               .arg(qRound(lead_speed * speedConversion))
               .arg(leadSpeedUnit);
     } else {
-      text = QString("%1 %2 | %3 %4 | %5 %6")
+      text = QString("%1 %2 (%3) | %3 %4 | %5 %6")
               .arg(qRound(d_rel * distanceConversion))
               .arg(leadDistanceUnit)
+              .arg(QString("Desired: %1").arg(desiredFollow * distanceConversion))
               .arg(qRound(lead_speed * speedConversion))
               .arg(leadSpeedUnit)
               .arg(QString::number(d_rel / std::max(v_ego, 1.0f), 'f', 1))
@@ -1043,10 +1044,7 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 
   conditionalStatus = scene.conditional_status;
 
-  currentAcceleration = scene.acceleration;
-
   desiredFollow = scene.desired_follow;
-  stoppedEquivalence = scene.stopped_equivalence;
 
   experimentalMode = scene.experimental_mode;
 
@@ -1059,8 +1057,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
   laneDetectionWidth = scene.lane_detection_width;
 
   leadInfo = scene.lead_metrics;
-  obstacleDistance = scene.obstacle_distance;
-  obstacleDistanceStock = scene.obstacle_distance_stock;
 
   leftCurve = scene.left_curve;
 
@@ -1135,10 +1131,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter) {
   if (!mapOpen && !hideBottomIcons) {
     drawCEMStatus(painter);
-  }
-
-  if (leadInfo && !bigMapOpen) {
-    drawLeadInfo(painter);
   }
 
   if (roadNameUI && !bigMapOpen) {
@@ -1230,82 +1222,6 @@ void AnnotatedCameraWidget::drawCEMStatus(QPainter &p) {
   p.setOpacity(1.0);
   p.setPen(QPen(Qt::white, 4));
   p.drawText(textRect, Qt::AlignBottom | Qt::AlignHCenter, conditionalStatusMap.at(conditionalStatus));
-
-  p.restore();
-}
-
-void AnnotatedCameraWidget::drawLeadInfo(QPainter &p) {
-  static QElapsedTimer timer;
-
-  static bool isFiveSecondsPassed = false;
-
-  static double maxAcceleration = 0.0;
-  constexpr int maxAccelDuration = 5000;
-
-  double acceleration = std::round(currentAcceleration * 100) / 100;
-
-  auto resetTimer = [&]() {
-    timer.start();
-    isFiveSecondsPassed = false;
-  };
-
-  if (acceleration > maxAcceleration && (status == STATUS_ENGAGED || status == STATUS_TRAFFIC_MODE_ACTIVE)) {
-    maxAcceleration = acceleration;
-    resetTimer();
-  } else {
-    isFiveSecondsPassed = timer.hasExpired(maxAccelDuration);
-  }
-
-  auto createText = [&](const QString &title, double data) {
-    return title + QString::number(std::round(data * distanceConversion)) + " " + leadDistanceUnit;
-  };
-
-  QString accelText = QString(tr("Accel: %1%2"))
-                      .arg(acceleration * accelerationConversion, 0, 'f', 2)
-                      .arg(accelerationUnit);
-
-  QString maxAccSuffix;
-  if (!mapOpen) {
-    maxAccSuffix = QString(tr(" - Max: %1%2"))
-                      .arg(maxAcceleration * accelerationConversion, 0, 'f', 2)
-                      .arg(accelerationUnit);
-  }
-
-  QString obstacleText = createText(mapOpen ? tr(" | Obstacle: ") : tr("  |  Obstacle Factor: "), obstacleDistance);
-  QString stopText = createText(mapOpen ? tr(" - Stop: ") : tr("  -  Stop Factor: "), stoppedEquivalence);
-  QString followText = " = " + createText(mapOpen ? tr("Follow: ") : tr("Follow Distance: "), desiredFollow);
-
-  auto createDiffText = [&](double data, double stockData) {
-    double difference = std::round((data - stockData) * distanceConversion);
-    return difference > 1 ? QString(" (%1%2)").arg(difference > 0 ? "+" : "").arg(difference) : QString();
-  };
-
-  p.save();
-
-  QRect insightsRect(rect().left() - 1, rect().top() - 60, rect().width() + 2, 100);
-  p.setBrush(QColor(0, 0, 0, 150));
-  p.drawRoundedRect(insightsRect, 30, 30);
-  p.setFont(InterFont(28, QFont::Bold));
-  p.setRenderHint(QPainter::TextAntialiasing);
-
-  QRect adjustedRect(insightsRect.adjusted(0, 27, 0, 27));
-  int textBaseLine = adjustedRect.y() + (adjustedRect.height() + p.fontMetrics().height()) / 2 - p.fontMetrics().descent();
-
-  QStringList texts = {accelText, maxAccSuffix, obstacleText, createDiffText(obstacleDistance, obstacleDistanceStock), stopText, followText};
-  QList<QColor> colors = {Qt::white, isFiveSecondsPassed ? Qt::white : redColor(), Qt::white, (obstacleDistance - obstacleDistanceStock) > 0 ? Qt::green : Qt::red, Qt::white, Qt::white};
-
-  int totalTextWidth = 0;
-  for (const auto &text : texts) {
-    totalTextWidth += p.fontMetrics().horizontalAdvance(text);
-  }
-
-  int textStartPos = adjustedRect.x() + (adjustedRect.width() - totalTextWidth) / 2;
-
-  for (int i = 0; i < texts.size(); ++i) {
-    p.setPen(colors[i]);
-    p.drawText(textStartPos, textBaseLine, texts[i]);
-    textStartPos += p.fontMetrics().horizontalAdvance(texts[i]);
-  }
 
   p.restore();
 }
