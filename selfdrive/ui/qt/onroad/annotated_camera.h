@@ -70,7 +70,6 @@ private:
 
   // FrogPilot widgets
   void drawCEMStatus(QPainter &p);
-  void drawLeadInfo(QPainter &p);
   void drawRoadName(QPainter &p);
   void drawTurnSignals(QPainter &p);
   void initializeFrogPilotWidgets();
@@ -140,8 +139,6 @@ private:
   bool vtscControllingCurve;
   bool vtscEnabled;
 
-  double currentAcceleration;
-
   float accelerationConversion;
   float dashboardSpeedLimit;
   float distanceConversion;
@@ -164,14 +161,11 @@ private:
   int conditionalStatus;
   int desiredFollow;
   int modelLength;
-  int obstacleDistance;
-  int obstacleDistanceStock;
   int signalAnimationLength;
   int signalHeight;
   int signalMovement;
   int signalWidth;
   int standstillDuration;
-  int stoppedEquivalence;
   int totalFrames;
 
   std::string speedLimitSource;

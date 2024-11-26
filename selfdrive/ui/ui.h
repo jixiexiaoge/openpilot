@@ -231,8 +231,6 @@ typedef struct UIScene {
   double fps;
 
   float acceleration;
-  float acceleration_jerk;
-  float acceleration_jerk_difference;
   float dashboard_speed_limit;
   float friction;
   float lane_detection_width;
@@ -246,8 +244,6 @@ typedef struct UIScene {
   float path_edge_width;
   float path_width;
   float road_edge_width;
-  float speed_jerk;
-  float speed_jerk_difference;
   float speed_limit;
   float speed_limit_map;
   float speed_limit_offset;
@@ -257,6 +253,8 @@ typedef struct UIScene {
   float upcoming_speed_limit;
   float vtsc_speed;
 
+  int acceleration_jerk;
+  int acceleration_jerk_difference;
   int bearing_deg;
   int camera_view;
   int conditional_status;
@@ -265,15 +263,14 @@ typedef struct UIScene {
   int map_style;
   int minimum_lane_change_speed;
   int model_length;
-  int obstacle_distance;
-  int obstacle_distance_stock;
   int screen_brightness = -1;
   int screen_brightness_onroad = -1;
   int screen_timeout;
   int screen_timeout_onroad;
+  int speed_jerk;
+  int speed_jerk_difference;
   int started_timer;
   int steering_angle_deg;
-  int stopped_equivalence;
   int tethering_config;
 
   std::optional<bool> use_frogpilot_server;

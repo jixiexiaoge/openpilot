@@ -299,8 +299,6 @@ static void update_state(UIState *s) {
     scene.lane_width_left = frogpilotPlan.getLaneWidthLeft();
     scene.lane_width_right = frogpilotPlan.getLaneWidthRight();
     scene.mtsc_speed = frogpilotPlan.getMtscSpeed();
-    scene.obstacle_distance = frogpilotPlan.getSafeObstacleDistance();
-    scene.obstacle_distance_stock = frogpilotPlan.getSafeObstacleDistanceStock();
     scene.red_light = frogpilotPlan.getRedLight();
     scene.speed_jerk = frogpilotPlan.getSpeedJerk();
     scene.speed_jerk_difference = frogpilotPlan.getSpeedJerkStock() - scene.speed_jerk;
@@ -311,7 +309,6 @@ static void update_state(UIState *s) {
     scene.speed_limit_overridden = frogpilotPlan.getSlcOverridden();
     scene.speed_limit_overridden_speed = frogpilotPlan.getSlcOverriddenSpeed();
     scene.speed_limit_source = frogpilotPlan.getSlcSpeedLimitSource().cStr();
-    scene.stopped_equivalence = frogpilotPlan.getStoppedEquivalenceFactor();
     scene.unconfirmed_speed_limit = frogpilotPlan.getUnconfirmedSlcSpeedLimit();
     scene.upcoming_speed_limit = frogpilotPlan.getUpcomingSLCSpeedLimit();
     scene.vtsc_controlling_curve = frogpilotPlan.getVtscControllingCurve();
