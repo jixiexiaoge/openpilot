@@ -94,8 +94,9 @@ private:
   bool wide_cam_requested = false;
 
   // FrogPilot widgets
+  void drawCEMStatus(QPainter &p);
   void drawLeadInfo(QPainter &p);
-  void drawStatusBar(QPainter &p);
+  void drawRoadName(QPainter &p);
   void drawTurnSignals(QPainter &p);
   void initializeFrogPilotWidgets();
   void paintFrogPilotWidgets(QPainter &painter);
@@ -112,13 +113,20 @@ private:
 
   QHBoxLayout *bottom_layout;
 
+  QPixmap curveIcon;
   QPixmap curveSpeedLeftIcon;
   QPixmap curveSpeedRightIcon;
   QPixmap dashboardIcon;
+  QPixmap leadIcon;
+  QPixmap lightIcon;
   QPixmap mapDataIcon;
   QPixmap navigationIcon;
+  QPixmap speedIcon;
   QPixmap stopSignImg;
+  QPixmap turnIcon;
   QPixmap upcomingMapsIcon;
+
+  QPoint dmIconPosition;
 
   QString accelerationUnit;
   QString leadDistanceUnit;
@@ -130,7 +138,6 @@ private:
   QVector<QPixmap> blindspotImages;
   QVector<QPixmap> signalImages;
 
-  bool alwaysOnLateralActive;
   bool bigMapOpen;
   bool blindSpotLeft;
   bool blindSpotRight;
@@ -147,8 +154,6 @@ private:
   bool mtscEnabled;
   bool onroadDistanceButton;
   bool roadNameUI;
-  bool showAlwaysOnLateralStatusBar;
-  bool showConditionalExperimentalStatusBar;
   bool showSLCOffset;
   bool slcOverridden;
   bool speedLimitChanged;
@@ -184,8 +189,6 @@ private:
   int alertHeight;
   int animationFrameIndex;
   int cameraView;
-  int conditionalSpeed;
-  int conditionalSpeedLead;
   int conditionalStatus;
   int desiredFollow;
   int modelLength;
@@ -196,7 +199,6 @@ private:
   int signalMovement;
   int signalWidth;
   int standstillDuration;
-  int statusBarHeight;
   int stoppedEquivalence;
   int totalFrames;
 
