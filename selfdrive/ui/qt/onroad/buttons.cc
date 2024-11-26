@@ -226,7 +226,7 @@ void DistanceButton::updateState(const UIScene &scene) {
   if (QMovie *gif = profile_data_gif.value(profile_index)) {
     gif_label->setMovie(gif);
     gif_label->resize(btn_size, btn_size);
-    gif_label->move(UI_BORDER_SIZE, btn_size / 2.5);
+    gif_label->move(UI_BORDER_SIZE, btn_size / 2);
     gif_label->show();
 
     gif->start();
@@ -284,5 +284,5 @@ void DistanceButton::paintEvent(QPaintEvent *event) {
   QPainter p(this);
   p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
 
-  drawIcon(p, QPoint((btn_size / 2) + UI_BORDER_SIZE, btn_size - (UI_BORDER_SIZE * 1.5)), profile_image, Qt::transparent, 1.0);
+  drawIcon(p, QPoint((btn_size / 2) + UI_BORDER_SIZE, btn_size - UI_BORDER_SIZE), profile_image, Qt::transparent, 1.0);
 }

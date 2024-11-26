@@ -169,8 +169,6 @@ frogpilot_default_params: list[tuple[str, bool | bytes | int | float | str]] = [
   ("GoatScream", 0),
   ("GreenLightAlert", 0),
   ("HideAlerts", 0),
-  ("HideAOLStatusBar", 0),
-  ("HideCEMStatusBar", 0),
   ("HideCSCUI", 0),
   ("HideLeadMarker", 0),
   ("HideMapIcon", 0),
@@ -443,7 +441,6 @@ class FrogPilotVariables:
     toggle.always_on_lateral_lkas = toggle.always_on_lateral_set and car_make != "subaru" and params.get_bool("AlwaysOnLateralLKAS")
     toggle.always_on_lateral_main = toggle.always_on_lateral_set and params.get_bool("AlwaysOnLateralMain")
     toggle.always_on_lateral_pause_speed = params.get_int("PauseAOLOnBrake") if toggle.always_on_lateral_set else 0
-    toggle.always_on_lateral_status_bar = toggle.always_on_lateral_set and not params.get_bool("HideAOLStatusBar")
 
     toggle.automatic_updates = params.get_bool("AutomaticUpdates")
 
@@ -464,7 +461,6 @@ class FrogPilotVariables:
     toggle.conditional_model_stop_time = params.get_int("CEModelStopTime") if toggle.conditional_experimental_mode else 0
     toggle.conditional_signal = params.get_int("CESignalSpeed") if toggle.conditional_experimental_mode else 0
     toggle.conditional_signal_lane_detection = toggle.conditional_signal != 0 and params.get_bool("CESignalLaneDetection")
-    toggle.conditional_status_bar = toggle.conditional_experimental_mode and not params.get_bool("HideCEMStatusBar")
     if toggle.conditional_experimental_mode:
       params.put_bool("ExperimentalMode", True)
 
@@ -762,7 +758,6 @@ class FrogPilotVariables:
       toggle.always_on_lateral_lkas = bool(toggle.always_on_lateral and car_make != "subaru" and self.default_frogpilot_toggles.AlwaysOnLateralLKAS)
       toggle.always_on_lateral_main = bool(toggle.always_on_lateral and self.default_frogpilot_toggles.AlwaysOnLateralMain)
       toggle.always_on_lateral_pause_speed = int(self.default_frogpilot_toggles.PauseAOLOnBrake if toggle.always_on_lateral else 0)
-      toggle.always_on_lateral_status_bar = bool(toggle.always_on_lateral and not self.default_frogpilot_toggles.HideAOLStatusBar)
 
       toggle.cluster_offset = float(self.default_frogpilot_toggles.ClusterOffset if car_make == "toyota" else 1)
 
@@ -781,7 +776,6 @@ class FrogPilotVariables:
       toggle.conditional_model_stop_time = int(self.default_frogpilot_toggles.CEModelStopTime if toggle.conditional_experimental_mode else 0)
       toggle.conditional_signal = int(self.default_frogpilot_toggles.CESignalSpeed if toggle.conditional_experimental_mode else 0)
       toggle.conditional_signal_lane_detection = bool(toggle.conditional_signal != 0 and self.default_frogpilot_toggles.CESignalLaneDetection)
-      toggle.conditional_status_bar = bool(toggle.conditional_experimental_mode and not self.default_frogpilot_toggles.HideCEMStatusBar)
       if toggle.conditional_experimental_mode:
         params.put_bool("ExperimentalMode", True)
 
@@ -1010,8 +1004,6 @@ class FrogPilotVariables:
       toggle.warningSoft_volume = int(self.default_frogpilot_toggles.WarningSoftVolume if toggle.alert_volume_control else 101)
       toggle.warningImmediate_volume = int(self.default_frogpilot_toggles.WarningImmediateVolume if toggle.alert_volume_control else 101)
 
-      toggle.always_on_lateral_status_bar = bool(toggle.always_on_lateral and not self.default_frogpilot_toggles.HideAOLStatusBar)
-
       toggle.cluster_offset = float(self.default_frogpilot_toggles.ClusterOffset if car_make == "toyota" else 1)
 
       toggle.conditional_navigation = bool(toggle.conditional_experimental_mode and self.default_frogpilot_toggles.CENavigation)
@@ -1020,7 +1012,6 @@ class FrogPilotVariables:
       toggle.conditional_navigation_turns = bool(toggle.conditional_navigation and self.default_frogpilot_toggles.CENavigationTurns)
       toggle.conditional_signal = int(self.default_frogpilot_toggles.CESignalSpeed if toggle.conditional_experimental_mode else 0)
       toggle.conditional_signal_lane_detection = bool(toggle.conditional_signal != 0 and self.default_frogpilot_toggles.CESignalLaneDetection)
-      toggle.conditional_status_bar = bool(toggle.conditional_experimental_mode and not self.default_frogpilot_toggles.HideCEMStatusBar)
       if toggle.conditional_experimental_mode:
         params.put_bool("ExperimentalMode", True)
 

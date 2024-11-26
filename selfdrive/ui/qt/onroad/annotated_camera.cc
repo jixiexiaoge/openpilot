@@ -331,6 +331,8 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
 
       QRect iconRect(rect.x() + 20, rect.y() + (rect.height() - img_size / 4) / 2, img_size / 4, img_size / 4);
 
+      QPixmap scaledIcon = icon.scaled(iconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
       QString speedText;
       if (speedLimitValue > 1) {
         speedText = QString::number(std::nearbyint(speedLimitValue)) + " " + speedUnit;
@@ -344,7 +346,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
       p.drawRoundedRect(rect, 24, 24);
 
       p.setRenderHint(QPainter::Antialiasing);
-      p.drawPixmap(iconRect, icon);
+      p.drawPixmap(iconRect, scaledIcon);
 
       p.setPen(QPen(whiteColor(), 6));
       QRect textRect(iconRect.right() + 10, rect.y(), rect.width() - iconRect.width() - 30, rect.height());
@@ -631,7 +633,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, f
     gradient.setColorAt(1.0f, color);
   };
 
-  if (alwaysOnLateralActive) {
+  if (scene.always_on_lateral_active) {
     setPathEdgeColors(pe, bg_colors[STATUS_ALWAYS_ON_LATERAL_ACTIVE]);
   } else if (conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5) {
     setPathEdgeColors(pe, bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]);
@@ -672,10 +674,11 @@ void AnnotatedCameraWidget::drawDriverState(QPainter &painter, const UIState *s)
   } else if (onroadDistanceButton) {
     x += 250;
   }
-  offset += statusBarHeight / 2;
   int y = height() - offset;
+  dmIconPosition.setX(x);
+  dmIconPosition.setY(y);
   float opacity = dmActive ? 0.65 : 0.2;
-  drawIcon(painter, QPoint(x, y), dm_img, blackColor(70), opacity);
+  drawIcon(painter, dmIconPosition, dm_img, blackColor(70), opacity);
 
   // face
   QPointF face_kpts_draw[std::size(default_face_kpts_3d)];
@@ -1002,12 +1005,17 @@ void AnnotatedCameraWidget::initializeFrogPilotWidgets() {
 
   main_layout->addLayout(bottom_layout);
 
+  curveIcon = loadPixmap("../frogpilot/assets/other_images/curve_icon.png", QSize(img_size / 2, img_size / 2));
   curveSpeedLeftIcon = loadPixmap("../frogpilot/assets/other_images/curve_speed_left.png", QSize(img_size, img_size));
   curveSpeedRightIcon = loadPixmap("../frogpilot/assets/other_images/curve_speed_right.png", QSize(img_size, img_size));
   dashboardIcon = loadPixmap("../frogpilot/assets/other_images/dashboard_icon.png", QSize(img_size / 2, img_size / 2));
+  leadIcon = loadPixmap("../frogpilot/assets/other_images/lead_icon.png", QSize(img_size / 2, img_size / 2));
+  lightIcon = loadPixmap("../frogpilot/assets/other_images/light_icon.png", QSize(img_size / 2, img_size / 2));
   mapDataIcon = loadPixmap("../frogpilot/assets/other_images/offline_maps_icon.png", QSize(img_size / 2, img_size / 2));
   navigationIcon = loadPixmap("../frogpilot/assets/other_images/navigation_icon.png", QSize(img_size / 2, img_size / 2));
+  speedIcon = loadPixmap("../frogpilot/assets/other_images/speed_icon.png", QSize(img_size / 2, img_size / 2));
   stopSignImg = loadPixmap("../frogpilot/assets/other_images/stop_sign.png", QSize(img_size, img_size));
+  turnIcon = loadPixmap("../frogpilot/assets/other_images/turn_icon.png", QSize(img_size / 2, img_size / 2));
   upcomingMapsIcon = loadPixmap("../frogpilot/assets/other_images/upcoming_maps_icon.png", QSize(img_size / 2, img_size / 2));
 
   animationTimer = new QTimer(this);
@@ -1039,9 +1047,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 
   alertHeight = alert_height;
 
-  alwaysOnLateralActive = scene.always_on_lateral_active;
-  showAlwaysOnLateralStatusBar = scene.aol_status_bar;
-
   blindSpotLeft = scene.blind_spot_left;
   blindSpotRight = scene.blind_spot_right;
 
@@ -1055,10 +1060,7 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
     bottom_layout->setAlignment(compass_img, (rightHandDM ? Qt::AlignLeft : Qt::AlignRight));
   }
 
-  conditionalSpeed = scene.conditional_limit;
-  conditionalSpeedLead = scene.conditional_limit_lead;
   conditionalStatus = scene.conditional_status;
-  showConditionalExperimentalStatusBar = scene.cem_status_bar;
 
   currentAcceleration = scene.acceleration;
 
@@ -1156,14 +1158,16 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 }
 
 void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter) {
-  if ((showAlwaysOnLateralStatusBar || showConditionalExperimentalStatusBar || roadNameUI) && !bigMapOpen) {
-    drawStatusBar(painter);
-  } else {
-    statusBarHeight = 0;
+  if (!mapOpen && !hideBottomIcons) {
+    drawCEMStatus(painter);
   }
 
   if (leadInfo && !bigMapOpen) {
     drawLeadInfo(painter);
+  }
+
+  if (roadNameUI && !bigMapOpen) {
+    drawRoadName(painter);
   }
 
   if (turnSignalAnimation && (turnSignalLeft || turnSignalRight) && !bigMapOpen && ((!mapOpen && standstillDuration == 0) || signalStyle != "static")) {
@@ -1271,6 +1275,85 @@ void Compass::paintEvent(QPaintEvent *event) {
     p.setPen(QPen(color));
     p.drawText(textRect, alignmentFlag, direction);
   }
+}
+
+void AnnotatedCameraWidget::drawCEMStatus(QPainter &p) {
+  if (dmIconPosition == QPoint(0, 0)) {
+    return;
+  }
+
+  p.save();
+
+  p.setRenderHint(QPainter::Antialiasing);
+
+  QRect cemBarRect(dmIconPosition.x() + (rightHandDM ? -150 - 750 : 150), dmIconPosition.y() - img_size / 2 - 15, 750, img_size);
+  p.setOpacity(1.0);
+
+  if (conditionalStatus == 1 || conditionalStatus == 3 || conditionalStatus == 5) {
+    p.setPen(QPen(QColor(bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]), 10));
+  } else if (experimentalMode) {
+    p.setPen(QPen(QColor(bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE]), 10));
+  } else {
+    p.setPen(QPen(blackColor(), 10));
+  }
+  p.setBrush(blackColor(166));
+
+  p.drawRoundedRect(cemBarRect, 24, 24);
+
+  static std::map<int, QString> conditionalStatusMap = {
+    {0, tr("Conditional Experimental Mode ready")},
+    {1, tr("Conditional Experimental overridden")},
+    {2, tr("Experimental Mode manually enabled")},
+    {3, tr("Conditional Experimental overridden")},
+    {4, tr("Experimental Mode manually enabled")},
+    {5, tr("Conditional Experimental overridden")},
+    {6, tr("Experimental Mode manually enabled")},
+    {7, tr("Experimental Mode enabled for low speed")},
+    {8, tr("Experimental Mode enabled for low speed")},
+    {9, tr("Experimental Mode enabled for turn signal")},
+    {10, tr("Experimental Mode enabled for intersection")},
+    {11, tr("Experimental Mode enabled for turn")},
+    {12, tr("Experimental Mode enabled for curve")},
+    {13, tr("Experimental Mode enabled for lead")},
+    {14, tr("Experimental Mode enabled for lead")},
+    {15, tr("Experimental Mode enabled to stop")},
+    {16, tr("Experimental Mode forced on to stop")},
+    {17, tr("Experimental Mode enabled")},
+  };
+
+  static QRect speedIconRect(cemBarRect.topLeft() + QPoint(25, 15), QSize(75, 75));
+  QPixmap scaledSpeedIcon = speedIcon.scaled(speedIconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  p.setOpacity(conditionalStatus == 7 || conditionalStatus == 8 ? 1.0 : 0.10);
+  p.drawPixmap(speedIconRect, scaledSpeedIcon);
+
+  static QRect turnIconRect(speedIconRect.topRight() + QPoint(80, 0), QSize(75, 75));
+  QPixmap scaledTurnIcon = turnIcon.scaled(turnIconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  p.setOpacity(conditionalStatus == 9 || conditionalStatus == 11 ? 1.0 : 0.10);
+  p.drawPixmap(turnIconRect, scaledTurnIcon);
+
+  static QRect leadIconRect(turnIconRect.topRight() + QPoint(80, 0), QSize(75, 75));
+  QPixmap scaledLeadIcon = leadIcon.scaled(leadIconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  p.setOpacity(conditionalStatus == 13 || conditionalStatus == 14 ? 1.0 : 0.10);
+  p.drawPixmap(leadIconRect, scaledLeadIcon);
+
+  static QRect curveIconRect(leadIconRect.topRight() + QPoint(80, 0), QSize(75, 75));
+  QPixmap scaledCurveIcon = curveIcon.scaled(curveIconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  p.setOpacity(conditionalStatus == 12 ? 1.0 : 0.10);
+  p.drawPixmap(curveIconRect, scaledCurveIcon);
+
+  static QRect lightIconRect(curveIconRect.topRight() + QPoint(80, 0), QSize(75, 75));
+  QPixmap scaledLightIcon = lightIcon.scaled(lightIconRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  p.setOpacity(conditionalStatus == 10 || conditionalStatus == 15 || conditionalStatus == 16 ? 1.0 : 0.10);
+  p.drawPixmap(lightIconRect, scaledLightIcon);
+
+  static QRect textRect = cemBarRect.adjusted(15, 0, 0, 0);
+
+  p.setFont(InterFont(35, QFont::Bold));
+  p.setOpacity(1.0);
+  p.setPen(QPen(Qt::white, 4));
+  p.drawText(textRect, Qt::AlignBottom | Qt::AlignHCenter, conditionalStatusMap.at(conditionalStatus));
+
+  p.restore();
 }
 
 void AnnotatedCameraWidget::drawLeadInfo(QPainter &p) {
@@ -1399,107 +1482,29 @@ void PedalIcons::paintEvent(QPaintEvent *event) {
   p.drawPixmap(gasX, (height() - img_size) / 2, gas_pedal_img);
 }
 
-void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
+void AnnotatedCameraWidget::drawRoadName(QPainter &p) {
+  QString roadName = QString::fromStdString(paramsMemory.get("RoadName"));
+  if (roadName.isEmpty()) {
+    return;
+  }
+
+  QFont font = InterFont(40, QFont::DemiBold);
+  int textWidth = QFontMetrics(font).horizontalAdvance(roadName);
+
   p.save();
 
-  static QElapsedTimer timer;
-  static QString lastShownStatus;
+  p.setRenderHint(QPainter::Antialiasing);
 
-  static bool displayStatusText = false;
+  QRect roadNameRect((width() - textWidth * 1.25) / 2, rect().bottom() - 55 + 1, textWidth * 1.25, 50);
 
-  constexpr qreal fadeDuration = 1500.0;
-  constexpr qreal textDuration = 5000.0;
-
-  static qreal roadNameOpacity = 0.0;
-  static qreal statusTextOpacity = 0.0;
-
-  QString newStatus;
-
-  int offset = 50;
-  QRect statusBarRect(rect().left() - 1, rect().bottom() - offset, rect().width() + 2, 100);
-  statusBarHeight = statusBarRect.height() - offset;
-  p.setBrush(QColor(0, 0, 0, 150));
+  p.setBrush(blackColor(166));
   p.setOpacity(1.0);
-  p.drawRoundedRect(statusBarRect, 30, 30);
+  p.setPen(QPen(blackColor(), 10));
+  p.drawRoundedRect(roadNameRect, 24, 24);
 
-  int modelStopTime = std::nearbyint(modelLength / (speed / (is_metric ? MS_TO_KPH : MS_TO_MPH)));
-
-  std::map<int, QString> conditionalStatusMap = {
-    {0, tr("Conditional Experimental Mode ready")},
-    {1, tr("Conditional Experimental overridden")},
-    {2, tr("Experimental Mode manually activated")},
-    {3, tr("Conditional Experimental overridden")},
-    {4, tr("Experimental Mode manually activated")},
-    {5, tr("Conditional Experimental overridden")},
-    {6, tr("Experimental Mode manually activated")},
-    {7, tr("Experimental Mode activated for %1").arg(mapOpen ? tr("low speed") : tr("speed being less than %1 %2").arg(conditionalSpeedLead).arg(speedUnit))},
-    {8, tr("Experimental Mode activated for %1").arg(mapOpen ? tr("low speed") : tr("speed being less than %1 %2").arg(conditionalSpeed).arg(speedUnit))},
-    {9, tr("Experimental Mode activated for turn") + (mapOpen ? " signal" : tr(" / lane change"))},
-    {10, tr("Experimental Mode activated for intersection")},
-    {11, tr("Experimental Mode activated for upcoming turn")},
-    {12, tr("Experimental Mode activated for curve")},
-    {13, tr("Experimental Mode activated for stopped lead")},
-    {14, tr("Experimental Mode activated for slower lead")},
-    {15, tr("Experimental Mode activated %1").arg(mapOpen || modelStopTime < 1 || speed < 1 ? tr("to stop") : QString("for the model wanting to stop in %1 seconds").arg(modelStopTime))},
-    {16, tr("Experimental Mode forced on %1").arg(mapOpen || modelStopTime < 1 || speed < 1 ? tr("to stop") : QString("for the model wanting to stop in %1 seconds").arg(modelStopTime))},
-    {17, tr("Experimental Mode activated due to no speed limit")},
-  };
-
-  if (alwaysOnLateralActive && showAlwaysOnLateralStatusBar) {
-    newStatus = tr("Always On Lateral active") + (mapOpen ? "" : tr(". Press the \"Cruise Control\" button to disable"));
-  } else if (showConditionalExperimentalStatusBar) {
-    newStatus = conditionalStatusMap.at(conditionalStatus);
-  }
-
-  static const std::map<int, QString> suffixMap = {
-    {1, tr(". Long press the \"distance\" button to revert")},
-    {2, tr(". Long press the \"distance\" button to revert")},
-    {3, tr(". Click the \"LKAS\" button to revert")},
-    {4, tr(". Click the \"LKAS\" button to revert")},
-    {5, tr(". Double tap the screen to revert")},
-    {6, tr(". Double tap the screen to revert")},
-  };
-
-  if (!alwaysOnLateralActive && !mapOpen && !newStatus.isEmpty()) {
-    if (suffixMap.find(conditionalStatus) != suffixMap.end()) {
-      newStatus += suffixMap.at(conditionalStatus);
-    }
-  }
-
-  QString roadName = QString::fromStdString(paramsMemory.get("RoadName"));
-  roadName = (!roadNameUI || roadName.isEmpty() || roadName == "null") ? "" : roadName;
-
-  if (newStatus != lastShownStatus || roadName.isEmpty()) {
-    lastShownStatus = newStatus;
-    displayStatusText = true;
-    timer.restart();
-  } else if (displayStatusText && timer.hasExpired(textDuration + fadeDuration)) {
-    displayStatusText = false;
-  }
-
-  if (displayStatusText) {
-    statusTextOpacity = qBound(0.0, 1.0 - (timer.elapsed() - textDuration) / fadeDuration, 1.0);
-    roadNameOpacity = 1.0 - statusTextOpacity;
-  } else {
-    roadNameOpacity = qBound(0.0, timer.elapsed() / fadeDuration, 1.0);
-    statusTextOpacity = 0.0;
-  }
-
-  p.setFont(InterFont(40, QFont::Bold));
-  p.setOpacity(statusTextOpacity);
-  p.setPen(Qt::white);
-  p.setRenderHint(QPainter::TextAntialiasing);
-
-  QRect textRect(p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus));
-  textRect.moveBottom(statusBarRect.bottom() - offset);
-  p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
-
-  if (!roadName.isEmpty()) {
-    p.setOpacity(roadNameOpacity);
-    textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-    textRect.moveBottom(statusBarRect.bottom() - offset);
-    p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
-  }
+  p.setFont(font);
+  p.setPen(QPen(Qt::white, 6));
+  p.drawText(roadNameRect, Qt::AlignCenter, roadName);
 
   p.restore();
 }
@@ -1522,7 +1527,7 @@ void AnnotatedCameraWidget::drawTurnSignals(QPainter &p) {
     int signalXPosition = turnSignalLeft ? width() - ((animationFrameIndex + 1) * signalWidth) : animationFrameIndex * signalWidth;
     int signalYPosition = height() - signalHeight;
 
-    signalYPosition -= fmax(alertHeight, statusBarHeight);
+    signalYPosition -= alertHeight;
 
     if (blindspotActive && !blindspotImages.empty()) {
       p.drawPixmap(turnSignalLeft ? width() - signalWidth : 0, signalYPosition, signalWidth, signalHeight, blindspotImages[turnSignalLeft ? 0 : 1]);
@@ -1533,7 +1538,7 @@ void AnnotatedCameraWidget::drawTurnSignals(QPainter &p) {
     int signalXPosition = turnSignalLeft ? width() - (animationFrameIndex * signalMovement) + signalWidth : (animationFrameIndex * signalMovement) - signalWidth;
     int signalYPosition = height() - signalHeight;
 
-    signalYPosition -= fmax(alertHeight, statusBarHeight);
+    signalYPosition -= alertHeight;
 
     if (blindspotActive && !blindspotImages.empty()) {
       p.drawPixmap(turnSignalLeft ? width() - signalWidth : 0, signalYPosition, signalWidth, signalHeight, blindspotImages[turnSignalLeft ? 0 : 1]);

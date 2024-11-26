@@ -9,7 +9,6 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     {"CENavigation", tr("Navigation Data"), tr("Triggers 'Experimental Mode' based on navigation data, such as upcoming intersections or turns."), ""},
     {"CEModelStopTime", tr("openpilot Wants to Stop In"), tr("Triggers 'Experimental Mode' when openpilot wants to stop such as for a stop sign or red light."), ""},
     {"CESignalSpeed", tr("Turn Signal Below"), tr("Triggers 'Experimental Mode' when using turn signals below the set speed."), ""},
-    {"HideCEMStatusBar", tr("Hide the Status Bar"), tr("Hides status bar for 'Conditional Experimental Mode'."), ""},
 
     {"CurveSpeedControl", tr("Curve Speed Control"), tr("Automatically slow down for curves detected ahead or through the downloaded maps."), "../frogpilot/assets/toggle_icons/icon_speed_map.png"},
     {"CurveDetectionMethod", tr("Curve Detection Method"), tr("Uses data from either the downloaded maps or the model to determine where curves are."), ""},
@@ -163,7 +162,6 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
         if (customizationLevel != 2) {
           modifiedConditionalExperimentalKeys.erase("CENavigation");
           modifiedConditionalExperimentalKeys.erase("CESignalSpeed");
-          modifiedConditionalExperimentalKeys.erase("HideCEMStatusBar");
         }
 
         showToggles(modifiedConditionalExperimentalKeys);

@@ -140,13 +140,11 @@ typedef struct UIScene {
   bool adjacent_path_metrics;
   bool always_on_lateral;
   bool always_on_lateral_active;
-  bool aol_status_bar;
   bool big_map;
   bool blind_spot_left;
   bool blind_spot_path;
   bool blind_spot_right;
   bool brake_lights_on;
-  bool cem_status_bar;
   bool compass;
   bool conditional_experimental;
   bool cpu_metrics;
@@ -261,8 +259,6 @@ typedef struct UIScene {
 
   int bearing_deg;
   int camera_view;
-  int conditional_limit;
-  int conditional_limit_lead;
   int conditional_status;
   int desired_follow;
   int driver_camera_timer;

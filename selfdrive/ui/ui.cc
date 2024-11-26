@@ -375,15 +375,11 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.adjacent_path = scene.frogpilot_toggles.value("adjacent_paths").toBool();
   scene.adjacent_path_metrics = scene.frogpilot_toggles.value("adjacent_path_metrics").toBool();
   scene.always_on_lateral = scene.frogpilot_toggles.value("always_on_lateral").toBool();
-  scene.aol_status_bar = scene.frogpilot_toggles.value("always_on_lateral_status_bar").toBool();
   scene.big_map = scene.frogpilot_toggles.value("big_map").toBool();
   scene.blind_spot_path = scene.frogpilot_toggles.value("blind_spot_path").toBool();
   scene.camera_view = scene.frogpilot_toggles.value("camera_view").toDouble();
-  scene.cem_status_bar = scene.frogpilot_toggles.value("conditional_status_bar").toBool();
   scene.compass = scene.frogpilot_toggles.value("compass").toBool();
   scene.conditional_experimental = scene.frogpilot_toggles.value("conditional_experimental_mode").toBool();
-  scene.conditional_limit = scene.frogpilot_toggles.value("conditional_limit").toDouble();
-  scene.conditional_limit_lead = scene.frogpilot_toggles.value("conditional_limit_lead").toDouble();
   scene.cpu_metrics = scene.frogpilot_toggles.value("cpu_metrics").toBool();
   scene.driver_camera_in_reverse = scene.frogpilot_toggles.value("driver_camera_in_reverse").toBool();
   scene.dynamic_path_width = scene.frogpilot_toggles.value("dynamic_path_width").toBool();

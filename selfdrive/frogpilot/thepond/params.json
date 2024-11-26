@@ -102,12 +102,6 @@
         "min": 0,
         "max": 99,
         "unit": "kph"
-      },
-      "HideAOLStatusBar": {
-        "title": "Hide the Status Bar",
-        "description": "Don't use the status bar for 'Always On Lateral'.",
-        "section": "controls",
-        "type": "toggle"
       }
     }
   },
@@ -201,12 +195,6 @@
       "CESignalSpeed": {
         "title": "Turn Signal When Below Highway Speeds",
         "description": "Switch to 'Experimental Mode' when using turn signals below highway speeds to help assist with turns.",
-        "section": "controls",
-        "type": "toggle"
-      },
-      "HideCEMStatusBar": {
-        "title": "Hide the Status Bar",
-        "description": "Don't use the status bar for 'Conditional Experimental Mode'.",
         "section": "controls",
         "type": "toggle"
       }

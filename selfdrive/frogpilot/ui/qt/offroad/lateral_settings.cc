@@ -14,7 +14,6 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     {"AlwaysOnLateralLKAS", tr("Control with LKAS Button"), tr("Controls the current state of 'Always on Lateral' with the 'LKAS' button."), ""},
     {"AlwaysOnLateralMain", tr("Enable with Cruise Control"), tr("Activates 'Always on Lateral' whenever 'Cruise Control' is active bypassing the requirement to enable openpilot first."), ""},
     {"PauseAOLOnBrake", tr("Pause on Brake Below"), tr("Pauses 'Always on Lateral' when the brake pedal is pressed below the set speed."), ""},
-    {"HideAOLStatusBar", tr("Hide the Status Bar"), tr("Hides status bar for 'Always On Lateral'."), ""},
 
     {"LaneChangeCustomizations", tr("Lane Change Settings"), tr("How openpilot handles lane changes."), "../frogpilot/assets/toggle_icons/icon_lane.png"},
     {"NudgelessLaneChange", tr("Automatic Lane Changes"), tr("Conducts lane changes without needing to touch the steering wheel upon turn signal activation."), ""},
@@ -93,7 +92,6 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
 
         if (customizationLevel != 2) {
           modifiedAOLKeys.erase("AlwaysOnLateralMain");
-          modifiedAOLKeys.erase("HideAOLStatusBar");
         }
 
         showToggles(modifiedAOLKeys);
