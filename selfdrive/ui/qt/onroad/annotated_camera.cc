@@ -99,8 +99,8 @@ void AnnotatedCameraWidget::updateState(int alert_height, const UIState &s) {
 
   // hide map settings button for alerts and flip for right hand DM
   if (map_settings_btn->isEnabled()) {
-    map_settings_btn->setVisible(!hideBottomIcons && compass && !hideMapIcon);
-    main_layout->setAlignment(map_settings_btn, (rightHandDM && !compass || !rightHandDM && compass ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignBottom);
+    map_settings_btn->setVisible(!hideBottomIcons && !hideMapIcon);
+    main_layout->setAlignment(map_settings_btn, (rightHandDM ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignBottom);
   }
 
   // Update FrogPilot widgets
@@ -989,21 +989,8 @@ void AnnotatedCameraWidget::updateSignals() {
 }
 
 void AnnotatedCameraWidget::initializeFrogPilotWidgets() {
-  bottom_layout = new QHBoxLayout();
-
   distance_btn = new DistanceButton(this);
-  bottom_layout->addWidget(distance_btn);
-
-  QSpacerItem *spacer = new QSpacerItem(0, 0, QSizePolicy::Expanding, QSizePolicy::Minimum);
-  bottom_layout->addItem(spacer);
-
-  compass_img = new Compass(this);
-  bottom_layout->addWidget(compass_img);
-
-  map_settings_btn_bottom = new MapSettingsButton(this);
-  bottom_layout->addWidget(map_settings_btn_bottom);
-
-  main_layout->addLayout(bottom_layout);
+  main_layout->addWidget(distance_btn, 0, Qt::AlignBottom | Qt::AlignLeft);
 
   curveIcon = loadPixmap("../frogpilot/assets/other_images/curve_icon.png", QSize(img_size / 2, img_size / 2));
   curveSpeedLeftIcon = loadPixmap("../frogpilot/assets/other_images/curve_speed_left.png", QSize(img_size, img_size));
@@ -1053,12 +1040,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
   cameraView = scene.camera_view;
 
   compass = scene.compass;
-  bool enableCompass = compass && !hideBottomIcons;
-  compass_img->setVisible(enableCompass);
-  if (enableCompass) {
-    compass_img->updateState(scene);
-    bottom_layout->setAlignment(compass_img, (rightHandDM ? Qt::AlignLeft : Qt::AlignRight));
-  }
 
   conditionalStatus = scene.conditional_status;
 
@@ -1085,11 +1066,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 
   mapOpen = scene.map_open;
   bigMapOpen = mapOpen && scene.big_map;
-  map_settings_btn_bottom->setEnabled(map_settings_btn->isEnabled());
-  if (map_settings_btn_bottom->isEnabled()) {
-    map_settings_btn_bottom->setVisible(!hideBottomIcons && !compass && !hideMapIcon);
-    bottom_layout->setAlignment(map_settings_btn_bottom, (rightHandDM ? Qt::AlignLeft : Qt::AlignRight) | Qt::AlignBottom);
-  }
 
   modelLength = scene.model_length;
 
@@ -1101,7 +1077,6 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
   distance_btn->setVisible(enableDistanceButton);
   if (enableDistanceButton) {
     distance_btn->updateState(scene);
-    bottom_layout->setAlignment(distance_btn, (rightHandDM ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignBottom);
   }
 
   bool enablePedalIcons = scene.pedals_on_ui && !bigMapOpen;
@@ -1177,103 +1152,6 @@ void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter) {
     drawTurnSignals(painter);
   } else if (animationTimer->isActive()) {
     animationTimer->stop();
-  }
-}
-
-Compass::Compass(QWidget *parent) : QWidget(parent) {
-  setFixedSize(btn_size * 1.5, btn_size * 1.5);
-
-  compassSize = btn_size;
-  circleOffset = compassSize / 2;
-  degreeLabelOffset = circleOffset + 25;
-  innerCompass = compassSize / 2;
-
-  x = (btn_size * 1.5) / 2 + 20;
-  y = (btn_size * 1.5) / 2;
-
-  compassInnerImg = loadPixmap("../frogpilot/assets/other_images/compass_inner.png", QSize(compassSize / 1.75, compassSize / 1.75));
-  initializeStaticElements();
-}
-
-void Compass::initializeStaticElements() {
-  staticElements = QPixmap(size());
-  staticElements.fill(Qt::transparent);
-  QPainter p(&staticElements);
-
-  p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-  p.setPen(QPen(Qt::white, 2));
-  p.setBrush(QColor(0, 0, 0, 100));
-
-  const int xOffset = x - circleOffset;
-  const int yOffset = y - circleOffset;
-
-  p.drawEllipse(xOffset, yOffset, compassSize, compassSize);
-  p.setBrush(Qt::NoBrush);
-  const int innerOffset = innerCompass + 5;
-  p.drawEllipse(x - innerOffset, y - innerOffset, innerOffset * 2, innerOffset * 2);
-  p.drawEllipse(x - degreeLabelOffset, y - degreeLabelOffset, degreeLabelOffset * 2, degreeLabelOffset * 2);
-
-  QPainterPath outerCircle, innerCircle;
-  outerCircle.addEllipse(x - degreeLabelOffset, y - degreeLabelOffset, degreeLabelOffset * 2, degreeLabelOffset * 2);
-  innerCircle.addEllipse(xOffset, yOffset, compassSize, compassSize);
-  p.fillPath(outerCircle.subtracted(innerCircle), Qt::black);
-}
-
-void Compass::updateState(const UIScene &scene) {
-  if (bearingDeg != scene.bearing_deg) {
-    bearingDeg = (scene.bearing_deg + 360) % 360;
-    update();
-  }
-}
-
-void Compass::paintEvent(QPaintEvent *event) {
-  QPainter p(this);
-  p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-  p.drawPixmap(0, 0, staticElements);
-  p.translate(x, y);
-  p.rotate(bearingDeg);
-  p.drawPixmap(-compassInnerImg.width() / 2, -compassInnerImg.height() / 2, compassInnerImg);
-  p.resetTransform();
-
-  QFont font = InterFont(10, QFont::Normal);
-  const int halfCompassSize = compassSize / 2;
-  for (int i = 0; i < 360; i += 15) {
-    bool isBold = abs(i - bearingDeg) <= 7;
-    font.setWeight(isBold ? QFont::Bold : QFont::Normal);
-    p.setFont(font);
-    p.setPen(QPen(Qt::white, i % 90 == 0 ? 2 : 1));
-
-    p.save();
-    p.translate(x, y);
-    p.rotate(i);
-    int lineLength = i % 90 == 0 ? 12 : 8;
-    p.drawLine(0, -(halfCompassSize - lineLength), 0, -halfCompassSize);
-    p.translate(0, -(halfCompassSize + 12));
-    p.rotate(-i);
-    p.drawText(QRect(-20, -10, 40, 20), Qt::AlignCenter, QString::number(i));
-    p.restore();
-  }
-
-  p.setFont(InterFont(20, QFont::Bold));
-  const std::map<QString, std::tuple<QPair<float, float>, int, QColor>> directionInfo = {
-    {"N", {{292.5, 67.5}, Qt::AlignTop | Qt::AlignHCenter, Qt::white}},
-    {"E", {{22.5, 157.5}, Qt::AlignRight | Qt::AlignVCenter, Qt::white}},
-    {"S", {{112.5, 247.5}, Qt::AlignBottom | Qt::AlignHCenter, Qt::white}},
-    {"W", {{202.5, 337.5}, Qt::AlignLeft | Qt::AlignVCenter, Qt::white}}
-  };
-  const int directionOffset = 20;
-
-  for (const auto &[direction, params] : directionInfo) {
-    const auto &[range, alignmentFlag, color] = params;
-    const auto &[minRange, maxRange] = range;
-
-    bool isInRange = (minRange > maxRange) ? (bearingDeg >= minRange || bearingDeg <= maxRange) : (bearingDeg >= minRange && bearingDeg <= maxRange);
-
-    QRect textRect(x - innerCompass + directionOffset, y - innerCompass + directionOffset, innerCompass * 2 - 2 * directionOffset, innerCompass * 2 - 2 * directionOffset);
-
-    p.setOpacity(isInRange ? 1.0 : 0.2);
-    p.setPen(QPen(color));
-    p.drawText(textRect, alignmentFlag, direction);
   }
 }
 

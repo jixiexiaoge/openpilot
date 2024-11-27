@@ -8,29 +8,6 @@
 
 #include "selfdrive/frogpilot/screenrecorder/screenrecorder.h"
 
-class Compass : public QWidget {
-  Q_OBJECT
-
-public:
-  explicit Compass(QWidget *parent = 0);
-  void updateState(const UIScene &scene);
-
-private:
-  void initializeStaticElements();
-  void paintEvent(QPaintEvent *event) override;
-
-  int bearingDeg;
-  int circleOffset;
-  int compassSize;
-  int degreeLabelOffset;
-  int innerCompass;
-  int x;
-  int y;
-
-  QPixmap compassInnerImg;
-  QPixmap staticElements;
-};
-
 class PedalIcons : public QWidget {
   Q_OBJECT
 
@@ -64,8 +41,6 @@ public:
   MapSettingsButton *map_settings_btn;
 
   // FrogPilot variables
-  MapSettingsButton *map_settings_btn_bottom;
-
   QRect newSpeedLimitRect;
 
 private:
@@ -106,12 +81,9 @@ private:
   // FrogPilot variables
   Params paramsMemory{"/dev/shm/params"};
 
-  Compass *compass_img;
   DistanceButton *distance_btn;
   PedalIcons *pedal_icons;
   ScreenRecorder *screenRecorder;
-
-  QHBoxLayout *bottom_layout;
 
   QPixmap curveIcon;
   QPixmap curveSpeedLeftIcon;
