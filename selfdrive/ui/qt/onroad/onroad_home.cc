@@ -168,7 +168,6 @@ void OnroadWindow::createMapWidget() {
   map = m;
   QObject::connect(m, &MapPanel::mapPanelRequested, this, &OnroadWindow::mapPanelRequested);
   QObject::connect(nvg->map_settings_btn, &MapSettingsButton::clicked, m, &MapPanel::toggleMapSettings);
-  QObject::connect(nvg->map_settings_btn_bottom, &MapSettingsButton::clicked, m, &MapPanel::toggleMapSettings);
   nvg->map_settings_btn->setEnabled(true);
 
   m->setFixedWidth(topWidget(this)->width() / 2 - UI_BORDER_SIZE);
