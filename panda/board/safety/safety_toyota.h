@@ -49,9 +49,17 @@ const int TOYOTA_GAS_INTERCEPTOR_THRSLD = 805;
 #define TOYOTA_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2U) // avg between 2 tracks
 
 // Stock longitudinal
-#define TOYOTA_COMMON_TX_MSGS                                                                                     \
-  {0x2E4, 0, 5}, {0x191, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  /* LKAS + LTA + ACC & PCM cancel cmds */  \
+#define TOYOTA_BASE_TX_MSGS \
+  {0x191, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  /* LKAS + LTA + ACC & PCM cancel cmds */  \
   {0x750, 0, 8},  /* white list 0x750 for Enhanced Diagnostic Request */                                                \
+
+#define TOYOTA_COMMON_TX_MSGS \
+  TOYOTA_BASE_TX_MSGS \
+  {0x2E4, 0, 5}, \
+
+#define TOYOTA_COMMON_SECOC_TX_MSGS \
+  TOYOTA_BASE_TX_MSGS \
+  {0x2E4, 0, 8}, {0x131, 0, 8}, \
 
 #define TOYOTA_COMMON_LONG_TX_MSGS                                                                                                          \
   TOYOTA_COMMON_TX_MSGS                                                                                                                     \
@@ -66,7 +74,7 @@ const CanMsg TOYOTA_TX_MSGS[] = {
 };
 
 const CanMsg TOYOTA_SECOC_TX_MSGS[] = {
-  TOYOTA_COMMON_TX_MSGS
+  TOYOTA_COMMON_SECOC_TX_MSGS
 };
 
 const CanMsg TOYOTA_LONG_TX_MSGS[] = {
@@ -81,9 +89,11 @@ const CanMsg TOYOTA_INTERCEPTOR_TX_MSGS[] = {
 #define TOYOTA_COMMON_RX_CHECKS(lta)                                                                        \
   {.msg = {{ 0xaa, 0, 8, .check_checksum = false, .frequency = 83U}, { 0 }, { 0 }}},                        \
   {.msg = {{0x260, 0, 8, .check_checksum = true, .quality_flag = (lta), .frequency = 50U}, { 0 }, { 0 }}},  \
-  {.msg = {{0x1D2, 0, 8, .check_checksum = true, .frequency = 33U}, { 0 }, { 0 }}},                         \
-  {.msg = {{0x224, 0, 8, .check_checksum = false, .frequency = 40U},                                        \
-           {0x226, 0, 8, .check_checksum = false, .frequency = 40U}, { 0 }}},                               \
+  {.msg = {{0x1D2, 0, 8, .check_checksum = true, .frequency = 33U},                                         \
+           {0x176, 0, 8, .check_checksum = true, .frequency = 32U}, { 0 }}},                                \
+  {.msg = {{0x101, 0, 8, .check_checksum = false, .frequency = 50U},                                        \
+           {0x224, 0, 8, .check_checksum = false, .frequency = 40U},                                        \
+           {0x226, 0, 8, .check_checksum = false, .frequency = 40U}}},                                      \
 
 RxCheck toyota_lka_rx_checks[] = {
   TOYOTA_COMMON_RX_CHECKS(false)

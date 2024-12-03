@@ -39,7 +39,7 @@ class FrogPilotAcceleration:
     self.max_accel = 0
     self.min_accel = 0
 
-  def update(self, controlsState, frogpilotCarState, v_cruise, v_ego, frogpilot_toggles):
+  def update(self, controlsState, frogpilotCarState, v_ego, frogpilot_toggles):
     eco_gear = frogpilotCarState.ecoGear
     sport_gear = frogpilotCarState.sportGear
 

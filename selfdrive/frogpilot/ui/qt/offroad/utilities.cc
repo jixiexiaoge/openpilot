@@ -29,14 +29,14 @@ UtilitiesPanel::UtilitiesPanel(FrogPilotSettingsWindow *parent) : FrogPilotListW
   forceStartedBtn = new FrogPilotButtonsControl(tr("Force Started State"), tr("Forces openpilot either offroad or onroad."), {tr("OFFROAD"), tr("ONROAD"), tr("OFF")}, true);
   QObject::connect(forceStartedBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
     if (id == 0) {
-      paramsMemory.putBool("ForceOffroad", true);
-      paramsMemory.putBool("ForceOnroad", false);
+      params_memory.putBool("ForceOffroad", true);
+      params_memory.putBool("ForceOnroad", false);
     } else if (id == 1) {
-      paramsMemory.putBool("ForceOffroad", false);
-      paramsMemory.putBool("ForceOnroad", true);
+      params_memory.putBool("ForceOffroad", false);
+      params_memory.putBool("ForceOnroad", true);
     } else if (id == 2) {
-      paramsMemory.putBool("ForceOffroad", false);
-      paramsMemory.putBool("ForceOnroad", false);
+      params_memory.putBool("ForceOffroad", false);
+      params_memory.putBool("ForceOnroad", false);
     }
     forceStartedBtn->setCheckedButton(id);
   });

@@ -96,7 +96,7 @@ def capture_fingerprint(candidate, params, blocked=False):
     sentry_sdk.capture_message("Blocked user from using the development branch", level='error')
   else:
     sentry_sdk.capture_message(f"Fingerprinted {candidate}", level='info')
-    params.put_bool_nonblocking("FingerprintLogged", True)
+    params.put_bool("FingerprintLogged", True)
 
   sentry_sdk.flush()
 

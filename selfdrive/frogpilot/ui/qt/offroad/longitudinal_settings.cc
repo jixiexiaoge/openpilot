@@ -247,6 +247,14 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
           curveDetectionBtn->setCheckedButton(1, !vtscEnabled);
         }
       });
+      QObject::connect(curveDetectionBtn, &FrogPilotButtonsControl::disabledButtonClicked, [=](int id) {
+        if (id == 0) {
+          FrogPilotConfirmationDialog::toggleAlert(
+            tr("The 'Map Based' option is only available when some 'Map Data' has been downloaded!"),
+            tr("Okay"), this
+          );
+        }
+      });
       longitudinalToggle = curveDetectionBtn;
     } else if (param == "CurveSensitivity" || param == "TurnAggressiveness") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 200, "%");
@@ -372,43 +380,35 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       longitudinalToggle = overrideSelection;
     } else if (param == "SLCPriority") {
       ButtonControl *slcPriorityButton = new ButtonControl(title, tr("SELECT"), desc);
-      QStringList primaryPriorities = {tr("None"), tr("Dashboard"), tr("Map Data"), tr("Navigation"), tr("Highest"), tr("Lowest")};
-      QStringList secondaryTertiaryPriorities = {tr("None"), tr("Dashboard"), tr("Map Data"), tr("Navigation")};
+      QStringList primaryPriorities = {tr("Dashboard"), tr("Map Data"), tr("Navigation"), tr("Highest"), tr("Lowest")};
+      QStringList otherPriorities = {tr("None"), tr("Dashboard"), tr("Map Data"), tr("Navigation")};
       QStringList priorityPrompts = {tr("Select your primary priority"), tr("Select your secondary priority"), tr("Select your tertiary priority")};
 
       QObject::connect(slcPriorityButton, &ButtonControl::clicked, [=]() {
         QStringList selectedPriorities;
 
         for (int i = 1; i <= 3; ++i) {
-          QStringList currentPriorities = (i == 1) ? primaryPriorities : secondaryTertiaryPriorities;
-          QStringList prioritiesToDisplay = currentPriorities;
-
-          for (QString selectedPriority : qAsConst(selectedPriorities)) {
-            prioritiesToDisplay.removeAll(selectedPriority);
-          }
+          QStringList availablePriorities = (i == 1) ? primaryPriorities : otherPriorities;
+          availablePriorities = availablePriorities.toSet().subtract(selectedPriorities.toSet()).toList();
 
           if (!hasDashSpeedLimits) {
-            prioritiesToDisplay.removeAll(tr("Dashboard"));
+            availablePriorities.removeAll(tr("Dashboard"));
           }
-
-          if (prioritiesToDisplay.size() == 1 && prioritiesToDisplay.contains(tr("None"))) {
+          if (availablePriorities.size() == 1 && availablePriorities.contains(tr("None"))) {
             break;
           }
 
-          QString priorityKey = QString("SLCPriority%1").arg(i);
-          QString selection = MultiOptionDialog::getSelection(priorityPrompts[i - 1], prioritiesToDisplay, "", this);
-
+          QString selection = MultiOptionDialog::getSelection(priorityPrompts[i - 1], availablePriorities, "", this);
           if (selection.isEmpty()) {
             break;
           }
 
-          params.putNonBlocking(priorityKey.toStdString(), selection.toStdString());
+          params.put(QString("SLCPriority%1").arg(i).toStdString(), selection.toStdString());
           selectedPriorities.append(selection);
 
           if (selection == tr("None")) {
             for (int j = i + 1; j <= 3; ++j) {
-              QString priorityKeyNext = QString("SLCPriority%1").arg(j);
-              params.putNonBlocking(priorityKeyNext.toStdString(), "None");
+              params.put(QString("SLCPriority%1").arg(j).toStdString(), tr("None").toStdString());
             }
             break;
           }
@@ -426,10 +426,8 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
 
       QStringList initialPriorities;
       for (int i = 1; i <= 3; ++i) {
-        QString priorityKey = QString("SLCPriority%1").arg(i);
-        QString priority = QString::fromStdString(params.get(priorityKey.toStdString()));
-
-        if (!priority.isEmpty() && primaryPriorities.contains(priority) && priority != tr("None")) {
+        QString priority = QString::fromStdString(params.get(QString("SLCPriority%1").arg(i).toStdString()));
+        if (!priority.isEmpty() && priority != tr("None") && primaryPriorities.contains(priority)) {
           initialPriorities.append(priority);
         }
       }
