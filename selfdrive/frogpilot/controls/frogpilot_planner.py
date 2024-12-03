@@ -15,7 +15,9 @@ from openpilot.selfdrive.frogpilot.frogpilot_utilities import MovingAverageCalcu
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRUISING_SPEED, MODEL_LENGTH, NON_DRIVING_GEARS, PLANNER_TIME, THRESHOLD
 
 class FrogPilotPlanner:
-  def __init__(self):
+  def __init__(self, error_log):
+    self.error_log = error_log
+
     self.cem = ConditionalExperimentalMode(self)
     self.frogpilot_acceleration = FrogPilotAcceleration(self)
     self.frogpilot_events = FrogPilotEvents(self)
@@ -34,7 +36,7 @@ class FrogPilotPlanner:
     self.road_curvature = 1
     self.v_cruise = 0
 
-  def update(self, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, radarless_model, radarState, frogpilot_toggles):
+  def update(self, carControl, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, radarless_model, radarState, frogpilot_toggles):
     if radarless_model:
       model_leads = list(modelData.leadsV3)
       if len(model_leads) > 0:
@@ -50,7 +52,7 @@ class FrogPilotPlanner:
     v_ego = max(carState.vEgo, 0)
     v_lead = self.lead_one.vLead
 
-    self.frogpilot_acceleration.update(controlsState, frogpilotCarState, v_cruise, v_ego, frogpilot_toggles)
+    self.frogpilot_acceleration.update(controlsState, frogpilotCarState, v_ego, frogpilot_toggles)
 
     run_cem = frogpilot_toggles.conditional_experimental_mode or frogpilot_toggles.force_stops or frogpilot_toggles.green_light_alert or frogpilot_toggles.show_stopping_point
     if run_cem and (controlsState.enabled or frogpilotCarControl.alwaysOnLateralActive) and carState.gearShifter not in NON_DRIVING_GEARS:
@@ -80,7 +82,7 @@ class FrogPilotPlanner:
     self.road_curvature = calculate_road_curvature(modelData, v_ego) if not carState.standstill else 1
 
     self.tracking_lead = self.set_lead_status(frogpilotCarState, v_ego, frogpilot_toggles)
-    self.v_cruise = self.frogpilot_vcruise.update(carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, modelData, v_cruise, v_ego, frogpilot_toggles)
+    self.v_cruise = self.frogpilot_vcruise.update(carControl, carState, controlsState, frogpilotCarControl, frogpilotCarState, frogpilotNavigation, v_cruise, v_ego, frogpilot_toggles)
 
   def set_lead_status(self, frogpilotCarState, v_ego, frogpilot_toggles):
     distance_offset = frogpilot_toggles.increased_stopped_distance if not frogpilotCarState.trafficModeActive else 0

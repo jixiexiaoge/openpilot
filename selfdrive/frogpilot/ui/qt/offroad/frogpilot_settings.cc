@@ -44,15 +44,36 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
 
   FrogPilotListWidget *list = new FrogPilotListWidget(frogpilotSettingsWidget);
 
-  std::vector<QString> toggle_presets{tr("Basic"), tr("Standard"), tr("Advanced")};
-  ButtonParamControl *toggle_preset = new ButtonParamControl("CustomizationLevel", tr("Customization Level"),
-                                            tr("Choose your preferred customization level. 'Standard' is recommended for most users, offering a balanced experience and automatically managing more 'Advanced' features,"
-                                               " while 'Basic' is designed for those new to customization or seeking simplicity."),
-                                            "../frogpilot/assets/toggle_icons/icon_customization.png",
-                                            toggle_presets);
-  QObject::connect(toggle_preset, &ButtonParamControl::buttonClicked, this, &FrogPilotSettingsWindow::updatePanelVisibility);
-  QObject::connect(toggle_preset, &ButtonParamControl::buttonClicked, this, &updateFrogPilotToggles);
-  list->addItem(toggle_preset);
+  std::vector<QString> togglePresets{tr("Stock-Like"), tr("Standard"), tr("Advanced"), tr("Expert")};
+  ButtonParamControl *togglePreset = new ButtonParamControl("CustomizationLevel", tr("Tuning Level"),
+                                        tr("Select the tuning level that best suits your needs. 'Basic' is ideal for those who prefer simplicity and ease of use, "
+                                        "'Standard' is recommended for most users, offering a balanced experience, "
+                                        "'Advanced' provides more control for experienced users, "
+                                        "while 'Expert' unlocks highly customizable settings designed for seasoned enthusiasts."),
+                                        "../frogpilot/assets/toggle_icons/icon_customization.png",
+                                        togglePresets);
+  int timeTo100FPHours = 100 - (paramsTracking.getInt("FrogPilotMinutes") / 60);
+  int timeTo250OPHours = 250 - (params.getInt("openpilotMinutes") / 60);
+  togglePreset->setEnabledButtons(3, timeTo100FPHours <= 0 || timeTo250OPHours <= 0);
+  QObject::connect(togglePreset, &ButtonParamControl::buttonClicked, [=](int id) {
+    if (id == 3) {
+      FrogPilotConfirmationDialog::toggleAlert(
+        tr("WARNING: This unlocks some potentially dangerous settings that can DRASTICALLY alter your driving experience!"),
+        tr("I understand the risks."), this
+      );
+    }
+    updateFrogPilotToggles();
+    updatePanelVisibility();
+  });
+  QObject::connect(togglePreset, &ButtonParamControl::disabledButtonClicked, [=](int id) {
+    if (id == 3) {
+      FrogPilotConfirmationDialog::toggleAlert(
+        tr("The 'Expert' preset is only available for users with either over 100 hours on FrogPilot, or 250 hours with openpilot."),
+        tr("Okay"), this
+      );
+    }
+  });
+  list->addItem(togglePreset);
 
   FrogPilotDevicePanel *frogpilotDevicePanel = new FrogPilotDevicePanel(this);
   QObject::connect(frogpilotDevicePanel, &FrogPilotDevicePanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
@@ -136,12 +157,12 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   QObject::connect(parent, &SettingsWindow::closeParentToggle, this, &FrogPilotSettingsWindow::closeParentToggle);
   QObject::connect(parent, &SettingsWindow::closeSubParentToggle, this, &FrogPilotSettingsWindow::closeSubParentToggle);
   QObject::connect(parent, &SettingsWindow::updateMetric, this, &FrogPilotSettingsWindow::updateMetric);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotSettingsWindow::updateCarVariables);
 
   closeParentToggle();
 }
 
 void FrogPilotSettingsWindow::showEvent(QShowEvent *event) {
+  updateCarVariables();
   updatePanelVisibility();
 }
 
@@ -175,12 +196,8 @@ void FrogPilotSettingsWindow::updatePanelVisibility() {
 }
 
 void FrogPilotSettingsWindow::updateCarVariables() {
-  std::thread([this] {
-    std::string carParams = params.get("CarParamsPersistent");
-    if (carParams.empty()) {
-      carParams = params.get("CarParams", true);
-    }
-
+  std::string carParams = params.get("CarParamsPersistent");
+  if (!carParams.empty()) {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
@@ -219,31 +236,31 @@ void FrogPilotSettingsWindow::updateCarVariables() {
     float currentRatioStock = params.getFloat("SteerRatioStock");
 
     if (currentFrictionStock != steerFrictionStock && steerFrictionStock != 0) {
-      if (params.getFloat("SteerFriction") == currentFrictionStock) {
-        params.putFloatNonBlocking("SteerFriction", steerFrictionStock);
+      if (params.getFloat("SteerFriction") == currentFrictionStock || currentFrictionStock == 0) {
+        params.putFloat("SteerFriction", steerFrictionStock);
       }
-      params.putFloatNonBlocking("SteerFrictionStock", steerFrictionStock);
+      params.putFloat("SteerFrictionStock", steerFrictionStock);
     }
 
     if (currentKPStock != steerKPStock && currentKPStock != 0) {
-      if (params.getFloat("SteerKP") == currentKPStock) {
-        params.putFloatNonBlocking("SteerKP", steerKPStock);
+      if (params.getFloat("SteerKP") == currentKPStock || currentKPStock == 0) {
+        params.putFloat("SteerKP", steerKPStock);
       }
-      params.putFloatNonBlocking("SteerKPStock", steerKPStock);
+      params.putFloat("SteerKPStock", steerKPStock);
     }
 
     if (currentLatAccelStock != steerLatAccelStock && steerLatAccelStock != 0) {
-      if (params.getFloat("SteerLatAccel") == steerLatAccelStock) {
-        params.putFloatNonBlocking("SteerLatAccel", steerLatAccelStock);
+      if (params.getFloat("SteerLatAccel") == steerLatAccelStock || steerLatAccelStock == 0) {
+        params.putFloat("SteerLatAccel", steerLatAccelStock);
       }
-      params.putFloatNonBlocking("SteerLatAccelStock", steerLatAccelStock);
+      params.putFloat("SteerLatAccelStock", steerLatAccelStock);
     }
 
     if (currentRatioStock != steerRatioStock && steerRatioStock != 0) {
-      if (params.getFloat("SteerRatio") == steerRatioStock) {
-        params.putFloatNonBlocking("SteerRatio", steerRatioStock);
+      if (params.getFloat("SteerRatio") == steerRatioStock || steerRatioStock == 0) {
+        params.putFloat("SteerRatio", steerRatioStock);
       }
-      params.putFloatNonBlocking("SteerRatioStock", steerRatioStock);
+      params.putFloat("SteerRatioStock", steerRatioStock);
     }
 
     uiState()->scene.has_auto_tune = hasAutoTune || forcingAutoTune;
@@ -265,7 +282,7 @@ void FrogPilotSettingsWindow::updateCarVariables() {
     }
 
     emit updateCarToggles();
-  }).detach();
+  }
 }
 
 void FrogPilotSettingsWindow::addPanelControl(FrogPilotListWidget *list, QString &title, QString &desc, std::vector<QString> &button_labels, QString &icon, std::vector<QWidget*> &panels, QString &currentPanel) {

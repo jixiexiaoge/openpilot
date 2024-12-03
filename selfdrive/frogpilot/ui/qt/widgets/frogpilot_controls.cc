@@ -5,8 +5,8 @@
 #include "selfdrive/ui/ui.h"
 
 void updateFrogPilotToggles() {
-  static Params paramsMemory{"/dev/shm/params"};
-  paramsMemory.putBool("FrogPilotTogglesUpdated", true);
+  static Params params_memory{"/dev/shm/params"};
+  params_memory.putBool("FrogPilotTogglesUpdated", true);
 }
 
 QColor loadThemeColors(const QString &colorKey, bool clearCache) {

@@ -233,6 +233,8 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
     if (ConfirmationDialog::confirm(tr("Are you sure you want to reset calibration?"), tr("Reset"), this)) {
       params.remove("CalibrationParams");
       params.remove("LiveTorqueParameters");
+      paramsStorage.remove("CalibrationParams");
+      paramsStorage.remove("LiveTorqueParameters");
     }
   });
   addItem(resetCalibBtn);
@@ -504,7 +506,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
               params.putBool("CustomizationLevelConfirmed", true);
               params.putInt("CustomizationLevel", 0);
             }
-          } else if (frogpilotHours < 100) {
+          } else {
             if (openpilotHours >= 100 && frogpilotHours < 100) {
               if (FrogPilotConfirmationDialog::toggleAlert(tr("Since you're experienced with openpilot, the 'Standard' toggle preset has been applied, but you can change this at any time via the 'Customization Level' button!"), tr("Sounds good!"), this, true)) {
                 params.putBool("CustomizationLevelConfirmed", true);
@@ -515,11 +517,6 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
                 params.putBool("CustomizationLevelConfirmed", true);
                 params.putInt("CustomizationLevel", 1);
               }
-            }
-          } else if (frogpilotHours >= 100) {
-            if (FrogPilotConfirmationDialog::toggleAlert(tr("Since you're very experienced with FrogPilot, the 'Advanced' toggle preset has been applied, but you can change this at any time via the 'Customization Level' button!"), tr("Sounds good!"), this, true)) {
-              params.putBool("CustomizationLevelConfirmed", true);
-              params.putInt("CustomizationLevel", 2);
             }
           }
         }

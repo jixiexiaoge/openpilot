@@ -35,7 +35,7 @@ private:
   LabelControl *downloadStatusLabel;
 
   Params params;
-  Params paramsMemory{"/dev/shm/params"};
+  Params params_memory{"/dev/shm/params"};
 
   bool cancellingDownload;
   bool colorDownloading;

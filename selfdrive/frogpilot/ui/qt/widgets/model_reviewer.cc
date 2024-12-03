@@ -110,7 +110,7 @@ QPushButton *ModelReview::createButton(const QString &text, const QString &type,
 }
 
 void ModelReview::showEvent(QShowEvent *event) {
-  currentModel = QString::fromStdString(paramsMemory.get("CurrentModelName"));
+  currentModel = QString::fromStdString(params_memory.get("CurrentModelName"));
   currentModelFiltered = processModelName(currentModel);
 
   mainLayout->setCurrentIndex(modelRated ? 1 : 0);

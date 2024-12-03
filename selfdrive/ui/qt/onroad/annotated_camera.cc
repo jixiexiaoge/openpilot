@@ -209,29 +209,24 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
       p.drawText(rect.adjusted(20, 0, 0, 0), Qt::AlignVCenter | Qt::AlignLeft, speedStr);
     };
 
-    static float previousSetSpeed = 0;
-    if (setSpeed == previousSetSpeed) {
-      QRect curveSpeedRect(QPoint(set_speed_rect.right() + 25, set_speed_rect.top()), QSize(default_size.width() * 1.25, default_size.width() * 1.25));
-      QPixmap scaledCurveSpeedIcon = (leftCurve ? curveSpeedLeftIcon : curveSpeedRightIcon).scaled(curveSpeedRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QRect curveSpeedRect(QPoint(set_speed_rect.right() + 25, set_speed_rect.top()), QSize(default_size.width() * 1.25, default_size.width() * 1.25));
+    QPixmap scaledCurveSpeedIcon = (leftCurve ? curveSpeedLeftIcon : curveSpeedRightIcon).scaled(curveSpeedRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
-      p.setOpacity(1.0);
-      p.setRenderHint(QPainter::Antialiasing);
-      p.drawPixmap(curveSpeedRect, scaledCurveSpeedIcon);
+    p.setOpacity(1.0);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.drawPixmap(curveSpeedRect, scaledCurveSpeedIcon);
 
-      if (mtscEnabled) {
-        QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), vtscControllingCurve ? 50 : 100));
+    if (mtscEnabled) {
+      QRect mtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), vtscControllingCurve ? 50 : 100));
         drawCurveSpeedControl(mtscRect, mtscSpeedStr, true);
 
-        if (vtscEnabled) {
-          QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), vtscControllingCurve ? 100 : 50));
-          drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
-        }
-      } else if (vtscEnabled) {
-        QRect vtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), 150));
+      if (vtscEnabled) {
+        QRect vtscRect(mtscRect.topLeft() + QPoint(0, mtscRect.height() + 20), QSize(mtscRect.width(), vtscControllingCurve ? 100 : 50));
         drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
       }
-    } else {
-      previousSetSpeed = setSpeed;
+    } else if (vtscEnabled) {
+      QRect vtscRect(curveSpeedRect.topLeft() + QPoint(0, curveSpeedRect.height() + 10), QSize(curveSpeedRect.width(), 150));
+      drawCurveSpeedControl(vtscRect, vtscSpeedStr, false);
     }
   }
 
@@ -560,7 +555,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, f
 
     if (scene.show_stopping_point_metrics) {
       QFont font = InterFont(35, QFont::DemiBold);
-      QString text = QString::number(modelLength * distanceConversion) + leadDistanceUnit;
+      QString text = QString::number(std::nearbyint(modelLength * distanceConversion)) + leadDistanceUnit;
       int text_width = QFontMetrics(font).horizontalAdvance(text);
       QPointF text_position = last_point - QPointF(text_width / 2, stopSignImg.height() + 35);
 
@@ -741,10 +736,10 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
 
   // chevron
   QPointF chevron[] = {{x + (sz * 1.25), y + sz}, {x, y}, {x - (sz * 1.25), y + sz}};
-  if (useStockColors) {
+  if (useStockColors && !adjacent) {
     painter.setBrush(redColor(fillAlpha));
   } else {
-    painter.setBrush(lead_marker_color);
+    painter.setBrush(QColor(lead_marker_color.red(), lead_marker_color.green(), lead_marker_color.blue(), fillAlpha));
   }
   painter.drawPolygon(chevron, std::size(chevron));
 
@@ -864,21 +859,25 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       auto lead_right = radar_state.getLeadRight();
       auto lead_left_far = radar_state.getLeadLeftFar();
       auto lead_right_far = radar_state.getLeadRightFar();
+      auto leads_lead = radar_state.getLeadsLead();
       if (lead_left.getStatus()) {
         drawLead(painter, lead_left, s->scene.lead_vertices[2], v_ego, blueColor(), true);
       }
       if (lead_right.getStatus()) {
-        drawLead(painter, lead_right, s->scene.lead_vertices[3], v_ego, redColor(), true);
+        drawLead(painter, lead_right, s->scene.lead_vertices[3], v_ego, orangeColor(), true);
       }
       if (lead_left_far.getStatus()) {
-        drawLead(painter, lead_left_far, s->scene.lead_vertices[4], v_ego, greenColor(), true);
+        drawLead(painter, lead_left_far, s->scene.lead_vertices[4], v_ego, purpleColor(), true);
       }
       if (lead_right_far.getStatus()) {
-        drawLead(painter, lead_right_far, s->scene.lead_vertices[5], v_ego, whiteColor(), true);
+        drawLead(painter, lead_right_far, s->scene.lead_vertices[5], v_ego, yellowColor(), true);
       }
       if (lead_two.getStatus()) {
         drawLead(painter, lead_two, s->scene.lead_vertices[1], v_ego, s->scene.lead_marker_color);
       } else if (lead_one.getStatus()) {
+        if (leads_lead.getStatus()) {
+          drawLead(painter, leads_lead, s->scene.lead_vertices[6], v_ego, s->scene.lead_marker_color);
+        }
         drawLead(painter, lead_one, s->scene.lead_vertices[0], v_ego, s->scene.lead_marker_color);
       } else {
         lead_x = 0;
@@ -921,26 +920,6 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
   prev_draw_t = millis_since_boot();
 
   // FrogPilot variables
-  if (is_metric || useSI) {
-    accelerationUnit = tr("m/s²");
-    leadDistanceUnit = tr(mapOpen ? "m" : "meters");
-    leadSpeedUnit = useSI ? tr("m/s") : tr("kph");
-
-    accelerationConversion = 1.0f;
-    distanceConversion = 1.0f;
-    speedConversion = is_metric ? MS_TO_KPH : MS_TO_MPH;
-    speedConversionMetrics = useSI ? 1.0f : MS_TO_KPH;
-  } else {
-    accelerationUnit = tr("ft/s²");
-    leadDistanceUnit = tr(mapOpen ? "ft" : "feet");
-    leadSpeedUnit = tr("mph");
-
-    accelerationConversion = METER_TO_FOOT;
-    distanceConversion = METER_TO_FOOT;
-    speedConversion = MS_TO_MPH;
-    speedConversionMetrics = MS_TO_MPH;
-  }
-
   distance_btn->updateIcon();
   experimental_btn->updateIcon();
   updateSignals();
@@ -1038,6 +1017,26 @@ void AnnotatedCameraWidget::initializeFrogPilotWidgets() {
 }
 
 void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIScene &scene) {
+  if (is_metric || useSI) {
+    accelerationUnit = tr("m/s²");
+    leadDistanceUnit = tr(mapOpen ? "m" : "meters");
+    leadSpeedUnit = useSI ? tr("m/s") : tr("kph");
+
+    accelerationConversion = 1.0f;
+    distanceConversion = 1.0f;
+    speedConversion = is_metric ? MS_TO_KPH : MS_TO_MPH;
+    speedConversionMetrics = useSI ? 1.0f : MS_TO_KPH;
+  } else {
+    accelerationUnit = tr("ft/s²");
+    leadDistanceUnit = tr(mapOpen ? "ft" : "feet");
+    leadSpeedUnit = tr("mph");
+
+    accelerationConversion = METER_TO_FOOT;
+    distanceConversion = METER_TO_FOOT;
+    speedConversion = MS_TO_MPH;
+    speedConversionMetrics = MS_TO_MPH;
+  }
+
   alertHeight = alert_height;
 
   alwaysOnLateralActive = scene.always_on_lateral_active;
@@ -1093,7 +1092,7 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
   modelLength = scene.model_length;
 
   mtscEnabled = scene.mtsc_enabled;
-  mtscSpeed = scene.mtsc_speed * speedConversion + vCruiseDiff;
+  mtscSpeed = mtscEnabled ? scene.mtsc_speed * speedConversion : setSpeed;
 
   onroadDistanceButton = scene.onroad_distance_button;
   bool enableDistanceButton = onroadDistanceButton && !hideBottomIcons;
@@ -1151,11 +1150,9 @@ void AnnotatedCameraWidget::updateFrogPilotVariables(int alert_height, const UIS
 
   useStockColors = scene.use_stock_colors;
 
-  vCruiseDiff = scene.v_cruise_diff;
-
   vtscControllingCurve = scene.vtsc_controlling_curve;
   vtscEnabled = scene.vtsc_enabled;
-  vtscSpeed = scene.vtsc_speed * speedConversion + vCruiseDiff;
+  vtscSpeed = vtscEnabled ? scene.vtsc_speed * speedConversion : setSpeed;
 }
 
 void AnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &painter) {

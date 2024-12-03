@@ -1,8 +1,6 @@
 import os
 import random
 
-import openpilot.system.sentry as sentry
-
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.controls.controlsd import Desire
@@ -11,10 +9,13 @@ from openpilot.selfdrive.controls.lib.events import EventName, Events
 from openpilot.selfdrive.frogpilot.assets.theme_manager import update_wheel_image
 from openpilot.selfdrive.frogpilot.frogpilot_variables import CRUISING_SPEED, params, params_memory
 
+RANDOM_EVENTS_CHANCE = 0.01 * DT_MDL
+
 class FrogPilotEvents:
   def __init__(self, FrogPilotPlanner):
-    self.events = Events()
     self.frogpilot_planner = FrogPilotPlanner
+
+    self.events = Events()
 
     self.accel30_played = False
     self.accel35_played = False
@@ -76,7 +77,7 @@ class FrogPilotEvents:
     else:
       self.tracking_lead_distance = 0
 
-    if not self.openpilot_crashed_played and os.path.isfile(os.path.join(sentry.CRASHES_DIR, 'error.txt')):
+    if not self.openpilot_crashed_played and os.path.isfile(self.frogpilot_planner.error_log):
       if frogpilot_toggles.random_events:
         self.events.add(EventName.openpilotCrashedRandomEvent)
       else:
@@ -135,7 +136,7 @@ class FrogPilotEvents:
         if not self.this_is_fine_played:
           event_choices.append("thisIsFineSteerSaturated")
 
-        if self.frame % 100 == 0 and event_choices:
+        if random.random() < RANDOM_EVENTS_CHANCE and event_choices:
           event_choice = random.choice(event_choices)
           if event_choice == "firefoxSteerSaturated":
             self.events.add(EventName.firefoxSteerSaturated)
@@ -161,17 +162,17 @@ class FrogPilotEvents:
 
       if not self.fcw_played and frogpilotCarControl.fcwEventTriggered:
         event_choices = ["toBeContinued", "yourFrogTriedToKillMe"]
-        event_choice = random.choice(event_choices)
-        if random.random() < 0.1:
+        if random.random() < RANDOM_EVENTS_CHANCE:
+          event_choice = random.choice(event_choices)
           if event_choice == "toBeContinued":
             self.events.add(EventName.toBeContinued)
           elif event_choice == "yourFrogTriedToKillMe":
             self.events.add(EventName.yourFrogTriedToKillMe)
-          self.fcw_played = True
-          self.random_event_played = True
+        self.fcw_played = True
+        self.random_event_played = True
 
       if not self.youveGotMail_played and frogpilotCarControl.alwaysOnLateralActive and not self.always_on_lateral_active_previously:
-        if random.random() < 0.01 and not carState.standstill:
+        if random.random() < RANDOM_EVENTS_CHANCE and not carState.standstill:
           self.events.add(EventName.youveGotMail)
           self.youveGotMail_played = True
           self.random_event_played = True
@@ -180,7 +181,7 @@ class FrogPilotEvents:
     if frogpilot_toggles.speed_limit_changed_alert and self.frogpilot_planner.frogpilot_vcruise.speed_limit_changed:
       self.events.add(EventName.speedLimitChanged)
 
-    if self.frame == 4 and params.get("NNFFModelName", encoding='utf-8') is not None:
+    if 5 > self.frame > 4 and params.get("NNFFModelName", encoding='utf-8') is not None:
       self.events.add(EventName.torqueNNLoad)
 
     if frogpilotCarState.trafficModeActive != self.previous_traffic_mode:
@@ -195,4 +196,4 @@ class FrogPilotEvents:
     elif modelData.meta.turnDirection == Desire.turnRight:
       self.events.add(EventName.turningRight)
 
-    self.frame = round(self.frame + DT_MDL, 2)
+    self.frame += DT_MDL

@@ -127,27 +127,29 @@ class ModelManager:
     for model in model_info:
       available_models.append(model['id'])
 
-    params.put_nonblocking("AvailableModels", ','.join(available_models))
-    params.put_nonblocking("AvailableModelsNames", ','.join([model['name'] for model in model_info]))
-    params.put_nonblocking("ClassicModels", ','.join([model['id'] for model in model_info if model.get("classic_model", False)]))
-    params.put_nonblocking("ExperimentalModels", ','.join([model['id'] for model in model_info if model.get("experimental", False)]))
-    params.put_nonblocking("NavigationModels", ','.join([model['id'] for model in model_info if "🗺️" in model['name']]))
-    params.put_nonblocking("RadarlessModels", ','.join([model['id'] for model in model_info if "📡" not in model['name']]))
+    params.put("AvailableModels", ','.join(available_models))
+    params.put("AvailableModelsNames", ','.join([model['name'] for model in model_info]))
+    params.put("ClassicModels", ','.join([model['id'] for model in model_info if model.get("classic_model", False)]))
+    params.put("ExperimentalModels", ','.join([model['id'] for model in model_info if model.get("experimental", False)]))
+    params.put("NavigationModels", ','.join([model['id'] for model in model_info if "🗺️" in model['name']]))
+    params.put("RadarlessModels", ','.join([model['id'] for model in model_info if "📡" not in model['name']]))
     print("Models list updated successfully")
 
     if available_models:
       models_downloaded = self.are_all_models_downloaded(available_models, repo_url)
-      params.put_bool_nonblocking("ModelsDownloaded", models_downloaded)
+      params.put_bool("ModelsDownloaded", models_downloaded)
 
   def are_all_models_downloaded(self, available_models, repo_url):
+    model_sizes = self.fetch_all_model_sizes(repo_url)
+    if not model_sizes:
+      return
+
     available_models = set(available_models) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
 
-    automatically_update_models = params.get_bool("AutomaticallyUpdateModels")
     all_models_downloaded = True
+    automatically_update_models = params.get_bool("AutomaticallyUpdateModels")
 
-    model_sizes = self.fetch_all_model_sizes(repo_url)
     download_queue = []
-
     for model in available_models:
       model_path = os.path.join(MODELS_PATH, f"{model}.thneed")
       expected_size = model_sizes.get(model)
@@ -179,7 +181,7 @@ class ModelManager:
     current_model_name = params.get("ModelName", encoding='utf-8')
 
     if "(Default)" in current_model_name and current_model_name != DEFAULT_CLASSIC_MODEL_NAME:
-      params.put_nonblocking("ModelName", current_model_name.replace(" (Default)", ""))
+      params.put("ModelName", current_model_name.replace(" (Default)", ""))
 
     available_models = params.get("AvailableModels", encoding='utf-8')
     if not available_models:
@@ -194,8 +196,8 @@ class ModelManager:
       model_name = model_file.replace(".thneed", "")
       if model_name not in available_models.split(','):
         if model_name == current_model:
-          params.put_nonblocking("Model", DEFAULT_CLASSIC_MODEL)
-          params.put_nonblocking("ModelName", DEFAULT_CLASSIC_MODEL_NAME)
+          params.put("Model", DEFAULT_CLASSIC_MODEL)
+          params.put("ModelName", DEFAULT_CLASSIC_MODEL_NAME)
         delete_file(os.path.join(MODELS_PATH, model_file))
         print(f"Deleted model file: {model_file} - Reason: Model is not in the list of available models")
 
@@ -253,4 +255,4 @@ class ModelManager:
 
     params_memory.put(self.download_progress_param, "All models downloaded!")
     params_memory.remove("DownloadAllModels")
-    params.put_bool_nonblocking("ModelsDownloaded", True)
+    params.put_bool("ModelsDownloaded", True)

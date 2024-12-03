@@ -23,7 +23,7 @@ STOCKOP_THEME_PATH = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "
 def update_theme_asset(asset_type, theme, holiday_theme):
   save_location = os.path.join(ACTIVE_THEME_PATH, asset_type)
 
-  if holiday_theme:
+  if holiday_theme is not None:
     asset_location = os.path.join(HOLIDAY_THEME_PATH, holiday_theme, asset_type)
   elif asset_type == "distance_icons":
     asset_location = os.path.join(THEME_SAVE_PATH, "distance_icons", theme)
@@ -51,11 +51,14 @@ def update_theme_asset(asset_type, theme, holiday_theme):
 
   os.makedirs(os.path.dirname(save_location), exist_ok=True)
 
+  if os.path.islink(save_location):
+    os.unlink(save_location)
+
   if os.path.exists(save_location):
-    if os.path.islink(save_location):
-      os.unlink(save_location)
-    elif os.path.isdir(save_location):
+    if os.path.isdir(save_location):
       shutil.rmtree(save_location)
+    else:
+      os.remove(save_location)
 
   os.symlink(asset_location, save_location, target_is_directory=True)
   print(f"Linked {save_location} to {asset_location}")
@@ -63,7 +66,7 @@ def update_theme_asset(asset_type, theme, holiday_theme):
 def update_wheel_image(image, holiday_theme=None, random_event=True):
   wheel_save_location = os.path.join(ACTIVE_THEME_PATH, "steering_wheel")
 
-  if holiday_theme:
+  if holiday_theme is not None:
     wheel_location = os.path.join(HOLIDAY_THEME_PATH, holiday_theme, "steering_wheel")
   elif random_event:
     wheel_location = os.path.join(RANDOM_EVENTS_PATH, "icons")
@@ -426,6 +429,8 @@ class ThemeManager:
       self.validate_themes(frogpilot_toggles)
 
     assets = self.fetch_assets(repo_url)
+    if not assets["themes"] and not assets["distance_icons"] and not assets["wheels"]:
+      return
 
     downloadable_colors = []
     downloadable_icons = []

@@ -62,6 +62,7 @@ private:
   FrogPilotButtonsControl *systemButton;
 
   Params params;
+  Params paramsTracking{"/persist/tracking"};
 
   QStackedLayout *mainLayout;
 

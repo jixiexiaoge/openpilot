@@ -85,8 +85,12 @@ class SpeedLimitController:
         self.source = min(filtered_limits, key=filtered_limits.get)
         return filtered_limits[self.source]
 
-      for priority in [frogpilot_toggles.speed_limit_priority1, frogpilot_toggles.speed_limit_priority2, frogpilot_toggles.speed_limit_priority3]:
-        if priority in filtered_limits:
+      for priority in [
+        frogpilot_toggles.speed_limit_priority1,
+        frogpilot_toggles.speed_limit_priority2,
+        frogpilot_toggles.speed_limit_priority3
+      ]:
+        if priority is not None and priority in filtered_limits:
           self.source = priority
           return filtered_limits[priority]
 

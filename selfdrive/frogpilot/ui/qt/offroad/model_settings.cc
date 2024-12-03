@@ -144,8 +144,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
       downloadModelBtn = new ButtonControl(title, tr("DOWNLOAD"), desc);
       QObject::connect(downloadModelBtn, &ButtonControl::clicked, [this]() {
         if (downloadModelBtn->text() == tr("CANCEL")) {
-          paramsMemory.remove("ModelToDownload");
-          paramsMemory.putBool("CancelModelDownload", true);
+          params_memory.remove("ModelToDownload");
+          params_memory.putBool("CancelModelDownload", true);
           cancellingDownload = true;
         } else {
           QMap<QString, QString> labelToModelMap;
@@ -163,8 +163,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           QString modelToDownload = MultiOptionDialog::getSelection(tr("Select a driving model to download"), downloadableModels, "", this);
           if (!modelToDownload.isEmpty()) {
             modelDownloading = true;
-            paramsMemory.put("ModelToDownload", labelToModelMap.value(modelToDownload).toStdString());
-            paramsMemory.put("ModelDownloadProgress", "0%");
+            params_memory.put("ModelToDownload", labelToModelMap.value(modelToDownload).toStdString());
+            params_memory.put("ModelDownloadProgress", "0%");
 
             downloadModelBtn->setValue(tr("Downloading %1...").arg(modelToDownload.remove(QRegularExpression("[🗺️👀📡]")).trimmed()));
 
@@ -172,7 +172,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
             progressTimer->setInterval(100);
 
             QObject::connect(progressTimer, &QTimer::timeout, this, [=]() {
-              QString progress = QString::fromStdString(paramsMemory.get("ModelDownloadProgress"));
+              QString progress = QString::fromStdString(params_memory.get("ModelDownloadProgress"));
               bool downloadComplete = progress.contains(QRegularExpression("downloaded", QRegularExpression::CaseInsensitiveOption));
               bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
 
@@ -199,8 +199,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
 
                 downloadModelBtn->setValue(progress);
 
-                paramsMemory.remove("CancelModelDownload");
-                paramsMemory.remove("ModelDownloadProgress");
+                params_memory.remove("CancelModelDownload");
+                params_memory.remove("ModelDownloadProgress");
 
                 progressTimer->stop();
                 progressTimer->deleteLater();
@@ -229,8 +229,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
       downloadAllModelsBtn = new ButtonControl(title, tr("DOWNLOAD"), desc);
       QObject::connect(downloadAllModelsBtn, &ButtonControl::clicked, [this]() {
         if (downloadAllModelsBtn->text() == tr("CANCEL")) {
-          paramsMemory.remove("DownloadAllModels");
-          paramsMemory.putBool("CancelModelDownload", true);
+          params_memory.remove("DownloadAllModels");
+          params_memory.putBool("CancelModelDownload", true);
           cancellingDownload = true;
         } else {
           startDownloadAllModels();
@@ -340,7 +340,7 @@ void FrogPilotModelPanel::startDownloadAllModels() {
   allModelsDownloading = true;
   modelDownloading = true;
 
-  paramsMemory.putBool("DownloadAllModels", true);
+  params_memory.putBool("DownloadAllModels", true);
 
   downloadAllModelsBtn->setValue(tr("Downloading models..."));
 
@@ -348,7 +348,7 @@ void FrogPilotModelPanel::startDownloadAllModels() {
   progressTimer->setInterval(100);
 
   QObject::connect(progressTimer, &QTimer::timeout, this, [=]() {
-    QString progress = QString::fromStdString(paramsMemory.get("ModelDownloadProgress"));
+    QString progress = QString::fromStdString(params_memory.get("ModelDownloadProgress"));
     bool downloadComplete = progress.contains(QRegularExpression("All models downloaded!", QRegularExpression::CaseInsensitiveOption));
     bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
 
@@ -364,8 +364,8 @@ void FrogPilotModelPanel::startDownloadAllModels() {
 
       downloadAllModelsBtn->setValue(progress);
 
-      paramsMemory.remove("CancelModelDownload");
-      paramsMemory.remove("ModelDownloadProgress");
+      params_memory.remove("CancelModelDownload");
+      params_memory.remove("ModelDownloadProgress");
 
       progressTimer->stop();
       progressTimer->deleteLater();
@@ -374,7 +374,7 @@ void FrogPilotModelPanel::startDownloadAllModels() {
         cancellingDownload = false;
         modelDownloading = false;
 
-        paramsMemory.remove("DownloadAllModels");
+        params_memory.remove("DownloadAllModels");
 
         downloadAllModelsBtn->setValue("");
       });
