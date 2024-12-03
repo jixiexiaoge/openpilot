@@ -17,7 +17,7 @@
     </message>
     <message>
         <source>Disable Internet Check</source>
-        <translation type="unfinished"></translation>
+        <translation>禁用网络检查</translation>
     </message>
 </context>
 <context>
@@ -92,23 +92,23 @@
     </message>
     <message>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>关闭</translation>
     </message>
     <message>
         <source>Always</source>
-        <translation type="unfinished"></translation>
+        <translation>始终开启</translation>
     </message>
     <message>
         <source>Only Onroad</source>
-        <translation type="unfinished"></translation>
+        <translation>仅在行驶时开启</translation>
     </message>
     <message>
         <source>Until Reboot</source>
-        <translation type="unfinished"></translation>
+        <translation>保持开启直到重启</translation>
     </message>
     <message>
         <source>Allow tethering with your data SIM and keep it active either while driving or continuously.</source>
-        <translation type="unfinished"></translation>
+        <translation>允许使用数据SIM卡开启热点,并在行驶时或持续保持开启状态。</translation>
     </message>
 </context>
 <context>
@@ -135,153 +135,153 @@
     </message>
     <message>
         <source>Vehicle in blind spot</source>
-        <translation type="unfinished"></translation>
+        <translation>盲区内有车辆</translation>
     </message>
     <message>
         <source>m/s²</source>
-        <translation type="unfinished"></translation>
+        <translation>米每秒平方</translation>
     </message>
     <message>
         <source>m/s</source>
-        <translation type="unfinished"></translation>
+        <translation>米每秒</translation>
     </message>
     <message>
         <source>kph</source>
-        <translation type="unfinished"></translation>
+        <translation>公里每小时</translation>
     </message>
     <message>
         <source> ft/s²</source>
-        <translation type="unfinished"></translation>
+        <translation>英尺每秒平方</translation>
     </message>
     <message>
         <source>Accel: %1%2</source>
-        <translation type="unfinished"></translation>
+        <translation>加速度：%1%2</translation>
     </message>
     <message>
         <source> - Max: %1%2</source>
-        <translation type="unfinished"></translation>
+        <translation> - 最大值：%1%2</translation>
     </message>
     <message>
         <source> | Obstacle: </source>
-        <translation type="unfinished"></translation>
+        <translation> | 障碍物：</translation>
     </message>
     <message>
         <source>  |  Obstacle Factor: </source>
-        <translation type="unfinished"></translation>
+        <translation>  |  障碍物因子：</translation>
     </message>
     <message>
         <source> - Stop: </source>
-        <translation type="unfinished"></translation>
+        <translation> - 停止：</translation>
     </message>
     <message>
         <source>  -  Stop Factor: </source>
-        <translation type="unfinished"></translation>
+        <translation>  -  停止因子：</translation>
     </message>
     <message>
         <source>Follow: </source>
-        <translation type="unfinished"></translation>
+        <translation>跟随：</translation>
     </message>
     <message>
         <source>Follow Distance: </source>
-        <translation type="unfinished"></translation>
+        <translation>跟随距离：</translation>
     </message>
     <message>
         <source>Confirm speed limit
 </source>
-        <translation type="unfinished"></translation>
+        <translation>确认速度限制</translation>
     </message>
     <message>
         <source>Ignore speed limit
 </source>
-        <translation type="unfinished"></translation>
+        <translation>忽略速度限制</translation>
     </message>
     <message>
         <source>Conditional Experimental Mode ready</source>
-        <translation type="unfinished"></translation>
+        <translation>条件实验模式已准备好</translation>
     </message>
     <message>
         <source>Conditional Experimental overridden</source>
-        <translation type="unfinished"></translation>
+        <translation>条件实验被覆盖</translation>
     </message>
     <message>
         <source>Experimental Mode manually activated</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已手动激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated for %1</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为 %1 激活</translation>
     </message>
     <message>
         <source>low speed</source>
-        <translation type="unfinished"></translation>
+        <translation>低速</translation>
     </message>
     <message>
         <source>speed being less than %1 %2</source>
-        <translation type="unfinished"></translation>
+        <translation>速度低于 %1 %2</translation>
     </message>
     <message>
         <source>Experimental Mode activated for turn</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为转弯激活</translation>
     </message>
     <message>
         <source> / lane change</source>
-        <translation type="unfinished"></translation>
+        <translation> / 变道</translation>
     </message>
     <message>
         <source>Experimental Mode activated for intersection</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为交叉口激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated for upcoming turn</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为即将到来的转弯激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated for curve</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为曲线激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated for stopped lead</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为停止的前车激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated for slower lead</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已为较慢的前车激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated %1</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式已激活 %1</translation>
     </message>
     <message>
         <source>to stop</source>
-        <translation type="unfinished"></translation>
+        <translation>以停止</translation>
     </message>
     <message>
         <source>Experimental Mode forced on %1</source>
-        <translation type="unfinished"></translation>
+        <translation>实验模式强制在 %1 上激活</translation>
     </message>
     <message>
         <source>Experimental Mode activated due to no speed limit</source>
-        <translation type="unfinished"></translation>
+        <translation>由于没有速度限制，实验模式已激活</translation>
     </message>
     <message>
         <source>Always On Lateral active</source>
-        <translation type="unfinished"></translation>
+        <translation>始终开启的横向控制已激活</translation>
     </message>
     <message>
         <source>. Press the &quot;Cruise Control&quot; button to disable</source>
-        <translation type="unfinished"></translation>
+        <translation>. 按下“巡航控制”按钮以禁用</translation>
     </message>
     <message>
         <source>. Long press the &quot;distance&quot; button to revert</source>
-        <translation type="unfinished"></translation>
+        <translation>. 长按“距离”按钮以恢复</translation>
     </message>
     <message>
         <source>. Click the &quot;LKAS&quot; button to revert</source>
-        <translation type="unfinished"></translation>
+        <translation>. 点击“LKAS”按钮以恢复</translation>
     </message>
     <message>
         <source>. Double tap the screen to revert</source>
-        <translation type="unfinished"></translation>
+        <translation>. 双击屏幕以恢复</translation>
     </message>
 </context>
 <context>
@@ -481,239 +481,239 @@
     </message>
     <message>
         <source>Delete Driving Data</source>
-        <translation type="unfinished"></translation>
+        <translation>删除驾驶数据</translation>
     </message>
     <message>
         <source>DELETE</source>
-        <translation type="unfinished"></translation>
+        <translation>删除</translation>
     </message>
     <message>
         <source>This button provides a swift and secure way to permanently delete all stored driving footage and data from your device. Ideal for maintaining privacy or freeing up space.</source>
-        <translation type="unfinished"></translation>
+        <translation>此按钮提供了一种快速安全的方式来永久删除您设备上存储的所有驾驶录像和数据。非常适合维护隐私或释放空间。</translation>
     </message>
     <message>
         <source>Are you sure you want to permanently delete all of your driving footage and data?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要永久删除所有驾驶录像和数据吗？</translation>
     </message>
     <message>
         <source>Delete</source>
-        <translation type="unfinished"></translation>
+        <translation>删除</translation>
     </message>
     <message>
         <source>Deleting footage...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在删除录像...</translation>
     </message>
     <message>
         <source>Deleted!</source>
-        <translation type="unfinished"></translation>
+        <translation>已删除！</translation>
     </message>
     <message>
         <source>Screen Recordings</source>
-        <translation type="unfinished"></translation>
+        <translation>屏幕录像</translation>
     </message>
     <message>
         <source>RENAME</source>
-        <translation type="unfinished"></translation>
+        <translation>重命名</translation>
     </message>
     <message>
         <source>Delete or rename your screen recordings.</source>
-        <translation type="unfinished"></translation>
+        <translation>删除或重命名您的屏幕录像。</translation>
     </message>
     <message>
         <source>Select a recording to delete</source>
-        <translation type="unfinished"></translation>
+        <translation>选择要删除的录像</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this recording?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要删除此录像吗？</translation>
     </message>
     <message>
         <source>Deleting...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在删除...</translation>
     </message>
     <message>
         <source>Failed...</source>
-        <translation type="unfinished"></translation>
+        <translation>失败...</translation>
     </message>
     <message>
         <source>Select a recording to rename</source>
-        <translation type="unfinished"></translation>
+        <translation>选择要重命名的录像</translation>
     </message>
     <message>
         <source>Enter a new name</source>
-        <translation type="unfinished"></translation>
+        <translation>输入新名称</translation>
     </message>
     <message>
         <source>Rename Recording</source>
-        <translation type="unfinished"></translation>
+        <translation>重命名录像</translation>
     </message>
     <message>
         <source>Renaming...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在重命名...</translation>
     </message>
     <message>
         <source>Renamed!</source>
-        <translation type="unfinished"></translation>
+        <translation>已重命名！</translation>
     </message>
     <message>
         <source>FrogPilot Backups</source>
-        <translation type="unfinished"></translation>
+        <translation>FrogPilot 备份</translation>
     </message>
     <message>
         <source>BACKUP</source>
-        <translation type="unfinished"></translation>
+        <translation>备份</translation>
     </message>
     <message>
         <source>RESTORE</source>
-        <translation type="unfinished"></translation>
+        <translation>恢复</translation>
     </message>
     <message>
         <source>Backup, delete, or restore your FrogPilot backups.</source>
-        <translation type="unfinished"></translation>
+        <translation>备份、删除或恢复您的 FrogPilot 备份。</translation>
     </message>
     <message>
         <source>Name your backup</source>
-        <translation type="unfinished"></translation>
+        <translation>为您的备份命名</translation>
     </message>
     <message>
         <source>Do you want to compress this backup? The end file size will be 2.25x smaller, but can take 10+ minutes.</source>
-        <translation type="unfinished"></translation>
+        <translation>您想压缩此备份吗？最终文件大小将小 2.25 倍，但可能需要 10 分钟以上。</translation>
     </message>
     <message>
         <source>Backing up...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在备份...</translation>
     </message>
     <message>
         <source>Compressing backup...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在压缩备份...</translation>
     </message>
     <message>
         <source>Success!</source>
-        <translation type="unfinished"></translation>
+        <translation>成功！</translation>
     </message>
     <message>
         <source>Select a backup to delete</source>
-        <translation type="unfinished"></translation>
+        <translation>选择要删除的备份</translation>
     </message>
     <message>
         <source>Are you sure you want to delete this backup?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要删除此备份吗？</translation>
     </message>
     <message>
         <source>Select a restore point</source>
-        <translation type="unfinished"></translation>
+        <translation>选择一个恢复点</translation>
     </message>
     <message>
         <source>Are you sure you want to restore this version of FrogPilot?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要恢复此版本的 FrogPilot 吗？</translation>
     </message>
     <message>
         <source>Restore</source>
-        <translation type="unfinished"></translation>
+        <translation>恢复</translation>
     </message>
     <message>
         <source>Restoring...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在恢复...</translation>
     </message>
     <message>
         <source>Extracting...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在提取...</translation>
     </message>
     <message>
         <source>Restored!</source>
-        <translation type="unfinished"></translation>
+        <translation>已恢复！</translation>
     </message>
     <message>
         <source>Rebooting...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在重启...</translation>
     </message>
     <message>
         <source>Toggle Backups</source>
-        <translation type="unfinished"></translation>
+        <translation>切换备份</translation>
     </message>
     <message>
         <source>Backup, delete, or restore your toggle backups.</source>
-        <translation type="unfinished"></translation>
+        <translation>备份、删除或恢复您的切换备份。</translation>
     </message>
     <message>
         <source>Are you sure you want to restore this toggle backup?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要恢复此切换备份吗？</translation>
     </message>
     <message>
         <source>Flash Panda</source>
-        <translation type="unfinished"></translation>
+        <translation>闪存Panda</translation>
     </message>
     <message>
         <source>FLASH</source>
-        <translation type="unfinished"></translation>
+        <translation>闪存</translation>
     </message>
     <message>
         <source>Use this button to troubleshoot and update the Panda device&apos;s firmware.</source>
-        <translation type="unfinished"></translation>
+        <translation>使用此按钮进行故障排除并更新Panda设备的固件。</translation>
     </message>
     <message>
         <source>Are you sure you want to flash the Panda?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要闪存Panda吗？</translation>
     </message>
     <message>
         <source>Flash</source>
-        <translation type="unfinished"></translation>
+        <translation>闪存</translation>
     </message>
     <message>
         <source>Flashing...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在闪存...</translation>
     </message>
     <message>
         <source>Recovery Failed...</source>
-        <translation type="unfinished"></translation>
+        <translation>恢复失败...</translation>
     </message>
     <message>
         <source>Flash Failed...</source>
-        <translation type="unfinished"></translation>
+        <translation>闪存失败...</translation>
     </message>
     <message>
         <source>Flashed!</source>
-        <translation type="unfinished"></translation>
+        <translation>已闪存！</translation>
     </message>
     <message>
         <source>Reset Toggles To Default</source>
-        <translation type="unfinished"></translation>
+        <translation>将切换重置为默认</translation>
     </message>
     <message>
         <source>Reset your toggle settings back to their default settings.</source>
-        <translation type="unfinished"></translation>
+        <translation>将您的切换设置重置为默认设置。</translation>
     </message>
     <message>
         <source>Are you sure you want to completely reset all of your toggle settings?</source>
-        <translation type="unfinished"></translation>
+        <translation>您确定要完全重置所有切换设置吗？</translation>
     </message>
     <message>
         <source>Resetting toggles...</source>
-        <translation type="unfinished"></translation>
+        <translation>正在重置切换...</translation>
     </message>
     <message>
         <source>Reset!</source>
-        <translation type="unfinished"></translation>
+        <translation>重置！</translation>
     </message>
     <message>
         <source>Force Started State</source>
-        <translation type="unfinished"></translation>
+        <translation>强制启动状态</translation>
     </message>
     <message>
         <source>OFFROAD</source>
-        <translation type="unfinished"></translation>
+        <translation>越野</translation>
     </message>
     <message>
         <source>ONROAD</source>
-        <translation type="unfinished"></translation>
+        <translation>公路</translation>
     </message>
     <message>
         <source>OFF</source>
-        <translation type="unfinished"></translation>
+        <translation>关闭</translation>
     </message>
     <message>
         <source>Force openpilot either offroad or onroad.</source>
-        <translation type="unfinished"></translation>
+        <translation>强制openpilot在越野或公路模式下运行。</translation>
     </message>
 </context>
 <context>
@@ -748,7 +748,7 @@
     </message>
     <message>
         <source>Characters: %1/%2</source>
-        <translation type="unfinished"></translation>
+        <translation>字符数：%1/%2</translation>
     </message>
 </context>
 <context>
@@ -785,7 +785,7 @@
     </message>
     <message>
         <source>Manage at %1</source>
-        <translation type="unfinished"></translation>
+        <translation>请在 %1 上管理</translation>
     </message>
 </context>
 <context>
@@ -1050,7 +1050,7 @@
     </message>
     <message>
         <source>FrogPilot</source>
-        <translation type="unfinished"></translation>
+        <translation>青蛙驾驶</translation>
     </message>
 </context>
 <context>
@@ -1118,27 +1118,23 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>← Back</source>
-        <translation type="unfinished"></translation>
+        <translation>← 返回</translation>
     </message>
     <message>
         <source>Driving</source>
-        <translation type="unfinished"></translation>
+        <translation>驾驶</translation>
     </message>
     <message>
         <source>Navigation</source>
-        <translation type="unfinished"></translation>
+        <translation>导航</translation>
     </message>
     <message>
         <source>Vehicles</source>
-        <translation type="unfinished"></translation>
+        <translation>车辆</translation>
     </message>
     <message>
         <source>Visuals</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Controls</source>
-        <translation type="unfinished"></translation>
+        <translation>视觉效果</translation>
     </message>
 </context>
 <context>
@@ -1335,34 +1331,34 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>GPU</source>
-        <translation type="unfinished"></translation>
+        <translation>GPU</translation>
     </message>
     <message>
         <source>CPU</source>
-        <translation type="unfinished"></translation>
+        <translation>CPU</translation>
     </message>
     <message>
         <source> GB</source>
-        <translation type="unfinished"></translation>
+        <translation> GB</translation>
     </message>
     <message>
         <source>MEMORY</source>
-        <translation type="unfinished"></translation>
+        <translation>内存</translation>
     </message>
     <message>
         <source>LEFT</source>
-        <translation type="unfinished"></translation>
+        <translation>剩余</translation>
     </message>
     <message>
         <source>USED</source>
-        <translation type="unfinished"></translation>
+        <translation>已用</translation>
     </message>
 </context>
 <context>
     <name>SoftwarePanel</name>
     <message>
         <source>Updates are only downloaded while the car is off.</source>
-        <translation type="vanished">车辆熄火时才能下载升级文件。</translation>
+        <translation type="vanished">更新仅在车辆熄火时下载。</translation>
     </message>
     <message>
         <source>Current Version</source>
@@ -1434,27 +1430,27 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Updates are only downloaded while the car is off or in park.</source>
-        <translation type="unfinished"></translation>
+        <translation>更新仅在汽车关闭或停放时下载。</translation>
     </message>
     <message>
         <source>Automatically Update FrogPilot</source>
-        <translation type="unfinished"></translation>
+        <translation>自动更新青蛙驾驶</translation>
     </message>
     <message>
         <source>FrogPilot will automatically update itself and it&apos;s assets when you&apos;re offroad and connected to Wi-Fi.</source>
-        <translation type="unfinished"></translation>
+        <translation>当您在越野状态并连接到Wi-Fi时，青蛙驾驶将自动更新自身及其资源。</translation>
     </message>
     <message>
         <source>Error Log</source>
-        <translation type="unfinished"></translation>
+        <translation>错误日志</translation>
     </message>
     <message>
         <source>VIEW</source>
-        <translation type="unfinished">查看</translation>
+        <translation>查看</translation>
     </message>
     <message>
         <source>View the error log for openpilot crashes.</source>
-        <translation type="unfinished"></translation>
+        <translation>查看openpilot崩溃的错误日志。</translation>
     </message>
 </context>
 <context>
@@ -1634,7 +1630,7 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>An alpha version of openpilot longitudinal control can be tested, along with Experimental mode, on non-release branches.</source>
-        <translation type="vanished">在正式（release）版本以外的分支上，可以测试 openpilot 纵向控制的 Alpha 版本以及实验模式。</translation>
+        <translation type="vanished">在非正式（release）分支上，可以测试 openpilot 纵向控制的 Alpha 版本以及实验模式。</translation>
     </message>
     <message>
         <source>Enable the openpilot longitudinal control (alpha) toggle to allow Experimental mode.</source>
@@ -1658,46 +1654,66 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Enable driver monitoring even when openpilot is not engaged.</source>
-        <translation type="vanished">即使在openpilot未激活时也启用驾驶员监控。</translation>
+        <translation type="vanished">即使在 openpilot 未激活时也启用驾驶员监控。</translation>
     </message>
     <message>
         <source>Torque Interceptor Installed</source>
-        <translation type="unfinished"></translation>
+        <translation>扭矩拦截器已安装</translation>
     </message>
     <message>
         <source>Enable the torque interceptor to control the steering wheel.</source>
-        <translation type="unfinished"></translation>
+        <translation>启用扭矩拦截器以控制方向盘。</translation>
     </message>
     <message>
         <source>Radar Interceptor Installed</source>
-        <translation type="unfinished"></translation>
+        <translation>雷达拦截器已安装</translation>
     </message>
     <message>
-        <source>Enable if you have installed the radar Iterceptor.</source>
-        <translation type="unfinished"></translation>
+        <source>Enable if you have installed the radar Interceptor.</source>
+        <translation type="vanished">如果您已安装雷达拦截器，请启用此功能。</translation>
     </message>
     <message>
         <source>Car Does not have stock MRCC</source>
-        <translation type="unfinished"></translation>
+        <translation>车辆没有原装MRCC</translation>
     </message>
     <message>
         <source>Enable if your car does not have stock MRCC.</source>
-        <translation type="unfinished"></translation>
+        <translation>如果您的车辆没有原装MRCC，请启用此功能。</translation>
     </message>
     <message>
         <source>Car Does not have stock FSC</source>
-        <translation type="unfinished"></translation>
+        <translation>车辆没有原装FSC</translation>
     </message>
     <message>
         <source>Enable if your car does not have stock FSC.</source>
-        <translation type="unfinished"></translation>
+        <translation>如果您的车辆没有原装FSC，请启用此功能。</translation>
     </message>
     <message>
         <source>Record and Upload Road Cameras</source>
-        <translation type="unfinished"></translation>
+        <translation>记录并上传道路摄像头</translation>
     </message>
     <message>
         <source>Upload data from the road cameras.</source>
+        <translation>上传来自道路摄像头的数据。</translation>
+    </message>
+    <message>
+        <source>Longitudinal Auto-Tune (Beta)</source>
+        <translation>纵向自动调节（测试版）</translation>
+    </message>
+    <message>
+        <source>Enable the longitudinal auto-tuning feature. Slowly adjusts the acceleration gain to minimize error</source>
+        <translation>启用纵向自动调节功能。缓慢调整加速增益以最小化误差。</translation>
+    </message>
+    <message>
+        <source>Blended Acc (Experimental)</source>
+        <translation>混合加速（实验性）</translation>
+    </message>
+    <message>
+        <source>Blend stock MRCC and Experimental Mode longitudinal control.</source>
+        <translation>混合原装MRCC与实验模式的纵向控制。</translation>
+    </message>
+    <message>
+        <source>Enable if you have installed the radar Iterceptor.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1760,11 +1776,11 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Uploading disabled</source>
-        <translation type="unfinished"></translation>
+        <translation>上传已禁用</translation>
     </message>
     <message>
         <source>Toggle off the &apos;Disable Uploading&apos; toggle to enable uploads.</source>
-        <translation type="unfinished"></translation>
+        <translation>关闭“禁用上传”开关以启用上传。</translation>
     </message>
 </context>
 <context>
