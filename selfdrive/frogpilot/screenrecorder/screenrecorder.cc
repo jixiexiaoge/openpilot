@@ -23,6 +23,10 @@ ScreenRecorder::ScreenRecorder(QWidget *parent) : QPushButton(parent) {
       encoderReady = true;
     } catch (const std::exception &e) {
       std::cerr << "Error initializing OmxEncoder: " << e.what() << std::endl;
+      params_memory.putBool("DebugUI", true);
+    } catch (...) {
+      std::cerr << "Unknown exception in ScreenRecorder::ScreenRecorder." << std::endl;
+      params_memory.putBool("DebugUI", true);
     }
   });
   encoderInitThread.detach();
@@ -63,7 +67,11 @@ void ScreenRecorder::startRecording() {
     encodingThread = std::thread(&ScreenRecorder::encodingThreadFunction, this);
   } catch (const std::exception &e) {
     std::cerr << "Error starting encoder: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
     recording = false;
+  } catch (...) {
+    std::cerr << "Unknown exception in ScreenRecorder::startRecording." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
 
   startedTime = currentMilliseconds();
@@ -84,6 +92,10 @@ void ScreenRecorder::stopRecording() {
     closeEncoder();
   } catch (const std::exception &e) {
     std::cerr << "Error stopping encoder: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in ScreenRecorder::stopRecording." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
 
   imageQueue.clear();

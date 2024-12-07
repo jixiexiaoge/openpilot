@@ -44,6 +44,8 @@ protected:
   Alert alert = {};
 
   // FrogPilot variables
+  Params params_memory{"/dev/shm/params"};
+
   bool hide_alerts;
   bool road_name_ui;
 };

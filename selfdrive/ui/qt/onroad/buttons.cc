@@ -58,120 +58,152 @@ void ExperimentalButton::changeMode() {
 }
 
 void ExperimentalButton::updateState(const UIState &s) {
-  const auto cs = (*s.sm)["controlsState"].getControlsState();
-  bool eng = cs.getEngageable() || cs.getEnabled() || always_on_lateral_active;
-  if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
-    engageable = eng;
-    experimental_mode = cs.getExperimentalMode();
-    update();
-  }
+  try {
+    const auto cs = (*s.sm)["controlsState"].getControlsState();
+    bool eng = cs.getEngageable() || cs.getEnabled() || always_on_lateral_active;
+    if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
+      engageable = eng;
+      experimental_mode = cs.getExperimentalMode();
+      update();
+    }
 
-  // FrogPilot variables
-  const UIScene &scene = s.scene;
+    // FrogPilot variables
+    const UIScene &scene = s.scene;
 
-  always_on_lateral_active = scene.always_on_lateral_active;
-  big_map = scene.big_map;
-  conditional_experimental = scene.conditional_experimental;
-  conditional_status = scene.conditional_status;
-  map_open = scene.map_open;
-  navigate_on_openpilot = scene.navigate_on_openpilot;
-  rotating_wheel = scene.rotating_wheel;
-  traffic_mode_active = scene.traffic_mode_active;
-  use_stock_wheel = scene.use_stock_wheel;
+    always_on_lateral_active = scene.always_on_lateral_active;
+    big_map = scene.big_map;
+    conditional_experimental = scene.conditional_experimental;
+    conditional_status = scene.conditional_status;
+    map_open = scene.map_open;
+    navigate_on_openpilot = scene.navigate_on_openpilot;
+    rotating_wheel = scene.rotating_wheel;
+    traffic_mode_active = scene.traffic_mode_active;
+    use_stock_wheel = scene.use_stock_wheel;
 
-  if (rotating_wheel && steering_angle_deg != scene.steering_angle_deg) {
-    steering_angle_deg = scene.steering_angle_deg;
-    update();
-  } else if (!rotating_wheel) {
-    steering_angle_deg = 0;
-  }
+    if (rotating_wheel && steering_angle_deg != scene.steering_angle_deg) {
+      steering_angle_deg = scene.steering_angle_deg;
+      update();
+    } else if (!rotating_wheel) {
+      steering_angle_deg = 0;
+    }
 
-  if (params_memory.getBool("UpdateWheelImage")) {
-    updateIcon();
-    params_memory.remove("UpdateWheelImage");
+    if (params_memory.getBool("UpdateWheelImage")) {
+      updateIcon();
+      params_memory.remove("UpdateWheelImage");
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in ExperimentalButton::updateState: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in ExperimentalButton::updateState." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
 }
 
 void ExperimentalButton::updateBackgroundColor() {
-  static const QMap<QString, QColor> status_color_map {
-    {"default", QColor(0, 0, 0, 166)},
-    {"always_on_lateral_active", bg_colors[STATUS_ALWAYS_ON_LATERAL_ACTIVE]},
-    {"conditional_overridden", bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]},
-    {"experimental_mode_active", bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE]},
-    {"navigation_active", bg_colors[STATUS_NAVIGATION_ACTIVE]},
-    {"traffic_mode_active", bg_colors[STATUS_TRAFFIC_MODE_ACTIVE]}
-  };
+  try {
+    static const QMap<QString, QColor> status_color_map {
+      {"default", QColor(0, 0, 0, 166)},
+      {"always_on_lateral_active", bg_colors[STATUS_ALWAYS_ON_LATERAL_ACTIVE]},
+      {"conditional_overridden", bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]},
+      {"experimental_mode_active", bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE]},
+      {"navigation_active", bg_colors[STATUS_NAVIGATION_ACTIVE]},
+      {"traffic_mode_active", bg_colors[STATUS_TRAFFIC_MODE_ACTIVE]}
+    };
 
-  if (isDown() || !engageable || use_stock_wheel) {
-    background_color = status_color_map["default"];
-    return;
-  }
+    if (isDown() || !engageable || use_stock_wheel) {
+      background_color = status_color_map["default"];
+      return;
+    }
 
-  if (always_on_lateral_active) {
-    background_color = status_color_map["always_on_lateral_active"];
-  } else if (conditional_status == 1 || conditional_status == 3 || conditional_status == 5) {
-    background_color = status_color_map["conditional_overridden"];
-  } else if (experimental_mode) {
-    background_color = status_color_map["experimental_mode_active"];
-  } else if (navigate_on_openpilot) {
-    background_color = status_color_map["navigation_active"];
-  } else if (traffic_mode_active) {
-    background_color = status_color_map["traffic_mode_active"];
-  } else {
-    background_color = status_color_map["default"];
+    if (always_on_lateral_active) {
+      background_color = status_color_map["always_on_lateral_active"];
+    } else if (conditional_status == 1 || conditional_status == 3 || conditional_status == 5) {
+      background_color = status_color_map["conditional_overridden"];
+    } else if (experimental_mode) {
+      background_color = status_color_map["experimental_mode_active"];
+    } else if (navigate_on_openpilot) {
+      background_color = status_color_map["navigation_active"];
+    } else if (traffic_mode_active) {
+      background_color = status_color_map["traffic_mode_active"];
+    } else {
+      background_color = status_color_map["default"];
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in ExperimentalButton::updateBackgroundColor: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in ExperimentalButton::updateBackgroundColor." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
 }
 
 void ExperimentalButton::updateIcon() {
-  if (gif != nullptr) {
-    gif->stop();
-    delete gif;
-    gif = nullptr;
-    gif_label->hide();
-  }
-
-  if (QFile::exists(wheel_gif_path)) {
-    gif = new QMovie(wheel_gif_path);
-
-    if (!gif->isValid()) {
+  try {
+    if (gif != nullptr) {
+      gif->stop();
       delete gif;
       gif = nullptr;
-      return;
+      gif_label->hide();
     }
 
-    gif_label->setMovie(gif);
-    gif_label->resize(img_size, img_size);
-    gif_label->move((btn_size - img_size) / 2, (btn_size - img_size) / 2);
-    gif_label->show();
+    if (QFile::exists(wheel_gif_path)) {
+      gif = new QMovie(wheel_gif_path);
 
-    gif->start();
+      if (!gif->isValid()) {
+        delete gif;
+        gif = nullptr;
+        return;
+      }
 
-    use_gif = true;
-    image_empty = false;
-  } else if (QFile::exists(wheel_png_path)) {
-    img = loadPixmap(wheel_png_path, QSize(img_size, img_size));
+      gif_label->setMovie(gif);
+      gif_label->resize(img_size, img_size);
+      gif_label->move((btn_size - img_size) / 2, (btn_size - img_size) / 2);
+      gif_label->show();
 
-    image_empty = false;
-    use_gif = false;
-  } else {
-    image_empty = true;
-    use_gif = false;
+      gif->start();
+
+      use_gif = true;
+      image_empty = false;
+    } else if (QFile::exists(wheel_png_path)) {
+      img = loadPixmap(wheel_png_path, QSize(img_size, img_size));
+
+      image_empty = false;
+      use_gif = false;
+    } else {
+      image_empty = true;
+      use_gif = false;
+    }
+
+    update();
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in ExperimentalButton::updateIcon: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in ExperimentalButton::updateIcon." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
-
-  update();
 }
 
 void ExperimentalButton::paintEvent(QPaintEvent *event) {
-  if ((big_map && map_open) || image_empty || use_gif) {
-    return;
-  }
+  try {
+    if ((big_map && map_open) || image_empty || use_gif) {
+      return;
+    }
 
-  QPainter p(this);
-  if (use_stock_wheel) {
-    img = experimental_mode ? experimental_img : engage_img;
+    QPainter p(this);
+    if (use_stock_wheel) {
+      img = experimental_mode ? experimental_img : engage_img;
+    }
+    updateBackgroundColor();
+    drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, background_color, (isDown() || !engageable) ? 0.6 : 1.0, steering_angle_deg);
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in ExperimentalButton::paintEvent: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in ExperimentalButton::paintEvent." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
-  updateBackgroundColor();
-  drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, background_color, (isDown() || !engageable) ? 0.6 : 1.0, steering_angle_deg);
 }
 
 // MapSettingsButton
@@ -210,78 +242,102 @@ DistanceButton::~DistanceButton() {
 }
 
 void DistanceButton::updateState(const UIScene &scene) {
-  bool state_changed = (traffic_mode_active != scene.traffic_mode_active) ||
-                       (personality != static_cast<int>(scene.personality) + 1 && !traffic_mode_active);
+  try {
+    bool state_changed = (traffic_mode_active != scene.traffic_mode_active) ||
+                         (personality != static_cast<int>(scene.personality) + 1 && !traffic_mode_active);
 
-  if (!state_changed) {
-    return;
+    if (!state_changed) {
+      return;
+    }
+
+    personality = static_cast<int>(scene.personality) + 1;
+    traffic_mode_active = scene.traffic_mode_active;
+
+    int profile_index = traffic_mode_active ? 0 : personality;
+
+    if (QMovie *gif = profile_data_gif.value(profile_index)) {
+      gif_label->setMovie(gif);
+      gif_label->resize(btn_size, btn_size);
+      gif_label->move(UI_BORDER_SIZE, btn_size / 2);
+      gif_label->show();
+
+      gif->start();
+
+      use_gif = true;
+    } else {
+      gif_label->hide();
+
+      profile_image = profile_data_png.value(profile_index);
+
+      use_gif = false;
+    }
+
+    update();
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in DistanceButton::updateState: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in DistanceButton::updateState." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
-
-  personality = static_cast<int>(scene.personality) + 1;
-  traffic_mode_active = scene.traffic_mode_active;
-
-  int profile_index = traffic_mode_active ? 0 : personality;
-
-  if (QMovie *gif = profile_data_gif.value(profile_index)) {
-    gif_label->setMovie(gif);
-    gif_label->resize(btn_size, btn_size);
-    gif_label->move(UI_BORDER_SIZE, btn_size / 2);
-    gif_label->show();
-
-    gif->start();
-
-    use_gif = true;
-  } else {
-    gif_label->hide();
-
-    profile_image = profile_data_png.value(profile_index);
-
-    use_gif = false;
-  }
-
-  update();
 }
 
 void DistanceButton::updateIcon() {
-  qDeleteAll(profile_data_gif);
+  try {
+    qDeleteAll(profile_data_gif);
 
-  profile_data_gif.clear();
-  profile_data_png.clear();
+    profile_data_gif.clear();
+    profile_data_png.clear();
 
-  static const QVector<QString> file_names = {
-    "../frogpilot/assets/active_theme/distance_icons/traffic",
-    "../frogpilot/assets/active_theme/distance_icons/aggressive",
-    "../frogpilot/assets/active_theme/distance_icons/standard",
-    "../frogpilot/assets/active_theme/distance_icons/relaxed"
-  };
+    static const QVector<QString> file_names = {
+      "../frogpilot/assets/active_theme/distance_icons/traffic",
+      "../frogpilot/assets/active_theme/distance_icons/aggressive",
+      "../frogpilot/assets/active_theme/distance_icons/standard",
+      "../frogpilot/assets/active_theme/distance_icons/relaxed"
+    };
 
-  for (int i = 0; i < file_names.size(); ++i) {
-    const QString &file_name = file_names[i];
-    QString gif_file = file_name + ".gif";
-    QString png_file = file_name + ".png";
-    QString fallback_file = QString("../frogpilot/assets/stock_theme/distance_icons/%1.png").arg(QFileInfo(file_name).baseName().toLower());
+    for (int i = 0; i < file_names.size(); ++i) {
+      const QString &file_name = file_names[i];
+      QString gif_file = file_name + ".gif";
+      QString png_file = file_name + ".png";
+      QString fallback_file = QString("../frogpilot/assets/stock_theme/distance_icons/%1.png").arg(QFileInfo(file_name).baseName().toLower());
 
-    if (QFile::exists(gif_file)) {
-      QMovie *movie = new QMovie(gif_file);
-      profile_data_gif.push_back(movie);
-      profile_data_png.push_back(QPixmap());
-    } else {
-      QPixmap pixmap = loadPixmap(QFile::exists(png_file) ? png_file : fallback_file, QSize(btn_size * 1.25, btn_size * 1.25));
-      profile_data_gif.push_back(nullptr);
-      profile_data_png.push_back(pixmap);
+      if (QFile::exists(gif_file)) {
+        QMovie *movie = new QMovie(gif_file);
+        profile_data_gif.push_back(movie);
+        profile_data_png.push_back(QPixmap());
+      } else {
+        QPixmap pixmap = loadPixmap(QFile::exists(png_file) ? png_file : fallback_file, QSize(btn_size * 1.25, btn_size * 1.25));
+        profile_data_gif.push_back(nullptr);
+        profile_data_png.push_back(pixmap);
+      }
     }
-  }
 
-  personality = 0;
+    personality = 0;
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in DistanceButton::updateIcon: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in DistanceButton::updateIcon." << std::endl;
+    params_memory.putBool("DebugUI", true);
+  }
 }
 
 void DistanceButton::paintEvent(QPaintEvent *event) {
-  if (use_gif) {
-    return;
+  try {
+    if (use_gif) {
+      return;
+    }
+
+    QPainter p(this);
+    p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+
+    drawIcon(p, QPoint((btn_size / 2) + UI_BORDER_SIZE, btn_size - UI_BORDER_SIZE), profile_image, Qt::transparent, 1.0);
+  } catch (const std::exception &e) {
+    std::cerr << "Exception in DistanceButton::paintEvent: " << e.what() << std::endl;
+    params_memory.putBool("DebugUI", true);
+  } catch (...) {
+    std::cerr << "Unknown exception in DistanceButton::paintEvent." << std::endl;
+    params_memory.putBool("DebugUI", true);
   }
-
-  QPainter p(this);
-  p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
-
-  drawIcon(p, QPoint((btn_size / 2) + UI_BORDER_SIZE, btn_size - UI_BORDER_SIZE), profile_image, Qt::transparent, 1.0);
 }

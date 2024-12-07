@@ -1,6 +1,8 @@
 #pragma once
 
+#include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include <QObject>
