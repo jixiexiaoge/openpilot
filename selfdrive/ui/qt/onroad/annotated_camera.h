@@ -18,6 +18,8 @@ public:
 private:
   void paintEvent(QPaintEvent *event) override;
 
+  Params params_memory{"/dev/shm/params"};
+
   QPixmap brake_pedal_img;
   QPixmap gas_pedal_img;
 
@@ -42,6 +44,10 @@ public:
 
   // FrogPilot variables
   QRect newSpeedLimitRect;
+
+  QString accelerationUnit;
+
+  float accelerationConversion;
 
 private:
   void drawText(QPainter &p, int x, int y, const QString &text, int alpha = 255, bool overridePen = false);
@@ -78,7 +84,7 @@ private:
   void updateSignals();
 
   // FrogPilot variables
-  Params paramsMemory{"/dev/shm/params"};
+  Params params_memory{"/dev/shm/params"};
 
   DistanceButton *distance_btn;
   PedalIcons *pedal_icons;
@@ -99,7 +105,6 @@ private:
 
   QPoint dmIconPosition;
 
-  QString accelerationUnit;
   QString leadDistanceUnit;
   QString leadSpeedUnit;
   QString signalStyle;
@@ -139,7 +144,6 @@ private:
   bool vtscControllingCurve;
   bool vtscEnabled;
 
-  float accelerationConversion;
   float dashboardSpeedLimit;
   float distanceConversion;
   float laneDetectionWidth;

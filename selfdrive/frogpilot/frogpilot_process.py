@@ -133,10 +133,13 @@ def frogpilot_thread():
   model_manager = ModelManager()
   theme_manager = ThemeManager()
 
+  debug_ui = False
   run_update_checks = False
   started_previously = False
   time_validated = False
   toggles_updated = False
+
+  started_time = 0
 
   frogpilot_toggles = get_frogpilot_toggles()
 
@@ -189,10 +192,19 @@ def frogpilot_thread():
       frogpilot_plan_send.frogpilotPlan.togglesUpdated = toggles_updated
       pm.send('frogpilotPlan', frogpilot_plan_send)
 
+    started_time = started_time + 1 if started else 0
+
     started_previously = started
 
     if now.second % 2 == 0:
       check_assets(model_manager, theme_manager, frogpilot_toggles)
+
+      if params_memory.get_bool("DebugUI"):
+        debug_ui = True
+        params_memory.remove("DebugUI")
+      elif debug_ui and started_time > 100:
+        sentry.capture_tmux(started_time, params)
+        debug_ui = False
 
     run_update_checks |= params_memory.get_bool("ManualUpdateInitiated")
     run_update_checks |= now.second == 0 and (now.minute % 60 == 0 or frogpilot_toggles.frogs_go_moo)
