@@ -1,5 +1,4 @@
 #include <filesystem>
-#include <iostream>
 
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
@@ -46,7 +45,7 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
 
   std::vector<QString> togglePresets{tr("Minimal"), tr("Standard"), tr("Advanced"), tr("Developer")};
   ButtonParamControl *togglePreset = new ButtonParamControl("TuningLevel", tr("Tuning Level"),
-                                        tr("Select the tuning level that best suits your needs. 'Basic' is ideal for those who prefer simplicity and ease of use, "
+                                        tr("Select the tuning level that best suits your needs. 'Minimal' is ideal for those who prefer simplicity and ease of use, "
                                         "'Standard' is recommended for most users, offering a balanced experience, "
                                         "'Advanced' provides more control for experienced users, "
                                         "while 'Developer' unlocks highly customizable settings designed for seasoned enthusiasts."),

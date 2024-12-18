@@ -1,78 +1,77 @@
+from pathlib import Path
+
 import datetime
 import filecmp
 import glob
-import os
 import shutil
 import subprocess
 import tarfile
+import threading
 import time
 
 from openpilot.common.basedir import BASEDIR
-from openpilot.common.params_pyx import Params, ParamKeyType, UnknownKeyName
+from openpilot.common.params_pyx import ParamKeyType
 from openpilot.common.time import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
-from openpilot.selfdrive.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH
-from openpilot.selfdrive.frogpilot.frogpilot_utilities import copy_if_exists, run_cmd
-from openpilot.selfdrive.frogpilot.frogpilot_variables import MODELS_PATH, THEME_SAVE_PATH, params
-
+from openpilot.selfdrive.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH, ThemeManager
+from openpilot.selfdrive.frogpilot.frogpilot_utilities import run_cmd
+from openpilot.selfdrive.frogpilot.frogpilot_variables import MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, get_frogpilot_toggles, params
 
 def backup_directory(backup, destination, success_message, fail_message, minimum_backup_size=0, compressed=False):
   if not compressed:
-    if os.path.exists(destination):
+    if destination.exists():
       print("Backup already exists. Aborting")
       return
 
-    os.makedirs(destination, exist_ok=False)
+    destination.mkdir(parents=True, exist_ok=False)
 
-    run_cmd(["sudo", "rsync", "-avq", os.path.join(backup, "."), destination], success_message, fail_message)
+    run_cmd(["sudo", "rsync", "-avq", str(backup) + "/.", str(destination)], success_message, fail_message)
     print(f"Backup successfully created at {destination}")
 
   else:
-    destination_compressed = f"{destination}.tar.gz"
-    in_progress_destination_compressed = f"{destination_compressed}_in_progress.tar.gz"
+    destination_compressed = destination.with_suffix(".tar.gz")
+    in_progress_compressed = destination_compressed.with_suffix(".tar.gz_in_progress")
 
-    if os.path.exists(destination_compressed):
+    if destination_compressed.exists():
       print("Backup already exists. Aborting")
       return
 
-    in_progress_destination = f"{destination}_in_progress"
-    os.makedirs(in_progress_destination, exist_ok=False)
+    in_progress_destination = destination.parent / (destination.name + "_in_progress")
+    in_progress_destination.mkdir(parents=True, exist_ok=False)
 
-    run_cmd(["sudo", "rsync", "-avq", os.path.join(backup, "."), in_progress_destination], success_message, fail_message)
-    with tarfile.open(in_progress_destination_compressed, "w:gz") as tar:
-      tar.add(in_progress_destination, arcname=os.path.basename(destination))
+    run_cmd(["sudo", "rsync", "-avq", str(backup) + "/.", str(in_progress_destination)], success_message, fail_message)
+
+    with tarfile.open(in_progress_compressed, "w:gz") as tar:
+      tar.add(in_progress_destination, arcname=destination.name)
 
     shutil.rmtree(in_progress_destination)
-    os.rename(in_progress_destination_compressed, destination_compressed)
+    in_progress_compressed.rename(destination_compressed)
     print(f"Backup successfully compressed to {destination_compressed}")
 
-    compressed_backup_size = os.path.getsize(destination_compressed)
+    compressed_backup_size = destination_compressed.stat().st_size
     if minimum_backup_size == 0 or compressed_backup_size < minimum_backup_size:
       params.put_int("MinimumBackupSize", compressed_backup_size)
 
-
 def cleanup_backups(directory, limit, compressed=False):
-  os.makedirs(directory, exist_ok=True)
-  backups = sorted(glob.glob(os.path.join(directory, "*_auto*")), key=os.path.getmtime, reverse=True)
-
+  directory.mkdir(parents=True, exist_ok=True)
+  backups = sorted(directory.glob("*_auto*"), key=lambda x: x.stat().st_mtime, reverse=True)
   for backup in backups[:]:
-    if backup.endswith("_in_progress") or backup.endswith("_in_progress.tar.gz"):
-      if os.path.isdir(backup):
+    if backup.name.endswith("_in_progress") or backup.name.endswith("_in_progress.tar.gz"):
+      if backup.is_dir():
         shutil.rmtree(backup)
-      elif os.path.isfile(backup):
-        os.remove(backup)
+      else:
+        backup.unlink()
       backups.remove(backup)
 
   for oldest_backup in backups[limit:]:
-    if os.path.isdir(oldest_backup):
+    if oldest_backup.is_dir():
       shutil.rmtree(oldest_backup)
-    elif os.path.isfile(oldest_backup):
-      os.remove(oldest_backup)
-
+    else:
+      oldest_backup.unlink()
 
 def backup_frogpilot(build_metadata):
-  backup_path = os.path.join("/data", "backups")
+  backup_path = Path("/data/backups")
   maximum_backups = 5
   minimum_backup_size = params.get_int("MinimumBackupSize")
 
@@ -84,9 +83,8 @@ def backup_frogpilot(build_metadata):
   if free > required_free_space:
     branch = build_metadata.channel
     commit = build_metadata.openpilot.git_commit_date[12:-16]
-    backup_dir = os.path.join(backup_path, f"{branch}_{commit}_auto")
-    backup_directory(BASEDIR, backup_dir, f"Successfully backed up FrogPilot to {backup_dir}.", f"Failed to backup FrogPilot to {backup_dir}.", minimum_backup_size, True)
-
+    backup_dir = backup_path / f"{branch}_{commit}_auto"
+    backup_directory(Path(BASEDIR), Path(backup_dir), f"Successfully backed up FrogPilot to {backup_dir}", f"Failed to backup FrogPilot to {backup_dir}", minimum_backup_size, True)
 
 def backup_toggles(params_storage):
   for key in params.all_keys():
@@ -95,171 +93,120 @@ def backup_toggles(params_storage):
       if value is not None:
         params_storage.put(key, value)
 
-  backup_path = os.path.join("/data", "toggle_backups")
+  backup_path = Path("/data/toggle_backups")
   maximum_backups = 10
 
   cleanup_backups(backup_path, maximum_backups, compressed=False)
 
-  backup_dir = os.path.join(backup_path, datetime.datetime.now().strftime('%Y-%m-%d_%I-%M%p').lower() + "_auto")
-  backup_directory(os.path.join("/data", "params", "d"), backup_dir, f"Successfully backed up toggles to {backup_dir}.", f"Failed to backup toggles to {backup_dir}.")
-
+  backup_dir = backup_path / f"{datetime.datetime.now().strftime('%Y-%m-%d_%I-%M%p').lower()}_auto"
+  backup_directory(Path("/data/params/d"), backup_dir, f"Successfully backed up toggles to {backup_dir}", f"Failed to backup toggles to {backup_dir}")
 
 def convert_params(params_storage):
   print("Starting to convert params")
-  required_type = str
 
-  def remove_param(key):
-    try:
-      value = params_storage.get(key)
-      value = value.decode('utf-8') if isinstance(value, bytes) else value
-
-      if isinstance(value, str) and value.replace('.', '', 1).isdigit():
-        value = float(value) if '.' in value else int(value)
-
-      if (required_type == int and not isinstance(value, int)) or (required_type == str and isinstance(value, int)):
-        params.remove(key)
-        params_storage.remove(key)
-      elif key == "CustomIcons" and value == "frog_(animated)":
-        params.remove(key)
-        params_storage.remove(key)
-
-    except (UnknownKeyName, ValueError):
-      pass
-    except Exception as e:
-      print(f"An error occurred when converting params: {e}")
-
-  for key in ["CustomColors", "CustomDistanceIcons", "CustomIcons", "CustomSignals", "CustomSounds", "WheelIcon"]:
-    remove_param(key)
-
-  def decrease_param(key):
-    try:
-      value = params_storage.get_float(key)
-
-      if value > 10:
-        value /= 10
-        params.put_float(key, value)
-        params_storage.put_float(key, value)
-
-    except (UnknownKeyName, ValueError):
-      pass
-    except Exception as e:
-      print(f"An error occurred when converting params: {e}")
-
-  for key in ["LaneDetectionWidth", "PathWidth"]:
-    decrease_param(key)
+  def update_values(keys, mappings):
+    for key in keys:
+      for original, replacement in mappings.items():
+        if params.get(key, encoding='utf-8') == original:
+          params.put(key, replacement)
+        if params_storage.get(key, encoding='utf-8') == original:
+          params_storage.put(key, replacement)
 
   priority_keys = ["SLCPriority1", "SLCPriority2", "SLCPriority3"]
+  update_values(priority_keys, {"Offline Maps": "Map Data"})
 
-  for key in priority_keys:
-    if params.get(key, encoding='utf-8') == "Offline Maps":
-      params.put(key, "Map Data")
+  bottom_key = ["StartupMessageBottom"]
+  update_values(bottom_key, {"so I do what I want 🐸": "Driver-tested, frog-approved 🐸"})
 
-    if params_storage.get(key, encoding='utf-8') == "Offline Maps":
-      params_storage.put(key, "Map Data")
+  top_key = ["StartupMessageTop"]
+  update_values(top_key, {"Hippity hoppity this is my property": "Hop in and buckle up!"})
 
   print("Param conversion completed")
-
 
 def frogpilot_boot_functions(build_metadata, params_storage):
   if params.get_bool("HasAcceptedTerms"):
     params_storage.clear_all()
 
-  old_screenrecordings = os.path.join("/data", "media", "0", "videos")
-  new_screenrecordings = os.path.join("/data", "media", "screen_recordings")
+  source = Path(THEME_SAVE_PATH) / "distance_icons"
+  destination = Path(THEME_SAVE_PATH) / "theme_packs"
 
-  if os.path.exists(old_screenrecordings):
-    shutil.copytree(old_screenrecordings, new_screenrecordings, dirs_exist_ok=True)
-    shutil.rmtree(old_screenrecordings)
+  if source.exists():
+    for item in source.iterdir():
+      if item.is_dir():
+        destination_path = destination / item.name / "distance_icons"
+        destination_path.mkdir(parents=True, exist_ok=True)
 
-  while not system_time_valid():
-    print("Waiting for system time to become valid...")
-    time.sleep(1)
+        for sub_item in item.iterdir():
+          destination_file = destination_path / sub_item.name
+          if destination_file.exists():
+            destination_file.unlink()
 
-  if params.get("UpdaterAvailableBranches") is None:
-    os.system("pkill -SIGUSR1 -f system.updated.updated")
+          shutil.move(sub_item, destination_path)
 
-  backup_frogpilot(build_metadata)
-  backup_toggles(params_storage)
+        if not any(item.iterdir()):
+          item.rmdir()
 
+    if not any(source.iterdir()):
+      source.rmdir()
+
+  FrogPilotVariables().update(holiday_theme="stock", started=False)
+  ThemeManager().update_active_theme(time_validated=system_time_valid(), frogpilot_toggles=get_frogpilot_toggles())
+
+  def backup_thread():
+    while not system_time_valid():
+      print("Waiting for system time to become valid...")
+      time.sleep(1)
+
+    if params.get("UpdaterAvailableBranches") is None:
+      subprocess.run(["pkill", "-SIGUSR1", "-f", "system.updated.updated"], check=False)
+
+    backup_frogpilot(build_metadata)
+    backup_toggles(params_storage)
+
+  threading.Thread(target=backup_thread, daemon=True).start()
 
 def setup_frogpilot(build_metadata):
-  run_cmd(["sudo", "mount", "-o", "remount,rw", "/persist"], "Successfully remounted /persist as read-write.", "Failed to remount /persist.")
+  run_cmd(["sudo", "mount", "-o", "remount,rw", "/persist"], "Successfully remounted /persist as read-write", "Failed to remount /persist")
 
-  os.makedirs("/persist/params", exist_ok=True)
-  os.makedirs(MODELS_PATH, exist_ok=True)
-  os.makedirs(THEME_SAVE_PATH, exist_ok=True)
+  Path(MODELS_PATH).mkdir(parents=True, exist_ok=True)
+  Path(THEME_SAVE_PATH).mkdir(parents=True, exist_ok=True)
 
-  if not params.get_bool("ResetFrogTheme"):
-    animated_frog_theme_path = os.path.join(THEME_SAVE_PATH, "theme_packs/frog-animated")
-    if os.path.exists(animated_frog_theme_path):
-      shutil.rmtree(animated_frog_theme_path)
-    frog_distance_theme_path = os.path.join(THEME_SAVE_PATH, "distance_icons/frog-animated")
-    if os.path.exists(frog_distance_theme_path):
-      shutil.rmtree(frog_distance_theme_path)
-    frog_theme_path = os.path.join(THEME_SAVE_PATH, "theme_packs/frog")
-    if os.path.exists(frog_theme_path):
-      shutil.rmtree(frog_theme_path)
-    params.put_bool("ResetFrogTheme", not (os.path.exists(animated_frog_theme_path) or os.path.exists(frog_distance_theme_path) or os.path.exists(frog_theme_path)))
+  for source_suffix, destination_suffix in [
+    ("world_frog_day/colors", "theme_packs/frog/colors"),
+    ("world_frog_day/distance_icons", "theme_packs/frog-animated/distance_icons"),
+    ("world_frog_day/icons", "theme_packs/frog-animated/icons"),
+    ("world_frog_day/signals", "theme_packs/frog/signals"),
+    ("world_frog_day/sounds", "theme_packs/frog/sounds"),
+  ]:
+    source = Path(HOLIDAY_THEME_PATH) / source_suffix
+    destination = Path(THEME_SAVE_PATH) / destination_suffix
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source, destination, dirs_exist_ok=True)
 
-  frog_color_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "colors")
-  frog_color_destination = os.path.join(THEME_SAVE_PATH, "theme_packs/frog/colors")
-  if not os.path.exists(frog_color_destination) or not filecmp.dircmp(frog_color_source, frog_color_destination).same_files:
-    if os.path.exists(frog_color_destination):
-      shutil.rmtree(frog_color_destination)
-    shutil.copytree(frog_color_source, frog_color_destination)
+  for source_suffix, destination_suffix in [
+    ("world_frog_day/steering_wheel/wheel.png", "steering_wheels/frog.png"),
+  ]:
+    source = Path(HOLIDAY_THEME_PATH) / source_suffix
+    destination = Path(THEME_SAVE_PATH) / destination_suffix
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
 
-  frog_distance_icon_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "distance_icons")
-  frog_distance_icon_destination = os.path.join(THEME_SAVE_PATH, "distance_icons/frog-animated")
-  if not os.path.exists(frog_distance_icon_destination) or not filecmp.dircmp(frog_distance_icon_source, frog_distance_icon_destination).same_files:
-    if os.path.exists(frog_distance_icon_destination):
-      shutil.rmtree(frog_distance_icon_destination)
-    shutil.copytree(frog_distance_icon_source, frog_distance_icon_destination)
-
-  frog_icon_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "icons")
-  frog_icon_destination = os.path.join(THEME_SAVE_PATH, "theme_packs/frog-animated/icons")
-  if not os.path.exists(frog_icon_destination) or not filecmp.dircmp(frog_icon_source, frog_icon_destination).same_files:
-    if os.path.exists(frog_icon_destination):
-      shutil.rmtree(frog_icon_destination)
-    shutil.copytree(frog_icon_source, frog_icon_destination)
-
-  frog_signal_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "signals")
-  frog_signal_destination = os.path.join(THEME_SAVE_PATH, "theme_packs/frog/signals")
-  if not os.path.exists(frog_signal_destination) or not filecmp.dircmp(frog_signal_source, frog_signal_destination).same_files:
-    if os.path.exists(frog_signal_destination):
-      shutil.rmtree(frog_signal_destination)
-    shutil.copytree(frog_signal_source, frog_signal_destination)
-
-  frog_sound_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "sounds")
-  frog_sound_destination = os.path.join(THEME_SAVE_PATH, "theme_packs/frog/sounds")
-  if not os.path.exists(frog_sound_destination) or not filecmp.dircmp(frog_sound_source, frog_sound_destination).same_files:
-    if os.path.exists(frog_sound_destination):
-      shutil.rmtree(frog_sound_destination)
-    shutil.copytree(frog_sound_source, frog_sound_destination)
-
-  frog_steering_wheel_source = os.path.join(HOLIDAY_THEME_PATH, "world_frog_day", "steering_wheel", "wheel.png")
-  frog_steering_wheel_destination = os.path.join(THEME_SAVE_PATH, "steering_wheels", "frog.png")
-  if not os.path.exists(frog_steering_wheel_destination) or not filecmp.cmp(frog_steering_wheel_source, frog_steering_wheel_destination, shallow=False):
-    os.makedirs(os.path.dirname(frog_steering_wheel_destination), exist_ok=True)
-    shutil.copy2(frog_steering_wheel_source, frog_steering_wheel_destination)
-
-  run_cmd(["sudo", "mount", "-o", "remount,rw", "/"], "File system remounted as read-write.", "Failed to remount file system.")
-
-  boot_logo_location = "/usr/comma/bg.jpg"
-  boot_logo_save_location = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "original_bg.jpg")
-  frogpilot_boot_logo = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "frogpilot_boot_logo.png")
+  boot_logo_location = Path("/usr/comma/bg.jpg")
+  boot_logo_save_location = Path(BASEDIR) / "selfdrive/frogpilot/assets/other_images/original_bg.jpg"
+  frogpilot_boot_logo = Path(BASEDIR) / "selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.png"
 
   if not filecmp.cmp(frogpilot_boot_logo, boot_logo_location, shallow=False):
-    run_cmd(["sudo", "cp", boot_logo_location, boot_logo_save_location], "Successfully backed up original bg.jpg.", "Failed to back up original boot logo.")
-    run_cmd(["sudo", "cp", frogpilot_boot_logo, boot_logo_location], "Successfully replaced bg.jpg with frogpilot_boot_logo.png.", "Failed to replace boot logo.")
+    run_cmd(["sudo", "mount", "-o", "remount,rw", "/usr/comma"], "/usr/comma remounted as read-write", "Failed to remount /usr/comma")
+    run_cmd(["sudo", "cp", boot_logo_location, boot_logo_save_location], "Successfully replaced boot logo", "Failed to back up original boot logo")
+    run_cmd(["sudo", "cp", frogpilot_boot_logo, boot_logo_location], "Successfully replaced boot logo", "Failed to replace boot logo")
 
   if build_metadata.channel == "FrogPilot-Development":
     subprocess.run(["sudo", "python3", "/persist/frogsgomoo.py"], check=True)
 
-
 def uninstall_frogpilot():
-  boot_logo_location = "/usr/comma/bg.jpg"
-  boot_logo_restore_location = os.path.join(BASEDIR, "selfdrive", "frogpilot", "assets", "other_images", "original_bg.jpg")
+  boot_logo_location = Path("/usr/comma/bg.jpg")
+  boot_logo_restore_location = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "other_images" / "original_bg.jpg"
 
-  run_cmd(["sudo", "cp", boot_logo_restore_location, boot_logo_location], "Successfully restored the original boot logo.", "Failed to restore the original boot logo.")
+  run_cmd(["sudo", "cp", boot_logo_restore_location, boot_logo_location], "Successfully restored the original boot logo", "Failed to restore the original boot logo")
 
   HARDWARE.uninstall()

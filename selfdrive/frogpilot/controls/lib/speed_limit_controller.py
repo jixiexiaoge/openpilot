@@ -1,6 +1,7 @@
 # PFEIFER - SLC - Modified by FrogAi for FrogPilot
 import json
-import os
+
+from pathlib import Path
 
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import calculate_distance_to_point
 from openpilot.selfdrive.frogpilot.frogpilot_variables import TO_RADIANS, params, params_memory
@@ -21,8 +22,8 @@ class SpeedLimitController:
     self.previous_position = None
     self.previous_speed_limit = params.get_float("PreviousSpeedLimit")
 
-    self.speed_limit_file_path = "/data/media/speed_limits.json"
-    os.makedirs(os.path.dirname(self.speed_limit_file_path), exist_ok=True)
+    self.speed_limit_file_path = Path("/data/media/speed_limits.json")
+    self.speed_limit_file_path.parent.mkdir(parents=True, exist_ok=True)
 
   def update(self, dashboard_speed_limit, enabled, navigation_speed_limit, v_cruise, v_ego, frogpilot_toggles):
     self.update_map_speed_limit(v_ego, frogpilot_toggles)

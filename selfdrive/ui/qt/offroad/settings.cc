@@ -181,7 +181,7 @@ void TogglesPanel::updateToggles() {
     op_long_toggle->setVisible(CP.getExperimentalLongitudinalAvailable());
     if (hasLongitudinalControl(CP)) {
       // normal description and toggle
-      experimental_mode_toggle->setEnabled(!scene.conditional_experimental);
+      experimental_mode_toggle->setEnabled(true);
       experimental_mode_toggle->setDescription(e2e_description);
       long_personality_setting->setEnabled(true);
     } else {

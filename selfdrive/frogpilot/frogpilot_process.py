@@ -1,9 +1,11 @@
 import datetime
-import os
+import subprocess
 import threading
 import time
 
 import openpilot.system.sentry as sentry
+
+from pathlib import Path
 
 from cereal import messaging
 from openpilot.common.params import Params
@@ -41,14 +43,14 @@ def run_thread_with_lock(name, target, args=()):
       running_threads[name] = thread
 
 def automatic_update_check():
-  os.system("pkill -SIGUSR1 -f system.updated.updated")
+  subprocess.run(["pkill", "-SIGUSR1", "-f", "system.updated.updated"], check=False)
   while params.get("UpdaterState", encoding="utf8") != "idle":
     time.sleep(60)
 
   if not params.get_bool("UpdaterFetchAvailable"):
     return
 
-  os.system("pkill -SIGHUP -f system.updated.updated")
+  subprocess.run(["pkill", "-SIGHUP", "-f", "system.updated.updated"], check=False)
   while not params.get_bool("UpdateAvailable"):
     time.sleep(60)
 
@@ -88,9 +90,9 @@ def update_checks(model_manager, now, theme_manager, frogpilot_toggles):
 
   update_maps(now)
 
-  run_thread_with_lock("update_mapd", update_mapd())
+  run_thread_with_lock("update_mapd", update_mapd)
   run_thread_with_lock("update_models", model_manager.update_models)
-  run_thread_with_lock("update_themes", theme_manager.update_themes(frogpilot_toggles))
+  run_thread_with_lock("update_themes", theme_manager.update_themes, (frogpilot_toggles,))
 
 def update_maps(now):
   maps_selected = params.get("MapsSelected", encoding='utf8')
@@ -102,7 +104,7 @@ def update_maps(now):
   is_Sunday = now.weekday() == 6
   schedule = params.get_int("PreferredSchedule")
 
-  maps_downloaded = os.path.exists('/data/media/0/osm/offline')
+  maps_downloaded = Path("/data/media/0/osm/offline").exists()
   if maps_downloaded and (schedule == 0 or (schedule == 1 and not is_Sunday) or (schedule == 2 and not is_first)):
     return
 
@@ -119,9 +121,9 @@ def update_maps(now):
 def frogpilot_thread():
   config_realtime_process(5, Priority.CTRL_LOW)
 
-  error_log = os.path.join(sentry.CRASHES_DIR, 'error.txt')
-  if os.path.isfile(error_log):
-    os.remove(error_log)
+  error_log = Path(sentry.CRASHES_DIR) / "error.txt"
+  if error_log.is_file():
+    error_log.unlink()
 
   params_storage = Params("/persist/params")
 
@@ -131,6 +133,7 @@ def frogpilot_thread():
   model_manager = ModelManager()
   theme_manager = ThemeManager()
 
+  assets_checked = False
   debug_ui = False
   run_update_checks = False
   started_previously = False
@@ -141,8 +144,6 @@ def frogpilot_thread():
   started_time = 0
 
   frogpilot_toggles = get_frogpilot_toggles()
-
-  radarless_model = frogpilot_toggles.radarless_model
 
   toggles_last_updated = datetime.datetime.now()
 
@@ -161,7 +162,7 @@ def frogpilot_thread():
     if params_memory.get_bool("FrogPilotTogglesUpdated") or theme_updated:
       theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
 
-      frogpilot_variables.update(started)
+      frogpilot_variables.update(theme_manager.theme_assets["holiday_theme"], started)
       frogpilot_toggles = get_frogpilot_toggles()
 
       if time_validated:
@@ -178,8 +179,8 @@ def frogpilot_thread():
     elif started and not started_previously:
       radarless_model = frogpilot_toggles.radarless_model
 
-      if os.path.isfile(error_log):
-        os.remove(error_log)
+      if error_log.is_file():
+        error_log.unlink()
 
     if started and sm.updated['modelV2']:
       frogpilot_planner.update(sm['carControl'], sm['carState'], sm['controlsState'], sm['frogpilotCarControl'], sm['frogpilotCarState'],
@@ -198,14 +199,19 @@ def frogpilot_thread():
     started_previously = started
 
     if now.second % 2 == 0:
-      check_assets(model_manager, theme_manager, frogpilot_toggles)
+      if not assets_checked:
+        check_assets(model_manager, theme_manager, frogpilot_toggles)
 
-      if params_memory.get_bool("DebugUI"):
-        debug_ui = True
-        params_memory.remove("DebugUI")
-      elif debug_ui and started_time > 100:
-        sentry.capture_tmux(started_time, params)
-        debug_ui = False
+        if params_memory.get_bool("DebugUI"):
+          debug_ui = True
+          params_memory.remove("DebugUI")
+        elif debug_ui and started_time > 100:
+          sentry.capture_tmux(started_time, params)
+          debug_ui = False
+
+        assets_checked = True
+    else:
+      assets_checked = False
 
     run_update_checks |= params_memory.get_bool("ManualUpdateInitiated")
     run_update_checks |= now.second == 0 and (now.minute % 60 == 0 or frogpilot_toggles.frogs_go_moo)

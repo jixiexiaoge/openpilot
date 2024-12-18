@@ -380,7 +380,7 @@ def no_lane_available_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.S
 
 def torque_nn_load_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, frogpilot_toggles: SimpleNamespace) -> Alert:
   model_name = params.get("NNFFModelName", encoding='utf-8')
-  if model_name == "":
+  if model_name is None:
     return Alert(
       "NNFF Torque Controller not available",
       "Donate logs to Twilsonco to get your car supported!",

@@ -388,7 +388,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
         openSubParentToggle();
         showToggles(speedLimitControllerOffsetsKeys);
       });
-      longitudinalToggle = reinterpret_cast<AbstractControl*>(manageSLCOffsetsBtn);
+      longitudinalToggle = manageSLCOffsetsBtn;
     } else if (param == "SLCQOL") {
       ButtonControl *manageSLCQOLBtn = new ButtonControl(title, tr("MANAGE"), desc);
       QObject::connect(manageSLCQOLBtn, &ButtonControl::clicked, [this]() {
@@ -405,7 +405,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
 
         showToggles(modifiedSpeedLimitControllerQOLKeys);
       });
-      longitudinalToggle = reinterpret_cast<AbstractControl*>(manageSLCQOLBtn);
+      longitudinalToggle = manageSLCQOLBtn;
     } else if (param == "SLCLookaheadHigher" || param == "SLCLookaheadLower") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 30, tr(" seconds"));
     } else if (param == "Offset1" || param == "Offset2" || param == "Offset3" || param == "Offset4") {
@@ -572,7 +572,7 @@ void FrogPilotLongitudinalPanel::updateMetric() {
   }
 
   FrogPilotDualParamControl *ceSpeedToggle = reinterpret_cast<FrogPilotDualParamControl*>(toggles["CESpeed"]);
-  FrogPilotParamValueButtonControl *ceSignal = reinterpret_cast<FrogPilotParamValueButtonControl*>(toggles["CESignalSpeed"]);
+  FrogPilotParamValueButtonControl *ceSignal = static_cast<FrogPilotParamValueButtonControl*>(toggles["CESignalSpeed"]);
   FrogPilotParamValueControl *customCruiseToggle = static_cast<FrogPilotParamValueControl*>(toggles["CustomCruise"]);
   FrogPilotParamValueControl *customCruiseLongToggle = static_cast<FrogPilotParamValueControl*>(toggles["CustomCruiseLong"]);
   FrogPilotParamValueControl *offset1Toggle = static_cast<FrogPilotParamValueControl*>(toggles["Offset1"]);

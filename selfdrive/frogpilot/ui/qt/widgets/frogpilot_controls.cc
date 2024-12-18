@@ -13,12 +13,9 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
   static QJsonObject cachedColorData;
 
   if (clearCache) {
-    cachedColorData = QJsonObject();
     QFile file("../frogpilot/assets/active_theme/colors/colors.json");
 
-    static int check_count = 0;
-    while (!file.exists() && check_count < 100) {
-      check_count += 1;
+    while (!file.exists()) {
       util::sleep_for(100);
     }
 
@@ -26,10 +23,7 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
       return QColor();
     }
 
-    QByteArray fileData = file.readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(fileData);
-
-    cachedColorData = doc.object();
+    cachedColorData = QJsonDocument::fromJson(file.readAll()).object();
   }
 
   if (cachedColorData.isEmpty()) {
@@ -38,9 +32,9 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
 
   QJsonObject colorObj = cachedColorData.value(colorKey).toObject();
   return QColor(
-    colorObj.value("red").toInt(0),
-    colorObj.value("green").toInt(0),
-    colorObj.value("blue").toInt(0),
+    colorObj.value("red").toInt(255),
+    colorObj.value("green").toInt(255),
+    colorObj.value("blue").toInt(255),
     colorObj.value("alpha").toInt(255)
   );
 }

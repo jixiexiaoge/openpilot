@@ -128,7 +128,7 @@ class ModelManager:
       available_models.append(model['id'])
 
     params.put("AvailableModels", ','.join(available_models))
-    params.put("AvailableModelsNames", ','.join([model['name'] for model in model_info]))
+    params.put("AvailableModelNames", ','.join([model['name'] for model in model_info]))
     params.put("ClassicModels", ','.join([model['id'] for model in model_info if model.get("classic_model", False)]))
     params.put("ClippedCurvatureModels", ','.join([model['id'] for model in model_info if model.get("clipped_curvature", False)]))
     params.put("DesiredCurvatureModels", ','.join([model['id'] for model in model_info if model.get("desired_curvature", False)]))
@@ -138,10 +138,9 @@ class ModelManager:
     print("Models list updated successfully")
 
     if available_models:
-      models_downloaded = self.are_all_models_downloaded(available_models, repo_url)
-      params.put_bool("ModelsDownloaded", models_downloaded)
+      self.check_models(available_models, repo_url)
 
-  def are_all_models_downloaded(self, available_models, repo_url):
+  def check_models(self, available_models, repo_url):
     model_sizes = self.fetch_all_model_sizes(repo_url)
     if not model_sizes:
       return
@@ -175,8 +174,6 @@ class ModelManager:
 
     for model in download_queue:
       self.queue_model_download(model)
-
-    return all_models_downloaded
 
   def validate_models(self):
     current_model = params.get("Model", encoding='utf-8')
@@ -227,7 +224,9 @@ class ModelManager:
       return
 
     model_info = self.fetch_models(f"{repo_url}/Versions/model_names_{VERSION}.json")
-    if not model_info:
+    if model_info:
+      self.update_model_params(model_info, repo_url)
+    else:
       handle_error(None, "Unable to update model list...", "Model list unavailable", self.download_param, self.download_progress_param, params_memory)
       return
 
@@ -236,13 +235,14 @@ class ModelManager:
       handle_error(None, "There's no model to download...", "There's no model to download...", self.download_param, self.download_progress_param, params_memory)
       return
 
-    available_models = available_models.split(',')
-    available_model_names = params.get("AvailableModelsNames", encoding='utf-8').split(',')
-
     models_path = Path(MODELS_PATH)
 
+    available_models = available_models.split(',')
+    available_model_names = params.get("AvailableModelNames", encoding='utf-8').split(',')
     for model in available_models:
       if params_memory.get_bool(self.cancel_download_param):
+        params_memory.put(self.download_progress_param, "Download cancelled...")
+        print("Download cancelled...")
         return
 
       model_path = models_path / f"{model}.thneed"
@@ -261,4 +261,3 @@ class ModelManager:
 
     params_memory.put(self.download_progress_param, "All models downloaded!")
     params_memory.remove("DownloadAllModels")
-    params.put_bool("ModelsDownloaded", True)

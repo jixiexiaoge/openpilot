@@ -1,4 +1,3 @@
-import os
 import random
 
 from openpilot.common.conversions import Conversions as CV
@@ -77,7 +76,7 @@ class FrogPilotEvents:
     else:
       self.tracking_lead_distance = 0
 
-    if not self.openpilot_crashed_played and os.path.isfile(self.frogpilot_planner.error_log):
+    if not self.openpilot_crashed_played and self.frogpilot_planner.error_log.is_file():
       if frogpilot_toggles.random_events:
         self.events.add(EventName.openpilotCrashedRandomEvent)
       else:

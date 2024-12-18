@@ -180,7 +180,7 @@ void ModelReview::checkBlacklistButtonVisibility() {
 }
 
 int ModelReview::getModelRank() {
-  QStringList availableModels = QString::fromStdString(params.get("AvailableModelsNames")).split(",");
+  QStringList availableModels = QString::fromStdString(params.get("AvailableModelNames")).split(",");
   QList<QPair<QString, int>> modelScores;
   totalOverallDrives = 0;
 

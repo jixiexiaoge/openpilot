@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "selfdrive/ui/qt/offroad/settings.h"
 
 class FrogPilotSettingsWindow : public QFrame {

@@ -745,7 +745,7 @@ class Controls:
           self.experimental_mode = not self.experimental_mode
           self.params.put_bool_nonblocking("ExperimentalMode", self.experimental_mode)
 
-    if self.sm.frame * DT_CTRL % DT_MDL == 0 or self.resume_pressed:
+    if self.sm.updated['frogpilotPlan'] or self.resume_pressed:
       self.resume_previously_pressed = self.resume_pressed
 
     FPCC = custom.FrogPilotCarControl.new_message()
