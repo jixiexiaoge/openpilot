@@ -223,6 +223,8 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   timer = new QTimer(this);
   timer->callOnTimeout(this, &OffroadHome::refresh);
 
+  QObject::connect(uiState(), &UIState::togglesUpdated, this, &OffroadHome::refresh);
+
   setStyleSheet(R"(
     * {
       color: white;
@@ -252,7 +254,7 @@ void OffroadHome::hideEvent(QHideEvent *event) {
 }
 
 void OffroadHome::refresh() {
-  QString model = uiState()->scene.model_name.remove(QRegularExpression(" \\(Default\\)"));
+  QString model = processModelName(uiState()->scene.model_name);
 
   if (uiState()->scene.model_randomizer) {
     model = "Mystery Model 👻";

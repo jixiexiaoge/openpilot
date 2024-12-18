@@ -3,6 +3,7 @@ from pathlib import Path
 import datetime
 import filecmp
 import glob
+import json
 import shutil
 import subprocess
 import tarfile
@@ -120,6 +121,42 @@ def convert_params(params_storage):
 
   top_key = ["StartupMessageTop"]
   update_values(top_key, {"Hippity hoppity this is my property": "Hop in and buckle up!"})
+
+  models = [
+    ("Certified Herbalist", "CertifiedHerbalistDrives", "CertifiedHerbalistScore"),
+    ("Dissolved Oxygen", "DissolvedOxygenDrives", "DissolvedOxygenScore"),
+    ("Duck Amigo", "DuckAmigoDrives", "DuckAmigoScore"),
+    ("Los Angeles", "LosAngelesDrives", "LosAngelesScore"),
+    ("North Dakota", "NorthDakotaDrives", "NorthDakotaScore"),
+    ("Notre Dame", "NotreDameDrives", "NotreDameScore"),
+    ("Radical Turtle", "RadicalTurtleDrives", "RadicalTurtleScore"),
+    ("Recertified Herbalist", "RecertifiedHerbalistDrives", "RecertifiedHerbalistScore"),
+    ("SecretGoodOpenpilot", "SecretGoodOpenpilotDrives", "SecretGoodOpenpilotScore"),
+    ("WD-40", "WD40Drives", "WD40Score")
+  ]
+
+  try:
+    model_drives_and_scores = json.loads(params.get("ModelDrivesAndScores") or "{}")
+  except Exception as error:
+    print(f"Error parsing ModelDrivesAndScores JSON: {error}. Initializing empty structure")
+    model_drives_and_scores = {}
+
+  for model, drives_param, score_param in models:
+    drives = params.get_int(drives_param)
+    score = params.get_int(score_param)
+
+    if drives > 0 or score > 0:
+      model_drives_and_scores[model] = {
+        "Drives": drives,
+        "Score": score
+      }
+
+    params.remove(drives_param)
+    params_storage.remove(drives_param)
+    params.remove(score_param)
+    params_storage.remove(score_param)
+
+  params.put("ModelDrivesAndScores", json.dumps(model_drives_and_scores))
 
   print("Param conversion completed")
 

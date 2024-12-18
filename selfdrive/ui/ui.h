@@ -324,6 +324,7 @@ signals:
   void driveRated();
   void reviewModel();
   void themeUpdated();
+  void togglesUpdated();
 
 private slots:
   void update();

@@ -351,13 +351,11 @@ static void update_state(UIState *s) {
 }
 
 void ui_update_params(UIState *s) {
-  std::thread([=] {
-    auto params = Params();
-    s->scene.is_metric = params.getBool("IsMetric");
-    s->scene.map_on_left = params.getBool("NavSettingLeftSide");
+  auto params = Params();
+  s->scene.is_metric = params.getBool("IsMetric");
+  s->scene.map_on_left = params.getBool("NavSettingLeftSide");
 
-    ui_update_frogpilot_params(s);
-  }).detach();
+  ui_update_frogpilot_params(s);
 }
 
 void ui_update_frogpilot_params(UIState *s) {
@@ -453,6 +451,8 @@ void ui_update_frogpilot_params(UIState *s) {
   if (scene.tethering_config == 1) {
     s->wifi->setTetheringEnabled(true);
   }
+
+  emit s->togglesUpdated();
 }
 
 void ui_update_theme(UIState *s) {

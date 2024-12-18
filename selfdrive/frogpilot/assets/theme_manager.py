@@ -198,13 +198,16 @@ class ThemeManager:
     print(f"Downloading theme from GitLab: {theme_name}")
     download_file(CANCEL_DOWNLOAD_PARAM, theme_path, DOWNLOAD_PROGRESS_PARAM, theme_url, theme_param, params_memory)
 
+    if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
+      handle_error(None, "Download cancelled...", "Download cancelled...", theme_param, DOWNLOAD_PROGRESS_PARAM, params_memory)
+      return
+
     if verify_download(theme_path, theme_url):
       print(f"Theme {theme_name} downloaded and verified successfully from GitLab!")
       if ext == ".zip":
         params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Unpacking theme...")
         extract_zip(theme_path, download_path)
       params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Downloaded!")
-      params_memory.remove(theme_param)
       return True
     else:
       return False
@@ -233,13 +236,16 @@ class ThemeManager:
       print(f"Downloading theme from GitHub: {theme_name}")
       download_file(CANCEL_DOWNLOAD_PARAM, theme_path, DOWNLOAD_PROGRESS_PARAM, theme_url, theme_param, params_memory)
 
+      if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
+        handle_error(None, "Download cancelled...", "Download cancelled...", theme_param, DOWNLOAD_PROGRESS_PARAM, params_memory)
+        return
+
       if verify_download(theme_path, theme_url):
         print(f"Theme {theme_name} downloaded and verified successfully from GitHub!")
         if ext == ".zip":
           params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Unpacking theme...")
           extract_zip(theme_path, download_path)
         params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Downloaded!")
-        params_memory.remove(theme_param)
         return
       elif self.handle_verification_failure(ext, theme_component, theme_name, theme_param, theme_path, download_path):
         return
@@ -309,7 +315,7 @@ class ThemeManager:
       else:
         themes_path = THEME_SAVE_PATH / "theme_packs"
         existing_assets = {item.parent.name.replace('_', ' ').title() for item in themes_path.glob(f"*/{subfolder}") if item.is_dir()}
-      params.put(key, ','.join(sorted(set(assets) - existing_assets)))
+      params.put(key, ",".join(sorted(set(assets) - existing_assets)))
       print(f"{key} updated successfully")
 
     update_param("DownloadableColors", downloadable_colors, "colors")

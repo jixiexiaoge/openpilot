@@ -14,8 +14,7 @@ void updateFrogPilotToggles();
 inline QString processModelName(const QString &modelName) {
   QString modelCleaned = modelName;
   modelCleaned = modelCleaned.remove(QRegularExpression("[🗺️👀📡]")).simplified();
-  modelCleaned = modelCleaned.remove(QRegularExpression("[^a-zA-Z0-9()-]"));
-  modelCleaned = modelCleaned.replace(" ", "").replace("(Default)", "").replace("-", "");
+  modelCleaned = modelCleaned.replace("(Default)", "");
   return modelCleaned;
 }
 

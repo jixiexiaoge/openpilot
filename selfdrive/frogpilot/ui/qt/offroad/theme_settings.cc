@@ -1,7 +1,7 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/theme_settings.h"
 
 void updateAssetParam(const QString &assetParam, Params &params, const QString &value, bool add) {
-  QStringList assets = QString::fromStdString(params.get(assetParam.toStdString())).split(',', QString::SkipEmptyParts);
+  QStringList assets = QString::fromStdString(params.get(assetParam.toStdString())).split(",", QString::SkipEmptyParts);
 
   if (add) {
     if (!assets.contains(value)) {
@@ -12,7 +12,7 @@ void updateAssetParam(const QString &assetParam, Params &params, const QString &
   }
 
   assets.sort();
-  params.put(assetParam.toStdString(), assets.join(',').toStdString());
+  params.put(assetParam.toStdString(), assets.join(",").toStdString());
 }
 
 void deleteThemeAsset(QDir &directory, const QString &subFolder, const QString &assetParam, const QString &themeToDelete, Params &params) {

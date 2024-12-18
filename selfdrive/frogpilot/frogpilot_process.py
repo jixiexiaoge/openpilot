@@ -13,7 +13,7 @@ from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.time import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
-from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager
+from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager, MODEL_DOWNLOAD_PARAM
 from openpilot.selfdrive.frogpilot.assets.theme_manager import ThemeManager
 from openpilot.selfdrive.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.selfdrive.frogpilot.controls.lib.frogpilot_tracking import FrogPilotTracking
@@ -63,7 +63,7 @@ def check_assets(model_manager, theme_manager, frogpilot_toggles):
   if params_memory.get_bool("DownloadAllModels"):
     run_thread_with_lock("download_all_models", model_manager.download_all_models)
 
-  model_to_download = params_memory.get("ModelToDownload", encoding='utf-8')
+  model_to_download = params_memory.get(MODEL_DOWNLOAD_PARAM, encoding='utf-8')
   if model_to_download is not None:
     run_thread_with_lock("download_model", model_manager.download_model, (model_to_download,))
 
@@ -81,7 +81,7 @@ def check_assets(model_manager, theme_manager, frogpilot_toggles):
     if asset_to_download is not None:
       run_thread_with_lock("download_theme", theme_manager.download_theme, (asset_type, asset_to_download, param))
 
-def update_checks(model_manager, now, theme_manager, frogpilot_toggles):
+def update_checks(model_manager, now, screen_off, theme_manager, frogpilot_toggles):
   if not (is_url_pingable("https://github.com") or is_url_pingable("https://gitlab.com")):
     return
 
@@ -91,7 +91,7 @@ def update_checks(model_manager, now, theme_manager, frogpilot_toggles):
   update_maps(now)
 
   run_thread_with_lock("update_mapd", update_mapd)
-  run_thread_with_lock("update_models", model_manager.update_models)
+  run_thread_with_lock("update_models", model_manager.update_models, (screen_off,))
   run_thread_with_lock("update_themes", theme_manager.update_themes, (frogpilot_toggles,))
 
 def update_maps(now):
@@ -136,6 +136,7 @@ def frogpilot_thread():
   assets_checked = False
   debug_ui = False
   run_update_checks = False
+  screen_off = False
   started_previously = False
   theme_updated = False
   time_validated = False
@@ -157,7 +158,9 @@ def frogpilot_thread():
 
     now = datetime.datetime.now()
 
-    started = sm['deviceState'].started
+    deviceState = sm['deviceState']
+    screen_off = deviceState.screenBrightnessPercent == 0
+    started = deviceState.started
 
     if params_memory.get_bool("FrogPilotTogglesUpdated") or theme_updated:
       theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
@@ -219,7 +222,7 @@ def frogpilot_thread():
 
     if run_update_checks:
       theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
-      run_thread_with_lock("update_checks", update_checks, (model_manager, now, theme_manager, frogpilot_toggles))
+      run_thread_with_lock("update_checks", update_checks, (model_manager, now, screen_off, theme_manager, frogpilot_toggles))
 
       if not frogpilot_toggles.use_frogpilot_server and use_frogpilot_server() and not started:
         HARDWARE.reboot()
@@ -231,7 +234,7 @@ def frogpilot_thread():
         continue
 
       theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
-      run_thread_with_lock("update_models", model_manager.update_models, (True,))
+      run_thread_with_lock("update_models", model_manager.update_models, (screen_off, True,))
       run_thread_with_lock("update_themes", theme_manager.update_themes, (frogpilot_toggles, True,))
 
 def main():

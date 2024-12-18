@@ -385,6 +385,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"MinimumBackupSize", PERSISTENT},
     {"MinimumLaneChangeSpeed", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
     {"Model", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
+    {"ModelDrivesAndScores", PERSISTENT | FROGPILOT_CONTROLS},
     {"ModelDownloadProgress", PERSISTENT},
     {"ModelName", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},
     {"ModelRandomizer", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_CONTROLS},

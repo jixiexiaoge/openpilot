@@ -96,8 +96,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("CENavigationIntersections", "0", 2),
   ("CENavigationLead", "1", 2),
   ("CENavigationTurns", "1", 2),
-  ("CertifiedHerbalistDrives", "0", 2),
-  ("CertifiedHerbalistScore", "0", 2),
   ("CESignalSpeed", "55", 2),
   ("CESignalLaneDetection", "1", 2),
   ("CESlowerLead", "0", 1),
@@ -130,11 +128,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("DisableOnroadUploads", "0", 2),
   ("DisableOpenpilotLongitudinal", "0", 2),
   ("DisengageVolume", "101", 2),
-  ("DissolvedOxygenDrives", "0", 2),
-  ("DissolvedOxygenScore", "0", 2),
   ("DriverCamera", "0", 1),
-  ("DuckAmigoDrives", "0", 2),
-  ("DuckAmigoScore", "0", 2),
   ("DynamicPathWidth", "0", 2),
   ("DynamicPedalsOnUI", "1", 2),
   ("EngageVolume", "101", 2),
@@ -184,8 +178,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("LongitudinalMetrics", "1", 3),
   ("LongitudinalTune", "1", 0),
   ("LongPitch", "1", 2),
-  ("LosAngelesDrives", "0", 2),
-  ("LosAngelesScore", "0", 2),
   ("LoudBlindspotAlert", "0", 0),
   ("LowVoltageShutdown", str(VBATT_PAUSE_CHARGING), 3),
   ("MapAcceleration", "0", 2),
@@ -198,6 +190,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("MaxDesiredAcceleration", "4.0", 3),
   ("MinimumLaneChangeSpeed", str(LANE_CHANGE_SPEED_MIN / CV.MPH_TO_MS), 2),
   ("Model", DEFAULT_CLASSIC_MODEL, 1),
+  ("ModelDrivesAndScores", "", 2),
   ("ModelName", DEFAULT_CLASSIC_MODEL_NAME, 1),
   ("ModelRandomizer", "0", 2),
   ("ModelUI", "1", 2),
@@ -210,10 +203,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("NNFF", "1", 2),
   ("NNFFLite", "1", 2),
   ("NoLogging", "0", 2),
-  ("NorthDakotaDrives", "0", 2),
-  ("NorthDakotaScore", "0", 2),
-  ("NotreDameDrives", "0", 2),
-  ("NotreDameScore", "0", 2),
   ("NoUploads", "0", 2),
   ("NudgelessLaneChange", "0", 0),
   ("NumericalTemp", "1", 3),
@@ -239,12 +228,8 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("QOLLongitudinal", "1", 2),
   ("QOLVisuals", "1", 0),
   ("RadarlessModels", "", 1),
-  ("RadicalTurtleDrives", "0", 2),
-  ("RadicalTurtleScore", "0", 2),
   ("RainbowPath", "0", 1),
   ("RandomEvents", "0", 1),
-  ("RecertifiedHerbalistDrives", "0", 2),
-  ("RecertifiedHerbalistScore", "0", 2),
   ("RefuseVolume", "101", 2),
   ("RelaxedFollow", "1.75", 2),
   ("RelaxedJerkAcceleration", "100", 3),
@@ -264,8 +249,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("ScreenTimeout", "30", 2),
   ("ScreenTimeoutOnroad", "30", 2),
   ("SearchInput", "0", 0),
-  ("SecretGoodOpenpilotDrives", "0", 2),
-  ("SecretGoodOpenpilotScore", "0", 2),
   ("SetSpeedLimit", "0", 2),
   ("SetSpeedOffset", "0", 2),
   ("ShowCPU", "1", 3),
@@ -339,8 +322,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("VoltSNG", "0", 2),
   ("WarningImmediateVolume", "101", 2),
   ("WarningSoftVolume", "101", 2),
-  ("WD40Drives", "0", 2),
-  ("WD40Score", "0", 2),
   ("WheelIcon", "frog", 0),
   ("WheelSpeed", "0", 2)
 ]
@@ -604,28 +585,28 @@ class FrogPilotVariables:
     toggle.model_randomizer = params.get_bool("ModelRandomizer") if tuning_level >= level["ModelRandomizer"] else default.get_bool("ModelRandomizer")
     if available_models:
       if toggle.model_randomizer:
-        blacklisted_models = (params.get("BlacklistedModels", encoding='utf-8') or "").split(',')
-        existing_models = [model for model in available_models.split(',') if model not in blacklisted_models and (MODELS_PATH / f"{model}.thneed").exists()]
-        toggle.model = random.choice(existing_models) if existing_models else default.Model
+        blacklisted_models = (params.get("BlacklistedModels", encoding='utf-8') or "").split(",")
+        existing_models = [model for model in available_models.split(",") if model not in blacklisted_models and (MODELS_PATH / f"{model}.thneed").exists()]
+        toggle.model = random.choice(existing_models) if existing_models else default.get("Model", encoding='utf-8')
       else:
         toggle.model = params.get("Model", encoding='utf-8') if tuning_level >= level["Model"] else default.get("Model", encoding='utf-8')
     else:
       toggle.model = default.get("Model", encoding='utf-8')
-    if available_models and available_model_names and toggle.model in available_models.split(',') and (MODELS_PATH / f"{toggle.model}.thneed").exists():
-      toggle.model_name = available_model_names.split(',')[available_models.split(',').index(toggle.model)]
+    if available_models and available_model_names and toggle.model in available_models.split(",") and (MODELS_PATH / f"{toggle.model}.thneed").exists():
+      toggle.model_name = available_model_names.split(",")[available_models.split(",").index(toggle.model)]
     else:
       toggle.model = default.get("Model", encoding='utf-8')
       toggle.model_name = default.get("ModelName", encoding='utf-8')
     classic_models = params.get("ClassicModels", encoding='utf-8') or ""
-    toggle.classic_model = classic_models and toggle.model in classic_models.split(',')
+    toggle.classic_model = classic_models and toggle.model in classic_models.split(",")
     clipped_curvature_models = params.get("ClippedCurvatureModels", encoding='utf-8') or ""
-    toggle.clipped_curvature_model = clipped_curvature_models and toggle.model in clipped_curvature_models.split(',')
+    toggle.clipped_curvature_model = clipped_curvature_models and toggle.model in clipped_curvature_models.split(",")
     desired_curvature_models = params.get("DesiredCurvatureModels", encoding='utf-8') or ""
-    toggle.desired_curvature_model = desired_curvature_models and toggle.model in desired_curvature_models.split(',')
+    toggle.desired_curvature_model = desired_curvature_models and toggle.model in desired_curvature_models.split(",")
     navigation_models = params.get("NavigationModels", encoding='utf-8') or ""
-    toggle.navigationless_model = navigation_models and toggle.model not in navigation_models.split(',')
+    toggle.navigationless_model = navigation_models and toggle.model not in navigation_models.split(",")
     radarless_models = params.get("RadarlessModels", encoding='utf-8') or ""
-    toggle.radarless_model = radarless_models and toggle.model in radarless_models.split(',')
+    toggle.radarless_model = radarless_models and toggle.model in radarless_models.split(",")
 
     toggle.model_ui = params.get_bool("ModelUI") if tuning_level >= level["ModelUI"] else default.get_bool("ModelUI")
     toggle.dynamic_path_width = toggle.model_ui and (params.get_bool("DynamicPathWidth") if tuning_level >= level["DynamicPathWidth"] else default.get_bool("DynamicPathWidth"))

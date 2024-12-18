@@ -26,7 +26,7 @@ def download_file(cancel_param, destination, progress_param, url, download_param
         for chunk in response.iter_content(chunk_size=16384):
           if params_memory.get_bool(cancel_param):
             temp_file_path.unlink(missing_ok=True)
-            params_memory.put(progress_param, "Download cancelled...")
+            handle_error(None, "Download cancelled...", "Download cancelled...", download_param, progress_param, params_memory)
             return
 
           if chunk:
