@@ -94,6 +94,8 @@ def update_wheel_image(image, holiday_theme="stock", random_event=True):
 
 class ThemeManager:
   def __init__(self):
+    self.downloading_theme = False
+
     self.theme_assets = {
       "holiday_theme": "",
       "color_scheme": "",
@@ -213,9 +215,12 @@ class ThemeManager:
       return False
 
   def download_theme(self, theme_component, theme_name, theme_param):
+    self.downloading_theme = True
+
     repo_url = get_repository_url()
     if not repo_url:
       handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", theme_param, DOWNLOAD_PROGRESS_PARAM, params_memory)
+      self.downloading_theme = False
       return
 
     if theme_component == "steering_wheels":
@@ -238,6 +243,7 @@ class ThemeManager:
 
       if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         handle_error(None, "Download cancelled...", "Download cancelled...", theme_param, DOWNLOAD_PROGRESS_PARAM, params_memory)
+        self.downloading_theme = False
         return
 
       if verify_download(theme_path, theme_url):
@@ -246,11 +252,14 @@ class ThemeManager:
           params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Unpacking theme...")
           extract_zip(theme_path, download_path)
         params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Downloaded!")
+        self.downloading_theme = False
         return
       elif self.handle_verification_failure(ext, theme_component, theme_name, theme_param, theme_path, download_path):
+        self.downloading_theme = False
         return
 
     handle_error(download_path, "Download failed...", "Download failed...", theme_param, DOWNLOAD_PROGRESS_PARAM, params_memory)
+    self.downloading_theme = False
 
   @staticmethod
   def fetch_assets(repo_url):
@@ -366,6 +375,9 @@ class ThemeManager:
         dir_path.unlink()
 
   def update_themes(self, frogpilot_toggles, boot_run=False):
+    if self.downloading_theme:
+      return
+
     repo_url = get_repository_url()
     if repo_url is None:
       print("GitHub and GitLab are offline...")
