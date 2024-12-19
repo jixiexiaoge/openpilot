@@ -21,6 +21,9 @@ DOWNLOAD_PROGRESS_PARAM = "ModelDownloadProgress"
 MODEL_DOWNLOAD_PARAM = "ModelToDownload"
 
 class ModelManager:
+  def __init__(self):
+    self.downloading_model = False
+
   @staticmethod
   def fetch_models(url):
     try:
@@ -69,19 +72,24 @@ class ModelManager:
 
     if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
       handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, params_memory)
+      self.downloading_model = False
       return
 
     if verify_download(model_path, model_url):
       print(f"Model {model} downloaded and verified successfully!")
       params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Downloaded!")
       params_memory.remove(MODEL_DOWNLOAD_PARAM)
+      self.downloading_model = False
     else:
       handle_error(model_path, "GitLab verification failed", "Verification failed", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, params_memory)
 
   def download_model(self, model_to_download):
+    self.downloading_model = True
+
     repo_url = get_repository_url()
     if not repo_url:
       handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, params_memory)
+      self.downloading_model = False
       return
 
     model_path = MODELS_PATH / f"{model_to_download}.thneed"
@@ -91,12 +99,14 @@ class ModelManager:
 
     if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
       handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, params_memory)
+      self.downloading_model = False
       return
 
     if verify_download(model_path, model_url):
       print(f"Model {model_to_download} downloaded and verified successfully!")
       params_memory.put(DOWNLOAD_PROGRESS_PARAM, "Downloaded!")
       params_memory.remove(MODEL_DOWNLOAD_PARAM)
+      self.downloading_model = False
     else:
       self.handle_verification_failure(model_to_download, model_path)
 
@@ -114,7 +124,7 @@ class ModelManager:
       shutil.copyfile(source_path, default_model_path)
       print(f"Copied the default model from {source_path} to {default_model_path}")
 
-  def check_models(self, available_models, boot_run, repo_url, screen_off):
+  def check_models(self, available_models, boot_run, repo_url):
     available_models = set(available_models) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
     downloaded_models = set(path.stem for path in MODELS_PATH.glob("*.thneed")) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
 
@@ -128,7 +138,7 @@ class ModelManager:
       if tmp_file.is_file():
         delete_file(tmp_file)
 
-    automatically_update_models = not boot_run and screen_off and params.get_bool("AutomaticallyUpdateModels")
+    automatically_update_models = not boot_run and params.get_bool("AutomaticallyUpdateModels")
     if not automatically_update_models:
       return
 
@@ -171,7 +181,10 @@ class ModelManager:
 
     return available_models
 
-  def update_models(self, screen_off, boot_run=False):
+  def update_models(self, boot_run=False):
+    if self.downloading_model:
+      return
+
     if boot_run:
       self.copy_default_model()
 
@@ -183,7 +196,7 @@ class ModelManager:
     model_info = self.fetch_models(f"{repo_url}/Versions/model_names_{VERSION}.json")
     if model_info:
       available_models = self.update_model_params(model_info, repo_url)
-      self.check_models(available_models, boot_run, repo_url, screen_off)
+      self.check_models(available_models, boot_run, repo_url)
 
   def queue_model_download(self, model, model_name=None):
     while params_memory.get(MODEL_DOWNLOAD_PARAM, encoding='utf-8'):
