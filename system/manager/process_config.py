@@ -109,6 +109,7 @@ procs = [
   NativeProcess("classic_modeld", "selfdrive/frogpilot/classic_modeld", ["./classic_modeld"], run_classic_modeld),
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", always_run),
   NativeProcess("frogpilot_modeld", "selfdrive/frogpilot/frogpilot_modeld", ["./frogpilot_modeld"], run_frogpilot_modeld),
+  PythonProcess("thepond", "selfdrive.frogpilot.thepond.thepond", always_run),
   PythonProcess("frogpilot_process", "selfdrive.frogpilot.frogpilot_process", always_run),
 ]
 
