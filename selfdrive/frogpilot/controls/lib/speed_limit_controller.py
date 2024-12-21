@@ -1,6 +1,8 @@
 # PFEIFER - SLC - Modified by FrogAi for FrogPilot
 import json
 
+from pathlib import Path
+
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import calculate_distance_to_point
 from openpilot.selfdrive.frogpilot.frogpilot_variables import TO_RADIANS, params, params_memory
 
@@ -10,12 +12,17 @@ class SpeedLimitController:
 
     self.desired_speed_limit = 0
     self.map_speed_limit = 0
+    self.previous_dashboard_speed_limit = 0
     self.speed_limit = 0
     self.upcoming_speed_limit = 0
 
     self.source = "None"
 
+    self.previous_position = None
     self.previous_speed_limit = params.get_float("PreviousSpeedLimit")
+
+    self.speed_limit_file_path = Path("/data/media/speed_limits.json")
+    self.speed_limit_file_path.parent.mkdir(parents=True, exist_ok=True)
 
   def update(self, dashboard_speed_limit, enabled, navigation_speed_limit, v_cruise, v_ego, frogpilot_toggles):
     self.update_map_speed_limit(v_ego, frogpilot_toggles)
@@ -25,6 +32,8 @@ class SpeedLimitController:
     self.desired_speed_limit = self.get_desired_speed_limit()
 
     self.experimental_mode = frogpilot_toggles.slc_fallback_experimental_mode and self.speed_limit == 0
+
+    self.update_speed_limit_map(dashboard_speed_limit)
 
   def get_desired_speed_limit(self):
     if self.speed_limit > 1:
@@ -103,3 +112,34 @@ class SpeedLimitController:
       return max_speed_limit
 
     return 0
+
+  def update_speed_limit_map(self, dashboard_speed_limit):
+    if dashboard_speed_limit == self.previous_dashboard_speed_limit or dashboard_speed_limit == 0 or params_memory.get_float("MapSpeedLimit") != 0:
+      return
+
+    if self.previous_dashboard_speed_limit is not None and self.previous_position is not None:
+      position = json.loads(params_memory.get("LastGPSPosition", "{}"))
+      latitude = position.get("latitude", 0)
+      longitude = position.get("longitude", 0)
+
+      zone = {
+        "speed_limit": self.previous_dashboard_speed_limit,
+        "start_latitude": self.previous_position.get("latitude", 0),
+        "start_longitude": self.previous_position.get("longitude", 0),
+        "end_latitude": latitude,
+        "end_longitude": longitude,
+      }
+
+      try:
+        with open(self.speed_limit_file_path, 'r') as f:
+          data = json.load(f)
+      except (FileNotFoundError, json.JSONDecodeError):
+        data = []
+
+      if zone not in data:
+        data.append(zone)
+        with open(self.speed_limit_file_path, 'w') as f:
+          json.dump(data, f, indent=2)
+
+      self.previous_dashboard_speed_limit = dashboard_speed_limit
+      self.previous_position = position
