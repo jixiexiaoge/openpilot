@@ -180,9 +180,9 @@ if ccflags_option:
 env = Environment(
   ENV=lenv,
   CCFLAGS=[
-    "-g",
+    "-g3",
     "-fPIC",
-    "-O2",
+    "-O0",
     "-Wunused",
     "-Werror",
     "-Wshadow",
