@@ -219,6 +219,8 @@ class CarrotMan:
     self.navi_points_start_index = 0
     self.navi_points_active = False
 
+    self.active_carrot_last = False
+
   def get_broadcast_address(self):
     if PC:
       iface = b'br0'
@@ -314,6 +316,9 @@ class CarrotMan:
       #curvature_cache.clear()
       self.navi_points = []
       self.navi_points_active = False
+      if self.active_carrot_last > 1:
+        self.params.remove("NavDestination")
+      self.active_carrot_last = self.carrot_serv.active_carrot
       return [],[],300
 
     current_position = (self.carrot_serv.vpPosPointLon, self.carrot_serv.vpPosPointLat)
@@ -394,6 +399,7 @@ class CarrotMan:
         curvatures = []
         speeds = []
         distances = []
+        self.params.remove("NavDestination")
 
     return resampled_points, resampled_distances, out_speed #speeds, distances
 
@@ -1431,7 +1437,7 @@ class CarrotServ:
         source = "gas"
         desired_speed = self.gas_override_speed
 
-      self.debugText = f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
+      self.debugText = ""#f"desired={desired_speed:.1f},{source},g={self.gas_override_speed:.0f}"
 
     left_spd_sec = 100
     left_tbt_sec = 100

@@ -44,6 +44,7 @@ def get_default_params():
     ("ShowCustomBrightness", "100"),
     ("ShowLaneInfo", "1"),
     ("ShowRadarInfo", "1"),
+    ("ShowRouteInfo", "1"),
     ("ShowPathMode", "9"),
     ("ShowPathColor", "13"),
     ("ShowPathModeCruiseOff", "0"),
@@ -121,6 +122,7 @@ def get_default_params():
     ("LaneChangeNeedTorque", "0"),
     ("MaxAngleFrames", "89"),
     ("CarrotLatControl", "0"),
+    ("CarrotLatFilter", "0"),
     ("DampingFactor", "0"),
     ("LateralTorqueCustom", "0"),
     ("LateralTorqueAccelFactor", "2500"),
@@ -319,6 +321,7 @@ def main() -> None:
   os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
   os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
   os.system(f"python ../../opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
+  os.system(f"python ../../opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
 
   if os.getenv("PREPAREONLY") is not None:
     return

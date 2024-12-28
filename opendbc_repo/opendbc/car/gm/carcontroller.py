@@ -5,7 +5,7 @@ from opendbc.can.packer import CANPacker
 from opendbc.car import Bus, DT_CTRL, apply_driver_steer_torque_limits, structs, create_gas_interceptor_command
 from opendbc.car.gm import gmcan
 from opendbc.car.common.conversions import Conversions as CV
-from opendbc.car.gm.values import DBC, CanBus, CarControllerParams, CruiseButtons, GMFlags, CC_ONLY_CAR, SDGM_CAR, EV_CAR, AccState, CC_REGEN_PADDLE_CAR
+from opendbc.car.gm.values import DBC, CanBus, CarControllerParams, CruiseButtons, GMFlags, CC_ONLY_CAR, SDGM_CAR, EV_CAR, AccState, CC_REGEN_PADDLE_CAR, CAR
 from opendbc.car.common.numpy_fast import interp, clip
 from opendbc.car.interfaces import CarControllerBase
 from openpilot.selfdrive.controls.lib.drive_helpers import apply_deadzone
@@ -135,21 +135,25 @@ class CarController(CarControllerBase):
 
     if self.CP.openpilotLongitudinalControl:
 
-      # Auto Cruise
-      if CS.out.activateCruise and not CS.out.cruiseState.enabled:
-        self.activateCruise_after_brake = False
-        if (self.frame - self.last_button_frame) * DT_CTRL > 0.03:
-          can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, (CS.buttons_counter + 1) % 4, CruiseButtons.DECEL_SET))
-          self.last_button_frame = self.frame
-      # GM: AutoResume
-      elif actuators.longControlState == LongCtrlState.starting:
-        if CS.out.cruiseState.enabled and not self.activateCruise_after_brake:
-          idx = (self.frame // 4) % 4
-          brake_force = -0.5
-          apply_brake = self.brake_input(brake_force)
-          can_sends.append(gmcan.create_brake_command(self.packer_pt, CanBus.POWERTRAIN, apply_brake, idx))
-          Params().put_bool_nonblocking("ActivateCruiseAfterBrake", True)
-          self.activateCruise_after_brake = True
+      if self.CP.carFingerprint in (CAR.CHEVROLET_VOLT):
+        # Auto Cruise
+        if CS.out.activateCruise and not CS.out.cruiseState.enabled:
+          self.activateCruise_after_brake = False
+          if (self.frame - self.last_button_frame) * DT_CTRL > 0.03:
+            can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, (CS.buttons_counter + 1) % 4, CruiseButtons.DECEL_SET))
+            self.last_button_frame = self.frame
+        # GM: AutoResume
+        elif actuators.longControlState == LongCtrlState.starting:
+          if CS.out.cruiseState.enabled and not self.activateCruise_after_brake:
+            idx = (self.frame // 4) % 4
+            brake_force = -0.5
+            apply_brake = self.brake_input(brake_force)
+            can_sends.append(gmcan.create_brake_command(self.packer_pt, CanBus.POWERTRAIN, apply_brake, idx))
+            Params().put_bool_nonblocking("ActivateCruiseAfterBrake", True)
+            self.activateCruise_after_brake = True
+      else:
+        if CS.out.activateCruise and not CS.out.cruiseState.enabled:
+          can_sends.append(gmcan.create_buttons(self.packer_pt, CanBus.POWERTRAIN, CS.buttons_counter, CruiseButtons.DECEL_SET))
         
       # Gas/regen, brakes, and UI commands - all at 25Hz
       if self.frame % 4 == 0:

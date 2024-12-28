@@ -104,7 +104,7 @@ def create_steering_messages_camera_scc(packer, CP, CAN, enabled, lat_active, ap
     apply_angle = clip(apply_angle, -119, 119)
       
     values = {
-      "LKAS_ANGLE_ACTIVE": 1 if abs(CS.out.steeringAngleDeg) > 110.0 else 2,
+      "LKAS_ANGLE_ACTIVE": 2 if abs(CS.out.steeringAngleDeg) < 110.0 and lat_active else 1,
       "LKAS_ANGLE_CMD": -apply_angle,
       "TORQUE_MAYBE": max_torque if lat_active else 0,
     }
@@ -208,6 +208,14 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
       # a torque scale value? ramps up when steering, highest seen is 234
       # "UNKNOWN": 50 if lat_active and not steering_pressed else 0,
       "UNKNOWN": max_torque if lat_active else 0,
+
+      # test for EV6PE
+      "NEW_SIGNAL_1": 10, #2,
+      "VALUE104": 9,
+      "VALUE231": 146,
+      "VALUE239": 1,
+      "VALUE247": 255,
+      "VALUE255": 255,
     }
   else:
     values = {

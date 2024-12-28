@@ -54,8 +54,8 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, CP):
 from openpilot.common.params import Params
 def get_accel_from_plan(speeds, accels, jerks, action_t=DT_MDL, vEgoStopping=0.05):
   if len(speeds) == CONTROL_N:
-    v_now = interp(DT_MDL, CONTROL_N_T_IDX, speeds)
-    a_now = interp(DT_MDL, CONTROL_N_T_IDX, accels)
+    v_now = speeds[0]
+    a_now = accels[0]
 
     v_target = interp(action_t, CONTROL_N_T_IDX, speeds)
     j_target = interp(action_t, CONTROL_N_T_IDX, jerks)

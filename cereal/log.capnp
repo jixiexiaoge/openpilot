@@ -1364,6 +1364,8 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
 
   latDebugText @34 :Text;
 
+  position @35 :XYZTData;
+
   struct SolverState {
     x @0 :List(List(Float32));
     u @1 :List(Float32);

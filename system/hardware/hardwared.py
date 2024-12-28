@@ -161,13 +161,19 @@ def hw_state_thread(end_event, hw_queue):
     count += 1
     time.sleep(DT_HW)
 
+from openpilot.system.manager.manager import set_default_params
 def update_restart_condition(current_time, restart_triggered_ts, params, onroad_conditions):
   if current_time - restart_triggered_ts < 5.:
     onroad_conditions["not_restart_triggered"] = False
   else:
     onroad_conditions["not_restart_triggered"] = True
-    if params.get_bool("SoftRestartTriggered"):
-      params.put_bool("SoftRestartTriggered", False)
+    softRestartTriggered = params.get_int("SoftRestartTriggered")
+    if softRestartTriggered > 0:
+      if softRestartTriggered == 2:
+        print("Parameter set to default")
+        set_default_params()
+        
+      params.put_int("SoftRestartTriggered", 0)
       restart_triggered_ts = current_time
   return restart_triggered_ts
 

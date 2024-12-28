@@ -275,6 +275,7 @@ def addr_input():
   PrimeType = fleet.get_PrimeType()
   lon = 0.0
   lat = 0.0
+  print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}, PrimeType: {PrimeType}")
   if request.method == 'POST':
     valid_addr = False
     postvars = request.form.to_dict()
@@ -289,8 +290,8 @@ def addr_input():
       return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
     else:
       return render_template("error.html")
-  elif PrimeType != 0:
-    return render_template("prime.html")
+  #elif PrimeType != 0:
+  #  return render_template("prime.html")
   # amap stuff
   elif SearchInput == 1:
     amap_key, amap_key_2 = fleet.get_amap_key()
@@ -302,7 +303,7 @@ def addr_input():
       return redirect(url_for('app_token_input'))
     else:
       return redirect(url_for('amap_addr_input'))
-  elif fleet.get_nav_active():
+  elif False: #fleet.get_nav_active(): # carrot: 그냥지움... 이것때문에 토큰을 안물어보는듯...
     if SearchInput == 2:
       return render_template("nonprime.html",
                              gmap_key=gmap_key, lon=lon, lat=lat,

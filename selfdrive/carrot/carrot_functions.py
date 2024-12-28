@@ -211,7 +211,7 @@ class CarrotPlanner:
     return stop_x
 
 
-  def check_model_stopping(self, v, v_ego, model_x, y, d_rel):
+  def check_model_stopping(self, v, v_ego, a_ego, model_x, y, d_rel):
     v_ego_kph = v_ego * CV.MS_TO_KPH
     model_v = self.vFilter.process(v[-1])
     startSign = model_v > 5.0 or model_v > (v[0]+2)
@@ -223,6 +223,9 @@ class CarrotPlanner:
                   model_x < interp(v[0], [60/3.6, 80/3.6], [120.0, 150]) and
                   ((model_v < 3.0) or (model_v < v[0]*0.7)) and
                   abs(y[-1]) < 5.0)
+      # 정상주행중 감속하는 경우(카메라 감속등), 오감지가 많음.
+      if self.xState == XState.e2eCruise and a_ego < -1.0:
+        stopSign = False
     else:
       stopSign = False
 
@@ -317,6 +320,7 @@ class CarrotPlanner:
     self.comfort_brake = self.comfortBrake
 
     v_ego = carstate.vEgo
+    a_ego = carstate.aEgo
     v_ego_kph = v_ego * CV.MS_TO_KPH
     v_ego_cluster = carstate.vEgoCluster
     v_ego_cluster_kph = v_ego_cluster * CV.MS_TO_KPH
@@ -350,7 +354,7 @@ class CarrotPlanner:
     stop_model_x = self.xStop
 
     #self.check_model_stopping(v, v_ego, self.xStop, y)
-    self.check_model_stopping(v, v_ego, x[-1], y, radarstate.leadOne.dRel if lead_detected else 1000)
+    self.check_model_stopping(v, v_ego, a_ego, x[-1], y, radarstate.leadOne.dRel if lead_detected else 1000)
 
     if self.myDrivingMode == DrivingMode.High or self.trafficLightDetectMode == 0:
       self.trafficState = TrafficState.off
@@ -388,7 +392,7 @@ class CarrotPlanner:
       else:
         if self.trafficState == TrafficState.green:
           self.events.add(EventName.trafficSignGreen)
-          self.xState = XState.e2ePrepare
+          self.xState = XState.e2eCruise
         else:
           self.comfort_brake = self.comfortBrake * 0.9
           #self.comfort_brake = COMFORT_BRAKE
@@ -406,7 +410,7 @@ class CarrotPlanner:
         self.xState = XState.lead
       elif v_ego_kph < 5.0 and self.trafficState != TrafficState.green:
         self.xState = XState.e2eStop
-        self.actual_stop_distance = 2.0
+        self.actual_stop_distance = 5.0 #2.0
       elif v_ego_kph > 5.0: # and stop_model_x > 30.0:
         self.xState = XState.e2eCruise
     else: #XState.lead, XState.cruise, XState.e2eCruise

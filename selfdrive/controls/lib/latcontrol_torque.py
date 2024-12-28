@@ -40,7 +40,6 @@ class LatControlTorque(LatControl):
     self.latAccelFactor_default = self.torque_params.latAccelFactor
     self.latAccelOffset_default = self.torque_params.latAccelOffset
     self.friction_default = self.torque_params.friction
-    self.carrotLatControl = False
     self.dampingFactor = 0
     self.error_last = 0.0
 
@@ -57,7 +56,6 @@ class LatControlTorque(LatControl):
     self.frame += 1
     if self.frame % 10 == 0:
       lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
-      self.carrotLatControl = self.params.get_bool("CarrotLatControl")
       self.dampingFactor = self.params.get_float("DampingFactor") * 0.01
       if lateralTorqueCustom > 0:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
@@ -76,7 +74,11 @@ class LatControlTorque(LatControl):
     if not active:
       output_torque = 0.0
       pid_log.active = False
+      angle_steers_des = float(CS.steeringAngleDeg)
     else:
+      angle_steers_des = math.degrees(VM.get_steer_from_curvature(-desired_curvature, CS.vEgo, params.roll))
+      angle_steers_des += params.angleOffsetDeg
+
       actual_curvature_vm = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       if self.use_steering_angle:
@@ -96,10 +98,7 @@ class LatControlTorque(LatControl):
 
       low_speed_factor = interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
       desired_lateral_accel_now = desired_curvature_now * CS.vEgo ** 2
-      if self.carrotLatControl:
-        setpoint = desired_lateral_accel_now + low_speed_factor * desired_curvature_now
-      else:
-        setpoint = desired_lateral_accel + low_speed_factor * desired_curvature
+      setpoint = desired_lateral_accel_now + low_speed_factor * desired_curvature_now
       measurement = actual_lateral_accel + low_speed_factor * actual_curvature
       gravity_adjusted_lateral_accel = desired_lateral_accel - roll_compensation
       torque_from_setpoint = self.torque_from_lateral_accel(LatControlInputs(setpoint, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
@@ -133,4 +132,4 @@ class LatControlTorque(LatControl):
       pid_log.saturated = self._check_saturation(self.steer_max - abs(output_torque) < 1e-3, CS, steer_limited)
 
     # TODO left is positive in this convention
-    return -output_torque, 0.0, pid_log
+    return -output_torque,angle_steers_des, pid_log

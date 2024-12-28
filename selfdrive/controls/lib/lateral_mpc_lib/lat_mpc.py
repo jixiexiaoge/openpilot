@@ -166,7 +166,26 @@ class LateralMpc:
       self.solver.cost_set(i, 'W', W)
     self.solver.cost_set(N, 'W', W[:COST_E_DIM,:COST_E_DIM])
 
-  def run(self, x0, p, y_pts, heading_pts, yaw_rate_pts):
+  def run(self, x0, p, y_pts, heading_pts, yaw_rate_pts, lat_filter):
+    if lat_filter > 0:
+      #def moving_average(data, window_size):
+      #    kernel = np.ones(window_size) / window_size
+      #    return np.convolve(data, kernel, mode='same')
+      def moving_average(data, window_size):
+        kernel = np.ones(window_size) / window_size
+        smoothed = np.convolve(data, kernel, mode='same')
+
+        # 가장자리 보정
+        half_window = window_size // 2
+        smoothed[:half_window] = np.cumsum(data[:window_size])[:half_window] / np.arange(1, half_window + 1)
+        smoothed[-half_window:] = np.cumsum(data[-window_size:][::-1])[:half_window][::-1] / np.arange(1, half_window + 1)
+        return smoothed
+
+      window_size = lat_filter
+      y_pts = moving_average(y_pts, window_size)
+      heading_pts = moving_average(heading_pts, window_size)
+      yaw_rate_pts = moving_average(yaw_rate_pts, window_size)
+
     x0_cp = np.copy(x0)
     p_cp = np.copy(p)
     self.solver.constraints_set(0, "lbx", x0_cp)

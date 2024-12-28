@@ -241,12 +241,12 @@ void OnroadWindow::offroadTransition(bool offroad) {
       mapDialog->setContent(m);
 
       // 특정 위치에 배치 (오른쪽 하단)
-      mapDialog->setGeometry(topWidget(this)->width() - 790 - UI_BORDER_SIZE, UI_BORDER_SIZE + 10, 780, topWidget(this)->height() - 400);
+      mapDialog->setGeometry(topWidget(this)->width() - 790 - UI_BORDER_SIZE, UI_BORDER_SIZE + 15, 775, topWidget(this)->height() - 400);
 
-      mapDialog->hide(); // 기본적으로 숨김 상태
+      //mapDialog->hide(); // 기본적으로 숨김 상태
       mapDialog->show();
       mapDialog->raise();
-      uiState()->scene._current_carrot_display = 3;
+      uiState()->scene._current_carrot_display = 1;
 
 #endif
     }

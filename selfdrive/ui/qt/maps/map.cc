@@ -35,7 +35,7 @@ MapWindow::MapWindow(const QMapLibre::Settings &settings) : m_settings(settings)
   map_eta->setFixedHeight(120);
 
   error = new QLabel(this);
-  error->setStyleSheet(R"(color:white;padding:50px 11px;font-size: 90px; background-color:rgba(0, 0, 0, 150);)");
+  error->setStyleSheet(R"(color:white;padding:50px 11px;font-size: 60px; background-color:rgba(0, 0, 0, 150);)");
   error->setAlignment(Qt::AlignCenter);
 
   overlay_layout->addWidget(error);
@@ -219,7 +219,7 @@ void MapWindow::updateState(const UIState &s) {
   initLayers();
 
   if (!locationd_valid) {
-    setError(tr("Waiting for CarrotMan"));
+    setError(tr("Waiting for APN"));
   } else if (routing_problem) {
     setError(tr("Waiting for route"));
   } else {
@@ -309,7 +309,7 @@ void MapWindow::initializeGL() {
   }
 
   //m_map->setMargins({ 0, 350, 0, 50 });
-  m_map->setMargins({ 0, 300, 0, 50 });
+  m_map->setMargins({ 0, 250, 0, 50 });
   m_map->setPitch(MIN_PITCH);
   
   // carrot

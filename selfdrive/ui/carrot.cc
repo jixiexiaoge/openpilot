@@ -332,6 +332,7 @@ protected:
         const auto velocity = model.getVelocity();
 
         auto lead_radar = sm["radarState"].getRadarState().getLeadOne();
+        auto live_params = sm["liveParameters"].getLiveParameters();
 
         // 0: yellow, 1: green, 2: orange
         switch (show_plot_mode) {
@@ -371,6 +372,12 @@ protected:
             data[1] = torque_state.getDesiredLateralAccel() * 10.0;
             data[2] = torque_state.getOutput() * 10.0;
             sprintf(title, "6.Steer(Y:actual, G:desire, O:output)");
+            break;
+        case 7:
+            data[0] = car_state.getSteeringAngleDeg();
+            data[1] = car_control.getActuators().getSteeringAngleDeg();
+            data[2] = live_params.getAngleOffsetDeg() * 10.0;
+            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset*10)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
@@ -1046,11 +1053,6 @@ protected:
           ui_draw_text(s, tbt_x + 20, tbt_y - 15, szTBTMainText.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
           //ui_draw_text(s, tbt_x + 190, tbt_y - 5, szPosRoadName.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
         }
-        if (false && szPosRoadName.length() > 0) {
-          nvgTextAlign(s->vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
-          ui_draw_text(s, tbt_x + 90, tbt_y - 15, szPosRoadName.toStdString().c_str(), 30, COLOR_WHITE, BOLD);
-          //ui_draw_text(s, tbt_x + 190, tbt_y - 5, szPosRoadName.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
-        }
 
         if(xTurnInfo > 0) {
             nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BOTTOM);
@@ -1086,6 +1088,11 @@ protected:
             ui_fill_rect(s->vg, { (int)bounds[0] - 10, (int)bounds[1] - 2, (int)text_width + 20, (int)text_height + 13 }, COLOR_GREEN, 10);
             ui_draw_text(s, tbt_x + 200, tbt_y + 200, szSdiDescr.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
         }
+        else if (szPosRoadName.length() > 0) {
+          ui_draw_text(s, tbt_x + 200, tbt_y + 200, szPosRoadName.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
+          //ui_draw_text(s, tbt_x + 190, tbt_y - 5, szPosRoadName.toStdString().c_str(), 40, COLOR_WHITE, BOLD);
+        }
+
         if (nGoPosDist > 0 && nGoPosTime > 0) {
             time_t now = time(NULL);  // 현재 시간 얻기
             struct tm* local = localtime(&now);
@@ -1569,6 +1576,9 @@ protected:
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         active_lane_line = sm["controlsState"].getControlsState().getActiveLaneLine();
         auto model_position = model.getPosition();
+        if (active_lane_line) {
+          model_position = sm["lateralPlan"].getLateralPlan().getPosition();
+        }
         float max_distance = s->max_distance;
         max_distance -= 2.0;
         int max_idx = get_path_length_idx(model_position, max_distance);
@@ -1907,6 +1917,7 @@ public:
         auto lead_one = radar_state.getLeadOne();
         auto model_position = model.getPosition();
         const auto lane_lines = model.getLaneLines();
+        nav_path_display = params.getInt("ShowRouteInfo");
 
         if (!cs_alive || !car_control_alive || !car_state_alive || !lp_alive) return;
         auto selfdrive_state = sm["selfdriveState"].getSelfdriveState();
@@ -2342,7 +2353,12 @@ public:
 
             }
             if (show_datetime == 1 || show_datetime == 3) {
-                strftime(str, sizeof(str), "%m-%d-%a", local);
+                //strftime(str, sizeof(str), "%m-%d-%a", local);
+                const char* weekdays_ko[] = { "일", "월", "화", "수", "목", "금", "토" };
+                strftime(str, sizeof(str), "%m-%d", local); // 날짜만 가져옴
+                int weekday_index = local->tm_wday; // tm_wday: 0=일, 1=월, ..., 6=토
+                snprintf(str + strlen(str), sizeof(str) - strlen(str), "(%s)", weekdays_ko[weekday_index]);
+
                 ui_draw_text(s, x, y + 70, str, 60, COLOR_WHITE, BOLD, 3.0f, 8.0f);
                 nav_y += 70;
             }

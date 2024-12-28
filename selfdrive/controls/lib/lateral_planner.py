@@ -71,6 +71,7 @@ class LateralPlanner:
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
     self.curve_speed = 0
+    self.carrot_lat_filter = 0
 
   def reset_mpc(self, x0=None):
     if x0 is None:
@@ -89,6 +90,7 @@ class LateralPlanner:
       LATERAL_ACCEL_COST = self.params.get_float("LatMpcAccelCost") * 0.01
       LATERAL_JERK_COST = self.params.get_float("LatMpcJerkCost") * 0.01
       STEERING_RATE_COST = self.params.get_float("LatMpcSteeringRateCost")
+      self.carrot_lat_filter = self.params.get_int("CarrotLatFilter")
 
     # clip speed , lateral planning is not possible at 0 speed
     measured_curvature = sm['controlsState'].curvature
@@ -155,7 +157,8 @@ class LateralPlanner:
                      p,
                      y_pts,
                      heading_pts,
-                     yaw_rate_pts)
+                     yaw_rate_pts,
+                     self.carrot_lat_filter)
     # init state for next iteration
     # mpc.u_sol is the desired second derivative of psi given x0 curv state.
     # with x0[3] = measured_yaw_rate, this would be the actual desired yaw rate.
@@ -214,6 +217,11 @@ class LateralPlanner:
     #plan_send.lateralPlan.dPathWLinesY = [float(y) for y in self.d_path_w_lines_xyz[:, 1]]
     #lateralPlan.laneWidthLeft = float(self.DH.lane_width_left)
     #lateralPlan.laneWidthRight = float(self.DH.lane_width_right)
+
+    lateralPlan.position.x = self.x_sol[:, 0].tolist()
+    lateralPlan.position.y = self.x_sol[:, 1].tolist()
+    lateralPlan.position.z = self.path_xyz[:, 2].tolist()
+    #lateralPlan.distances = self.lat_mpc.x_sol[0:CONTROL_N, 0].tolist()
 
     self.x_sol = self.lat_mpc.x_sol
 

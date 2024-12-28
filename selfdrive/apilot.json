@@ -68,6 +68,19 @@
     },
     {
       "group": "조향튜닝",
+      "name": "CarrotLatFilter",
+      "title": "*당근조향필터(0)",
+      "descr": "0:Default",
+      "egroup": "LAT",
+      "etitle": "*Carrot Lat Filter(0)",
+      "edescr": "",
+      "min": 0,
+      "max": 10,
+      "default": 0,
+      "unit": 1
+    },
+    {
+      "group": "조향튜닝",
       "name": "LatMpcPathCost",
       "title": "*LATMPC.PathCost(100)",
       "descr": "경로추종가중치, 높으면 경로우선시함.",
@@ -779,6 +792,19 @@
       "edescr": "",
       "min": 0,
       "max": 3,
+      "default": 0,
+      "unit": 1
+    },
+    {
+      "group": "화면",
+      "name": "ShowRouteInfo",
+      "title": "경로AR표시(0)",
+      "descr": "0:안함,1:표시함",
+      "egroup": "DISP",
+      "etitle": "Show Route Info",
+      "edescr": "",
+      "min": 0,
+      "max": 1,
       "default": 0,
       "unit": 1
     },

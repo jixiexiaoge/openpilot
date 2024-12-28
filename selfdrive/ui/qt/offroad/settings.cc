@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <QDebug>
+#include <QProcess>
 
 #include "common/watchdog.h"
 #include "common/util.h"
@@ -211,14 +212,81 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
       connect(uiState(), &UIState::offroadTransition, poweroff_btn, &QPushButton::setVisible);
   }
 
+  addItem(power_layout);
+
+  QHBoxLayout* init_layout = new QHBoxLayout();
+  init_layout->setSpacing(30);
+
+  QPushButton* init_btn = new QPushButton(tr("Git Pull & Reboot"));
+  init_btn->setObjectName("init_btn");
+  init_layout->addWidget(init_btn);
+  //QObject::connect(init_btn, &QPushButton::clicked, this, &DevicePanel::reboot);
+  QObject::connect(init_btn, &QPushButton::clicked, [&]() {
+    if (ConfirmationDialog::confirm(tr("Git pull & Reboot?"), tr("Yes"), this)) {
+
+      QProcess process;
+      process.start("git", QStringList() << "fetch");
+      process.waitForFinished();
+
+      if (process.exitCode() != 0) {
+        ConfirmationDialog::alert(tr("Failed to fetch updates."), this);
+        return;
+      }
+
+      // Git status to check if there are new updates
+      process.start("git", QStringList() << "status" << "-uno");
+      process.waitForFinished();
+
+      QString output = process.readAllStandardOutput();
+      if (!output.contains("Your branch is behind")) {
+        ConfirmationDialog::alert(tr("Already up to date."), this);
+        return;
+      }
+
+      // Git pull to apply updates
+      process.start("git", QStringList() << "pull");
+      process.waitForFinished();
+
+      if (process.exitCode() != 0) {
+        ConfirmationDialog::alert(tr("Git pull failed. Please check the logs."), this);
+        return;
+      }
+
+      ConfirmationDialog::alert(tr("Git pull successful. Rebooting..."), this);
+
+      //emit parent->closeSettings();
+      //DevicePanel::reboot();
+      params.putBool("DoReboot", true);
+
+    }
+    });
+
+  QPushButton* default_btn = new QPushButton(tr("Set default"));
+  default_btn->setObjectName("default_btn");
+  init_layout->addWidget(default_btn);
+  //QObject::connect(default_btn, &QPushButton::clicked, this, &DevicePanel::poweroff);
+  QObject::connect(default_btn, &QPushButton::clicked, [&]() {
+    if (ConfirmationDialog::confirm(tr("Set to default?"), tr("Yes"), this)) {
+      //emit parent->closeSettings();
+      QTimer::singleShot(1000, []() {
+        printf("Set to default\n");
+        Params().putInt("SoftRestartTriggered", 2);
+        printf("Set to default2\n");
+        });
+    }
+    });
+
   setStyleSheet(R"(
     #reboot_btn { height: 120px; border-radius: 15px; background-color: #2CE22C; }
     #reboot_btn:pressed { background-color: #24FF24; }
     #poweroff_btn { height: 120px; border-radius: 15px; background-color: #E22C2C; }
     #poweroff_btn:pressed { background-color: #FF2424; }
+    #init_btn { height: 120px; border-radius: 15px; background-color: #2C2CE2; }
+    #init_btn:pressed { background-color: #2424FF; }
+    #default_btn { height: 120px; border-radius: 15px; background-color: #BDBDBD; }
+    #default_btn:pressed { background-color: #A9A9A9; }
   )");
-  addItem(power_layout);
-
+  addItem(init_layout);
 
   pair_device = new ButtonControl(tr("Pair Device"), tr("PAIR"),
                                   tr("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer."));
@@ -248,7 +316,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
       params.remove("LiveTorqueParameters");
       emit parent->closeSettings();
       QTimer::singleShot(1000, []() {
-        Params().putBool("SoftRestartTriggered", true);
+        Params().putInt("SoftRestartTriggered", 1);
       });
     }
   });
@@ -638,6 +706,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   //dispToggles->addItem(new CValueControl("ShowGapInfo", "DISP:GAP Info", "0:None,1:Display", "../assets/offroad/icon_shell.png", -1, 1, 1));
   //dispToggles->addItem(new CValueControl("ShowDmInfo", "DISP:DM Info", "0:None,1:Display,-1:Disable(Reboot)", "../assets/offroad/icon_shell.png", -1, 1, 1));
   dispToggles->addItem(new CValueControl("ShowRadarInfo", "DISP:Radar Info", "0:None,1:Display,2:RelPos,3:Stopped Car", "../assets/offroad/icon_shell.png", 0, 3, 1));
+  dispToggles->addItem(new CValueControl("ShowRouteInfo", "DISP:Route Info", "0:None,1:Display", "../assets/offroad/icon_shell.png", 0, 1, 1));
   dispToggles->addItem(new CValueControl("ShowPlotMode", "DISP:Debug plot", "", "../assets/offroad/icon_shell.png", 0, 10, 1));
   dispToggles->addItem(new CValueControl("ShowCustomBrightness", "Brightness ratio", "", "../assets/offroad/icon_brightness.png", 0, 100, 10));
 
@@ -670,6 +739,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     QStringList all_items = get_list((QString::fromStdString(Params().getParamPath()) + "/SupportedCars").toStdString().c_str());
     all_items.append(get_list((QString::fromStdString(Params().getParamPath()) + "/SupportedCars_gm").toStdString().c_str()));
     all_items.append(get_list((QString::fromStdString(Params().getParamPath()) + "/SupportedCars_toyota").toStdString().c_str()));
+    all_items.append(get_list((QString::fromStdString(Params().getParamPath()) + "/SupportedCars_mazda").toStdString().c_str()));
 
     QMap<QString, QStringList> car_groups;
     for (const QString& car : all_items) {
@@ -694,7 +764,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
           printf("Selected Car: %s\n", selectedCar.toStdString().c_str());
           Params().put("CarSelected3", selectedCar.toStdString());
           QTimer::singleShot(1000, []() {
-            Params().putBool("SoftRestartTriggered", true);
+            Params().putInt("SoftRestartTriggered", 1);
           });
           ConfirmationDialog::alert(selectedCar, this);
         }
@@ -715,12 +785,12 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   startToggles->addItem(new CValueControl("AutoGasTokSpeed", "Auto AccelTok speed", "Gas(Accel)Tok enable speed", "../assets/offroad/icon_road.png", 0, 200, 5));
   startToggles->addItem(new ParamControl("AutoGasSyncSpeed", "Auto update Cruise speed", "", "../assets/offroad/icon_road.png", this));
   startToggles->addItem(new CValueControl("SpeedFromPCM", "Read Cruise Speed from PCM", "Toyota must set to 1, Honda 3", "../assets/offroad/icon_road.png", 0, 3, 1));
-  startToggles->addItem(new CValueControl("SoundVolumeAdjust", "Adjust Sound Volume(100%)", "", "../assets/offroad/icon_sound.png", 5, 200, 5));
-  startToggles->addItem(new CValueControl("SoundVolumeAdjustEngage", "Adjust Sound Volume, Engage(10%)", "", "../assets/offroad/icon_sound.png", 5, 200, 5));
+  startToggles->addItem(new CValueControl("SoundVolumeAdjust", "Sound Volume(100%)", "", "../assets/offroad/icon_sound.png", 5, 200, 5));
+  startToggles->addItem(new CValueControl("SoundVolumeAdjustEngage", "Sound Volume, Engage(10%)", "", "../assets/offroad/icon_sound.png", 5, 200, 5));
   startToggles->addItem(new CValueControl("MaxTimeOffroadMin", "Power off time (min)", "", "../assets/offroad/icon_sandtimer.png", 1, 600, 10));
   startToggles->addItem(new ParamControl("DisableDM", "Disable DM", "", "../assets/img_driver_face_static_x.png", this));
   //startToggles->addItem(new CValueControl("CarrotCountDownSpeed", "NaviCountDown Speed(10)", "", "../assets/offroad/icon_shell.png", 0, 200, 5));
-  //startToggles->addItem(new CValueControl("MapboxStyle", "Mapbox Style(0)", "", "../assets/offroad/icon_shell.png", 0, 2, 1));
+  startToggles->addItem(new CValueControl("MapboxStyle", "Mapbox Style(0)", "", "../assets/offroad/icon_shell.png", 0, 2, 1));
   startToggles->addItem(new ParamControl("HotspotOnBoot", "Hotspot enabled on boot", "", "../assets/offroad/icon_shell.png", this));
   //startToggles->addItem(new ParamControl("NoLogging", "Disable Logger", "", "../assets/offroad/icon_shell.png", this));
   //startToggles->addItem(new ParamControl("LaneChangeNeedTorque", "LaneChange: Need Torque", "", "../assets/offroad/icon_shell.png", this));
