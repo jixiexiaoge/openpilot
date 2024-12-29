@@ -219,7 +219,7 @@ void MapWindow::updateState(const UIState &s) {
   initLayers();
 
   if (!locationd_valid) {
-    setError(tr("Waiting for CarrotMan"));
+    setError(tr("Waiting for APN"));
   } else if (routing_problem) {
     setError(tr("Waiting for route"));
   } else {
