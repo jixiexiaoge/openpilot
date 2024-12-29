@@ -290,8 +290,8 @@ def addr_input():
       return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
     else:
       return render_template("error.html")
-  elif PrimeType != 0:
-    return render_template("prime.html")
+  #elif PrimeType != 0:
+  #  return render_template("prime.html")
   # amap stuff
   elif SearchInput == 1:
     amap_key, amap_key_2 = fleet.get_amap_key()
