@@ -256,6 +256,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
 
       //emit parent->closeSettings();
       DevicePanel::reboot();
+
     }
     });
 
