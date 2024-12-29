@@ -275,6 +275,7 @@ def addr_input():
   PrimeType = fleet.get_PrimeType()
   lon = 0.0
   lat = 0.0
+  print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}, PrimeType: {PrimeType}")
   if request.method == 'POST':
     valid_addr = False
     postvars = request.form.to_dict()
