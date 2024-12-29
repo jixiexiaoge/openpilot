@@ -399,6 +399,7 @@ class CarrotMan:
         curvatures = []
         speeds = []
         distances = []
+        self.params.remove("NavDestination")
 
     return resampled_points, resampled_distances, out_speed #speeds, distances
 
