@@ -255,7 +255,8 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
       ConfirmationDialog::alert(tr("Git pull successful. Rebooting..."), this);
 
       //emit parent->closeSettings();
-      DevicePanel::reboot();
+      //DevicePanel::reboot();
+      params.putBool("DoReboot", true);
 
     }
     });
