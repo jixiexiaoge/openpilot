@@ -208,6 +208,14 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
       # a torque scale value? ramps up when steering, highest seen is 234
       # "UNKNOWN": 50 if lat_active and not steering_pressed else 0,
       "UNKNOWN": max_torque if lat_active else 0,
+
+      # test for EV6PE
+      "NEW_SIGNAL_1": 10, #2,
+      "VALUE104": 9,
+      "VALUE231": 146,
+      "VALUE239": 1,
+      "VALUE247": 255,
+      "VALUE255": 255,
     }
   else:
     values = {
