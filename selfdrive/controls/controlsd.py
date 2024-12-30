@@ -10,7 +10,7 @@ from openpilot.common.realtime import config_realtime_process, Priority, Ratekee
 from openpilot.common.swaglog import cloudlog
 
 from opendbc.car.car_helpers import get_car_interface
-from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature
+from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature, get_lag_adjusted_curvature1
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, STEER_ANGLE_SATURATION_THRESHOLD
@@ -129,17 +129,14 @@ class Controls:
                                   curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
 
     if self.params.get_bool("CarrotLatControl"):
-      model_actuator_delay = self.params.get_float("ModelActuatorDelay") * 0.01
-      desired_curvature_now = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, model_actuator_delay)
-      # desired_curvature_now: curvature at SAD applied time
+      model_delay = self.params.get_float("ModelActuatorDelay") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
-      desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, model_actuator_delay + steer_actuator_delay)
+      desired_curvature_now, desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, self.desired_curvature, model_delay, steer_actuator_delay)
       self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature_now)
-      desired_curvature_ff = clip_curvature(CS.vEgo, desired_curvature_now, desired_curvature_ff)
     else:
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
       if self.lanefull_mode_enabled:
-        desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay)
+        desired_curvature = get_lag_adjusted_curvature1(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay)
         desired_curvature_ff = self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature)
       else:
         desired_curvature_ff = self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature)

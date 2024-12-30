@@ -1569,6 +1569,9 @@ protected:
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         active_lane_line = sm["controlsState"].getControlsState().getActiveLaneLine();
         auto model_position = model.getPosition();
+        if (active_lane_line) {
+          model_position = sm["lateralPlan"].getLateralPlan().getPosition();
+        }
         float max_distance = s->max_distance;
         max_distance -= 2.0;
         int max_idx = get_path_length_idx(model_position, max_distance);

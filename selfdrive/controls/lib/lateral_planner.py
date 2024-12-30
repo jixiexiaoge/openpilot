@@ -215,6 +215,11 @@ class LateralPlanner:
     #lateralPlan.laneWidthLeft = float(self.DH.lane_width_left)
     #lateralPlan.laneWidthRight = float(self.DH.lane_width_right)
 
+    lateralPlan.position.x = self.x_sol[:, 0].tolist()
+    lateralPlan.position.y = self.x_sol[:, 1].tolist()
+    lateralPlan.position.z = self.path_xyz[:, 2].tolist()
+    #lateralPlan.distances = self.lat_mpc.x_sol[0:CONTROL_N, 0].tolist()
+
     self.x_sol = self.lat_mpc.x_sol
 
     debugText = (
