@@ -131,8 +131,16 @@ class Controls:
     if self.params.get_bool("CarrotLatControl"):
       model_delay = self.params.get_float("ModelActuatorDelay") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
-      desired_curvature_now, desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, self.desired_curvature, model_delay, steer_actuator_delay)
+      t_since_plan = (self.sm.frame - self.sm.recv_frame['lateralPlan']) * DT_CTRL
+      desired_curvature_now, desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, self.desired_curvature, model_delay, steer_actuator_delay, t_since_plan)
+      curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature)
+      #print(f"curvature = {desired_curvature_now:.2f}, {curvature*10000:.2f}")
+      #print(f"{model_delay}, {steer_actuator_delay}, {curvature*10000:.2f}, {self.desired_curvature*10000:.2f}, {desired_curvature_now*10000:.2f}, {desired_curvature_ff*10000:.2f}")
+      #scaled_curvatures = [round(c * 10000, 1) for c in list(lat_plan.curvatures)[:15]]
+      #print(scaled_curvatures)
       self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature_now)
+      #self.desired_curvature = desired_curvature_ff
+
     else:
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
       if self.lanefull_mode_enabled:

@@ -20,7 +20,7 @@ def apply_deadzone(error, deadzone):
     error = 0.
   return error
 
-def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, desired_curvature_last, model_delay, steer_actuator_delay):
+def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, desired_curvature_last, model_delay, steer_actuator_delay, t_since_plan):
   if len(psis) != CONTROL_N:
     psis = [0.0]*CONTROL_N
     curvatures = [0.0]*CONTROL_N
@@ -30,8 +30,11 @@ def get_lag_adjusted_curvature(CP, v_ego, psis, curvatures, desired_curvature_la
   delay = max(0.01, steer_actuator_delay)
 
   current_curvature_desired = desired_curvature_last #curvatures[0]
-  desired_curvature = interp(model_delay, ModelConstants.T_IDXS[:CONTROL_N], curvatures)
-  desired_curvature_ff = interp(model_delay + steer_actuator_delay, ModelConstants.T_IDXS[:CONTROL_N], curvatures)
+  #psi = interp(delay, ModelConstants.T_IDXS[:CONTROL_N], psis)
+  #average_curvature_desired = psi / (v_ego * delay)
+  #desired_curvature = 2 * average_curvature_desired - current_curvature_desired
+  desired_curvature = interp(model_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], curvatures)
+  desired_curvature_ff = interp(model_delay + steer_actuator_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], curvatures)
 
   max_curvature_rate = MAX_LATERAL_JERK / (v_ego**2) # inexact calculation, check https://github.com/commaai/openpilot/pull/24755
   safe_desired_curvature = clip(desired_curvature,
