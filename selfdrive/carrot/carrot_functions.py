@@ -406,7 +406,7 @@ class CarrotPlanner:
         self.xState = XState.lead
       elif v_ego_kph < 5.0 and self.trafficState != TrafficState.green:
         self.xState = XState.e2eStop
-        self.actual_stop_distance = 2.0
+        self.actual_stop_distance = 5.0 #2.0
       elif v_ego_kph > 5.0: # and stop_model_x > 30.0:
         self.xState = XState.e2eCruise
     else: #XState.lead, XState.cruise, XState.e2eCruise
