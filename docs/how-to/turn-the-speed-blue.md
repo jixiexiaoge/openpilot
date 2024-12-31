@@ -1,31 +1,31 @@
-# Turn the speed blue
-*A getting started guide for openpilot development*
+# 将速度显示变成蓝色
+*openpilot开发入门指南*
 
-In 30 minutes, we'll get an openpilot development environment setup on your computer and make some changes to openpilot's UI.
+在30分钟内,我们将在你的电脑上搭建openpilot开发环境,并对openpilot的UI进行一些修改。
 
-And if you have a comma 3/3X, we'll deploy the change to your device for testing.
+如果你有comma 3/3X设备,我们还将把修改部署到你的设备上进行测试。
 
-## 1. Setup your development environment
+## 1. 搭建开发环境
 
-Run this to clone openpilot and install all the dependencies:
+运行以下命令克隆openpilot并安装所有依赖:
 ```bash
 bash <(curl -fsSL openpilot.comma.ai)
 ```
 
-Navigate to openpilot folder & activate a Python virtual environment
+进入openpilot文件夹并激活Python虚拟环境
 ```bash
 cd openpilot
 source .venv/bin/activate
 ```
 
-Then, compile openpilot:
+然后,编译openpilot:
 ```bash
 scons -j8
 ```
 
-## 2. Run replay
+## 2. 运行回放
 
-We'll run the `replay` tool with the demo route to get data streaming for testing our UI changes.
+我们将使用演示路线运行`replay`工具,获取数据流来测试我们的UI修改。
 ```bash
 # in terminal 1
 tools/replay/replay --demo
@@ -34,19 +34,19 @@ tools/replay/replay --demo
 selfdrive/ui/ui
 ```
 
-The openpilot UI should launch and show a replay of the demo route.
+openpilot的UI应该会启动并显示演示路线的回放。
 
-If you have your own comma device, you can replace `--demo` with one of your own routes from comma connect.
+如果你有自己的comma设备,可以用你在comma connect上的路线替换`--demo`参数。
 
-## 3. Make the speed blue
+## 3. 将速度显示变成蓝色
 
-Search for “mph” with git grep in the `ui` folder.
+在`ui`文件夹中使用git grep搜索"mph"。
 ```bash
 $ git grep "mph" selfdrive/ui/
 paint.cc:  ui_draw_text(s, s->fb_w/2, 290, s->scene.is_metric ? "km/h" : "mph", 36 * 2.5, COLOR_WHITE_ALPHA(200), "sans-regular");
 ```
 
-The line right above contains the actual speed. Unfortunately, COLOR_BLUE isn’t defined, but a git grep of COLOR_WHITE shows it’s nvgRGBA(255, 255, 255, 255). Personally, I like a lighter blue, so I went with #8080FF.
+上面那行包含实际的速度显示。虽然没有定义COLOR_BLUE,但通过git grep搜索COLOR_WHITE可以看到它是nvgRGBA(255, 255, 255, 255)。个人来说,我更喜欢浅蓝色,所以选择了#8080FF。
 ```bash
 $ git diff
 diff --git a/selfdrive/ui/paint.cc b/selfdrive/ui/paint.cc
@@ -67,17 +67,17 @@ index 821d95115..cc996eaa1 100644
 ```
 
 
-## 4. Rebuild UI, and admire your work
+## 4. 重新构建UI,欣赏你的作品
 
-```
+```bash
 scons -j8 && selfdrive/ui/ui
 ```
 
 ![](https://blog.comma.ai/img/blue_speed_ui.png)
 
-## 5. Push your fork to GitHub
+## 5. 将你的分支推送到GitHub
 
-Click fork on GitHub. Then, push with:
+在GitHub上点击fork。然后使用以下命令推送:
 ```bash
 git remote rm origin
 git remote add origin git@github.com:<your-github-username>/openpilot.git
@@ -86,13 +86,13 @@ git commit -m "Make the speed blue."
 git push --set-upstream origin master
 ```
 
-## 6. Run your fork on device in your car!
+## 6. 在你的车上运行你的分支!
 
-Uninstall openpilot from your device through the settings. Then, enter the URL for your very own installer:
+通过设置卸载设备上的openpilot。然后输入你自己的安装程序URL:
 ```
 installer.comma.ai/<your-github-username>/master
 ```
 
-## 7. Admire your work IRL
+## 7. 在现实中欣赏你的作品
 
 ![](https://blog.comma.ai/img/c3_blue_ui.jpg)

@@ -1,20 +1,20 @@
-## CTF
-Welcome to the first part of the comma CTF!
+## CTF(夺旗挑战赛)
+欢迎来到comma CTF的第一部分!
 
-* all the flags are contained in this route: `0c7f0c7f0c7f0c7f|2021-10-13--13-00-00`
-* there's 2 flags in each segment, with roughly increasing difficulty
-* everything you'll need to find the flags is in the openpilot repo
-  * grep is also your friend
-  * first, [setup](https://github.com/commaai/openpilot/tree/master/tools#setup-your-pc) your PC
-  * read the docs & checkout out the tools in tools/ and selfdrive/debug/
-  * tip: once you get the replay and UI up, start by familiarizing yourself with seeking in replay
+* 所有的flag都在这个路线中: `0c7f0c7f0c7f0c7f|2021-10-13--13-00-00`
+* 每个片段中有2个flag,难度逐渐增加
+* 找到flag所需的所有工具都在openpilot仓库中
+  * grep命令是你的好帮手
+  * 首先,[配置](https://github.com/commaai/openpilot/tree/master/tools#setup-your-pc)你的电脑环境
+  * 阅读文档并查看tools/和selfdrive/debug/中的工具
+  * 提示:一旦你启动了回放和UI,先熟悉一下回放中的定位功能
 
-getting started
+开始使用
 ```bash
-# start the route reply
+# 启动路线回放
 cd tools/replay
 ./replay '0c7f0c7f0c7f0c7f|2021-10-13--13-00-00' --dcam --ecam
 
-# start the UI in another terminal
+# 在另一个终端中启动UI
 selfdrive/ui/ui
 ```

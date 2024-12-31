@@ -1,74 +1,55 @@
-# PlotJuggler
+# PlotJuggler插件
 
-[PlotJuggler](https://github.com/facontidavide/PlotJuggler) is a tool to quickly visualize time series data, and we've written plugins to parse openpilot logs. Check out our plugins: https://github.com/commaai/PlotJuggler.
+这是一个[PlotJuggler](https://github.com/facontidavide/PlotJuggler)插件,用于可视化openpilot日志。
 
-## Installation
+## 安装
 
-Once you've [set up the openpilot environment](../README.md), this command will download PlotJuggler and install our plugins:
+PlotJuggler已包含在openpilot的Ubuntu安装中。请参阅[openpilot维基](https://github.com/commaai/openpilot/wiki/Installing-openpilot#build-from-source)获取安装说明。
 
-`cd tools/plotjuggler && ./juggle.py --install`
+## 使用方法
 
-## Usage
+### 离线模式
 
-```
-$ ./juggle.py -h
-usage: juggle.py [-h] [--demo] [--can] [--stream] [--layout [LAYOUT]] [--install] [--dbc DBC]
-                 [route_or_segment_name] [segment_count]
+你可以通过以下方式加载日志:
 
-A helper to run PlotJuggler on openpilot routes
+1. 拖放多个文件(rlog.bz2和qlog.bz2)
+2. 命令行: `plotjuggler --layout <布局文件> <日志文件>`
 
-positional arguments:
-  route_or_segment_name
-                        The route or segment name to plot (cabana share URL accepted) (default: None)
-  segment_count         The number of segments to plot (default: None)
+### 实时流模式
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --demo                Use the demo route instead of providing one (default: False)
-  --can                 Parse CAN data (default: False)
-  --stream              Start PlotJuggler in streaming mode (default: False)
-  --layout [LAYOUT]     Run PlotJuggler with a pre-defined layout (default: None)
-  --install             Install or update PlotJuggler + plugins (default: False)
-  --dbc DBC             Set the DBC name to load for parsing CAN data. If not set, the DBC will be automatically
-                        inferred from the logs. (default: None)
+你可以从车辆实时流式传输数据:
 
+```bash
+# SSH转发ZMQ端口
+ssh -L 1234:localhost:8019 <你的comma设备IP>
+
+# 在本地运行plotjuggler
+plotjuggler
 ```
 
-Examples using route name:
+然后点击: Streaming > Start > openpilot (ZMQ) > OK
 
-`./juggle.py "a2a0ccea32023010/2023-07-27--13-01-19"`
+### 演示
 
-Examples using segment range:
+你也可以流式传输演示路线:
 
-`./juggle.py "a2a0ccea32023010/2023-07-27--13-01-19/1"`
+```bash
+# Terminal 1 - 运行演示回放
+cd tools/plotjuggler
+./demo.py
 
-`./juggle.py "a2a0ccea32023010/2023-07-27--13-01-19/1/q" # use qlogs`
+# Terminal 2 - 运行plotjuggler
+plotjuggler
+```
 
-## Streaming
+然后点击: Streaming > Start > openpilot (ZMQ) > OK
 
-Explore live data from your car! Follow these steps to stream from your comma device to your laptop:
-- Enable wifi tethering on your comma device
-- [SSH into your device](https://github.com/commaai/openpilot/wiki/SSH) and run `cd /data/openpilot && ./cereal/messaging/bridge`
-- On your laptop, connect to the device's wifi hotspot
-- Start PlotJuggler with `ZMQ=1 ./juggle.py --stream`, find the `Cereal Subscriber` plugin in the dropdown under Streaming, and click `Start`.
+## 创建自定义布局
 
-If streaming to PlotJuggler from a replay on your PC, simply run: `./juggle.py --stream` and start the cereal subscriber.
+1. 从左侧边栏拖动你想要的信号进行绘图
+2. 组织图表布局
+3. 保存布局: `File > Save Layout`
 
-## Demo
+### 共享布局
 
-For a quick demo, go through the installation step and run this command:
-
-`./juggle.py --demo --layout=layouts/demo.xml`
-
-## Layouts
-
-If you create a layout that's useful for others, consider upstreaming it.
-
-### Tuning
-
-Use this layout to improve your car's tuning and generate plots for tuning PRs. Also see the [tuning wiki](https://github.com/commaai/openpilot/wiki/Tuning) and tuning PR template.
-
-`--layout layouts/tuning.xml`
-
-
-![screenshot](https://i.imgur.com/cizHCH3.png)
+布局保存为XML文件。你可以在[这里](layouts)找到默认布局。如果你想分享你的布局,欢迎创建PR!

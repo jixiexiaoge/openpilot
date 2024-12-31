@@ -1,6 +1,6 @@
-## LogReader
+## LogReader(日志读取器)
 
-Route is a class for conveniently accessing all the [logs](/system/loggerd/) from your routes. The LogReader class reads the non-video logs, i.e. rlog.bz2 and qlog.bz2. There's also a matching FrameReader class for reading the videos.
+Route是一个用于方便访问你的路线中所有[日志](/system/loggerd/)的类。LogReader类用于读取非视频日志,即rlog.bz2和qlog.bz2文件。还有一个对应的FrameReader类用于读取视频。
 
 ```python
 from openpilot.tools.lib.route import Route
@@ -8,52 +8,52 @@ from openpilot.tools.lib.logreader import LogReader
 
 r = Route("a2a0ccea32023010|2023-07-27--13-01-19")
 
-# get a list of paths for the route's rlog files
+# 获取路线的rlog文件路径列表
 print(r.log_paths())
 
-# and road camera (fcamera.hevc) files
+# 获取前向摄像头(fcamera.hevc)文件路径
 print(r.camera_paths())
 
-# setup a LogReader to read the route's first rlog
+# 设置LogReader来读取路线的第一个rlog
 lr = LogReader(r.log_paths()[0])
 
-# print out all the messages in the log
+# 打印日志中的所有消息
 import codecs
 codecs.register_error("strict", codecs.backslashreplace_errors)
 for msg in lr:
   print(msg)
 
-# setup a LogReader for the route's second qlog
+# 设置LogReader来读取路线的第二个qlog
 lr = LogReader(r.log_paths()[1])
 
-# print all the steering angles values from the log
+# 打印日志中的所有转向角度值
 for msg in lr:
   if msg.which() == "carState":
     print(msg.carState.steeringAngleDeg)
 ```
 
-### Segment Ranges
+### 片段范围
 
-We also support a new format called a "segment range":
+我们还支持一种称为"片段范围"的新格式:
 
 ```
 344c5c15b34f2d8a   /   2024-01-03--09-37-12   /     2:6    /       q
-[   dongle id     ] [       timestamp        ] [ selector ]  [ query type]
+[   设备ID        ] [       时间戳           ] [ 选择器  ]  [ 查询类型]
 ```
 
-you can specify which segments from a route to load
+你可以指定要加载路线中的哪些片段:
 
 ```python
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4")   # 4th segment
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4:6") # 4th and 5th segment
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/-1")  # last segment
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/:5")  # first 5 segments
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/1:")  # all except first segment
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4")   # 第4个片段
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4:6") # 第4和第5个片段
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/-1")  # 最后一个片段
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/:5")  # 前5个片段
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/1:")  # 除第一个外的所有片段
 ```
 
-and can select which type of logs to grab
+还可以选择要获取的日志类型:
 
 ```python
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4/q") # get qlogs
-lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4/r") # get rlogs (default)
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4/q") # 获取qlogs
+lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19/4/r") # 获取rlogs(默认)
 ```

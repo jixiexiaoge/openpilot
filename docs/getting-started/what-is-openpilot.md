@@ -1,12 +1,12 @@
-# What is openpilot?
+# 什么是openpilot?
 
-[openpilot](http://github.com/commaai/openpilot) is an open source driver assistance system. Currently, openpilot performs the functions of Adaptive Cruise Control (ACC), Automated Lane Centering (ALC), Forward Collision Warning (FCW), and Lane Departure Warning (LDW) for a growing variety of [supported car makes, models, and model years](https://github.com/commaai/openpilot/blob/master/docs/CARS.md). In addition, while openpilot is engaged, a camera-based Driver Monitoring (DM) feature alerts distracted and asleep drivers. See more about [the vehicle integration](https://github.com/commaai/openpilot/blob/master/docs/INTEGRATION.md) and [limitations](https://github.com/commaai/openpilot/blob/master/docs/LIMITATIONS.md).
+[openpilot](http://github.com/commaai/openpilot)是一个开源的驾驶辅助系统。目前,openpilot为越来越多的[支持的汽车品牌、型号和年款](https://github.com/commaai/openpilot/blob/master/docs/CARS.md)提供自适应巡航控制(ACC)、自动车道居中(ALC)、前向碰撞警告(FCW)和车道偏离警告(LDW)功能。此外,当openpilot启用时,基于摄像头的驾驶员监控(DM)功能会对分心和睡着的驾驶员发出警告。更多信息请参见[车辆集成](https://github.com/commaai/openpilot/blob/master/docs/INTEGRATION.md)和[功能限制](https://github.com/commaai/openpilot/blob/master/docs/LIMITATIONS.md)。
 
 
-## How do I use it?
+## 如何使用?
 
-openpilot is designed to be used on the comma 3X.
+openpilot设计用于在comma 3X设备上运行。
 
-## How does it work?
+## 工作原理?
 
-In short, openpilot uses the car's existing APIs for the built-in [ADAS](https://en.wikipedia.org/wiki/Advanced_driver-assistance_system) system and simply provides better acceleration, braking, and steering inputs than the stock system.
+简而言之,openpilot使用车辆内置[高级驾驶辅助系统(ADAS)](https://en.wikipedia.org/wiki/Advanced_driver-assistance_system)的API,提供比原厂系统更好的加速、制动和转向控制。

@@ -1,45 +1,45 @@
-# connect to a comma 3/3X
+# 连接到comma 3/3X设备
 
-A comma 3/3X is a normal [Linux](https://github.com/commaai/agnos-builder) computer that exposes [SSH](https://wiki.archlinux.org/title/Secure_Shell) and a [serial console](https://wiki.archlinux.org/title/Working_with_the_serial_console).
+comma 3/3X是一台普通的[Linux](https://github.com/commaai/agnos-builder)计算机,提供[SSH](https://wiki.archlinux.org/title/Secure_Shell)和[串口控制台](https://wiki.archlinux.org/title/Working_with_the_serial_console)访问。
 
-## Serial Console
+## 串口控制台
 
-On both the comma three and 3X, the serial console is accessible from the main OBD-C port.
-Connect the comma 3/3X to your computer with a normal USB C cable, or use a [comma serial](https://comma.ai/shop/comma-serial) for steady 12V power.
+在comma three和3X设备上,串口控制台都可以通过主OBD-C端口访问。
+使用普通USB C数据线将comma 3/3X连接到电脑,或使用[comma串口线](https://comma.ai/shop/comma-serial)获得稳定的12V供电。
 
-On the comma three, the serial console is exposed through a UART-to-USB chip, and `tools/scripts/serial.sh` can be used to connect.
+在comma three上,串口控制台通过UART-to-USB芯片提供,可以使用`tools/scripts/serial.sh`脚本连接。
 
-On the comma 3X, the serial console is accessible through the [panda](https://github.com/commaai/panda) using the `panda/tests/som_debug.sh` script.
+在comma 3X上,可以通过[panda](https://github.com/commaai/panda)使用`panda/tests/som_debug.sh`脚本访问串口控制台。
 
   * Username: `comma`
   * Password: `comma`
 
 ## SSH
 
-In order to SSH into your device, you'll need a GitHub account with SSH keys. See this [GitHub article](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh) for getting your account setup with SSH keys.
+要通过SSH连接到设备,你需要一个配置了SSH密钥的GitHub账户。参见这篇[GitHub文章](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)了解如何为账户设置SSH密钥。
 
-* Enable SSH in your device's settings
-* Enter your GitHub username in the device's settings
-* Connect to your device
-    * Username: `comma`
-    * Port: `22`
+* 在设备设置中启用SSH
+* 在设备设置中输入你的GitHub用户名
+* 连接到你的设备
+    * 用户名: `comma`
+    * 端口: `22`
 
-Here's an example command for connecting to your device using its tethered connection:<br />
+这是一个使用网络共享连接到设备的示例命令:<br />
 `ssh comma@192.168.43.1`
 
-For doing development work on device, it's recommended to use [SSH agent forwarding](https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding).
+在设备上进行开发工作时,建议使用[SSH代理转发](https://docs.github.com/en/developers/overview/using-ssh-agent-forwarding)。
 
 ### Notes
 
-The public keys are only fetched from your GitHub account once. In order to update your device's authorized keys, you'll need to re-enter your GitHub username.
+公钥只会从你的GitHub账户获取一次。如果要更新设备的授权密钥,你需要重新输入GitHub用户名。
 
-The `id_rsa` key in this directory only works while your device is in the setup state with no software installed. After installation, that default key will be removed.
+此目录中的`id_rsa`密钥仅在设备处于未安装软件的设置状态时有效。安装完成后,该默认密钥将被移除。
 
-#### ssh.comma.ai proxy
+#### ssh.comma.ai代理
 
-With a [comma prime subscription](https://comma.ai/connect), you can SSH into your comma device from anywhere.
+通过[comma prime订阅](https://comma.ai/connect),你可以从任何地方SSH连接到你的comma设备。
 
-With the below SSH configuration, you can type `ssh comma-{dongleid}` to connect to your device through `ssh.comma.ai`.
+使用以下SSH配置,你可以输入`ssh comma-{dongleid}`通过`ssh.comma.ai`连接到你的设备。
 
 ```
 Host comma-*

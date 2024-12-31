@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """
-Usage::
+使用方法:
 
   usage: auth.py [-h] [{google,apple,github,jwt}] [jwt]
 
-  Login to your comma account
+  登录到你的comma账户
 
-  positional arguments:
+  位置参数:
     {google,apple,github,jwt}
     jwt
 
-  optional arguments:
-    -h, --help            show this help message and exit
+  可选参数:
+    -h, --help            显示帮助信息并退出
 
+示例:
 
-Examples::
-
-  ./auth.py  # Log in with google account
-  ./auth.py github  # Log in with GitHub Account
-  ./auth.py jwt ey......hw  # Log in with a JWT from https://jwt.comma.ai, for use in CI
+  ./auth.py  # 使用Google账户登录
+  ./auth.py github  # 使用GitHub账户登录
+  ./auth.py jwt ey......hw  # 使用来自https://jwt.comma.ai的JWT登录,用于CI
 """
 
 import argparse

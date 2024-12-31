@@ -1,53 +1,53 @@
-# Joystick
+# 游戏手柄控制
 
-**Hardware needed**: device running openpilot, laptop, joystick (optional)
+**所需硬件**: 运行openpilot的设备、笔记本电脑、游戏手柄(可选)
 
-With joystick_control, you can connect your laptop to your comma device over the network and debug controls using a joystick or keyboard.
-joystick_control uses [inputs](https://pypi.org/project/inputs) which supports many common gamepads and joysticks.
+通过joystick_control,你可以通过网络将笔记本电脑连接到comma设备,并使用游戏手柄或键盘进行控制调试。
+joystick_control使用[inputs](https://pypi.org/project/inputs)库,支持许多常见的游戏手柄和操纵杆。
 
-## Usage
+## 使用方法
 
-The car must be off, and openpilot must be offroad before starting `joystick_control`.
+在启动`joystick_control`之前,汽车必须关闭,且openpilot必须处于offroad状态。
 
-### Using a keyboard
+### 使用键盘
 
-SSH into your comma device and start joystick_control with the following command:
+SSH连接到你的comma设备并使用以下命令启动joystick_control:
 
 ```shell
 tools/joystick/joystick_control.py --keyboard
 ```
 
-The available buttons and axes will print showing their key mappings. In general, the WASD keys control gas and brakes and steering torque in 5% increments.
+将显示可用的按键映射。通常,WASD键以5%的增量控制油门、制动和转向力矩。
 
-### Joystick on your comma three
+### 在comma three上使用游戏手柄
 
-Plug the joystick into your comma three aux USB-C port. Then, SSH into the device and start `joystick_control.py`.
+将游戏手柄插入comma three的辅助USB-C端口。然后,SSH连接到设备并启动`joystick_control.py`。
 
-### Joystick on your laptop
+### 在笔记本电脑上使用游戏手柄
 
-In order to use a joystick over the network, we need to run joystick_control locally from your laptop and have it send `testJoystick` packets over the network to the comma device.
+要通过网络使用游戏手柄,我们需要在笔记本电脑上本地运行joystick_control,并让它通过网络向comma设备发送`testJoystick`数据包。
 
-1. Connect a joystick to your PC.
-2. Connect your laptop to your comma device's hotspot and open a new SSH shell. Since joystick_control is being run on your laptop, we need to write a parameter to let controlsd know to start in joystick debug mode:
+1. 将游戏手柄连接到电脑。
+2. 将笔记本电脑连接到comma设备的热点并打开新的SSH连接。由于joystick_control在笔记本电脑上运行,我们需要写入一个参数让controlsd知道要在游戏手柄调试模式下启动:
    ```shell
-   # on your comma device
+   # 在comma设备上
    echo -n "1" > /data/params/d/JoystickDebugMode
    ```
-3. Run bridge with your laptop's IP address. This republishes the `testJoystick` packets sent from your laptop so that openpilot can receive them:
+3. 使用笔记本电脑的IP地址运行bridge。这会转发从笔记本电脑发送的`testJoystick`数据包,以便openpilot可以接收:
    ```shell
-   # on your comma device
+   # 在comma设备上
    cereal/messaging/bridge {LAPTOP_IP} testJoystick
    ```
-4. Start joystick_control on your laptop in ZMQ mode.
+4. 在笔记本电脑上以ZMQ模式启动joystick_control。
    ```shell
-   # on your laptop
+   # 在笔记本电脑上
    export ZMQ=1
    tools/joystick/joystick_control.py
    ```
 
 ---
-Now start your car and openpilot should go into joystick mode with an alert on startup! The status of the axes will display on the alert, while button statuses print in the shell.
+现在启动你的车,openpilot应该会在启动时进入游戏手柄模式并显示提示!轴的状态会显示在提示中,而按钮状态会打印在shell中。
 
-Make sure the conditions are met in the panda to allow controls (e.g. cruise control engaged). You can also make a modification to the panda code to always allow controls.
+确保满足panda中允许控制的条件(例如巡航控制已启用)。你也可以修改panda代码以始终允许控制。
 
 ![](https://github.com/commaai/openpilot/assets/8762862/e640cbca-cb7a-4dcb-abce-b23b036ad8e7)

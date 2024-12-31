@@ -1,5 +1,5 @@
-# Developing a car brand port
+# 开发汽车品牌适配
 
-A brand port is a port of openpilot to a substantially new car brand or platform within a brand.
+品牌适配是将openpilot适配到一个全新的汽车品牌或品牌内的新平台。
 
-Here's an example of one: https://github.com/commaai/openpilot/pull/23331.
+这里有一个例子: https://github.com/commaai/openpilot/pull/23331。

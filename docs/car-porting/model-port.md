@@ -1,5 +1,5 @@
-# Developing a car model port
+# 开发汽车型号适配
 
-A model port is a port of openpilot to a new car model within an already supported brand. Model ports are easier than brand ports because the car's existing APIs are already known.
+型号适配是将openpilot适配到已支持品牌的新车型。由于已经了解车辆现有的API,型号适配比品牌适配更容易。
 
-Here's an example of one: https://github.com/commaai/openpilot/pull/30672/.
+这里有一个例子: https://github.com/commaai/openpilot/pull/30672/。

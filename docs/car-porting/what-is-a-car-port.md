@@ -1,39 +1,39 @@
-# What is a car port?
+# 什么是车型适配?
 
-A car port enables openpilot support on a particular car. Each car model openpilot supports needs to be individually ported. The complexity of a car port varies depending on many factors including:
+车型适配使openpilot能够支持特定的车型。每个openpilot支持的车型都需要单独进行适配。适配的复杂程度取决于多个因素,包括:
 
-* existing openpilot support for similar cars
-* architecture and APIs available in the car
+* 类似车型是否已有openpilot支持
+* 车辆的架构和可用API
 
 
-# Structure of a car port
+# 车型适配的结构
 
-Virtually all car-specific code is contained in two other repositories: [opendbc](https://github.com/commaai/opendbc) and [panda](https://github.com/commaai/panda).
+几乎所有特定车型的代码都包含在两个其他仓库中:[opendbc](https://github.com/commaai/opendbc)和[panda](https://github.com/commaai/panda)。
 
-## opendbc
+## opendbc仓库
 
-Each car brand is supported by a standard interface structure in `opendbc/car/[brand]`:
+每个汽车品牌都通过`opendbc/car/[brand]`中的标准接口结构支持:
 
-* `interface.py`: Interface for the car, defines the CarInterface class
-* `carstate.py`: Reads CAN messages from the car and builds openpilot CarState messages
-* `carcontroller.py`: Control logic for executing openpilot CarControl actions on the car
-* `[brand]can.py`: Composes CAN messages for carcontroller to send
-* `values.py`: Limits for actuation, general constants for cars, and supported car documentation
-* `radar_interface.py`: Interface for parsing radar points from the car, if applicable
+* `interface.py`: 车辆接口,定义CarInterface类
+* `carstate.py`: 读取车辆CAN消息并构建openpilot CarState消息
+* `carcontroller.py`: 在车辆上执行openpilot CarControl动作的控制逻辑
+* `[brand]can.py`: 为carcontroller组装要发送的CAN消息
+* `values.py`: 执行器限制、车辆通用常量和支持的车型文档
+* `radar_interface.py`: 解析车辆雷达点的接口(如果适用)
 
 ## panda
 
-* `board/safety/safety_[brand].h`: Brand-specific safety logic
-* `tests/safety/test_[brand].py`: Brand-specific safety CI tests
+* `board/safety/safety_[brand].h`: 品牌特定的安全逻辑
+* `tests/safety/test_[brand].py`: 品牌特定的安全CI测试
 
 ## openpilot
 
-For historical reasons, openpilot still contains a small amount of car-specific logic. This will eventually be migrated to opendbc or otherwise removed.
+由于历史原因,openpilot仍然包含少量特定车型的逻辑代码。这些代码最终会迁移到opendbc或被移除。
 
-* `selfdrive/car/car_specific.py`: Brand-specific event logic
+* `selfdrive/car/car_specific.py`: 品牌特定的事件逻辑
 
-# Overview
+# 概述
 
-[Jason Young](https://github.com/jyoung8607) gave a talk at COMMA_CON with an overview of the car porting process. The talk is available on YouTube:
+[Jason Young](https://github.com/jyoung8607)在COMMA_CON大会上做了关于车型适配流程的概述演讲。演讲视频可在YouTube上观看:
 
 https://www.youtube.com/watch?v=XxPS5TpTUnI
