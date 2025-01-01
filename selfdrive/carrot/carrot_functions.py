@@ -388,7 +388,7 @@ class CarrotPlanner:
       else:
         if self.trafficState == TrafficState.green:
           self.events.add(EventName.trafficSignGreen)
-          self.xState = XState.e2ePrepare
+          self.xState = XState.e2eCruise
         else:
           self.comfort_brake = self.comfortBrake * 0.9
           #self.comfort_brake = COMFORT_BRAKE
