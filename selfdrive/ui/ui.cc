@@ -93,7 +93,7 @@ void update_model(UIState *s,
                   const cereal::UiPlan::Reader &plan) {
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
-  scene.left_curve = model.getOrientationRate().getZ()[33 - 1] < 0;
+  scene.left_curve = model.getOrientationRate().getZ()[10] < 0;
   float path_offset_z = sm["liveCalibration"].getLiveCalibration().getHeight()[0];
   auto plan_position = plan.getPosition();
   scene.model_length = model.getPosition().getX()[33 - 1];
