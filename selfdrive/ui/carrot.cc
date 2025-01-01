@@ -332,6 +332,7 @@ protected:
         const auto velocity = model.getVelocity();
 
         auto lead_radar = sm["radarState"].getRadarState().getLeadOne();
+        auto live_params = sm["liveParameters"].getLiveParameters();
 
         // 0: yellow, 1: green, 2: orange
         switch (show_plot_mode) {
@@ -371,6 +372,12 @@ protected:
             data[1] = torque_state.getDesiredLateralAccel() * 10.0;
             data[2] = torque_state.getOutput() * 10.0;
             sprintf(title, "6.Steer(Y:actual, G:desire, O:output)");
+            break;
+        case 7:
+            data[0] = car_state.getSteeringAngleDeg();
+            data[1] = car_control.getActuators().getSteeringAngleDeg();
+            data[2] = live_params.getAngleOffsetDeg();
+            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
