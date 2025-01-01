@@ -376,8 +376,8 @@ protected:
         case 7:
             data[0] = car_state.getSteeringAngleDeg();
             data[1] = car_control.getActuators().getSteeringAngleDeg();
-            data[2] = live_params.getAngleOffsetDeg();
-            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset)");
+            data[2] = live_params.getAngleOffsetDeg() * 10.0;
+            sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset*10)");
             break;
         default:
             data[0] = data[1] = data[2] = 0;
