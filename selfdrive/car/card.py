@@ -17,7 +17,7 @@ from openpilot.selfdrive.car.car_helpers import get_car, get_one_can
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.controls.lib.events import Events
 
-from openpilot.selfdrive.frogpilot.frogpilot_variables import get_frogpilot_toggles, update_frogpilot_toggles
+from openpilot.selfdrive.frogpilot.frogpilot_variables import get_frogpilot_toggles, update_frogpilot_toggles, params_memory
 
 REPLAY = "REPLAY" in os.environ
 
@@ -43,14 +43,16 @@ class Car:
     self.params = Params()
 
     if CI is None:
-      # wait for one pandaState and one CAN packet
-      print("Waiting for CAN messages...")
-      get_one_can(self.can_sock)
+      force_onroad = params_memory.get_bool("ForceOnroad")
+      if not force_onroad:
+        # wait for one pandaState and one CAN packet
+        print("Waiting for CAN messages...")
+        get_one_can(self.can_sock, force_onroad, self.params)
 
       num_pandas = len(messaging.recv_one_retry(self.sm.sock['pandaStates']).pandaStates)
       disable_openpilot_long = self.params.get_bool("DisableOpenpilotLongitudinal")
       experimental_long_allowed = self.params.get_bool("ExperimentalLongitudinalEnabled")
-      self.CI, self.CP = get_car(self.can_sock, self.pm.sock['sendcan'], disable_openpilot_long, experimental_long_allowed, self.params, num_pandas, get_frogpilot_toggles())
+      self.CI, self.CP = get_car(self.can_sock, self.pm.sock['sendcan'], disable_openpilot_long, experimental_long_allowed, self.params, num_pandas, force_onroad, get_frogpilot_toggles())
     else:
       self.CI, self.CP = CI, CI.CP
 

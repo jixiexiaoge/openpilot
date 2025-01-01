@@ -33,11 +33,24 @@ def get_startup_event(car_recognized, controller_available, fw_seen):
   return event
 
 
-def get_one_can(logcan):
+def get_one_can(logcan, force_onroad, params):
   while True:
-    can = messaging.recv_one_retry(logcan)
-    if len(can.can) > 0:
+    if force_onroad:
+      cached_can = params.get("CarCanCache") or ""
+      frame_count = len(cached_can) // 8
+      can = messaging.new_message('can', frame_count)
+      for i in range(frame_count):
+        frame = can.can[i]
+        frame.address = 0
+        frame.busTime = 0
+        frame.dat = cached_can[i*8:(i+1)*8]
+        frame.src = 0
       return can
+    else:
+      can = messaging.recv_one_retry(logcan)
+      params.put_nonblocking("CarCanCache", b''.join(frame.dat for frame in can.can))
+      if len(can.can) > 0:
+        return can
 
 
 def load_interfaces(brand_names):
@@ -66,7 +79,7 @@ interface_names = _get_interface_names()
 interfaces = load_interfaces(interface_names)
 
 
-def can_fingerprint(next_can: Callable) -> tuple[str | None, dict[int, dict]]:
+def can_fingerprint(next_can: Callable, force_onroad: bool) -> tuple[str | None, dict[int, dict]]:
   finger = gen_empty_fingerprint()
   candidate_cars = {i: all_legacy_fingerprint_cars() for i in [0, 1]}  # attempt fingerprint on both bus 0 and 1
   frame = 0
@@ -107,7 +120,7 @@ def can_fingerprint(next_can: Callable) -> tuple[str | None, dict[int, dict]]:
 
 
 # **** for use live only ****
-def fingerprint(logcan, sendcan, num_pandas):
+def fingerprint(logcan, sendcan, num_pandas, force_onroad):
   fixed_fingerprint = os.environ.get('FINGERPRINT', "")
   skip_fw_query = os.environ.get('SKIP_FW_QUERY', False)
   disable_fw_cache = os.environ.get('DISABLE_FW_CACHE', False)
@@ -116,7 +129,7 @@ def fingerprint(logcan, sendcan, num_pandas):
 
   start_time = time.monotonic()
   if not skip_fw_query:
-    cached_params = params.get("CarParamsCache")
+    cached_params = params.get("CarParamsPersistent") if force_onroad else params.get("CarParamsCache")
     if cached_params is not None:
       with car.CarParams.from_bytes(cached_params) as cached_params:
         if cached_params.carName == "mock":
@@ -160,7 +173,7 @@ def fingerprint(logcan, sendcan, num_pandas):
   # CAN fingerprint
   # drain CAN socket so we get the latest messages
   messaging.drain_sock_raw(logcan)
-  car_fingerprint, finger = can_fingerprint(lambda: get_one_can(logcan))
+  car_fingerprint, finger = can_fingerprint(lambda: get_one_can(logcan, force_onroad, params), force_onroad)
 
   exact_match = True
   source = car.CarParams.FingerprintSource.can
@@ -187,11 +200,11 @@ def get_car_interface(CP):
   return CarInterface(CP, CarController, CarState)
 
 
-def get_car(logcan, sendcan, disable_openpilot_long, experimental_long_allowed, params, num_pandas=1, frogpilot_toggles=None):
+def get_car(logcan, sendcan, disable_openpilot_long, experimental_long_allowed, params, num_pandas=1, force_onroad=False, frogpilot_toggles=None):
   car_model = params.get("CarModel", encoding='utf-8')
   force_fingerprint = params.get_bool("ForceFingerprint")
 
-  candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(logcan, sendcan, num_pandas)
+  candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(logcan, sendcan, num_pandas, force_onroad)
 
   if candidate is None or force_fingerprint:
     if car_model is not None:

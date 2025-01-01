@@ -243,6 +243,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"CameraView", PERSISTENT | FROGPILOT_STORAGE | FROGPILOT_VISUALS},
     {"CancelModelDownload", PERSISTENT},
     {"CancelThemeDownload", PERSISTENT},
+    {"CarCanCache", PERSISTENT},
     {"CarMake", PERSISTENT},
     {"CarModel", PERSISTENT},
     {"CarModelName", PERSISTENT},
