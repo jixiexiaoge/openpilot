@@ -344,26 +344,32 @@ class ThemeManager:
     }
 
     for theme_param, (theme_component, theme_name, downloadable_list) in asset_mappings.items():
-      if theme_name in {"none", "stock"}:
-        continue
-
-      if theme_name.replace('_', ' ').split('.')[0].title() not in downloadable_list:
-        print(f"  {theme_name} for {theme_component} is outdated. Deleting...")
-        delete_file(theme_path)
+      if theme_name.lower() in {"none", "stock"}:
         continue
 
       if theme_component == "steering_wheels":
-        matching_files = list(THEME_SAVE_PATH.joinpath(theme_component).glob(f"{theme_name}.*"))
+        theme_path = THEME_SAVE_PATH / "steering_wheels" / theme_name
+        matching_files = list(theme_path.parent.glob(f"{theme_name}.*"))
         if not matching_files:
           print(f"  {theme_name} for {theme_component} not found. Downloading...")
           self.download_theme(theme_component, theme_name, theme_param)
           update_frogpilot_toggles()
+        elif theme_name.replace('_', ' ').split('.')[0].title() not in downloadable_list:
+          if theme_path.exists():
+            print(f"  {theme_name} for {theme_component} is outdated. Deleting...")
+            delete_file(theme_path)
+          continue
       else:
         theme_path = THEME_SAVE_PATH / "theme_packs" / theme_name / theme_component
         if not theme_path.exists():
           print(f"  {theme_name} for {theme_component} not found. Downloading...")
           self.download_theme(theme_component, theme_name, theme_param)
           update_frogpilot_toggles()
+        elif theme_name.replace('_', ' ').split('.')[0].title() not in downloadable_list:
+          if theme_path.exists():
+            print(f"  {theme_name} for {theme_component} is outdated. Deleting...")
+            delete_file(theme_path)
+          continue
 
     for dir_path in THEME_SAVE_PATH.glob('**/*'):
       if dir_path.is_dir() and not any(dir_path.iterdir()):
