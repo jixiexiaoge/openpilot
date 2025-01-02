@@ -759,6 +759,10 @@ class Controls:
     FPCC.noEntryEventTriggered = self.no_entry_alert_triggered
     FPCC.steerSaturatedEventTriggered = self.steer_saturated_event_triggered
 
+    # Update FrogPilot parameters
+    if self.sm['frogpilotPlan'].togglesUpdated:
+      self.frogpilot_toggles = get_frogpilot_toggles()
+
     return FPCC
 
   def publish_logs(self, CS, start_time, CC, lac_log, FPCC):
@@ -945,10 +949,6 @@ class Controls:
       if self.CP.notCar:
         self.joystick_mode = self.params.get_bool("JoystickDebugMode")
       time.sleep(0.1)
-
-      # Update FrogPilot parameters
-      if self.sm['frogpilotPlan'].togglesUpdated:
-        self.frogpilot_toggles = get_frogpilot_toggles()
 
   def controlsd_thread(self):
     e = threading.Event()

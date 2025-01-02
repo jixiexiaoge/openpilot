@@ -169,10 +169,10 @@ def frogpilot_thread():
     started = sm['deviceState'].started
 
     if params_memory.get_bool("FrogPilotTogglesUpdated") or theme_updated:
-      theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
-
       frogpilot_variables.update(theme_manager.theme_assets["holiday_theme"], started)
       frogpilot_toggles = get_frogpilot_toggles()
+
+      theme_updated = theme_manager.update_active_theme(time_validated, frogpilot_toggles)
 
       if time_validated:
         run_thread_with_lock("backup_toggles", backup_toggles, (params_storage,))
@@ -197,12 +197,11 @@ def frogpilot_thread():
     if started and sm.updated['modelV2']:
       frogpilot_planner.update(sm['carControl'], sm['carState'], sm['controlsState'], sm['frogpilotCarControl'], sm['frogpilotCarState'],
                                sm['frogpilotNavigation'], sm['modelV2'], radarless_model, sm['radarState'], frogpilot_toggles)
-      frogpilot_planner.publish(sm, pm, theme_updated, toggles_updated, frogpilot_toggles)
+      frogpilot_planner.publish(sm, pm, toggles_updated, frogpilot_toggles)
 
       frogpilot_tracking.update(sm['carState'], sm['controlsState'], sm['frogpilotCarControl'])
-    elif toggles_updated:
+    elif not started and toggles_updated:
       frogpilot_plan_send = messaging.new_message('frogpilotPlan')
-      frogpilot_plan_send.frogpilotPlan.themeUpdated = theme_updated
       frogpilot_plan_send.frogpilotPlan.togglesUpdated = toggles_updated
       pm.send('frogpilotPlan', frogpilot_plan_send)
 

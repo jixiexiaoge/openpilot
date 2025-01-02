@@ -73,13 +73,12 @@ struct FrogPilotPlan @0x80ae746ee2596b11 {
   speedJerkStock @22 :Float32;
   speedLimitChanged @23 :Bool;
   tFollow @24 :Float32;
-  themeUpdated @25 :Bool;
-  togglesUpdated @26 :Bool;
-  unconfirmedSlcSpeedLimit @27 :Float32;
-  upcomingSLCSpeedLimit @28 :Float32;
-  vCruise @29 :Float32;
-  vtscControllingCurve @30 :Bool;
-  vtscSpeed @31 :Float32;
+  togglesUpdated @25 :Bool;
+  unconfirmedSlcSpeedLimit @26 :Float32;
+  upcomingSLCSpeedLimit @27 :Float32;
+  vCruise @28 :Float32;
+  vtscControllingCurve @29 :Bool;
+  vtscSpeed @30 :Float32;
 }
 
 struct CustomReserved5 @0xa5cd762cd951a455 {

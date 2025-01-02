@@ -203,6 +203,7 @@ static void update_state(UIState *s) {
   Params params = Params();
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
+  static bool toggles_updated = false;
 
   if (sm.updated("liveCalibration")) {
     auto live_calib = sm["liveCalibration"].getLiveCalibration();
@@ -309,12 +310,19 @@ static void update_state(UIState *s) {
     scene.vtsc_controlling_curve = frogpilotPlan.getVtscControllingCurve();
     scene.vtsc_speed = frogpilotPlan.getVtscSpeed();
     if (frogpilotPlan.getTogglesUpdated()) {
-      scene.frogpilot_toggles = QJsonDocument::fromJson(QString::fromStdString(s->params_memory.get("FrogPilotToggles", true)).toUtf8()).object();
-      ui_update_params(s);
-      if (frogpilotPlan.getThemeUpdated()) {
+      if (!toggles_updated) {
+        scene.frogpilot_toggles = QJsonDocument::fromJson(QString::fromStdString(s->params_memory.get("FrogPilotToggles", true)).toUtf8()).object();
+
+        ui_update_params(s);
         ui_update_theme(s);
+
+        toggles_updated = true;
       }
+    } else {
+      toggles_updated = false;
     }
+  } else {
+    toggles_updated = false;
   }
   if (sm.updated("liveLocationKalman")) {
     auto liveLocationKalman = sm["liveLocationKalman"].getLiveLocationKalman();

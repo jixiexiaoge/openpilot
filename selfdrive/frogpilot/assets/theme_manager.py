@@ -135,7 +135,7 @@ class ThemeManager:
       "fourth_of_july": date(year, 7, 4),
       "halloween_week": date(year, 10, 31),
       "thanksgiving_week": self.calculate_thanksgiving(year),
-      "christmas_week": date(year, 12, 21)
+      "christmas_week": current_date
     }
 
     for holiday, holiday_date in holidays.items():
