@@ -244,9 +244,9 @@ void OnroadWindow::offroadTransition(bool offroad) {
       mapDialog->setGeometry(topWidget(this)->width() - 790 - UI_BORDER_SIZE, UI_BORDER_SIZE + 15, 775, topWidget(this)->height() - 400);
 
       mapDialog->hide(); // ±âº»ÀûÀ¸·Î ¼û±è »óÅÂ
-      mapDialog->show();
+      //mapDialog->show();
       mapDialog->raise();
-      uiState()->scene._current_carrot_display = 3;
+      //uiState()->scene._current_carrot_display = 3;
 
 #endif
     }
