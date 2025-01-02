@@ -1917,6 +1917,7 @@ public:
         auto lead_one = radar_state.getLeadOne();
         auto model_position = model.getPosition();
         const auto lane_lines = model.getLaneLines();
+        nav_path_display = params.getInt("ShowRouteInfo");
 
         if (!cs_alive || !car_control_alive || !car_state_alive || !lp_alive) return;
         auto selfdrive_state = sm["selfdriveState"].getSelfdriveState();

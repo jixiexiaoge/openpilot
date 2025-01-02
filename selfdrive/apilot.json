@@ -783,6 +783,19 @@
       "unit": 1
     },
     {
+      "group": "화면",
+      "name": "ShowRouteInfo",
+      "title": "경로AR표시(0)",
+      "descr": "0:안함,1:표시함",
+      "egroup": "DISP",
+      "etitle": "Show Route Info",
+      "edescr": "",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "unit": 1
+    },
+    {
       "group": "화면패스",
       "name": "ShowPathMode",
       "title": "패스종류,레인리스(9)",
