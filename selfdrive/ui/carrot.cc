@@ -379,6 +379,12 @@ protected:
             data[2] = live_params.getAngleOffsetDeg() * 10.0;
             sprintf(title, "7.SteerA (Y:Actual, G:Target, O:Offset*10)");
             break;
+        case 8:
+            data[0] = torque_state.getF() * 10.0;
+            data[1] = torque_state.getP() * 10.0;
+            data[2] = -torque_state.getOutput() * 10.0;
+            sprintf(title, "6.Steer(Y:P, G:F, O:output)");
+            break;
         default:
             data[0] = data[1] = data[2] = 0;
             sprintf(title, "no data");
