@@ -8,6 +8,8 @@ import urllib.request
 
 from pathlib import Path
 
+from openpilot.common.basedir import BASEDIR
+
 from openpilot.selfdrive.frogpilot.assets.download_functions import GITLAB_URL, download_file, get_repository_url, handle_error, handle_request_error, verify_download
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import delete_file
 from openpilot.selfdrive.frogpilot.frogpilot_variables import DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL, MODELS_PATH, params, params_memory
@@ -112,13 +114,13 @@ class ModelManager:
   @staticmethod
   def copy_default_model():
     classic_default_model_path = MODELS_PATH / f"{DEFAULT_CLASSIC_MODEL}.thneed"
-    source_path = Path(__file__).parent / "selfdrive/classic_modeld/models/supercombo.thneed"
+    source_path = Path(BASEDIR) / "selfdrive" / "classic_modeld" / "models" / "supercombo.thneed"
     if source_path.is_file() and not classic_default_model_path.is_file():
       shutil.copyfile(source_path, classic_default_model_path)
       print(f"Copied the classic default model from {source_path} to {classic_default_model_path}")
 
     default_model_path = MODELS_PATH / f"{DEFAULT_MODEL}.thneed"
-    source_path = Path(__file__).parent / "selfdrive/modeld/models/supercombo.thneed"
+    source_path = Path(BASEDIR) / "selfdrive" / "modeld" / "models" / "supercombo.thneed"
     if source_path.is_file() and not default_model_path.is_file():
       shutil.copyfile(source_path, default_model_path)
       print(f"Copied the default model from {source_path} to {default_model_path}")

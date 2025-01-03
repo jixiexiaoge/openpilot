@@ -7,6 +7,8 @@ from datetime import date, timedelta
 from dateutil import easter
 from pathlib import Path
 
+from openpilot.common.basedir import BASEDIR
+
 from openpilot.selfdrive.frogpilot.assets.download_functions import GITLAB_URL, download_file, get_repository_url, handle_error, verify_download
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import delete_file, extract_zip
 from openpilot.selfdrive.frogpilot.frogpilot_variables import ACTIVE_THEME_PATH, RANDOM_EVENTS_PATH, THEME_SAVE_PATH, params, params_memory, update_frogpilot_toggles
@@ -14,8 +16,8 @@ from openpilot.selfdrive.frogpilot.frogpilot_variables import ACTIVE_THEME_PATH,
 CANCEL_DOWNLOAD_PARAM = "CancelThemeDownload"
 DOWNLOAD_PROGRESS_PARAM = "ThemeDownloadProgress"
 
-HOLIDAY_THEME_PATH = Path(__file__).parent / "holiday_themes"
-STOCKOP_THEME_PATH = Path(__file__).parent / "stock_theme"
+HOLIDAY_THEME_PATH = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "holiday_themes"
+STOCKOP_THEME_PATH = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "stock_theme"
 
 def update_theme_asset(asset_type, theme, holiday_theme):
   save_location = ACTIVE_THEME_PATH / asset_type

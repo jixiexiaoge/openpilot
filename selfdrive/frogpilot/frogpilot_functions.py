@@ -150,8 +150,8 @@ def frogpilot_boot_functions(build_metadata, params_storage):
   if params.get_bool("HasAcceptedTerms"):
     params_storage.clear_all()
 
-  source = THEME_SAVE_PATH / "distance_icons"
-  destination = THEME_SAVE_PATH / "theme_packs"
+  source = Path(THEME_SAVE_PATH) / "distance_icons"
+  destination = Path(THEME_SAVE_PATH) / "theme_packs"
   if source.exists():
     for item in source.iterdir():
       if item.is_dir():
@@ -226,7 +226,7 @@ def setup_frogpilot(build_metadata):
 
 def uninstall_frogpilot():
   boot_logo_location = Path("/usr/comma/bg.jpg")
-  boot_logo_restore_location = Path(BASEDIR) / "selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.png"
+  boot_logo_restore_location = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "other_images" / "original_bg.jpg"
 
   run_cmd(["sudo", "cp", boot_logo_restore_location, boot_logo_location], "Successfully restored the original boot logo", "Failed to restore the original boot logo")
 
