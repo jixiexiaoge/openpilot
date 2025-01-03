@@ -779,7 +779,7 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
       lead_y = y + text_y + textHeight;
     }
 
-    if (!adjacent || (fabs(x) + text_x + textWidth) - lead_x >= textWidth * 1.25 || (fabs(y) + text_y + textHeight) - lead_y >= textHeight * 2) {
+    if (!adjacent || (x + text_x + textWidth) - lead_x >= textWidth * 1.5 || (y + text_y + textHeight) - lead_y >= textHeight * 1.5) {
       painter.drawText(text_x, text_y, text);
     }
   }
