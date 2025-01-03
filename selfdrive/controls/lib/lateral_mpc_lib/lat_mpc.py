@@ -175,8 +175,10 @@ class LateralMpc:
         kernel = np.ones(window_size) / window_size
         smoothed = np.convolve(data, kernel, mode='same')
 
-        smoothed[:window_size//2] = np.cumsum(data[:window_size])[:window_size//2] / np.arange(1, window_size//2 + 1)
-        smoothed[-window_size//2:] = np.cumsum(data[-window_size:][::-1])[:window_size//2][::-1] / np.arange(1, window_size//2 + 1)
+        # 가장자리 보정
+        half_window = window_size // 2
+        smoothed[:half_window] = np.cumsum(data[:window_size])[:half_window] / np.arange(1, half_window + 1)
+        smoothed[-half_window:] = np.cumsum(data[-window_size:][::-1])[:half_window][::-1] / np.arange(1, half_window + 1)
         return smoothed
 
       window_size = lat_filter
