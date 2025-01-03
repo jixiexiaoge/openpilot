@@ -60,9 +60,11 @@ class LatControlTorque(LatControl):
       if lateralTorqueCustom > 0:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
         self.torque_params.friction = self.params.get_float("LateralTorqueFriction")*0.001
+        lateralTorqueKf = self.params.get_float("LateralTorqueKf")*0.01
         lateralTorqueKp = self.params.get_float("LateralTorqueKp")*0.01
         lateralTorqueKi = self.params.get_float("LateralTorqueKi")*0.01
         lateralTorqueKd = self.params.get_float("LateralTorqueKd")*0.01
+        self.pid.k_f = lateralTorqueKf
         self.pid._k_p = [[0], [lateralTorqueKp]]
         self.pid._k_i = [[0], [lateralTorqueKi]]
         self.pid._k_d = [[0], [lateralTorqueKd]]

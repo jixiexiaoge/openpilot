@@ -42,6 +42,19 @@
     },
     {
       "group": "Á¶ÇâÆ©´×",
+      "name": "LateralTorqueKf",
+      "title": "_LateralTorqueKf*0.01(100)",
+      "descr": "",
+      "egroup": "LAT",
+      "etitle": "_LateralTorqueKf*0.01(100)",
+      "edescr": "",
+      "min": 0,
+      "max": 10000,
+      "default": 100,
+      "unit": 10
+    },
+    {
+      "group": "Á¶ÇâÆ©´×",
       "name": "LateralTorqueKp",
       "title": "_LateralTorqueKp*0.01(100)",
       "descr": "",

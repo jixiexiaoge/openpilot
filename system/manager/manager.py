@@ -127,6 +127,7 @@ def get_default_params():
     ("LateralTorqueCustom", "0"),
     ("LateralTorqueAccelFactor", "2500"),
     ("LateralTorqueFriction", "100"),
+    ("LateralTorqueKf", "0"),
     ("LateralTorqueKp", "0"),
     ("LateralTorqueKi", "0"),
     ("LateralTorqueKd", "0"),
