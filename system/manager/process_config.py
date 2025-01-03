@@ -73,7 +73,7 @@ procs = [
   NativeProcess("loggerd", "system/loggerd", ["./loggerd"], allow_logging),
   NativeProcess("modeld", "selfdrive/modeld", ["./modeld"], run_new_modeld),
   NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], only_onroad),
-  PythonProcess("navmodeld", "selfdrive.frogpilot.classic_modeld.navmodeld", only_onroad),
+  PythonProcess("navmodeld", "selfdrive.classic_modeld.navmodeld", only_onroad),
   NativeProcess("sensord", "system/sensord", ["./sensord"], only_onroad, enabled=not PC),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
@@ -106,9 +106,9 @@ procs = [
   PythonProcess("webjoystick", "tools.bodyteleop.web", notcar),
 
   # FrogPilot processes
-  NativeProcess("classic_modeld", "selfdrive/frogpilot/classic_modeld", ["./classic_modeld"], run_classic_modeld),
+  NativeProcess("classic_modeld", "selfdrive/classic_modeld", ["./classic_modeld"], run_classic_modeld),
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", always_run),
-  NativeProcess("frogpilot_modeld", "selfdrive/frogpilot/frogpilot_modeld", ["./frogpilot_modeld"], run_frogpilot_modeld),
+  NativeProcess("frogpilot_modeld", "selfdrive/frogpilot_modeld", ["./frogpilot_modeld"], run_frogpilot_modeld),
   PythonProcess("thepond", "selfdrive.frogpilot.thepond.thepond", always_run),
   PythonProcess("frogpilot_process", "selfdrive.frogpilot.frogpilot_process", always_run),
 ]
