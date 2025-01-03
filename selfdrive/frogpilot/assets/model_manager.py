@@ -12,7 +12,7 @@ from openpilot.selfdrive.frogpilot.assets.download_functions import GITLAB_URL, 
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import delete_file
 from openpilot.selfdrive.frogpilot.frogpilot_variables import DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL, MODELS_PATH, params, params_memory
 
-VERSION = "v11"
+VERSION = "v12"
 
 CANCEL_DOWNLOAD_PARAM = "CancelModelDownload"
 DOWNLOAD_PROGRESS_PARAM = "ModelDownloadProgress"
@@ -217,7 +217,7 @@ class ModelManager:
       available_model_names = [re.sub(r'[🗺️👀📡]', '', model["name"]).strip() for model in model_info]
       for model_id, model_name in zip(available_models, available_model_names):
         model_path = MODELS_PATH / f"{model_id}.thneed"
-        if not model_path.is_file():
+        if not model_path.is_file() and model_id != "frankenfrog":
           print(f"Model {model_id} does not exist. Preparing to download...")
 
           if params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):

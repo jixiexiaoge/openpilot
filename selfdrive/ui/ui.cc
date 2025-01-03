@@ -495,7 +495,7 @@ void UIState::updateStatus() {
     if (scene.started) {
       status = STATUS_DISENGAGED;
       scene.started_frame = sm->frame;
-    } else if (scene.started_timer > 15*60*UI_FREQ && scene.model_randomizer) {
+    } else if (scene.started_timer > (scene.frogs_go_moo ? 5 : 15)*60*UI_FREQ && scene.model_randomizer) {
       emit reviewModel();
     }
     started_prev = scene.started;

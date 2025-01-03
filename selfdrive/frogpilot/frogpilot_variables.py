@@ -343,8 +343,6 @@ class FrogPilotVariables:
     self.frogpilot_toggles.frogs_go_moo = Path("/persist/frogsgomoo.py").is_file()
     self.frogpilot_toggles.block_user = self.development_branch and not self.frogpilot_toggles.frogs_go_moo
 
-    self.allow_far_lead_tracking = self.testing_branch or self.frogpilot_toggles.frogs_go_moo
-
     for k, v, _ in frogpilot_default_params:
       params_default.put(k, v)
 
@@ -381,6 +379,9 @@ class FrogPilotVariables:
       pcm_cruise = False
 
     tuning_level = params.get_int("TuningLevel") if params.get_bool("TuningLevelConfirmed") else 3
+
+    allow_far_lead_tracking = self.testing_branch and tuning_level >= 3 or self.frogpilot_toggles.frogs_go_moo
+    allow_frankenfrog = self.testing_branch and tuning_level >= 3 or self.frogpilot_toggles.frogs_go_moo
 
     default = params_default
     level = self.tuning_levels
@@ -552,7 +553,7 @@ class FrogPilotVariables:
     toggle.experimental_mode_via_lkas = not toggle.always_on_lateral_lkas and toggle.experimental_mode_via_press and car_make != "subaru" and (params.get_bool("ExperimentalModeViaLKAS") if tuning_level >= level["ExperimentalModeViaLKAS"] else default.get_bool("ExperimentalModeViaLKAS"))
     toggle.experimental_mode_via_tap = toggle.experimental_mode_via_press and (params.get_bool("ExperimentalModeViaTap") if tuning_level >= level["ExperimentalModeViaTap"] else default.get_bool("ExperimentalModeViaTap"))
 
-    toggle.far_lead_tracking = self.allow_far_lead_tracking and has_radar and tuning_level >= 3
+    toggle.far_lead_tracking = allow_far_lead_tracking and has_radar
 
     toggle.frogsgomoo_tweak = openpilot_longitudinal and car_make == "toyota" and (params.get_bool("FrogsGoMoosTweak") if tuning_level >= level["FrogsGoMoosTweak"] else default.get_bool("FrogsGoMoosTweak"))
 
@@ -591,17 +592,28 @@ class FrogPilotVariables:
       if toggle.model_randomizer:
         if not started or not toggle.model:
           blacklisted_models = (params.get("BlacklistedModels", encoding='utf-8') or "").split(",")
-          existing_models = [model for model in available_models.split(",") if model not in blacklisted_models and (MODELS_PATH / f"{model}.thneed").exists()]
+          if not allow_frankenfrog:
+            blacklisted_models += "frankenfrog"
+          existing_models = [model for model in available_models.split(",") if model not in blacklisted_models and (model == "frankenfrog" or (MODELS_PATH / f"{model}.thneed").exists())]
           toggle.model = random.choice(existing_models) if existing_models else default.get("Model", encoding='utf-8')
       else:
         toggle.model = params.get("Model", encoding='utf-8') if tuning_level >= level["Model"] else default.get("Model", encoding='utf-8')
     else:
       toggle.model = default.get("Model", encoding='utf-8')
-    if available_models and available_model_names and toggle.model in available_models.split(",") and (MODELS_PATH / f"{toggle.model}.thneed").exists():
+    if available_models and available_model_names and toggle.model in available_models.split(",") and (toggle.model == "frankenfrog" or (MODELS_PATH / f"{toggle.model}.thneed").exists()):
       toggle.model_name = available_model_names.split(",")[available_models.split(",").index(toggle.model)]
     else:
       toggle.model = default.get("Model", encoding='utf-8')
       toggle.model_name = default.get("ModelName", encoding='utf-8')
+    if toggle.model == "frankenfrog":
+      if allow_frankenfrog:
+        toggle.frogpilot_model = True
+      else:
+        toggle.frogpilot_model = False
+        toggle.model = default.get("Model", encoding='utf-8')
+        toggle.model_name = default.get("ModelName", encoding='utf-8')
+    else:
+      toggle.frogpilot_model = False
     classic_models = params.get("ClassicModels", encoding='utf-8') or ""
     toggle.classic_model = classic_models and toggle.model in classic_models.split(",")
     clipped_curvature_models = params.get("ClippedCurvatureModels", encoding='utf-8') or ""
