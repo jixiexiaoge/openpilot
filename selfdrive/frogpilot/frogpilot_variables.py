@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from cereal import car
-from openpilot.common.basedir import BASEDIR
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params, UnknownKeyName
@@ -30,10 +29,10 @@ PLANNER_TIME = ModelConstants.T_IDXS[MODEL_LENGTH - 1]  # Length of time the mod
 THRESHOLD = 0.6                                         # 60% chance of condition being true
 TO_RADIANS = math.pi / 180                              # Conversion factor from degrees to radians
 
-ACTIVE_THEME_PATH = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "active_theme"
-MODELS_PATH = Path("/data") / "models"
-RANDOM_EVENTS_PATH = Path(BASEDIR) / "selfdrive" / "frogpilot" / "assets" / "random_events"
-THEME_SAVE_PATH = Path("/data") / "themes"
+ACTIVE_THEME_PATH = Path(__file__).parent / "selfdrive/frogpilot/assets/active_theme"
+MODELS_PATH = Path("/data/models")
+RANDOM_EVENTS_PATH = Path(__file__).parent / "selfdrive/frogpilot/assets/random_events"
+THEME_SAVE_PATH = Path("/data/themes")
 
 DEFAULT_MODEL = "national-public-radio"
 DEFAULT_MODEL_NAME = "National Public Radio 👀📡"
