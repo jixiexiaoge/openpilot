@@ -144,6 +144,8 @@ def get_default_params():
     ("HotspotOnBoot", "0"),
     ("CustomSR", "0"),
     ("SteerRatioRate", "100"),
+    ("NNFF", "0"),
+    ("NNFFLite", "0"),
   ]
   return default_params
 
