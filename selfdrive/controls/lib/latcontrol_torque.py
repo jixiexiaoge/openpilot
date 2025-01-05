@@ -273,7 +273,7 @@ class LatControlTorque(LatControl):
         torque_from_measurement = self.torque_from_lateral_accel(LatControlInputs(measurement, roll_compensation, CS.vEgo, CS.aEgo), self.torque_params,
                                                                  lateral_jerk_measurement, lateral_accel_deadzone, friction_compensation=self.use_nnff_lite, gravity_adjusted=False)
         pid_log.error = torque_from_setpoint - torque_from_measurement
-        error = desired_lateral_accel_now - actual_lateral_accel
+        error = desired_lateral_accel - actual_lateral_accel
         if self.use_nnff_lite:
           friction_input = self.lat_accel_friction_factor * error + self.lat_jerk_friction_factor * lookahead_lateral_jerk
         else:
