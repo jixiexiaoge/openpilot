@@ -134,10 +134,10 @@
     {
       "group": "Á¶ÇâÆ©´×",
       "name": "DampingFactor",
-      "title": "Á¶Çâ´ïÇÎÆÑÅÍ(25)",
+      "title": "Á¶Çâ´ïÇÎÆÑÅÍ(0)",
       "descr": "",
       "egroup": "LAT",
-      "etitle": "DampingFactor(25)",
+      "etitle": "DampingFactor(0)",
       "edescr": "",
       "min": -10000,
       "max": 10000,
@@ -199,14 +199,14 @@
     {
       "group": "Á¶ÇâÆ©´×",
       "name": "ModelActuatorDelay",
-      "title": "*ModelActuatorDelay(80)x0.01",
+      "title": "*ModelActuatorDelay(20)x0.01",
       "descr": "¸ðµ¨Áö¿¬°ª, Ä¿ºêÁøÀÔ½ÃÁ¡·Î Á¶Àý",
       "egroup": "LAT",
-      "etitle": "*ModelActuatorDelay(80)",
+      "etitle": "*ModelActuatorDelay(20)",
       "edescr": "",
       "min": 1,
       "max": 300,
-      "default": 80,
+      "default": 20,
       "unit": 1
     },
     {
