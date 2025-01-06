@@ -88,6 +88,37 @@
     </message>
 </context>
 <context>
+    <name>CarrotPanel</name>
+    <message>
+        <source>Cruise</source>
+        <translation>巡航</translation>
+    </message>
+    <message>
+        <source>Tuning</source>
+        <translation>调节</translation>
+    </message>
+    <message>
+        <source>Disp</source>
+        <translation>显示</translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation>路径</translation>
+    </message>
+    <message>
+        <source>Start</source>
+        <translation>开始</translation>
+    </message>
+    <message>
+        <source>Speed</source>
+        <translation>速度</translation>
+    </message>
+    <message>
+        <source>SELECT YOUR CAR</source>
+        <translation>选择您的汽车</translation>
+    </message>
+</context>
+<context>
     <name>ConfirmationDialog</name>
     <message>
         <source>Ok</source>
@@ -114,14 +145,41 @@
     </message>
 </context>
 <context>
+    <name>DestinationWidget</name>
+    <message>
+        <source>Home</source>
+        <translation>家</translation>
+    </message>
+    <message>
+        <source>Work</source>
+        <translation>工作</translation>
+    </message>
+    <message>
+        <source>No destination set</source>
+        <translation>未设置目的地</translation>
+    </message>
+    <message>
+        <source>home</source>
+        <translation>家</translation>
+    </message>
+    <message>
+        <source>work</source>
+        <translation>工作</translation>
+    </message>
+    <message>
+        <source>No %1 location set</source>
+        <translation>未设置%1位置</translation>
+    </message>
+</context>
+<context>
     <name>DeveloperPanel</name>
     <message>
         <source>Joystick Debug Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>摇杆调试模式</translation>
     </message>
     <message>
         <source>Longitudinal Maneuver Mode</source>
-        <translation type="unfinished"></translation>
+        <translation>纵向操控模式</translation>
     </message>
 </context>
 <context>
@@ -266,6 +324,65 @@
         <source>PAIR</source>
         <translation>配对</translation>
     </message>
+    <message>
+        <source>Git Pull &amp; Reboot</source>
+        <translation>Git 拉取并重启</translation>
+    </message>
+    <message>
+        <source>Git pull &amp; Reboot?</source>
+        <translation>是否要进行 Git 拉取并重启？</translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation>是</translation>
+    </message>
+    <message>
+        <source>Failed to fetch updates.</source>
+        <translation>获取更新失败。</translation>
+    </message>
+    <message>
+        <source>Already up to date.</source>
+        <translation>已经是最新版本。</translation>
+    </message>
+    <message>
+        <source>Git pull failed. Please check the logs.</source>
+        <translation>Git 拉取失败。请检查日志。</translation>
+    </message>
+    <message>
+        <source>Git pull successful. Rebooting...</source>
+        <translation>Git 拉取成功。正在重启...</translation>
+    </message>
+    <message>
+        <source>Set default</source>
+        <translation>设置为默认</translation>
+    </message>
+    <message>
+        <source>Set to default?</source>
+        <translation>是否设置为默认？</translation>
+    </message>
+</context>
+<context>
+    <name>DrawCarrot</name>
+    <message>
+        <source>ECO</source>
+        <translation>经济模式</translation>
+    </message>
+    <message>
+        <source>SAFE</source>
+        <translation>安全模式</translation>
+    </message>
+    <message>
+        <source>NORM</source>
+        <translation>标准模式</translation>
+    </message>
+    <message>
+        <source>FAST</source>
+        <translation>快速模式</translation>
+    </message>
+    <message>
+        <source>ERRM</source>
+        <translation>错误模式</translation>
+    </message>
 </context>
 <context>
     <name>DriverViewWindow</name>
@@ -318,6 +435,51 @@
     <message>
         <source>Installing...</source>
         <translation>正在安装……</translation>
+    </message>
+</context>
+<context>
+    <name>MapETA</name>
+    <message>
+        <source>eta</source>
+        <translation>预计到达时间</translation>
+    </message>
+    <message>
+        <source>min</source>
+        <translation>分钟</translation>
+    </message>
+    <message>
+        <source>hr</source>
+        <translation>小时</translation>
+    </message>
+</context>
+<context>
+    <name>MapSettings</name>
+    <message>
+        <source>NAVIGATION</source>
+        <translation>导航</translation>
+    </message>
+    <message>
+        <source>Manage at %1</source>
+        <translation>在 %1 管理</translation>
+    </message>
+    <message>
+        <source>Manage at connect.comma.ai</source>
+        <translation>在 connect.comma.ai 管理</translation>
+    </message>
+</context>
+<context>
+    <name>MapWindow</name>
+    <message>
+        <source>Map Loading</source>
+        <translation>地图加载中</translation>
+    </message>
+    <message>
+        <source>Waiting for APN</source>
+        <translation>等待APN设置</translation>
+    </message>
+    <message>
+        <source>Waiting for route</source>
+        <translation>等待路线规划</translation>
     </message>
 </context>
 <context>
@@ -521,7 +683,7 @@
     </message>
     <message>
         <source>openpilot</source>
-        <translation>openpilot</translation>
+        <translation type="vanished">openpilot</translation>
     </message>
     <message numerus="yes">
         <source>%n minute(s) ago</source>
@@ -544,6 +706,26 @@
     <message>
         <source>now</source>
         <translation>现在</translation>
+    </message>
+    <message>
+        <source>km</source>
+        <translation>公里</translation>
+    </message>
+    <message>
+        <source>m</source>
+        <translation>米</translation>
+    </message>
+    <message>
+        <source>mi</source>
+        <translation>英里</translation>
+    </message>
+    <message>
+        <source>ft</source>
+        <translation>英尺</translation>
+    </message>
+    <message>
+        <source>carrotpilot</source>
+        <translation>胡萝卜驾驶</translation>
     </message>
 </context>
 <context>
@@ -611,7 +793,11 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Developer</source>
-        <translation type="unfinished"></translation>
+        <translation>开发者</translation>
+    </message>
+    <message>
+        <source>Carrot</source>
+        <translation>胡萝卜</translation>
     </message>
 </context>
 <context>
@@ -1060,6 +1246,10 @@ This may take up to a minute.</source>
     <message>
         <source>Enable driver monitoring even when openpilot is not engaged.</source>
         <translation>即使在openpilot未激活时也启用驾驶员监控。</translation>
+    </message>
+    <message>
+        <source>MoreRelaxed</source>
+        <translation>更加放松</translation>
     </message>
 </context>
 <context>
