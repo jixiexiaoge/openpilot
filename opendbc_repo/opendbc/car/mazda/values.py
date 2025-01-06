@@ -9,45 +9,38 @@ from opendbc.car.fw_query_definitions import FwQueryConfig, Request, StdQueries
 
 Ecu = CarParams.Ecu
 
-
-# Steer torque limits
-
+# 转向扭矩限制
 class CarControllerParams:
-  STEER_MAX = 800                # theoretical max_steer 2047
-  STEER_DELTA_UP = 10             # torque increase per refresh
-  STEER_DELTA_DOWN = 25           # torque decrease per refresh
-  STEER_DRIVER_ALLOWANCE = 15     # allowed driver torque before start limiting
-  STEER_DRIVER_MULTIPLIER = 1     # weight driver torque
-  STEER_DRIVER_FACTOR = 1         # from dbc
-  STEER_ERROR_MAX = 350           # max delta between torque cmd and torque motor
+  STEER_MAX = 800                # 理论最大转向 2047
+  STEER_DELTA_UP = 10             # 每次刷新增加的扭矩
+  STEER_DELTA_DOWN = 25           # 每次刷新减少的扭矩
+  STEER_DRIVER_ALLOWANCE = 15     # 开始限制前允许的驾驶员扭矩
+  STEER_DRIVER_MULTIPLIER = 1     # 权重驾驶员扭矩
+  STEER_DRIVER_FACTOR = 1         # 来自dbc
+  STEER_ERROR_MAX = 350           # 扭矩命令和扭矩电机之间的最大差值
   STEER_STEP = 1  # 100 Hz
 
   def __init__(self, CP):
     pass
-
 
 @dataclass
 class MazdaCarDocs(CarDocs):
   package: str = "All"
   car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.mazda]))
 
-
 @dataclass(frozen=True, kw_only=True)
 class MazdaCarSpecs(CarSpecs):
-  tireStiffnessFactor: float = 0.7  # not optimized yet
-
+  tireStiffnessFactor: float = 0.7  # 尚未优化
 
 class MazdaFlags(IntFlag):
-  # Static flags
-  # Gen 1 hardware: same CAN messages and same camera
+  # 静态标志
+  # 第1代硬件：相同的CAN消息和相同的摄像头
   GEN1 = 1
-
 
 @dataclass
 class MazdaPlatformConfig(PlatformConfig):
   dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'mazda_2017'})
   flags: int = MazdaFlags.GEN1
-
 
 class CAR(Platforms):
   MAZDA_CX5 = MazdaPlatformConfig(
@@ -75,12 +68,10 @@ class CAR(Platforms):
     MAZDA_CX5.specs,
   )
 
-
 class LKAS_LIMITS:
   STEER_THRESHOLD = 15
   DISABLE_SPEED = 45    # kph
   ENABLE_SPEED = 52     # kph
-
 
 class Buttons:
   NONE = 0
@@ -89,10 +80,9 @@ class Buttons:
   RESUME = 3
   CANCEL = 4
 
-
 FW_QUERY_CONFIG = FwQueryConfig(
   requests=[
-    # TODO: check data to ensure ABS does not skip ISO-TP frames on bus 0
+    # TODO: 检查数据以确保ABS不会跳过总线0上的ISO-TP帧
     Request(
       [StdQueries.MANUFACTURER_SOFTWARE_VERSION_REQUEST],
       [StdQueries.MANUFACTURER_SOFTWARE_VERSION_RESPONSE],

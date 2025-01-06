@@ -40,7 +40,7 @@ class CarState(CarStateBase):
     ret.vEgoRaw = (ret.wheelSpeeds.fl + ret.wheelSpeeds.fr + ret.wheelSpeeds.rl + ret.wheelSpeeds.rr) / 4.
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
-    # Match panda speed reading
+    # 匹配panda速度读数
     speed_kph = cp.vl["ENGINE_DATA"]["SPEED"]
     ret.standstill = speed_kph <= .1
 
@@ -60,7 +60,7 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE"]["STEER_TORQUE_MOTOR"]
     ret.steeringRateDeg = cp.vl["STEER_RATE"]["STEER_ANGLE_RATE"]
 
-    # TODO: this should be from 0 - 1.
+    # TODO: 这个应该是从0到1。
     ret.brakePressed = cp.vl["PEDALS"]["BRAKE_ON"] == 1
     ret.brake = cp.vl["BRAKE"]["BRAKE_PRESSURE"]
 
@@ -68,16 +68,16 @@ class CarState(CarStateBase):
     ret.doorOpen = any([cp.vl["DOORS"]["FL"], cp.vl["DOORS"]["FR"],
                         cp.vl["DOORS"]["BL"], cp.vl["DOORS"]["BR"]])
 
-    # TODO: this should be from 0 - 1.
+    # TODO: 这个应该是从0到1。
     ret.gas = cp.vl["ENGINE_DATA"]["PEDAL_GAS"]
     ret.gasPressed = ret.gas > 0
 
-    # Either due to low speed or hands off
+    # 由于低速或手离开方向盘
     lkas_blocked = cp.vl["STEER_RATE"]["LKAS_BLOCK"] == 1
 
     if self.CP.minSteerSpeed > 0:
-      # LKAS is enabled at 52kph going up and disabled at 45kph going down
-      # wait for LKAS_BLOCK signal to clear when going up since it lags behind the speed sometimes
+      # LKAS在上升时在52kph启用，在下降时在45kph禁用
+      # 上升时等待LKAS_BLOCK信号清除，因为它有时会滞后于速度
       if speed_kph > LKAS_LIMITS.ENABLE_SPEED and not lkas_blocked:
         self.lkas_allowed_speed = True
       elif speed_kph < LKAS_LIMITS.DISABLE_SPEED:
@@ -85,15 +85,15 @@ class CarState(CarStateBase):
     else:
       self.lkas_allowed_speed = True
 
-    # TODO: the signal used for available seems to be the adaptive cruise signal, instead of the main on
-    #       it should be used for carState.cruiseState.nonAdaptive instead
+    # TODO: 使用的信号似乎是自适应巡航信号，而不是主开信号
+    #       它应该用于carState.cruiseState.nonAdaptive
     ret.cruiseState.available = cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"] == 1
     ret.cruiseState.enabled = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
     ret.cruiseState.standstill = cp.vl["PEDALS"]["STANDSTILL"] == 1
     ret.cruiseState.speed = cp.vl["CRZ_EVENTS"]["CRZ_SPEED"] * CV.KPH_TO_MS
 
-    # stock lkas should be on
-    # TODO: is this needed?
+    # 原厂LKAS应该开启
+    # TODO: 这是必须的吗？
     ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
 
     if ret.cruiseState.enabled:
@@ -103,21 +103,20 @@ class CarState(CarStateBase):
         self.low_speed_alert = False
     ret.lowSpeedAlert = self.low_speed_alert
 
-    # Check if LKAS is disabled due to lack of driver torque when all other states indicate
-    # it should be enabled (steer lockout). Don't warn until we actually get lkas active
-    # and lose it again, i.e, after initial lkas activation
+    # 检查LKAS是否由于缺乏驾驶员扭矩而禁用，当所有其他状态表明
+    # 它应该启用（转向锁定）。在我们实际获得LKAS激活并再次失去它之前不要警告，即在初始LKAS激活之后
     ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked
 
     self.acc_active_last = ret.cruiseState.enabled
 
     self.crz_btns_counter = cp.vl["CRZ_BTNS"]["CTR"]
 
-    # camera signals
+    # 摄像头信号
     self.cam_lkas = cp_cam.vl["CAM_LKAS"]
     self.cam_laneinfo = cp_cam.vl["CAM_LANEINFO"]
     ret.steerFaultPermanent = cp_cam.vl["CAM_LKAS"]["ERR_BIT_1"] == 1
 
-    # TODO: add button types for inc and dec
+    # TODO: 添加增减按钮类型
     ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
 
     return ret
@@ -125,7 +124,7 @@ class CarState(CarStateBase):
   @staticmethod
   def get_can_parsers(CP):
     pt_messages = [
-      # sig_address, frequency
+      # 信号地址，频率
       ("BLINK_INFO", 10),
       ("STEER", 67),
       ("STEER_RATE", 83),
@@ -150,7 +149,7 @@ class CarState(CarStateBase):
     cam_messages = []
     if CP.flags & MazdaFlags.GEN1:
       cam_messages += [
-        # sig_address, frequency
+        # 信号地址，频率
         ("CAM_LANEINFO", 2),
         ("CAM_LKAS", 16),
       ]

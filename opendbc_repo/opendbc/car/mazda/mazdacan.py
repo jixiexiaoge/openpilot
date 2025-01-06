@@ -1,22 +1,21 @@
 from opendbc.car.mazda.values import Buttons, MazdaFlags
 
-
 def create_steering_control(packer, CP, frame, apply_steer, lkas):
-
+  # 将apply_steer转换为临时变量
   tmp = apply_steer + 2048
 
   lo = tmp & 0xFF
   hi = tmp >> 8
 
-  # copy values from camera
+  # 从摄像头复制值
   b1 = int(lkas["BIT_1"])
   er1 = int(lkas["ERR_BIT_1"])
   lnv = 0
   ldw = 0
   er2 = int(lkas["ERR_BIT_2"])
 
-  # Some older models do have these, newer models don't.
-  # Either way, they all work just fine if set to zero.
+  # 一些旧型号有这些值，新的型号没有。
+  # 无论如何，如果设置为零，它们都可以正常工作。
   steering_angle = 0
   b2 = 0
 
@@ -27,10 +26,10 @@ def create_steering_control(packer, CP, frame, apply_steer, lkas):
   alo = (tmp & 0x3) << 2
 
   ctr = frame % 16
-  # bytes:     [    1  ] [ 2 ] [             3               ]  [           4         ]
+  # 字节:     [    1  ] [ 2 ] [             3               ]  [           4         ]
   csum = 249 - ctr - hi - lo - (lnv << 3) - er1 - (ldw << 7) - ( er2 << 4) - (b1 << 5)
 
-  # bytes      [ 5 ] [ 6 ] [    7   ]
+  # 字节      [ 5 ] [ 6 ] [    7   ]
   csum = csum - ahi - amd - alo - b2
 
   if ahi == 1:
@@ -61,7 +60,6 @@ def create_steering_control(packer, CP, frame, apply_steer, lkas):
 
   return packer.make_can_msg("CAM_LKAS", 0, values)
 
-
 def create_alert_command(packer, cam_msg: dict, ldw: bool, steer_required: bool):
   values = {s: cam_msg[s] for s in [
     "LINE_VISIBLE",
@@ -75,21 +73,19 @@ def create_alert_command(packer, cam_msg: dict, ldw: bool, steer_required: bool)
     "S1_HBEAM",
   ]}
   values.update({
-    # TODO: what's the difference between all these? do we need to send all?
+    # TODO: 这些之间有什么区别？我们需要发送所有这些吗？
     "HANDS_WARN_3_BITS": 0b111 if steer_required else 0,
     "HANDS_ON_STEER_WARN": steer_required,
     "HANDS_ON_STEER_WARN_2": steer_required,
 
-    # TODO: right lane works, left doesn't
-    # TODO: need to do something about L/R
+    # TODO: 右车道有效，左车道无效
+    # TODO: 需要对L/R做些什么
     "LDW_WARN_LL": 0,
     "LDW_WARN_RL": 0,
   })
   return packer.make_can_msg("CAM_LANEINFO", 0, values)
 
-
 def create_button_cmd(packer, CP, counter, button):
-
   can = int(button == Buttons.CANCEL)
   res = int(button == Buttons.RESUME)
 
