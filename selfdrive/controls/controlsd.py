@@ -19,7 +19,10 @@ from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 
-from openpilot.common.realtime import DT_CTRL
+from openpilot.common.realtime import DT_CTRL, DT_MDL
+from openpilot.selfdrive.modeld.constants import ModelConstants
+from openpilot.common.numpy_fast import clip, interp
+from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
 
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
@@ -133,10 +136,12 @@ class Controls:
       model_delay = self.params.get_float("ModelActuatorDelay") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
       t_since_plan = (self.sm.frame - self.sm.recv_frame['lateralPlan']) * DT_CTRL
-      lat_filter = carrot_lat_control if carrot_lat_control > 1 else 0
-      desired_curvature_now, desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, self.desired_curvature, model_delay, steer_actuator_delay, t_since_plan, lat_filter)
-
-      self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature_now)
+      if len(lat_plan.curvatures) != CONTROL_N:
+        self.desired_curvature_next = self.desired_curvature = desired_curvature_ff = 0.0
+      else:
+        curvature = interp(model_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+        desired_curvature_ff = interp(model_delay + steer_actuator_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+        self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, curvature)
 
     else:
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
