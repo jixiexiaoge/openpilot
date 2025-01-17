@@ -13,6 +13,7 @@ from cereal import log
 from openpilot.common.params import Params
 #from openpilot.selfdrive.controls.lib.lane_planner import LanePlanner
 from openpilot.selfdrive.controls.lib.lane_planner_2 import LanePlanner
+from collections import deque
 
 
 TRAJECTORY_SIZE = 33
@@ -71,7 +72,9 @@ class LateralPlanner:
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
     self.curve_speed = 0
-    self.carrot_lat_filter = 0
+    
+    self.prev_path_xyz = None
+    self.path_history = deque(maxlen=5)
 
   def reset_mpc(self, x0=None):
     if x0 is None:
@@ -136,11 +139,24 @@ class LateralPlanner:
     self.LP.lane_width_right = md.meta.laneWidthRight
     self.LP.curvature = measured_curvature
     self.path_xyz = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed)
+    if self.LP.lanefull_mode:
+      self.plan_yaw, self.plan_yaw_rate = self.LP.calculate_plan_yaw_and_yaw_rate(self.path_xyz)
     self.latDebugText = self.LP.debugText
     self.lanelines_active = True if self.LP.d_prob > 0.3 and self.LP.lanefull_mode else False
 
     self.path_xyz[:, 1] += self.pathOffset
 
+    """
+    # Smooth path
+    self.alpha = 0.2
+    if self.prev_path_xyz is None:
+      self.prev_path_xyz = self.path_xyz.copy()
+    self.path_xyz = self.alpha * self.path_xyz + (1 - self.alpha) * self.prev_path_xyz
+    self.prev_path_xyz = self.path_xyz
+    """
+    self.path_history.append(self.path_xyz)
+    self.path_xyz = np.mean(np.array(self.path_history), axis=0)
+    
     self.lat_mpc.set_weights(PATH_COST, LATERAL_MOTION_COST,
                              LATERAL_ACCEL_COST, LATERAL_JERK_COST,
                              STEERING_RATE_COST)
