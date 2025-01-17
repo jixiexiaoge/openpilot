@@ -63,6 +63,7 @@ class LateralPlanner:
     self.useLaneLineSpeedApply = self.params.get_int("UseLaneLineSpeedApply")
     self.pathOffset = 0.0 #float(self.params.get_int("PathOffset")) * 0.01
     self.useLaneLineMode = False
+    self.plan_a = np.zeros((TRAJECTORY_SIZE, ))
     self.plan_yaw = np.zeros((TRAJECTORY_SIZE,))
     self.plan_yaw_rate = np.zeros((TRAJECTORY_SIZE,))
     self.t_idxs = np.arange(TRAJECTORY_SIZE)
@@ -110,6 +111,7 @@ class LateralPlanner:
       car_speed = np.linalg.norm(self.velocity_xyz, axis=1) - get_speed_error(md, v_ego_car)
       self.v_plan = np.clip(car_speed, MIN_SPEED, np.inf)
       self.v_ego = self.v_plan[0]
+      self.plan_a = np.array(md.acceleration.x)
 
     # Parse model predictions
     self.LP.parse_model(md)
@@ -154,6 +156,10 @@ class LateralPlanner:
     self.path_xyz = self.alpha * self.path_xyz + (1 - self.alpha) * self.prev_path_xyz
     self.prev_path_xyz = self.path_xyz
     """
+
+    if self.plan_a[0] < -1.0:
+      self.path_history.clear()
+      
     self.path_history.append(self.path_xyz)
     self.path_xyz = np.mean(np.array(self.path_history), axis=0)
     
