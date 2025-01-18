@@ -104,6 +104,7 @@ class LateralPlanner:
 
     # Parse model predictions
     md = sm['modelV2']
+    laneless_only = False
     if len(md.position.x) == TRAJECTORY_SIZE and len(md.orientation.x) == TRAJECTORY_SIZE:
       self.path_xyz = np.column_stack([md.position.x, md.position.y, md.position.z])
       self.t_idxs = np.array(md.position.t)
@@ -114,13 +115,15 @@ class LateralPlanner:
       self.v_plan = np.clip(car_speed, MIN_SPEED, np.inf)
       self.v_ego = self.v_plan[0]
       self.plan_a = np.array(md.acceleration.x)
+      if md.velocity.x[-1] < md.velocity.x[0] * 0.7:  # TODO: 모델이 감속을 요청하는 경우 속도테이블이 레인모드를 할수 없음. 속도테이블을 새로 만들어야함..
+        laneless_only = True
 
     # Parse model predictions
     self.LP.parse_model(md)
     #lane_change_prob = self.LP.l_lane_change_prob + self.LP.r_lane_change_prob
     #self.DH.update(sm['carState'], md, sm['carControl'].latActive, lane_change_prob, sm)
 
-    if self.useLaneLineSpeedApply == 0:
+    if self.useLaneLineSpeedApply == 0 or laneless_only:
       self.useLaneLineMode = False
     elif self.v_ego*3.6 >= self.useLaneLineSpeedApply + 2:
       self.useLaneLineMode = True
