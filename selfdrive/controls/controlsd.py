@@ -136,13 +136,22 @@ class Controls:
       model_delay = self.params.get_float("ModelActuatorDelay") * 0.01
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
       t_since_plan = (self.sm.frame - self.sm.recv_frame['lateralPlan']) * DT_CTRL
-      if len(lat_plan.curvatures) != CONTROL_N:
-        self.desired_curvature_next = self.desired_curvature = desired_curvature_ff = 0.0
+      if carrot_lat_control == 1:
+        if len(lat_plan.curvatures) != CONTROL_N:
+          self.desired_curvature_next = self.desired_curvature = desired_curvature_ff = 0.0
+        else:
+          curvature = interp(model_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+          desired_curvature_ff = interp(model_delay + steer_actuator_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+          self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, curvature)
+      elif carrot_lat_control == 2:
+        desired_curvature = get_lag_adjusted_curvature1(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay)
+        desired_curvature_ff = self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature)
       else:
-        curvature = interp(model_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
-        desired_curvature_ff = interp(model_delay + steer_actuator_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
-        self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, curvature)
-        
+        lat_filter = carrot_lat_control
+        desired_curvature_now, desired_curvature_ff = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, self.desired_curvature, model_delay, steer_actuator_delay, t_since_plan, lat_filter)
+
+        self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature_now)
+  
 
     else:
       steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01

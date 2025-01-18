@@ -159,7 +159,7 @@ class LateralPlanner:
     self.prev_path_xyz = self.path_xyz
     """
 
-    if self.carrot_lat_control > 0:
+    if self.carrot_lat_control in [1,2]:
       if self.plan_a[0] < -1.0:
         self.path_history.clear()
       
