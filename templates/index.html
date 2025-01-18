@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车辆信息监控</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: #f0f0f0;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-on {
+            background-color: #28a745;
+        }
+
+        .status-off {
+            background-color: #dc3545;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        .blink {
+            animation: blink 0.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="title">基本信息</div>
+        <div class="grid">
+            <div>
+                <div>发动机转速</div>
+                <div class="value" id="rpm">0 RPM</div>
+            </div>
+            <div>
+                <div>车速</div>
+                <div class="value" id="speed">0 km/h</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="title">驾驶状态</div>
+        <div class="grid">
+            <div>
+                <div>档位</div>
+                <div class="value" id="gear">P</div>
+            </div>
+            <div>
+                <div>ACC状态</div>
+                <div><span class="status-indicator" id="acc-status"></span>
+                    <span id="acc-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>油门开度</div>
+                <div class="value" id="throttle">0%</div>
+            </div>
+            <div>
+                <div>刹车压力</div>
+                <div class="value" id="brake">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="title">安全系统</div>
+        <div class="grid">
+            <div>
+                <div>左盲区</div>
+                <div><span class="status-indicator" id="blind-left"></span></div>
+            </div>
+            <div>
+                <div>右盲区</div>
+                <div><span class="status-indicator" id="blind-right"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="title">温度信息</div>
+        <div class="grid">
+            <div>
+                <div>车外温度</div>
+                <div class="value" id="temp-outdoor">0°C</div>
+            </div>
+            <div>
+                <div>冷却液温度</div>
+                <div class="value" id="temp-coolant">0°C</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="title">车灯系统</div>
+        <div class="grid">
+            <div>
+                <div>左转向灯</div>
+                <div>
+                    <span class="status-indicator" id="left-blink"></span>
+                    <span id="left-blink-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>右转向灯</div>
+                <div>
+                    <span class="status-indicator" id="right-blink"></span>
+                    <span id="right-blink-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>远光灯</div>
+                <div>
+                    <span class="status-indicator" id="high-beam"></span>
+                    <span id="high-beam-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>近光灯</div>
+                <div>
+                    <span class="status-indicator" id="low-beam"></span>
+                    <span id="low-beam-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>危险警告灯</div>
+                <div>
+                    <span class="status-indicator" id="hazard"></span>
+                    <span id="hazard-text">关闭</span>
+                </div>
+            </div>
+            <div>
+                <div>雨刷</div>
+                <div>
+                    <span class="status-indicator" id="wiper"></span>
+                    <span id="wiper-text">关闭</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    // 更新基本信息
+                    document.getElementById('rpm').textContent = Math.round(data.engine_rpm) + ' RPM';
+                    document.getElementById('speed').textContent = Math.round(data.vehicle_speed) + ' km/h';
+                    document.getElementById('gear').textContent = data.gear;
+
+                    // 更新驾驶状态
+                    document.getElementById('throttle').textContent = Math.round(data.throttle) + '%';
+                    document.getElementById('brake').textContent = Math.round(data.brake_pressure) + '%';
+
+                    // 更新ACC状态
+                    const accStatus = document.getElementById('acc-status');
+                    const accText = document.getElementById('acc-text');
+                    if (data.acc_status) {
+                        accStatus.className = 'status-indicator status-on';
+                        accText.textContent = '开启';
+                    } else {
+                        accStatus.className = 'status-indicator status-off';
+                        accText.textContent = '关闭';
+                    }
+
+                    // 更新盲区状态
+                    document.getElementById('blind-left').className =
+                        'status-indicator ' + (data.blind_spot.left ? 'status-on' : 'status-off');
+                    document.getElementById('blind-right').className =
+                        'status-indicator ' + (data.blind_spot.right ? 'status-on' : 'status-off');
+
+                    // 更新温度信息
+                    document.getElementById('temp-outdoor').textContent =
+                        Math.round(data.temp.outdoor) + '°C';
+                    document.getElementById('temp-coolant').textContent =
+                        Math.round(data.temp.coolant) + '°C';
+
+                    // 更新车灯状态
+                    function updateLightStatus(id, status) {
+                        const indicator = document.getElementById(id);
+                        const text = document.getElementById(id + '-text');
+                        if ((id === 'left-blink' || id === 'right-blink' || id === 'hazard') && status) {
+                            indicator.className = 'status-indicator status-on blink';
+                        } else {
+                            indicator.className = 'status-indicator ' + (status ? 'status-on' : 'status-off');
+                        }
+                        text.textContent = status ? '开启' : '关闭';
+                    }
+
+                    updateLightStatus('left-blink', data.lights.left_blink);
+                    updateLightStatus('right-blink', data.lights.right_blink);
+                    updateLightStatus('high-beam', data.lights.high_beam);
+                    updateLightStatus('low-beam', data.lights.low_beam);
+                    updateLightStatus('hazard', data.lights.hazard);
+
+                    // 雨刷状态特殊处理
+                    const wiperIndicator = document.getElementById('wiper');
+                    const wiperText = document.getElementById('wiper-text');
+                    if (data.lights.front_wiper.high) {
+                        wiperIndicator.className = 'status-indicator status-on';
+                        wiperText.textContent = '高速';
+                    } else if (data.lights.front_wiper.low) {
+                        wiperIndicator.className = 'status-indicator status-on';
+                        wiperText.textContent = '低速';
+                    } else if (data.lights.rear_wiper) {
+                        wiperIndicator.className = 'status-indicator status-on';
+                        wiperText.textContent = '后雨刷';
+                    } else {
+                        wiperIndicator.className = 'status-indicator status-off';
+                        wiperText.textContent = '关闭';
+                    }
+                });
+        }
+
+        // 每500毫秒更新一次数据
+        setInterval(updateData, 500);
+    </script>
+</body>
+</html>
