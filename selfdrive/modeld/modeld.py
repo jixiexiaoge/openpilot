@@ -33,6 +33,8 @@ MODEL_PATHS = {
   ModelRunner.THNEED: Path(__file__).parent / 'models/supercombo.thneed',
   ModelRunner.ONNX: Path(__file__).parent / 'models/supercombo.onnx'}
 
+METADATA_PATH = Path(__file__).parent / 'models/supercombo_metadata.pkl'
+
 class FrameMeta:
   frame_id: int = 0
   timestamp_sof: int = 0
@@ -50,11 +52,9 @@ class ModelState:
   prev_desire: np.ndarray  # for tracking the rising edge of the pulse
   model: ModelRunner
 
-  def __init__(self, context: CLContext, model: str, model_version: str):
+  def __init__(self, context: CLContext):
     # FrogPilot variables
-    MODEL_PATHS[ModelRunner.THNEED] = MODELS_PATH / f'{model}.thneed'
-
-    with open(METADATAS_PATH / f'supercombo_metadata_{model_version}.pkl', 'rb') as f:
+    with open(METADATA_PATH, 'rb') as f:
       model_metadata = pickle.load(f)
 
     input_shapes = model_metadata.get('input_shapes')
@@ -152,7 +152,7 @@ def main(demo=False):
 
   planner_curves = frogpilot_toggles.planner_curvature_model
 
-  model = ModelState(cl_context, model_name, model_version)
+  model = ModelState(cl_context)
   cloudlog.warning("models loaded, modeld starting")
 
   # visionipc clients

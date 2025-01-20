@@ -43,7 +43,7 @@ def fill_xyvat(builder, t, x, y, v, a, x_std=None, y_std=None, v_std=None, a_std
 
 def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, np.ndarray], publish_state: PublishState,
                    vipc_frame_id: int, vipc_frame_id_extra: int, frame_id: int, frame_drop: float,
-                   timestamp_eof: int, timestamp_llk: int, model_execution_time: float, valid: bool, nav_enabled: bool) -> None:
+                   timestamp_eof: int, timestamp_llk: int, model_execution_time: float, valid: bool, nav_enabled: bool, frogpilot_model: bool) -> None:
   frame_age = frame_id - vipc_frame_id if frame_id > vipc_frame_id else 0
   msg.valid = valid
 
@@ -166,7 +166,7 @@ def fill_model_msg(msg: capnp._DynamicStructBuilder, net_output_data: dict[str, 
   temporal_pose.rotStd = net_output_data['sim_pose_stds'][0,3:].tolist()
 
   # confidence
-  if vipc_frame_id % (2*ModelConstants.MODEL_FREQ) == 0:
+  if vipc_frame_id % (2*(ModelConstants.MODEL_FREQ / 2 if frogpilot_model else ModelConstants.MODEL_FREQ)) == 0:
     # any disengage prob
     brake_disengage_probs = net_output_data['meta'][0,Meta.BRAKE_DISENGAGE]
     gas_disengage_probs = net_output_data['meta'][0,Meta.GAS_DISENGAGE]

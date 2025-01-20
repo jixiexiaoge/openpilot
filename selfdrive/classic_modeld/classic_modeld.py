@@ -33,6 +33,8 @@ MODEL_PATHS = {
   ModelRunner.THNEED: Path(__file__).parent / 'models/supercombo.thneed',
   ModelRunner.ONNX: Path(__file__).parent / 'models/supercombo.onnx'}
 
+METADATA_PATH = Path(__file__).parent / 'models/supercombo_metadata.pkl'
+
 class FrameMeta:
   frame_id: int = 0
   timestamp_sof: int = 0
@@ -50,11 +52,9 @@ class ModelState:
   prev_desire: np.ndarray  # for tracking the rising edge of the pulse
   model: ModelRunner
 
-  def __init__(self, context: CLContext, model: str, model_version: str):
+  def __init__(self, context: CLContext):
     # FrogPilot variables
-    MODEL_PATHS[ModelRunner.THNEED] = MODELS_PATH / f'{model}.thneed'
-
-    with open(METADATAS_PATH / f'supercombo_metadata_{model_version}.pkl', 'rb') as f:
+    with open(METADATA_PATH, 'rb') as f:
       model_metadata = pickle.load(f)
 
     input_shapes = model_metadata.get('input_shapes')
@@ -132,6 +132,7 @@ def main(demo=False):
   # FrogPilot variables
   frogpilot_toggles = get_frogpilot_toggles()
 
+  frogpilot_model = frogpilot_toggles.frogpilot_model
   model_name = frogpilot_toggles.model
   model_version = frogpilot_toggles.model_version
 
@@ -145,7 +146,7 @@ def main(demo=False):
   cloudlog.warning("setting up CL context")
   cl_context = CLContext()
   cloudlog.warning("CL context ready; loading model")
-  model = ModelState(cl_context, model_name, model_version)
+  model = ModelState(cl_context)
   cloudlog.warning("models loaded, classic_modeld starting")
 
   # visionipc clients
@@ -179,7 +180,7 @@ def main(demo=False):
   params = Params()
 
   # setup filter to track dropped frames
-  frame_dropped_filter = FirstOrderFilter(0., 10., 1. / ModelConstants.MODEL_FREQ)
+  frame_dropped_filter = FirstOrderFilter(0., 10., 1. / (ModelConstants.MODEL_FREQ / 2 if frogpilot_model else ModelConstants.MODEL_FREQ))
   frame_id = 0
   last_vipc_frame_id = 0
   run_count = 0
@@ -320,7 +321,7 @@ def main(demo=False):
       modelv2_send = messaging.new_message('modelV2')
       posenet_send = messaging.new_message('cameraOdometry')
       fill_model_msg(modelv2_send, model_output, publish_state, meta_main.frame_id, meta_extra.frame_id, frame_id, frame_drop_ratio,
-                      meta_main.timestamp_eof, timestamp_llk, model_execution_time, live_calib_seen, nav_enabled)
+                      meta_main.timestamp_eof, timestamp_llk, model_execution_time, live_calib_seen, nav_enabled, frogpilot_model)
 
       desire_state = modelv2_send.modelV2.meta.desireState
       l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
