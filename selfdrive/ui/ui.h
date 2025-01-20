@@ -141,7 +141,6 @@ typedef struct UIScene {
   bool acceleration_path;
   bool adjacent_path;
   bool adjacent_path_metrics;
-  bool allow_auto_locking_doors;
   bool always_on_lateral;
   bool always_on_lateral_active;
   bool big_map;
@@ -259,6 +258,7 @@ typedef struct UIScene {
   float speed_limit_overridden_speed;
   float steer;
   float unconfirmed_speed_limit;
+  float upcoming_maneuver_distance;
   float upcoming_speed_limit;
   float vtsc_speed;
 

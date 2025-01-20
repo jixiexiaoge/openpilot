@@ -1,18 +1,21 @@
 """Install exception handler for process crash."""
 import os
 import sentry_sdk
+import time
 import traceback
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 from openpilot.common.params import Params, ParamKeyType
+from openpilot.common.time import system_time_valid
 from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.version import get_build_metadata, get_version
 
-CRASHES_DIR = "/data/crashes/"
+CRASHES_DIR = Path("/data/crashes")
 
 class SentryProject(Enum):
   # python project
@@ -53,6 +56,9 @@ def capture_exception(*args, **kwargs) -> None:
 
 
 def capture_fingerprint(candidate, params, blocked=False):
+  while not system_time_valid():
+    time.sleep(1)
+
   params_tracking = Params("/persist/tracking")
 
   param_types = {
@@ -101,7 +107,10 @@ def capture_fingerprint(candidate, params, blocked=False):
 
 
 def capture_model(frogpilot_toggles):
-  sentry_sdk.capture_message(f"User using: {frogpilot_toggles.model_name} - Model Randomizer: {frogpilot_toggles.model_randomizer}", level='info')
+  while not system_time_valid():
+    time.sleep(1)
+
+  sentry_sdk.capture_message(f"User using: {frogpilot_toggles.model_name}", level='info')
 
 
 def capture_user(channel):

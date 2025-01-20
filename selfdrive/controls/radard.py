@@ -207,7 +207,7 @@ def get_lead(v_ego: float, ready: bool, tracks: dict[int, Track], lead_msg: capn
         lead_dict = closest_track.get_RadarState()
 
     if not lead_dict['status'] and v_ego > 1 and frogpilot_toggles.allow_far_lead_tracking:
-      far_lead_tracks = [c for c in tracks.values() if abs(c.yRel + interp(c.dRel, model_data.position.x, model_data.position.y)) < LANE_WIDTH / 2 and c.dRel > 100 and c.vLead > 1]
+      far_lead_tracks = [c for c in tracks.values() if abs(c.yRel + interp(c.dRel, model_data.position.x, model_data.position.y)) < LANE_WIDTH / 2 and c.dRel > 75 and c.vLead > 1]
       if len(far_lead_tracks) > 0:
         closest_track = min(far_lead_tracks, key=lambda c: c.dRel)
         lead_dict = closest_track.get_RadarState()

@@ -641,7 +641,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s, f
     setPathEdgeColors(pe, bg_colors[STATUS_EXPERIMENTAL_MODE_ACTIVE]);
   } else if (trafficModeActive) {
     setPathEdgeColors(pe, bg_colors[STATUS_TRAFFIC_MODE_ACTIVE]);
-  } else if (scene.navigate_on_openpilot) {
+  } else if (modelLength > scene.upcoming_maneuver_distance && scene.upcoming_maneuver_distance > 1) {
     setPathEdgeColors(pe, bg_colors[STATUS_NAVIGATION_ACTIVE]);
   } else if (!useStockColors) {
     setPathEdgeColors(pe, scene.path_edges_color);

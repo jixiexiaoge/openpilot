@@ -7,7 +7,6 @@ import cereal.messaging as messaging
 from cereal import car, log
 from pathlib import Path
 from setproctitle import setproctitle
-from types import SimpleNamespace
 from cereal.messaging import PubMaster, SubMaster
 from msgq.visionipc import VisionIpcClient, VisionStreamType, VisionBuf
 from openpilot.common.swaglog import cloudlog
@@ -65,7 +64,6 @@ class ModelState:
     self.frame = ModelFrame(context)
     self.wide_frame = ModelFrame(context)
     self.prev_desire = np.zeros(ModelConstants.DESIRE_LEN, dtype=np.float32)
-
     self.inputs = {
       'desire': np.zeros(ModelConstants.DESIRE_LEN * (ModelConstants.HISTORY_BUFFER_LEN+1), dtype=np.float32),
       'traffic_convention': np.zeros(ModelConstants.TRAFFIC_CONVENTION_LEN, dtype=np.float32),
@@ -73,7 +71,7 @@ class ModelState:
       'prev_desired_curv': np.zeros(ModelConstants.PREV_DESIRED_CURV_LEN * (ModelConstants.HISTORY_BUFFER_LEN+1), dtype=np.float32),
       **({'nav_features': np.zeros(ModelConstants.NAV_FEATURE_LEN, dtype=np.float32),
           'nav_instructions': np.zeros(ModelConstants.NAV_INSTRUCTION_LEN, dtype=np.float32)} if self.navigation else {}),
-      'features_buffer': np.zeros((ModelConstants.HISTORY_BUFFER_LEN) * ModelConstants.FEATURE_LEN, dtype=np.float32),
+      'features_buffer': np.zeros(ModelConstants.HISTORY_BUFFER_LEN * ModelConstants.FEATURE_LEN, dtype=np.float32),
       **({'radar_tracks': np.zeros(ModelConstants.RADAR_TRACKS_LEN * ModelConstants.RADAR_TRACKS_WIDTH, dtype=np.float32)} if self.radarless else {}),
     }
 

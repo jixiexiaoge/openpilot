@@ -108,7 +108,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("ClusterOffset", "1.015", 2),
   ("Compass", "0", 1),
   ("ConditionalExperimental", "1", 0),
-  ("CrosstrekTorque", "1", 3),
   ("CurveSensitivity", "100", 2),
   ("CurveSpeedControl", "0", 1),
   ("CustomAlerts", "1", 0),
@@ -175,7 +174,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("LeadDetectionThreshold", "35", 3),
   ("LeadInfo", "1", 3),
   ("LockDoors", "1", 0),
-  ("LockDoorsTimer", "0", 3),
+  ("LockDoorsTimer", "0", 0),
   ("LongitudinalMetrics", "1", 3),
   ("LongitudinalTune", "1", 0),
   ("LongPitch", "1", 2),
@@ -408,7 +407,6 @@ class FrogPilotVariables:
     else:
       toggle.liveValid = False
 
-    toggle.allow_auto_locking_doors = self.testing_branch and tuning_level >= 3 or self.frogpilot_toggles.frogs_go_moo
     toggle.allow_far_lead_tracking = self.testing_branch and tuning_level >= 3 and has_radar or self.frogpilot_toggles.frogs_go_moo
 
     advanced_custom_ui = params.get_bool("AdvancedCustomUI") if tuning_level >= level["AdvancedCustomUI"] else default.get_bool("AdvancedCustomUI")
@@ -472,8 +470,6 @@ class FrogPilotVariables:
     toggle.conditional_signal_lane_detection = toggle.conditional_signal != 0 and (params.get_bool("CESignalLaneDetection") if tuning_level >= level["CESignalLaneDetection"] else default.get_bool("CESignalLaneDetection"))
     if toggle.conditional_experimental_mode:
       params.put_bool("ExperimentalMode", True)
-
-    toggle.crosstrek_torque = car_model == "SUBARU_IMPREZA" and params.get_bool("CrosstrekTorque") if tuning_level >= level["CrosstrekTorque"] else default.get_bool("CrosstrekTorque")
 
     toggle.curve_speed_controller = openpilot_longitudinal and (params.get_bool("CurveSpeedControl") if tuning_level >= level["CurveSpeedControl"] else default.get_bool("CurveSpeedControl"))
     toggle.curve_sensitivity = params.get_int("CurveSensitivity") / 100 if toggle.curve_speed_controller and tuning_level >= level["CurveSensitivity"] else default.get_int("CurveSensitivity") / 100
@@ -566,6 +562,9 @@ class FrogPilotVariables:
     toggle.offline_mode = device_management and (params.get_bool("OfflineMode") if tuning_level >= level["OfflineMode"] else default.get_bool("OfflineMode"))
 
     toggle.experimental_gm_tune = openpilot_longitudinal and car_make == "gm" and (params.get_bool("ExperimentalGMTune") if tuning_level >= level["ExperimentalGMTune"] else default.get_bool("ExperimentalGMTune"))
+    stoppingDecelRate = 0.3 if toggle.experimental_gm_tune else stoppingDecelRate
+    vEgoStopping = 0.15 if toggle.experimental_gm_tune else vEgoStopping
+    vEgoStarting = 0.15 if toggle.experimental_gm_tune else vEgoStarting
 
     toggle.experimental_mode_via_press = openpilot_longitudinal and (params.get_bool("ExperimentalModeActivation") if tuning_level >= level["ExperimentalModeActivation"] else default.get_bool("ExperimentalModeActivation"))
     toggle.experimental_mode_via_distance = toggle.experimental_mode_via_press and (params.get_bool("ExperimentalModeViaDistance") if tuning_level >= level["ExperimentalModeViaDistance"] else default.get_bool("ExperimentalModeViaDistance"))
@@ -595,7 +594,7 @@ class FrogPilotVariables:
     toggle.nnff_lite = lateral_tuning and (params.get_bool("NNFFLite") if tuning_level >= level["NNFFLite"] else default.get_bool("NNFFLite"))
     toggle.use_turn_desires = lateral_tuning and (params.get_bool("TurnDesires") if tuning_level >= level["TurnDesires"] else default.get_bool("TurnDesires"))
 
-    toggle.lock_doors_timer = (params.get_int("LockDoorsTimer") if tuning_level >= level["LockDoorsTimer"] else default.get_int("LockDoorsTimer")) if car_make == "toyota" and toggle.allow_auto_locking_doors else 0
+    toggle.lock_doors_timer = params.get_int("LockDoorsTimer") if car_make == "toyota" and tuning_level >= level["LockDoorsTimer"] else default.get_int("LockDoorsTimer")
 
     toggle.long_pitch = openpilot_longitudinal and car_make == "gm" and (params.get_bool("LongPitch") if tuning_level >= level["LongPitch"] else default.get_bool("LongPitch"))
 

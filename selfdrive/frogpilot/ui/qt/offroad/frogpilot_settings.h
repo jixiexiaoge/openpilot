@@ -24,7 +24,6 @@ public:
   bool isGM = true;
   bool isHKG = true;
   bool isHKGCanFd = true;
-  bool isImpreza = true;
   bool isPIDCar = false;
   bool isSubaru = false;
   bool isToyota = true;

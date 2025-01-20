@@ -7,7 +7,6 @@ import cereal.messaging as messaging
 from cereal import car, log
 from pathlib import Path
 from setproctitle import setproctitle
-from types import SimpleNamespace
 from cereal.messaging import PubMaster, SubMaster
 from msgq.visionipc import VisionIpcClient, VisionStreamType, VisionBuf
 from openpilot.common.swaglog import cloudlog

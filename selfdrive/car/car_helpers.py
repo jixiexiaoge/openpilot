@@ -209,8 +209,6 @@ def get_car(logcan, sendcan, disable_openpilot_long, experimental_long_allowed, 
   elif candidate != "MOCK" and not params.get_bool("FingerprintLogged"):
     threading.Thread(target=sentry.capture_fingerprint, args=(candidate, params,)).start()
 
-  threading.Thread(target=sentry.capture_model, args=(frogpilot_toggles,)).start()
-
   CarInterface, _, _ = interfaces[candidate]
   CP = CarInterface.get_params(candidate, fingerprints, car_fw, disable_openpilot_long, experimental_long_allowed, params, docs=False)
   CP.carVin = vin

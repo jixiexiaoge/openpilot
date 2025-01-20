@@ -328,6 +328,10 @@ static void update_state(UIState *s) {
     scene.lat_accel = liveTorqueParameters.getLatAccelFactorFiltered();
     scene.live_valid = liveTorqueParameters.getLiveValid();
   }
+  if (sm.updated("navInstruction")) {
+    auto navInstruction = sm["navInstruction"].getNavInstruction();
+    scene.upcoming_maneuver_distance = navInstruction.getManeuverDistance();
+  }
   if (sm.updated("wideRoadCameraState")) {
     auto cam_state = sm["wideRoadCameraState"].getWideRoadCameraState();
     float scale = (cam_state.getSensor() == cereal::FrameData::ImageSensor::AR0231) ? 6.0f : 1.0f;
@@ -358,7 +362,6 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.acceleration_path = scene.frogpilot_toggles.value("acceleration_path").toBool();
   scene.adjacent_path = scene.frogpilot_toggles.value("adjacent_paths").toBool();
   scene.adjacent_path_metrics = scene.frogpilot_toggles.value("adjacent_path_metrics").toBool();
-  scene.allow_auto_locking_doors = scene.frogpilot_toggles.value("allow_auto_locking_doors").toBool();
   scene.always_on_lateral = scene.frogpilot_toggles.value("always_on_lateral").toBool();
   scene.big_map = scene.frogpilot_toggles.value("big_map").toBool();
   scene.blind_spot_path = scene.frogpilot_toggles.value("blind_spot_path").toBool();

@@ -112,11 +112,6 @@ class CarInterface(CarInterfaceBase):
     else:
       ret.transmissionType = TransmissionType.automatic
 
-    if params.get_bool("ExperimentalGMTune"):
-      ret.stoppingDecelRate = 0.3
-      ret.vEgoStopping = 0.15
-      ret.vEgoStarting = 0.15
-
     if use_new_api:
       ret.longitudinalTuning.kiBP = [5., 35.]
     else:

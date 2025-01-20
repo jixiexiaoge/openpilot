@@ -93,7 +93,9 @@ class FrogPilotPlanner:
     following_lead = self.lead_one.status
     following_lead &= self.lead_one.dRel < self.model_length + STOP_DISTANCE
     following_lead &= not carState.standstill or self.tracking_lead
-    return self.tracking_lead_filter.update(1 if following_lead else 0) >= THRESHOLD**2
+
+    self.tracking_lead_filter.update(following_lead)
+    return self.tracking_lead_filter.x >= THRESHOLD**2
 
   def publish(self, sm, pm, toggles_updated):
     frogpilot_plan_send = messaging.new_message('frogpilotPlan')

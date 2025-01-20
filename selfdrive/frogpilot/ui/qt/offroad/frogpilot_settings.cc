@@ -39,6 +39,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
   FrogPilotPrimelessPanel *frogpilotPrimelessPanel = new FrogPilotPrimelessPanel(this);
   FrogPilotSoundsPanel *frogpilotSoundsPanel = new FrogPilotSoundsPanel(this);
   FrogPilotThemesPanel *frogpilotThemesPanel = new FrogPilotThemesPanel(this);
+  FrogPilotVehiclesPanel *frogpilotVehiclesPanel = new FrogPilotVehiclesPanel(this);
   FrogPilotVisualsPanel *frogpilotVisualsPanel = new FrogPilotVisualsPanel(this);
 
   QObject::connect(frogpilotDevicePanel, &FrogPilotDevicePanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
@@ -52,6 +53,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
   QObject::connect(frogpilotPrimelessPanel, &FrogPilotPrimelessPanel::openMapBoxInstructions, this, &FrogPilotSettingsWindow::openMapBoxInstructions);
   QObject::connect(frogpilotSoundsPanel, &FrogPilotSoundsPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
   QObject::connect(frogpilotThemesPanel, &FrogPilotThemesPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
+  QObject::connect(frogpilotVehiclesPanel, &FrogPilotVehiclesPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
   QObject::connect(frogpilotVisualsPanel, &FrogPilotVisualsPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
   QObject::connect(frogpilotVisualsPanel, &FrogPilotVisualsPanel::openSubParentToggle, this, &FrogPilotSettingsWindow::openSubParentToggle);
 
@@ -61,7 +63,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
     {{tr("MAP DATA"), frogpilotMapsPanel}, {tr("PRIMELESS NAVIGATION"), frogpilotPrimelessPanel}},
     {{tr("DATA"), new FrogPilotDataPanel(this)}, {tr("DEVICE CONTROLS"), frogpilotDevicePanel}, {tr("UTILITIES"), new FrogPilotUtilitiesPanel(this)}},
     {{tr("APPEARANCE"), frogpilotVisualsPanel}, {tr("THEME"), frogpilotThemesPanel}},
-    {{tr("MANAGE"), new FrogPilotVehiclesPanel(this)}}
+    {{tr("MANAGE"), frogpilotVehiclesPanel}}
   };
 
   std::vector<std::tuple<QString, QString, QString>> panelInfo = {
@@ -218,7 +220,6 @@ void FrogPilotSettingsWindow::updateVariables() {
     isGM = carMake == "gm";
     isHKG = carMake == "hyundai";
     isHKGCanFd = isHKG && safetyModel == cereal::CarParams::SafetyModel::HYUNDAI_CANFD;
-    isImpreza = carFingerprint == "SUBARU_IMPREZA";
     isPIDCar = CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::PID;
     isSubaru = carMake == "subaru";
     isToyota = carMake == "toyota";

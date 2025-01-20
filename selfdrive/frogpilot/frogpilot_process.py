@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import datetime
+import threading
 import time
 
 import openpilot.system.sentry as sentry
@@ -119,6 +120,8 @@ def frogpilot_thread():
       if frogpilot_toggles.lock_doors_timer != 0:
         run_thread_with_lock("lock_doors", lock_doors, (frogpilot_toggles.lock_doors_timer, sm))
     elif started and not started_previously:
+      threading.Thread(target=sentry.capture_model, args=(frogpilot_toggles,)).start()
+
       radarless_model = frogpilot_toggles.radarless_model
 
       if error_log.is_file():

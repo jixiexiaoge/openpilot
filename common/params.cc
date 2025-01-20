@@ -267,7 +267,6 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ColorToDownload", CLEAR_ON_MANAGER_START},
     {"Compass", PERSISTENT | FROGPILOT_VISUALS},
     {"ConditionalExperimental", PERSISTENT | FROGPILOT_CONTROLS},
-    {"CrosstrekTorque", PERSISTENT | FROGPILOT_VEHICLES},
     {"CurveSensitivity", PERSISTENT | FROGPILOT_CONTROLS},
     {"CurveSpeedControl", PERSISTENT | FROGPILOT_CONTROLS},
     {"CustomAlerts", PERSISTENT | FROGPILOT_VISUALS},

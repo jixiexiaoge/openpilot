@@ -13,9 +13,6 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def _get_params(ret, candidate: CAR, fingerprint, car_fw, disable_openpilot_long, experimental_long, docs):
-    # FrogPilot variables
-    crosstrek_torque_increase = get_frogpilot_toggles().crosstrek_torque
-
     ret.carName = "subaru"
     ret.radarUnavailable = True
     # for HYBRID CARS to be upstreamed, we need:
@@ -56,9 +53,9 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.SUBARU_IMPREZA:
       ret.steerActuatorDelay = 0.4  # end-to-end angle controller
       ret.lateralTuning.init('pid')
-      ret.lateralTuning.pid.kf = 0.00003333 if crosstrek_torque_increase else 0.00005
+      ret.lateralTuning.pid.kf = 0.00003333
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0., 20.], [0., 20.]]
-      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.133, 0.2], [0.0133, 0.02]] if crosstrek_torque_increase else [[0.2, 0.3], [0.02, 0.03]]
+      ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.133, 0.2], [0.0133, 0.02]]
 
     elif candidate == CAR.SUBARU_IMPREZA_2020:
       ret.lateralTuning.init('pid')
