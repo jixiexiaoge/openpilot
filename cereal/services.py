@@ -95,6 +95,7 @@ _services: dict[str, tuple] = {
   "frogpilotCarControl": (True, 100., 10),
   "frogpilotCarState": (True, 100., 10),
   "frogpilotDeviceState": (True, 2., 1),
+  "frogpilotModelV2": (True, 20., 40),
   "frogpilotNavigation": (True, 1., 10),
   "frogpilotPlan": (True, 20., 5),
 }

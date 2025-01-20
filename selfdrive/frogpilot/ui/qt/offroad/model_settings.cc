@@ -192,12 +192,19 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
             selectableModels.append(modelName);
           }
         }
+        selectableModels.append("Frankenfrog 👀📡");
+        selectableModels.sort();
         selectableModels.prepend(QString::fromStdString(params_default.get("ModelName")));
 
         QString modelToSelect = MultiOptionDialog::getSelection(tr("Select a model - 🗺️ = Navigation | 📡 = Radar | 👀 = VOACC"), selectableModels, QString::fromStdString(params.get("ModelName")), this);
         if (!modelToSelect.isEmpty()) {
-          params.put("Model", modelFileToNameMap.key(modelToSelect).toStdString());
-          params.put("ModelName", modelToSelect.toStdString());
+          if (modelToSelect == "Frankenfrog 👀📡") {
+            params.put("Model", "frankenfrog");
+            params.put("ModelName", "Frankenfrog 👀📡");
+          } else {
+            params.put("Model", modelFileToNameMap.key(modelToSelect).toStdString());
+            params.put("ModelName", modelToSelect.toStdString());
+          }
 
           if (started) {
             if (FrogPilotConfirmationDialog::toggle(tr("Reboot required to take effect."), tr("Reboot Now"), this)) {

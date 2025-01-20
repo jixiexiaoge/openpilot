@@ -81,9 +81,6 @@ struct FrogPilotPlan @0x80ae746ee2596b11 {
   vtscSpeed @30 :Float32;
 }
 
-struct CustomReserved5 @0xa5cd762cd951a455 {
-}
-
 struct CustomReserved6 @0xf98d843bfd7004a3 {
 }
 

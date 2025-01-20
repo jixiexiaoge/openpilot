@@ -98,12 +98,14 @@ class Controls:
     if REPLAY:
       # no vipc in replay will make them ignored anyways
       ignore += ['roadCameraState', 'wideRoadCameraState']
+    if not get_frogpilot_toggles().frogpilot_model:
+      ignore += ['frogpilotModelV2']
     if get_frogpilot_toggles().radarless_model:
       ignore += ['radarState']
     self.sm = messaging.SubMaster(['deviceState', 'pandaStates', 'peripheralState', 'modelV2', 'liveCalibration',
                                    'carOutput', 'driverMonitoringState', 'longitudinalPlan', 'liveLocationKalman',
                                    'managerState', 'liveParameters', 'radarState', 'liveTorqueParameters',
-                                   'testJoystick', 'frogpilotCarState', 'frogpilotPlan'] + self.camera_packets + self.sensor_packets,
+                                   'testJoystick', 'frogpilotCarState', 'frogpilotModelV2', 'frogpilotPlan'] + self.camera_packets + self.sensor_packets,
                                   ignore_alive=ignore, ignore_avg_freq=ignore+['radarState', 'testJoystick'], ignore_valid=['testJoystick', ],
                                   frequency=int(1/DT_CTRL))
 
@@ -633,12 +635,21 @@ class Controls:
         actuators.speed = long_plan.speeds[-1]
 
       # Steering PID loop and lateral MPC
-      self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature, self.planner_curves)
-      actuators.curvature = self.desired_curvature
-      actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
-                                                                             self.steer_limited, self.desired_curvature,
-                                                                             self.sm['liveLocationKalman'],
-                                                                             model_data=self.sm['modelV2'], frogpilot_toggles=self.frogpilot_toggles)
+      if self.frogpilot_toggles.frogpilot_model:
+        self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, self.sm['frogpilotModelV2'].action.desiredCurvature, self.planner_curves)
+        actuators.curvature = self.desired_curvature
+        actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
+                                                                               self.steer_limited, self.desired_curvature,
+                                                                               self.sm['liveLocationKalman'],
+                                                                               model_data=self.sm['frogpilotModelV2'], frogpilot_toggles=self.frogpilot_toggles)
+      else:
+        self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature, self.planner_curves)
+        actuators.curvature = self.desired_curvature
+        actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
+                                                                               self.steer_limited, self.desired_curvature,
+                                                                               self.sm['liveLocationKalman'],
+                                                                               model_data=self.sm['modelV2'], frogpilot_toggles=self.frogpilot_toggles)
+
     else:
       lac_log = log.ControlsState.LateralDebugState.new_message()
       if self.sm.recv_frame['testJoystick'] > 0:

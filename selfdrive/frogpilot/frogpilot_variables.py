@@ -408,6 +408,7 @@ class FrogPilotVariables:
       toggle.liveValid = False
 
     toggle.allow_far_lead_tracking = self.testing_branch and tuning_level >= 3 and has_radar or self.frogpilot_toggles.frogs_go_moo
+    allow_frankenfrog = self.testing_branch and tuning_level >= 3 or self.frogpilot_toggles.frogs_go_moo
 
     advanced_custom_ui = params.get_bool("AdvancedCustomUI") if tuning_level >= level["AdvancedCustomUI"] else default.get_bool("AdvancedCustomUI")
     toggle.hide_alerts = advanced_custom_ui and (params.get_bool("HideAlerts") if tuning_level >= level["HideAlerts"] else default.get_bool("HideAlerts"))
@@ -611,7 +612,11 @@ class FrogPilotVariables:
     toggle.available_models = params.get("AvailableModels", encoding='utf-8') or ""
     toggle.available_model_names = params.get("AvailableModelNames", encoding='utf-8') or ""
     toggle.model_versions = params.get("ModelVersions", encoding='utf-8') or ""
-    downloaded_models = [model for model in toggle.available_models.split(",") if (MODELS_PATH / f"{model}.thneed").exists()]
+    if allow_frankenfrog:
+      toggle.available_models += ",frankenfrog"
+      toggle.available_model_names += ",Frankenfrog 👀🛡"
+      toggle.model_versions += ",v0"
+    downloaded_models = [model for model in toggle.available_models.split(",") if model == "frankenfrog" or (MODELS_PATH / f"{model}.thneed").exists()]
     toggle.model_randomizer = downloaded_models and (params.get_bool("ModelRandomizer") if tuning_level >= level["ModelRandomizer"] else default.get_bool("ModelRandomizer"))
     if toggle.available_models and downloaded_models and toggle.model_versions:
       if toggle.model_randomizer:
@@ -634,6 +639,16 @@ class FrogPilotVariables:
       toggle.model = default.get("Model", encoding='utf-8')
       toggle.model_name = default.get("ModelName", encoding='utf-8')
       toggle.model_version = default.get("ModelVersion", encoding='utf-8')
+    if toggle.model == "frankenfrog":
+      if allow_frankenfrog:
+        toggle.frogpilot_model = True
+      else:
+        toggle.frogpilot_model = False
+        toggle.model = default.get("Model", encoding='utf-8')
+        toggle.model_name = default.get("ModelName", encoding='utf-8')
+        toggle.model_version = default.get("ModelVersion", encoding='utf-8')
+    else:
+      toggle.frogpilot_model = False
     toggle.classic_model = toggle.model_version in {"v1", "v2", "v3"}
     toggle.planner_curvature_model = toggle.model_version not in {"v1", "v2", "v3", "v4", "v5"}
     toggle.radarless_model = toggle.model_version in {"v3"}

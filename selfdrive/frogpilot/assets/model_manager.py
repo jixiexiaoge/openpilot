@@ -125,7 +125,7 @@ class ModelManager:
       print(f"Copied the default model from {source_path} to {default_model_path}")
 
   def check_models(self, available_models, boot_run, repo_url):
-    available_models = set(available_models) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
+    available_models = set(available_models) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL, "frankenfrog"}
     downloaded_models = set(path.stem for path in MODELS_PATH.glob("*.thneed")) - {DEFAULT_MODEL, DEFAULT_CLASSIC_MODEL}
 
     outdated_models = downloaded_models - available_models
@@ -210,7 +210,7 @@ class ModelManager:
 
     model_info = self.fetch_models(f"{repo_url}/Versions/model_names_{VERSION}.json")
     if model_info:
-      available_models = [model["id"] for model in model_info]
+      available_models = [model["id"] for model in model_info if model["id"] != "frankenfrog"]
       available_model_names = [re.sub(r'[🗺️👀📡]', '', model["name"]).strip() for model in model_info]
       for model_id, model_name in zip(available_models, available_model_names):
         model_path = MODELS_PATH / f"{model_id}.thneed"
