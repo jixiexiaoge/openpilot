@@ -49,7 +49,7 @@ PARK = car.CarState.GearShifter.park
 
 def get_long_tune(CP, params):
   kiBP = [0.]
-  kiV = [0.25]
+  kiV = [0.5]
 
   return PIDController(0.0, (kiBP, kiV), k_f=1.0,
                        pos_limit=params.ACCEL_MAX, neg_limit=params.ACCEL_MIN,
