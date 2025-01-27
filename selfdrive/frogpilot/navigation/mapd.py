@@ -47,7 +47,16 @@ def download():
   ]
 
   os.makedirs(os.path.dirname(MAPD_PATH), exist_ok=True)
-  os.chmod(os.path.dirname(MAPD_PATH), 0o755)
+
+  if os.access(MAPD_PATH, os.W_OK):
+    try:
+      os.chmod(MAPD_PATH, 0o755)
+      print(f"Permissions set to {oct(0o755)} for {MAPD_PATH}")
+    except OSError as error:
+      print(f"Warning: Could not chmod {MAPD_PATH}: {error}")
+      sentry.capture_exception(error)
+  else:
+    print(f"Skipping chmod: {MAPD_PATH} is read-only.")
 
   for url in urls:
     try:

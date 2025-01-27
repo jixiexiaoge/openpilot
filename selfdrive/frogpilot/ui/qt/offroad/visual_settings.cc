@@ -59,8 +59,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     AbstractControl *visualToggle;
 
     if (param == "QOLVisuals") {
-      FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(qolToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *qolToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(qolToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedAccessibilityKeys = accessibilityKeys;
 
         if (!hasOpenpilotLongitudinal) {
@@ -76,8 +76,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
       visualToggle = preferredCamera;
 
     } else if (param == "AdvancedCustomUI") {
-      FrogPilotParamManageControl *advancedCustomUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(advancedCustomUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *advancedCustomUIToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(advancedCustomUIToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedAdvancedCustomOnroadUIKeys = advancedCustomOnroadUIKeys;
 
         if (!hasOpenpilotLongitudinal) {
@@ -89,8 +89,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
       visualToggle = advancedCustomUIToggle;
 
     } else if (param == "DeveloperUI") {
-      FrogPilotParamManageControl *developerUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(developerUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *developerUIToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(developerUIToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedDeveloperUIKeys = developerUIKeys;
 
         if (!hasOpenpilotLongitudinal) {
@@ -123,38 +123,38 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "BorderMetrics") {
       std::vector<QString> borderToggles{"BlindSpotMetrics", "ShowSteering", "SignalMetrics"};
       std::vector<QString> borderToggleNames{tr("Blind Spot"), tr("Steering Torque"), tr("Turn Signal")};
-      borderMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, borderToggles, borderToggleNames);
+      borderMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, icon, borderToggles, borderToggleNames);
       visualToggle = borderMetricsBtn;
     } else if (param == "LateralMetrics") {
       std::vector<QString> lateralToggles{"AdjacentPathMetrics", "TuningInfo"};
       std::vector<QString> lateralToggleNames{tr("Adjacent Path Metrics"), tr("Auto Tune")};
-      lateralMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, lateralToggles, lateralToggleNames);
+      lateralMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, icon, lateralToggles, lateralToggleNames);
       visualToggle = lateralMetricsBtn;
     } else if (param == "LongitudinalMetrics") {
       std::vector<QString> longitudinalToggles{"AdjacentLeadsUI", "LeadInfo", "JerkInfo"};
       std::vector<QString> longitudinalToggleNames{tr("Adjacent Leads"), tr("Lead Info"), tr("Jerk Values")};
-      longitudinalMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, longitudinalToggles, longitudinalToggleNames);
+      longitudinalMetricsBtn = new FrogPilotButtonToggleControl(param, title, desc, icon, longitudinalToggles, longitudinalToggleNames);
       visualToggle = longitudinalMetricsBtn;
     } else if (param == "NumericalTemp") {
       std::vector<QString> temperatureToggles{"Fahrenheit"};
       std::vector<QString> temperatureToggleNames{tr("Fahrenheit")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, temperatureToggles, temperatureToggleNames);
+      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, temperatureToggles, temperatureToggleNames);
     } else if (param == "SidebarMetrics") {
       std::vector<QString> sidebarMetricsToggles{"ShowCPU", "ShowGPU", "ShowIP", "ShowMemoryUsage", "ShowStorageLeft", "ShowStorageUsed"};
       std::vector<QString> sidebarMetricsToggleNames{tr("CPU"), tr("GPU"), tr("IP"), tr("RAM"), tr("SSD Left"), tr("SSD Used")};
-      FrogPilotButtonToggleControl *sidebarMetricsToggle = new FrogPilotButtonToggleControl(param, title, desc, sidebarMetricsToggles, sidebarMetricsToggleNames, false, false, 150);
-      QObject::connect(sidebarMetricsToggle, &FrogPilotButtonToggleControl::buttonClicked, [sidebarMetricsToggle, this](int index) {
-        if (index == 0) {
+      FrogPilotButtonToggleControl *sidebarMetricsToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, sidebarMetricsToggles, sidebarMetricsToggleNames, false, 150);
+      QObject::connect(sidebarMetricsToggle, &FrogPilotButtonToggleControl::buttonClicked, [this, sidebarMetricsToggle](int id) {
+        if (id == 0) {
           params.putBool("ShowGPU", false);
-        } else if (index == 1) {
+        } else if (id == 1) {
           params.putBool("ShowCPU", false);
-        } else if (index == 3) {
+        } else if (id == 3) {
           params.putBool("ShowStorageLeft", false);
           params.putBool("ShowStorageUsed", false);
-        } else if (index == 4) {
+        } else if (id == 4) {
           params.putBool("ShowMemoryUsage", false);
           params.putBool("ShowStorageUsed", false);
-        } else if (index == 5) {
+        } else if (id == 5) {
           params.putBool("ShowMemoryUsage", false);
           params.putBool("ShowStorageLeft", false);
         }
@@ -185,11 +185,11 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "ShowStoppingPoint") {
       std::vector<QString> stoppingPointToggles{"ShowStoppingPointMetrics"};
       std::vector<QString> stoppingPointToggleNames{tr("Show Distance")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, stoppingPointToggles, stoppingPointToggleNames);
+      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, stoppingPointToggles, stoppingPointToggleNames);
 
     } else if (param == "ModelUI") {
-      FrogPilotParamManageControl *modelUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(modelUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *modelUIToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(modelUIToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         showToggles(modelUIKeys);
       });
       visualToggle = modelUIToggle;
@@ -201,8 +201,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
       visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" feet"), std::map<int, QString>(), 0.1);
 
     } else if (param == "NavigationUI") {
-      FrogPilotParamManageControl *customUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(customUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *customUIToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(customUIToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedNavigationUIKeys = navigationUIKeys;
 
         if (params.getBool("SpeedLimitController")) {
@@ -215,7 +215,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "BigMap") {
       std::vector<QString> mapToggles{"FullMap"};
       std::vector<QString> mapToggleNames{tr("Full Map")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, mapToggles, mapToggleNames);
+      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, mapToggles, mapToggleNames);
     } else if (param == "MapStyle") {
       QMap<int, QString> styleMap {
         {0, tr("Stock")},
@@ -246,8 +246,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
       visualToggle = mapStyleButton;
 
     } else if (param == "CustomUI") {
-      FrogPilotParamManageControl *customUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(customUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *customUIToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(customUIToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedCustomOnroadUIKeys = customOnroadUIKeys;
 
         if (!hasBSM) {
@@ -265,11 +265,11 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     } else if (param == "PedalsOnUI") {
       std::vector<QString> pedalsToggles{"DynamicPedalsOnUI", "StaticPedalsOnUI"};
       std::vector<QString> pedalsToggleNames{tr("Dynamic"), tr("Static")};
-      FrogPilotButtonToggleControl *pedalsToggle = new FrogPilotButtonToggleControl(param, title, desc, pedalsToggles, pedalsToggleNames, true);
-      QObject::connect(pedalsToggle, &FrogPilotButtonToggleControl::buttonClicked, [this](int index) {
-        if (index == 0) {
+      FrogPilotButtonToggleControl *pedalsToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, pedalsToggles, pedalsToggleNames, true);
+      QObject::connect(pedalsToggle, &FrogPilotButtonToggleControl::buttonClicked, [this](int id) {
+        if (id == 0) {
           params.putBool("StaticPedalsOnUI", false);
-        } else if (index == 1) {
+        } else if (id == 1) {
           params.putBool("DynamicPedalsOnUI", false);
         }
       });
@@ -282,8 +282,8 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     addItem(visualToggle);
     toggles[param] = visualToggle;
 
-    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(visualToggle)) {
-      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotVisualsPanel::openParentToggle);
+    if (FrogPilotManageControl *frogPilotManageToggle = qobject_cast<FrogPilotManageControl*>(visualToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotManageControl::manageButtonClicked, this, &FrogPilotVisualsPanel::openParentToggle);
     }
   }
 

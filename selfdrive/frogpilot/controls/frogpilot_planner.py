@@ -68,7 +68,7 @@ class FrogPilotPlanner:
     self.frogpilot_following.update(carState.aEgo, controlsState, frogpilotCarState, self.lead_one.dRel, v_ego, v_lead, frogpilot_toggles)
 
     check_lane_width = frogpilot_toggles.adjacent_paths or frogpilot_toggles.adjacent_path_metrics or frogpilot_toggles.blind_spot_path or frogpilot_toggles.lane_detection
-    if check_lane_width and v_ego >= frogpilot_toggles.minimum_lane_change_speed or frogpilot_toggles.adjacent_lead_tracking:
+    if check_lane_width and v_ego >= frogpilot_toggles.minimum_lane_change_speed:
       self.lane_width_left = calculate_lane_width(modelData.laneLines[0], modelData.laneLines[1], modelData.roadEdges[0])
       self.lane_width_right = calculate_lane_width(modelData.laneLines[3], modelData.laneLines[2], modelData.roadEdges[1])
     else:
@@ -83,7 +83,7 @@ class FrogPilotPlanner:
     self.model_stopped = self.model_length < CRUISING_SPEED * PLANNER_TIME
     self.model_stopped |= self.frogpilot_vcruise.forcing_stop
 
-    self.road_curvature = calculate_road_curvature(modelData, v_ego) if not carState.standstill else 1
+    self.road_curvature = calculate_road_curvature(modelData, v_ego) if v_ego > CRUISING_SPEED else 1
     self.road_curvature_detected = (1 / self.road_curvature)**0.5 < v_ego
 
     self.tracking_lead = self.set_lead_status(carState, v_lead)
@@ -110,7 +110,9 @@ class FrogPilotPlanner:
     frogpilotPlan.tFollow = float(self.frogpilot_following.t_follow)
 
     frogpilotPlan.mtscSpeed = float(self.frogpilot_vcruise.mtsc_target)
-    frogpilotPlan.vtscControllingCurve = bool(self.frogpilot_vcruise.mtsc_target > self.frogpilot_vcruise.vtsc_target)
+    frogpilotPlan.stscControllingCurve = bool(self.frogpilot_vcruise.stsc_target < min(self.frogpilot_vcruise.mtsc_target, self.frogpilot_vcruise.vtsc_target))
+    frogpilotPlan.stscSpeed = float(self.frogpilot_vcruise.stsc_target)
+    frogpilotPlan.vtscControllingCurve = bool(self.frogpilot_vcruise.vtsc_target < min(self.frogpilot_vcruise.mtsc_target, self.frogpilot_vcruise.stsc_target))
     frogpilotPlan.vtscSpeed = float(self.frogpilot_vcruise.vtsc_target)
 
     frogpilotPlan.desiredFollowDistance = self.frogpilot_following.desired_follow_distance

@@ -47,11 +47,7 @@ void ScreenRecorder::startRecording() {
   }
 
   recording = true;
-
-  rootWidget = this;
-  while (rootWidget->parentWidget()) {
-    rootWidget = rootWidget->parentWidget();
-  }
+  rootWidget = topWidget(this);
 
   QString filename = QDateTime::currentDateTime().toString("MMMM_dd_yyyy-hh:mmAP") + ".mp4";
   openEncoder(filename.toStdString());

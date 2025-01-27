@@ -21,10 +21,9 @@ FrogPilotMapsPanel::FrogPilotMapsPanel(FrogPilotSettingsWindow *parent) : FrogPi
                                              scheduleOptions);
   settingsList->addItem(preferredSchedule);
 
-  std::vector<QString> mapOptions{tr("COUNTRIES"), tr("STATES")};
   FrogPilotButtonsControl *selectMaps = new FrogPilotButtonsControl(tr("Select Map Data Sources"),
-                                        tr("Select map data sources to use with 'Curve Speed Control' and 'Speed Limit Controller'."),
-                                           mapOptions);
+                                                                    tr("Select map data sources to use with 'Curve Speed Control' and 'Speed Limit Controller'."),
+                                                                    "", {tr("COUNTRIES"), tr("STATES")});
   QObject::connect(selectMaps, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
     mapsLayout->setCurrentIndex(id + 1);
     openMapSelection();
@@ -232,7 +231,7 @@ void FrogPilotMapsPanel::updateDownloadLabels(std::string &osmDownloadProgress) 
 
     static int previousDownloadedFiles = 0;
     if (downloadedFiles != previousDownloadedFiles) {
-      std::thread([=]() {
+      std::thread([this]() {
         mapsSize->setText(calculateDirectorySize(mapsFolderPath));
       }).detach();
     }

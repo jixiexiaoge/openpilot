@@ -16,6 +16,7 @@ from openpilot.common.params_pyx import ParamKeyType
 from openpilot.common.time import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
+from openpilot.selfdrive.frogpilot.assets.model_manager import ModelManager
 from openpilot.selfdrive.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH, ThemeManager
 from openpilot.selfdrive.frogpilot.frogpilot_utilities import run_cmd
 from openpilot.selfdrive.frogpilot.frogpilot_variables import MODELS_PATH, THEME_SAVE_PATH, FrogPilotVariables, get_frogpilot_toggles, params
@@ -173,6 +174,7 @@ def frogpilot_boot_functions(build_metadata, params_storage):
       source.rmdir()
 
   FrogPilotVariables().update(holiday_theme="stock", started=False)
+  ModelManager().copy_default_model()
   ThemeManager().update_active_theme(time_validated=system_time_valid(), frogpilot_toggles=get_frogpilot_toggles(), boot_run=True)
 
   def backup_thread():

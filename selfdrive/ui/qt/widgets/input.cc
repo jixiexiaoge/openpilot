@@ -246,8 +246,8 @@ ConfirmationDialog::ConfirmationDialog(const QString &prompt_text, const QString
   outer_layout->addWidget(container);
 }
 
-bool ConfirmationDialog::alert(const QString &prompt_text, QWidget *parent) {
-  ConfirmationDialog d = ConfirmationDialog(prompt_text, tr("Ok"), "", false, parent);
+bool ConfirmationDialog::alert(const QString &prompt_text, QWidget *parent, bool is_long) {
+  ConfirmationDialog d = ConfirmationDialog(prompt_text, tr("Ok"), "", false, parent, is_long);
   return d.exec();
 }
 

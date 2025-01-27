@@ -22,8 +22,8 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     AbstractControl *deviceToggle;
 
     if (param == "DeviceManagement") {
-      FrogPilotParamManageControl *deviceManagementToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(deviceManagementToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *deviceManagementToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(deviceManagementToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         showToggles(deviceManagementKeys);
       });
       deviceToggle = deviceManagementToggle;
@@ -36,13 +36,13 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     } else if (param == "NoUploads") {
       std::vector<QString> uploadsToggles{"DisableOnroadUploads"};
       std::vector<QString> uploadsToggleNames{tr("Only Onroad")};
-      deviceToggle = new FrogPilotButtonToggleControl(param, title, desc, uploadsToggles, uploadsToggleNames);
+      deviceToggle = new FrogPilotButtonToggleControl(param, title, desc, icon, uploadsToggles, uploadsToggleNames);
     } else if (param == "LowVoltageShutdown") {
       deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 11.8, 12.5, tr(" volts"), std::map<int, QString>(), 0.01);
 
     } else if (param == "ScreenManagement") {
-      FrogPilotParamManageControl *screenToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(screenToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *screenToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(screenToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedScreenKeys = screenKeys;
 
         showToggles(modifiedScreenKeys);
@@ -65,8 +65,8 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     addItem(deviceToggle);
     toggles[param] = deviceToggle;
 
-    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(deviceToggle)) {
-      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotDevicePanel::openParentToggle);
+    if (FrogPilotManageControl *frogPilotManageToggle = qobject_cast<FrogPilotManageControl*>(deviceToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotManageControl::manageButtonClicked, this, &FrogPilotDevicePanel::openParentToggle);
     }
   }
 

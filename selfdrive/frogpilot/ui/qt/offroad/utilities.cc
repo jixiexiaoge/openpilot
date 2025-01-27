@@ -4,9 +4,9 @@
 
 FrogPilotUtilitiesPanel::FrogPilotUtilitiesPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   ButtonControl *flashPandaBtn = new ButtonControl(tr("Flash Panda"), tr("FLASH"), tr("Flashes the Panda device's firmware if you're running into issues."));
-  QObject::connect(flashPandaBtn, &ButtonControl::clicked, [=]() {
+  QObject::connect(flashPandaBtn, &ButtonControl::clicked, [this, flashPandaBtn, parent]() {
     if (ConfirmationDialog::confirm(tr("Are you sure you want to flash the Panda?"), tr("Flash"), this)) {
-      std::thread([=]() {
+      std::thread([this, flashPandaBtn, parent]() {
         parent->keepScreenOn = true;
 
         flashPandaBtn->setEnabled(false);
@@ -27,8 +27,8 @@ FrogPilotUtilitiesPanel::FrogPilotUtilitiesPanel(FrogPilotSettingsWindow *parent
   });
   addItem(flashPandaBtn);
 
-  FrogPilotButtonsControl *forceStartedBtn = new FrogPilotButtonsControl(tr("Force Started State"), tr("Forces openpilot either offroad or onroad."), {tr("OFFROAD"), tr("ONROAD"), tr("OFF")}, true);
-  QObject::connect(forceStartedBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
+  FrogPilotButtonsControl *forceStartedBtn = new FrogPilotButtonsControl(tr("Force Started State"), tr("Forces openpilot either offroad or onroad."), "", {tr("OFFROAD"), tr("ONROAD"), tr("OFF")}, true);
+  QObject::connect(forceStartedBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
     if (id == 0) {
       params_memory.putBool("ForceOffroad", true);
       params_memory.putBool("ForceOnroad", false);
@@ -42,7 +42,6 @@ FrogPilotUtilitiesPanel::FrogPilotUtilitiesPanel(FrogPilotSettingsWindow *parent
       params_memory.putBool("ForceOffroad", false);
       params_memory.putBool("ForceOnroad", false);
     }
-    forceStartedBtn->setCheckedButton(id);
   });
   forceStartedBtn->setCheckedButton(2);
   addItem(forceStartedBtn);
@@ -71,14 +70,14 @@ FrogPilotUtilitiesPanel::FrogPilotUtilitiesPanel(FrogPilotSettingsWindow *parent
     params.putNonBlocking("DiscordUsername", reportData["DiscordUser"].toString().toStdString());
     params_memory.put("IssueReported", QJsonDocument(reportData).toJson(QJsonDocument::Compact).toStdString());
 
-    FrogPilotConfirmationDialog::toggleAlert(tr("Thanks for letting us know! Your report has been submitted."), tr("Ok"), this);
+    ConfirmationDialog::alert(tr("Thanks for letting us know! Your report has been submitted."), this);
   });
   addItem(reportIssueBtn);
 
   ButtonControl *resetTogglesBtn = new ButtonControl(tr("Reset Toggles to Default"), tr("RESET"), tr("Reset your toggle settings back to their default settings."));
-  QObject::connect(resetTogglesBtn, &ButtonControl::clicked, [=]() {
+  QObject::connect(resetTogglesBtn, &ButtonControl::clicked, [this, parent, resetTogglesBtn]() {
     if (ConfirmationDialog::confirm(tr("Are you sure you want to completely reset all of your toggle settings?"), tr("Reset"), this)) {
-      std::thread([=]() mutable {
+      std::thread([this, parent, resetTogglesBtn]() mutable {
         parent->keepScreenOn = true;
 
         resetTogglesBtn->setEnabled(false);

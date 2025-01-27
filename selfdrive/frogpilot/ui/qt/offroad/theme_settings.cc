@@ -124,13 +124,13 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
     AbstractControl *themeToggle;
 
     if (param == "PersonalizeOpenpilot") {
-      FrogPilotParamManageControl *personalizeOpenpilotToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(personalizeOpenpilotToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *personalizeOpenpilotToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(personalizeOpenpilotToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         showToggles(customThemeKeys);
       });
       themeToggle = personalizeOpenpilotToggle;
     } else if (param == "CustomColors") {
-      manageCustomColorsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageCustomColorsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageCustomColorsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList colorSchemes = getThemeList(QDir(themePacksDirectory.path()), "colors", "CustomColors", params);
 
@@ -181,7 +181,7 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       manageCustomColorsBtn->setValue(getThemeName(param.toStdString(), params));
       themeToggle = manageCustomColorsBtn;
     } else if (param == "CustomDistanceIcons") {
-      manageDistanceIconsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageDistanceIconsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageDistanceIconsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList distanceIconPacks = getThemeList(QDir(themePacksDirectory.path()), "distance_icons", "CustomDistanceIcons", params);
 
@@ -232,7 +232,7 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       manageDistanceIconsBtn->setValue(getThemeName(param.toStdString(), params));
       themeToggle = manageDistanceIconsBtn;
     } else if (param == "CustomIcons") {
-      manageCustomIconsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageCustomIconsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageCustomIconsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList iconPacks = getThemeList(QDir(themePacksDirectory.path()), "icons", "CustomIcons", params);
 
@@ -283,7 +283,7 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       manageCustomIconsBtn->setValue(getThemeName(param.toStdString(), params));
       themeToggle = manageCustomIconsBtn;
     } else if (param == "CustomSignals") {
-      manageCustomSignalsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageCustomSignalsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageCustomSignalsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList signalAnimations = getThemeList(QDir(themePacksDirectory.path()), "signals", "CustomSignals", params);
 
@@ -334,7 +334,7 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       manageCustomSignalsBtn->setValue(getThemeName(param.toStdString(), params));
       themeToggle = manageCustomSignalsBtn;
     } else if (param == "CustomSounds") {
-      manageCustomSoundsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageCustomSoundsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageCustomSoundsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList soundPacks = getThemeList(QDir(themePacksDirectory.path()), "sounds", "CustomSounds", params);
 
@@ -385,7 +385,7 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       manageCustomSoundsBtn->setValue(getThemeName(param.toStdString(), params));
       themeToggle = manageCustomSoundsBtn;
     } else if (param == "WheelIcon") {
-      manageWheelIconsBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
+      manageWheelIconsBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DOWNLOAD"), tr("SELECT")});
       QObject::connect(manageWheelIconsBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList wheelIcons = getThemeList(QDir(wheelsDirectory.path()), "", "WheelIcon", params);
 
@@ -440,19 +440,28 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
       downloadStatusLabel = new LabelControl(title, "Idle");
       themeToggle = downloadStatusLabel;
     } else if (param == "StartupAlert") {
-      FrogPilotButtonsControl *startupAlertButton = new FrogPilotButtonsControl(title, desc, {tr("STOCK"), tr("FROGPILOT"), tr("CUSTOM"), tr("CLEAR")}, false, true, icon);
-      QObject::connect(startupAlertButton, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
+      FrogPilotButtonsControl *startupAlertButton = new FrogPilotButtonsControl(title, desc, icon, {tr("STOCK"), tr("FROGPILOT"), tr("CUSTOM"), tr("CLEAR")}, true);
+
+      QString currentTop = QString::fromStdString(params.get("StartupMessageTop"));
+      QString currentBottom = QString::fromStdString(params.get("StartupMessageBottom"));
+
+      QString stockTop = "Be ready to take over at any time";
+      QString stockBottom = "Always keep hands on wheel and eyes on road";
+
+      QString frogpilotTop = "Hop in and buckle up!";
+      QString frogpilotBottom = "Human-tested, frog-approved 🐸";
+
+      if (currentTop == stockTop && currentBottom == stockBottom) {
+        startupAlertButton->setCheckedButton(0);
+      } else if (currentTop == frogpilotTop && currentBottom == frogpilotBottom) {
+        startupAlertButton->setCheckedButton(1);
+      } else if (!currentTop.isEmpty() || !currentBottom.isEmpty()) {
+        startupAlertButton->setCheckedButton(2);
+      }
+
+      QObject::connect(startupAlertButton, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
         int maxLengthTop = 35;
         int maxLengthBottom = 45;
-
-        QString stockTop = "Be ready to take over at any time";
-        QString stockBottom = "Always keep hands on wheel and eyes on road";
-
-        QString frogpilotTop = "Hop in and buckle up!";
-        QString frogpilotBottom = "Human-tested, frog-approved 🐸";
-
-        QString currentTop = QString::fromStdString(params.get("StartupMessageTop"));
-        QString currentBottom = QString::fromStdString(params.get("StartupMessageBottom"));
 
         if (id == 0) {
           params.put("StartupMessageTop", stockTop.toStdString());
@@ -462,16 +471,18 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
           params.put("StartupMessageBottom", frogpilotBottom.toStdString());
         } else if (id == 2) {
           QString newTop = InputDialog::getText(tr("Enter the text for the top half"), this, tr("Characters: 0/%1").arg(maxLengthTop), false, -1, currentTop, maxLengthTop).trimmed();
-          if (newTop.length() > 0) {
+          if (!newTop.isEmpty()) {
             params.put("StartupMessageTop", newTop.toStdString());
             QString newBottom = InputDialog::getText(tr("Enter the text for the bottom half"), this, tr("Characters: 0/%1").arg(maxLengthBottom), false, -1, currentBottom, maxLengthBottom).trimmed();
-            if (newBottom.length() > 0) {
+            if (!newBottom.isEmpty()) {
               params.put("StartupMessageBottom", newBottom.toStdString());
             }
           }
         } else if (id == 3) {
           params.remove("StartupMessageTop");
           params.remove("StartupMessageBottom");
+
+          startupAlertButton->clearCheckedButtons();
         }
       });
       themeToggle = startupAlertButton;
@@ -483,8 +494,8 @@ FrogPilotThemesPanel::FrogPilotThemesPanel(FrogPilotSettingsWindow *parent) : Fr
     addItem(themeToggle);
     toggles[param] = themeToggle;
 
-    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(themeToggle)) {
-      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotThemesPanel::openParentToggle);
+    if (FrogPilotManageControl *frogPilotManageToggle = qobject_cast<FrogPilotManageControl*>(themeToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotManageControl::manageButtonClicked, this, &FrogPilotThemesPanel::openParentToggle);
     }
   }
 

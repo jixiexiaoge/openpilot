@@ -16,7 +16,7 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
     QFile file("../frogpilot/assets/active_theme/colors/colors.json");
 
     while (!file.exists()) {
-      util::sleep_for(100);
+      util::sleep_for(UI_FREQ);
     }
 
     if (!file.open(QIODevice::ReadOnly)) {
@@ -37,11 +37,6 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
     colorObj.value("blue").toInt(255),
     colorObj.value("alpha").toInt(255)
   );
-}
-
-bool FrogPilotConfirmationDialog::toggleAlert(const QString &prompt_text, const QString &button_text, QWidget *parent, const bool isLong) {
-  ConfirmationDialog d(prompt_text, button_text, "", false, parent, isLong);
-  return d.exec();
 }
 
 bool FrogPilotConfirmationDialog::toggleReboot(QWidget *parent) {

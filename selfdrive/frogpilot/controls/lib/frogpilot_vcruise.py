@@ -62,9 +62,9 @@ class FrogPilotVCruise:
     v_ego_diff = v_ego_cluster - v_ego
 
     # FrogsGoMoo's Smart Turn Speed Controller
-    self.stsc.update(carControl, v_cruise, round(v_ego, 2))
-    if frogpilot_toggles.smart_turn_speed_controller and v_ego > CRUISING_SPEED and carControl.longActive and self.frogpilot_planner.road_curvature_detected:
-      self.stsc_target = self.stsc.stsc_target
+    self.stsc.update(carControl, round(v_ego, 1))
+    if frogpilot_toggles.smart_turn_speed_controller and carControl.longActive and self.frogpilot_planner.road_curvature_detected:
+      self.stsc_target = self.stsc.get_stsc_target(v_cruise, v_ego)
     else:
       self.stsc_target = v_cruise if v_cruise != V_CRUISE_UNSET else 0
 
@@ -130,7 +130,7 @@ class FrogPilotVCruise:
       self.slc_target = 0
 
     # Pfeiferj's Vision Turn Controller
-    if frogpilot_toggles.vision_turn_speed_controller and v_ego > CRUISING_SPEED and carControl.longActive and self.frogpilot_planner.road_curvature_detected:
+    if frogpilot_toggles.vision_turn_speed_controller and carControl.longActive and self.frogpilot_planner.road_curvature_detected:
       self.vtsc_target = ((TARGET_LAT_A * frogpilot_toggles.turn_aggressiveness) / (self.frogpilot_planner.road_curvature * frogpilot_toggles.curve_sensitivity))**0.5
       self.vtsc_target = clip(self.vtsc_target, CRUISING_SPEED, v_cruise)
     else:

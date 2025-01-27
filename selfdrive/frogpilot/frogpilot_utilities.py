@@ -116,6 +116,7 @@ def extract_zip(zip_file, extract_path):
 
 def flash_panda():
   HARDWARE.reset_internal_panda()
+  Panda().wait_for_panda(None, 30)
   params_memory.put_bool("FlashPanda", False)
 
 def is_url_pingable(url, timeout=5):
@@ -189,12 +190,16 @@ def run_cmd(cmd, success_message, fail_message):
     sentry.capture_exception(error)
 
 def send_sentry_reports(frogpilot_toggles, frogpilot_variables, params, params_tracking):
+  if params.get_bool("UserLogged"):
+    return
+
   while not is_url_pingable("https://sentry.io"):
     time.sleep(1)
 
   sentry.capture_fingerprint(frogpilot_toggles, params, params_tracking)
-  sentry.capture_model(frogpilot_toggles.model_name)
-  sentry.capture_user(frogpilot_variables.short_branch)
+  sentry.capture_frogpilot_stats(frogpilot_toggles, frogpilot_variables.short_branch)
+
+  params.put_bool("UserLogged", True)
 
 def update_maps(now):
   while not MAPD_PATH.exists():

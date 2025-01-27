@@ -105,6 +105,8 @@ private:
 
   QPoint dmIconPosition;
 
+  QRect leadTextRect;
+
   QString leadDistanceUnit;
   QString leadSpeedUnit;
   QString signalStyle;
@@ -135,6 +137,8 @@ private:
   bool slcOverridden;
   bool speedLimitChanged;
   bool speedLimitSources;
+  bool stscControllingCurve;
+  bool stscEnabled;
   bool trafficModeActive;
   bool turnSignalAnimation;
   bool turnSignalLeft;
@@ -148,14 +152,13 @@ private:
   float dashboardSpeedLimit;
   float distanceConversion;
   float laneDetectionWidth;
-  float lead_x;
-  float lead_y;
   float mapsSpeedLimit;
   float mtscSpeed;
   float navigationSpeedLimit;
   float slcSpeedLimitOffset;
   float speedConversion;
   float speedConversionMetrics;
+  float stscSpeed;
   float unconfirmedSpeedLimit;
   float upcomingSpeedLimit;
   float vtscSpeed;

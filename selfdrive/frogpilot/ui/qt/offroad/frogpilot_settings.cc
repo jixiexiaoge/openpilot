@@ -96,7 +96,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
       widgets.push_back(panelFrame);
     }
 
-    FrogPilotButtonsControl *panelButton = new FrogPilotButtonsControl(title, description, labels, false, true, icon);
+    FrogPilotButtonsControl *panelButton = new FrogPilotButtonsControl(title, description, icon, labels);
     if (title == tr("Driving Controls")) drivingPanelButtons = panelButton;
     if (title == tr("Navigation")) navigationPanelButtons = panelButton;
     if (title == tr("System Management")) systemPanelButtons = panelButton;
@@ -127,37 +127,34 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   frogpilotLayout->addWidget(list);
 
   std::vector<QString> togglePresets{tr("Minimal"), tr("Standard"), tr("Advanced"), tr("Developer")};
-  ButtonParamControl *togglePreset = new ButtonParamControl("TuningLevel", tr("Tuning Level"),
-                                     tr("Select a tuning level that suits your preferences:\n\n"
-                                     "Minimal - Ideal for those who prefer simplicity or ease of use\n"
-                                     "Standard - Recommended for most users for a balanced experience\n"
-                                     "Advanced - Unlocks fine-tuning controls for more experienced users\n"
-                                     "Developer - Unlocks highly customizable settings for seasoned enthusiasts"),
-                                     "../frogpilot/assets/toggle_icons/icon_customization.png",
-                                     togglePresets);
+  FrogPilotButtonsControl *togglePreset = new FrogPilotButtonsControl(tr("Tuning Level"),
+                                          tr("Select a tuning level that suits your preferences:\n\n"
+                                          "Minimal - Ideal for those who prefer simplicity or ease of use\n"
+                                          "Standard - Recommended for most users for a balanced experience\n"
+                                          "Advanced - Unlocks fine-tuning controls for more experienced users\n"
+                                          "Developer - Unlocks highly customizable settings for seasoned enthusiasts"),
+                                          "../frogpilot/assets/toggle_icons/icon_customization.png",
+                                          togglePresets, true);
 
   int timeTo100FPHours = 100 - (paramsTracking.getInt("FrogPilotMinutes") / 60);
   int timeTo250OPHours = 250 - (params.getInt("openpilotMinutes") / 60);
   togglePreset->setEnabledButtons(3, timeTo100FPHours <= 0 || timeTo250OPHours <= 0);
 
-  QObject::connect(togglePreset, &ButtonParamControl::buttonClicked, [this](int id) {
+  QObject::connect(togglePreset, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
     tuningLevel = id;
     if (id == 3) {
-      FrogPilotConfirmationDialog::toggleAlert(
-        tr("WARNING: This unlocks some potentially dangerous settings that can DRASTICALLY alter your driving experience!"),
-        tr("I understand the risks."), this
-      );
+      ConfirmationDialog::alert(tr("WARNING: This unlocks some potentially dangerous settings that can DRASTICALLY alter your driving experience!"), this);
     }
+    params.putInt("TuningLevel", tuningLevel);
     updateVariables();
   });
-  QObject::connect(togglePreset, &ButtonParamControl::disabledButtonClicked, [this](int id) {
+
+  QObject::connect(togglePreset, &FrogPilotButtonsControl::disabledButtonClicked, [this](int id) {
     if (id == 3) {
-      FrogPilotConfirmationDialog::toggleAlert(
-        tr("The 'Developer' preset is only available for users with either over 100 hours on FrogPilot, or 250 hours with openpilot."),
-        tr("Ok"), this
-      );
+      ConfirmationDialog::alert(tr("The 'Developer' preset is only available for users with either over 100 hours on FrogPilot, or 250 hours with openpilot."), this);
     }
   });
+  togglePreset->setCheckedButton(params.getInt("TuningLevel"));
   list->addItem(togglePreset);
 
   createPanelButtons(list);

@@ -7,52 +7,55 @@ from openpilot.system.manager.process import PythonProcess, NativeProcess, Daemo
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 
-def driverview(started: bool, params: Params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def driverview(started: bool, params: Params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started or params.get_bool("IsDriverViewEnabled")
 
-def notcar(started: bool, params: Params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def notcar(started: bool, params: Params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started and CP.notCar
 
-def iscar(started: bool, params: Params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def iscar(started: bool, params: Params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started and not CP.notCar
 
-def logging(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def logging(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   run = (not CP.notCar) or not params.get_bool("DisableLogging")
   return started and run
 
 def ublox_available() -> bool:
   return os.path.exists('/dev/ttyHS0') and not os.path.exists('/persist/comma/use-quectel-gps')
 
-def ublox(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def ublox(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   use_ublox = ublox_available()
   if use_ublox != params.get_bool("UbloxAvailable"):
     params.put_bool("UbloxAvailable", use_ublox)
   return started and use_ublox
 
-def qcomgps(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def qcomgps(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started and not ublox_available()
 
-def always_run(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def always_run(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return True
 
-def only_onroad(started: bool, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def only_onroad(started: bool, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started
 
-def only_offroad(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def only_offroad(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return not started
 
 # FrogPilot functions
-def allow_logging(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def allow_logging(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return not frogpilot_toggles.no_logging and logging(started, params, CP, classic_model, frogpilot_toggles)
 
-def allow_uploads(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def allow_uploads(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return not frogpilot_toggles.no_uploads
 
-def run_classic_modeld(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
+def run_classic_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started and classic_model
 
-def run_new_modeld(started, params, CP: car.CarParams, classic_model, frogpilot_toggles) -> bool:
-  return started and not classic_model
+def run_new_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
+  return started and not (classic_model or tinygrad_model)
+
+def run_tinygrad_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
+  return started and tinygrad_model
 
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),
@@ -107,6 +110,7 @@ procs = [
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", always_run),
   PythonProcess("frogpilot_process", "selfdrive.frogpilot.frogpilot_process", always_run),
   PythonProcess("mapd", "selfdrive.frogpilot.navigation.mapd", always_run),
+  NativeProcess("tinygrad_modeld", "selfdrive/tinygrad_modeld", ["./tinygrad_modeld"], run_tinygrad_modeld),
 ]
 
 managed_processes = {p.name: p for p in procs}

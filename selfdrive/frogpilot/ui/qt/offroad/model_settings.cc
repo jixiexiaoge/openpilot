@@ -18,15 +18,15 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
     AbstractControl *modelToggle;
 
     if (param == "ModelRandomizer") {
-      FrogPilotParamManageControl *modelRandomizerToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(modelRandomizerToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+      FrogPilotManageControl *modelRandomizerToggle = new FrogPilotManageControl(param, title, desc, icon);
+      QObject::connect(modelRandomizerToggle, &FrogPilotManageControl::manageButtonClicked, [this]() {
         modelRandomizerOpen = true;
         showToggles(modelRandomizerKeys);
         updateModelLabels();
       });
       modelToggle = modelRandomizerToggle;
     } else if (param == "ManageBlacklistedModels") {
-      FrogPilotButtonsControl *blacklistBtn = new FrogPilotButtonsControl(title, desc, {tr("ADD"), tr("REMOVE"), tr("REMOVE ALL")});
+      FrogPilotButtonsControl *blacklistBtn = new FrogPilotButtonsControl(title, desc, "", {tr("ADD"), tr("REMOVE"), tr("REMOVE ALL")});
       QObject::connect(blacklistBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList blacklistedModels = QString::fromStdString(params.get("BlacklistedModels")).split(",");
         blacklistedModels.removeAll("");
@@ -40,7 +40,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           }
 
           if (blacklistableModels.size() <= 1) {
-            FrogPilotConfirmationDialog::toggleAlert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), tr("Ok"), this);
+            ConfirmationDialog::alert(tr("There are no more models to blacklist! The only available model is \"%1\"!").arg(blacklistableModels.first()), this);
           } else {
             QString modelToBlacklist = MultiOptionDialog::getSelection(tr("Select a model to add to the blacklist"), blacklistableModels, "", this);
             if (!modelToBlacklist.isEmpty()) {
@@ -101,7 +101,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
       modelToggle = reviewScoresBtn;
 
     } else if (param == "DeleteModel") {
-      deleteModelBtn = new FrogPilotButtonsControl(title, desc, {tr("DELETE"), tr("DELETE ALL")});
+      deleteModelBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DELETE"), tr("DELETE ALL")});
       QObject::connect(deleteModelBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         QStringList deletableModels;
         for (const QString &file : modelDir.entryList(QDir::Files)) {
@@ -123,6 +123,9 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
                 break;
               }
             }
+            downloadableModels.append(modelFileToNameMap.value(modelFile));
+            downloadableModels.sort();
+
             allModelsDownloaded = false;
           }
         } else if (id == 1) {
@@ -133,6 +136,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
                 QFile::remove(modelDir.filePath(file));
               }
             }
+            downloadableModels = availableModelNames;
+
             allModelsDownloaded = false;
             noModelsDownloaded = true;
           }
@@ -140,7 +145,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
       });
       modelToggle = deleteModelBtn;
     } else if (param == "DownloadModel") {
-      downloadModelBtn = new FrogPilotButtonsControl(title, desc, {tr("DOWNLOAD"), tr("DOWNLOAD ALL")});
+      downloadModelBtn = new FrogPilotButtonsControl(title, desc, "", {tr("DOWNLOAD"), tr("DOWNLOAD ALL")});
       QObject::connect(downloadModelBtn, &FrogPilotButtonsControl::buttonClicked, [this](int id) {
         if (id == 0) {
           if (modelDownloading) {
@@ -216,8 +221,8 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
     addItem(modelToggle);
     toggles[param] = modelToggle;
 
-    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(modelToggle)) {
-      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotModelPanel::openParentToggle);
+    if (FrogPilotManageControl *frogPilotManageToggle = qobject_cast<FrogPilotManageControl*>(modelToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotManageControl::manageButtonClicked, this, &FrogPilotModelPanel::openParentToggle);
     }
   }
 

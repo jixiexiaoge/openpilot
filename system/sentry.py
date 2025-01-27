@@ -57,12 +57,6 @@ def capture_fingerprint(frogpilot_toggles, params, params_tracking):
     sentry_sdk.capture_message("Blocked user from using the development branch", level="warning")
     sentry_sdk.flush()
     return
-  else:
-    sentry_sdk.capture_message(f"User driving a: {frogpilot_toggles.car_model}", level="info")
-    sentry_sdk.flush()
-
-    if params.get_bool("FingerprintLogged"):
-      return
 
   param_types = {
     "FrogPilot Controls": ParamKeyType.FROGPILOT_CONTROLS,
@@ -97,11 +91,12 @@ def capture_fingerprint(frogpilot_toggles, params, params_tracking):
     sentry_sdk.capture_message(f"Logged user: {fingerprint}", level="info")
     sentry_sdk.flush()
 
-    params.put_bool("FingerprintLogged", True)
 
-
-def capture_model(model_name):
-  sentry_sdk.capture_message(f"User using: {model_name}", level="info")
+def capture_frogpilot_stats(frogpilot_toggles, branch):
+  sentry_sdk.capture_message(f"Logged user on: {branch}", level="info")
+  sentry_sdk.capture_message(f"User driving a: {frogpilot_toggles.car_model}", level="info")
+  sentry_sdk.capture_message(f"User has a: {frogpilot_toggles.car_make.capitalize()}", level="info")
+  sentry_sdk.capture_message(f"User using: {frogpilot_toggles.model_name.replace(' (Default)', '')}", level="info")
   sentry_sdk.flush()
 
 
@@ -117,11 +112,6 @@ def capture_report(discord_user, report, frogpilot_toggles):
     scope.set_context("Toggle Values", frogpilot_toggles)
     sentry_sdk.capture_message(f"{discord_user} submitted report: {report}", level="fatal")
     sentry_sdk.flush()
-
-
-def capture_user(channel):
-  sentry_sdk.capture_message(f"Logged user on: {channel}", level="info")
-  sentry_sdk.flush()
 
 
 def set_tag(key: str, value: str) -> None:
