@@ -45,7 +45,8 @@ class LanePlanner:
     self.rll_y = np.zeros((TRAJECTORY_SIZE,))
     self.le_y = np.zeros((TRAJECTORY_SIZE,))
     self.re_y = np.zeros((TRAJECTORY_SIZE,))
-    self.lane_width_estimate = FirstOrderFilter(3.2, 9.95, DT_MDL)
+    #self.lane_width_estimate = FirstOrderFilter(3.2, 9.95, DT_MDL)
+    self.lane_width_estimate = FirstOrderFilter(3.2, 3.0, DT_MDL)
     self.lane_width = 3.2
     self.lane_change_multiplier = 1
     self.lane_width_updated_count = 0
@@ -178,11 +179,13 @@ class LanePlanner:
         lane_path_y = path_from_left_lane
       else:
         lane_path_y = path_from_left_lane if l_prob > 0.5 or l_prob > r_prob else path_from_right_lane
-    elif both_lane_available:
-      if self.lane_width > 3.2:
-        lane_path_y = path_from_right_lane
-      else:
-        lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
+    elif l_prob > 0.7 and r_prob > 0.7:
+      lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
+      # lane_width filtering에 의해서, 점점 줄어들때, 중앙선으로 붙어가는 현상이 생김.. 
+      #if self.lane_width > 3.2:
+      #  lane_path_y = path_from_right_lane
+      #else:
+      #  lane_path_y = (path_from_left_lane + path_from_right_lane) / 2.
     # 그외 진한차선을 따라가도록함.
     else:
       lane_path_y = (l_prob * path_from_left_lane + r_prob * path_from_right_lane) / (l_prob + r_prob + 0.0001)
