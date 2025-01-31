@@ -857,7 +857,8 @@ class CarrotServ:
     self.bearing_offset = 0.0
     self.bearing_measured = 0.0
     self.bearing = 0.0
-
+    self.gps_valid = False
+    
     self.totalDistance = 0
     self.xSpdLimit = 0
     self.xSpdDist = 0
@@ -1215,24 +1216,31 @@ class CarrotServ:
       bearing = 0.0
       return self.nPosAngle
 
-    if abs(self.bearing_measured - bearing) < 0.1:
-        self.diff_angle_count += 1
-    else:
-        self.diff_angle_count = 0
-    self.bearing_measured = bearing
+    if not self.gps_valid:
+      if self.params_memory.get("LastGpsPosition"):
+        self.gps_valid = True
 
-    if self.diff_angle_count > 5:
-      diff_angle = (self.nPosAngle - bearing) % 360
-      if diff_angle > 180:
-        diff_angle -= 360
-      self.bearing_offset = self.bearing_offset * 0.9 + diff_angle * 0.1
+    if self.gps_valid:    # liveLocationKalman일때는 정확하나, livePose일때는 불안정함.
+      self.bearing_offset = 0.0
+    else:
+      if abs(self.bearing_measured - bearing) < 0.1:
+          self.diff_angle_count += 1
+      else:
+          self.diff_angle_count = 0
+      self.bearing_measured = bearing
+
+      if self.diff_angle_count > 5: # 각도변화가 거의 없을때만 업데이트
+        diff_angle = (self.nPosAngle - bearing) % 360
+        if diff_angle > 180:
+          diff_angle -= 360
+        self.bearing_offset = self.bearing_offset * 0.9 + diff_angle * 0.1
 
     bearing_calculated = (bearing + self.bearing_offset) % 360
 
     now = time.monotonic()
     dt = now - self.last_calculate_gps_time
     #self.last_calculate_gps_time = now
-    self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + 2.0) # 2초앞의 위치로 계산
+    self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + 1.0) # 1초앞의 위치로 계산
 
     #self.debugText = " {} {:.1f},{:.1f}={:.1f}+{:.1f}".format(self.active_sdi_count, self.nPosAngle, bearing_calculated, bearing, self.bearing_offset)
     #print("nPosAngle = {:.1f},{:.1f} = {:.1f}+{:.1f}".format(self.nPosAngle, bearing_calculated, bearing, self.bearing_offset))
