@@ -102,11 +102,11 @@ def create_steering_messages_camera_scc(packer, CP, CAN, enabled, lat_active, ap
     #512(0x200), 837(0x345), 908(0x38c), 1402(0x57a), 474(0x1da)
 
     apply_angle = np.clip(apply_angle, -119, 119)
-      
+
     values = {
       "LKAS_ANGLE_ACTIVE": 2 if abs(CS.out.steeringAngleDeg) < 110.0 and lat_active else 1,
       "LKAS_ANGLE_CMD": -apply_angle,
-      "TORQUE_MAYBE": max_torque if lat_active else 0,
+      "LKAS_ANGLE_MAX_TORQUE": max_torque if lat_active else 0,
     }
     ret.append(packer.make_can_msg("LFA_ANGLE_MAYBE_CB", CAN.ECAN, values))
 
@@ -121,11 +121,9 @@ def create_steering_messages_camera_scc(packer, CP, CAN, enabled, lat_active, ap
     values["VALUE64"] = 0  #STEER_MODE, NEW_SIGNAL_2
     values["LKAS_ANGLE_CMD"] = -25.6 #-apply_angle,
     values["LKAS_ANGLE_ACTIVE"] = 0 #2 if lat_active else 1,
-    # a torque scale value? ramps up when steering, highest seen is 234
-    # "UNKNOWN": 50 if lat_active and not steering_pressed else 0,
-    values["UNKNOWN"] = 0 #max_torque if lat_active else 0,
+    values["LKAS_ANGLE_MAX_TORQUE"] = 0 #max_torque if lat_active else 0,
     values["NEW_SIGNAL_1"] = 10
-  
+
   else:
 
     values = CS.lfa_info
@@ -205,9 +203,7 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
       "VALUE64": 0,  #STEER_MODE, NEW_SIGNAL_2
       "LKAS_ANGLE_CMD": -apply_angle,
       "LKAS_ANGLE_ACTIVE": 2 if lat_active else 1,
-      # a torque scale value? ramps up when steering, highest seen is 234
-      # "UNKNOWN": 50 if lat_active and not steering_pressed else 0,
-      "UNKNOWN": max_torque if lat_active else 0,
+      "LKAS_ANGLE_MAX_TORQUE": max_torque if lat_active else 0,
 
       # test for EV6PE
       "NEW_SIGNAL_1": 10, #2,
@@ -435,18 +431,51 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         if CS.adrv_info_161 is not None:
           main_enabled = CS.out.cruiseState.available
           cruise_enabled = CC.enabled
+          lat_active = CC.latActive
+          nav_active = hud_control.activeCarrot > 1
+          hdp_active = cruise_enabled and nav_active
+
           values = CS.adrv_info_161
           #print("adrv_info_161 = ", CS.adrv_info_161)
+
+          values["SETSPEED"] = 6 if hdp_active else 3 if main_enabled else 0
+          values["SETSPEED_HUD"] = 6 if hdp_active else 2 if cruise_enabled else 1
           values["vSetDis"] = int(hud_control.setSpeed * 3.6 + 0.5)
-          values["GAP_DIST_SET"] = hud_control.leadDistanceBars
-          
-          values["BACKGROUND"] = 1 if cruise_enabled else 7
-          values["CENTERLINE"] = 1 if CC.latActive else 0
+
+          values["DISTANCE"] = hud_control.leadDistanceBars
+          values["DISTANCE_LEAD"] = 1 if cruise_enabled and hud_control.leadVisible else 0
+          values["DISTANCE_CAR"] = 3 if hdp_active else 2 if cruise_enabled else 1 if main_enabled else 0
+          values["DISTANCE_SPACING"] = 5 if hdp_active else 1 if cruise_enabled else 0
+
+          values["TARGET"] = 1 if cruise_enabled else 0
+          values["TARGET_POSITION"] = int(hud_control.leadDistance)
+
+          values["BACKGROUND"] = 1 if cruise_enabled else 3 if main_enabled else 7
+          values["CENTERLINE"] = 1 if lat_active else 0
+          values["CAR_CIRCLE"] = 2 if hdp_active else 1 if lat_active else 0
+
+          values["NAV_ICON"] = 2 if nav_active else 1
+          values["HDA_ICON"] = 5 if hdp_active else 2 if lat_active else 1
+          values["LFA_ICON"] = 5 if hdp_active else 2 if lat_active else 1
+          values["LKA_ICON"] = 4 if lat_active else 3
+          values["FCA_ALT_ICON"] = 0
+
+          if values["ALERTS_2"] == 5:
+            values["ALERTS_2"] = 0
+            values["SOUNDS_2"] = 0
+            values["DAW_ICON"] = 0
+
+          if values["ALERTS_3"] in [17, 26]:
+            values["ALERTS_3"] = 0
+
+          if values["ALERTS_5"] in [4, 5]:
+            values["ALERTS_5"] = 0
+
           curvature = {
             i: (31 if i == -1 else 13 - abs(i + 15)) if i < 0 else 15 + i
             for i in range(-15, 16)
           }
-          values["LANELINE_CURVATURE"] = curvature.get(max(-15, min(int(disp_angle / 3), 15)), 14) if CC.latActive else 15
+          values["LANELINE_CURVATURE"] = curvature.get(max(-15, min(int(disp_angle / 3), 15)), 14) if lat_active else 15
           if hud_control.leftLaneDepart:
             values["LANELINE_LEFT"] = 4 if (frame // 50) % 2 == 0 else 1
           else:
@@ -454,51 +483,15 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           if hud_control.rightLaneDepart:
             values["LANELINE_RIGHT"] = 4 if (frame // 50) % 2 == 0 else 1
           else:
-            values["LANELINE_RIGHT"] =  2 if hud_control.rightLaneVisible else 0
+            values["LANELINE_RIGHT"] = 2 if hud_control.rightLaneVisible else 0
           values["LANELINE_LEFT_POSITION"] = 15
           values["LANELINE_RIGHT_POSITION"] = 15
-          
+
           values["LCA_LEFT_ARROW"] = 2 if CS.out.leftBlinker else 0
           values["LCA_RIGHT_ARROW"] = 2 if CS.out.rightBlinker else 0
-          
 
-          values["WHEEL_ICON"] = 2 if CC.latActive else 1
-
-          #values["TARGET"] = 3 if cruise_enabled else 0
-          values["TARGET"] = 1 if cruise_enabled else 0
-          values["TARGET_POSITION"] = int(hud_control.leadDistance)
-          values["CRUISE_INFO1_SET2"] = 2 if cruise_enabled else 1 if main_enabled else 0
-          values["CRUISE_INFO2_SET2"] = 2 if cruise_enabled else 1 if main_enabled else 0
-          values["CRUISE_INFO4_SET3"] = 3 if cruise_enabled else 0
-          values["CRUISE_INFO8_SET1"] = 1 if main_enabled else 0
-          values["CRUISE_INFO5_SET1"] = 1 if cruise_enabled else 0
-          values["SET4_HWAY_ELSE_3"] = 3
-
-          values["START_READY_INFO_MAYBE"] = 0
-
-          values["NEW_SIGNAL_7"] = 0
-          #values["NEW_SIGNAL_5"] = 0
-          #values["LANE_ASSIST_CONCERNED"] = 0
-          #values["LANE_ASSIST_GREEN"] = 0
-
-          #values["CRUISE_INFO10_SET1"] = 1
-          #values["CRUISE_INFO11_SET1"] = 1
-
-          values["AUTO_LANE_CHANGE_MESSAGE_SET6"] = 0 # 1: 핸들잡아, 2: 빨리잡아, 6: 자동차선변경준비.
-
-          values["HDA_ICON"] = 2 if cruise_enabled else 0
-          values["NAV_ICON"] = 2 if hud_control.activeCarrot > 1 else 0
-          #values["NEW_SIGNAL_HWAY_SET1_ELSE_0"] = 1
-
-          values["CRUISE_INFO10_0_TO_4"] = 0 #4 if main_enabled else 0      # message
-          values["CRUISE_INFO11_0_TO_1"] = 0 #1 if cruise_enabled else 0    # message
-          values["143_SET_0"] = 0
-
-          #LANE_ASSIST_L,R: 0:OFF, 1: GREY, 2: GREEN, 4: WHITE
-          values["LANE_ASSIST_L"] = 2
-          values["LANE_ASSIST_R"] = 2
-
-          values["NEW_SIGNAL_12"] = 0   ## 띠링 경고
+          values["LCA_LEFT_ICON"] = 1 if CS.out.leftBlindspot else 2
+          values["LCA_RIGHT_ICON"] = 1 if CS.out.rightBlindspot else 2
 
           ret.append(packer.make_can_msg("ADRV_0x161", CAN.ECAN, values))
         else:
@@ -525,19 +518,19 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
 
       if CS.adrv_info_162 is not None:
         values = CS.adrv_info_162
-        values["SIGNAL216"] = 0
-        values["SIGNAL219"] = 0   # steer temp.. 발생?
-        values["SIGNAL234"] = 0
-        values["SIGNAL240"] = 0
-        values["SIGNAL246"] = 0
+        values["FAULT_FCA"] = 0
+        values["FAULT_LSS"] = 0
+        values["FAULT_LFA"] = 0
+        values["FAULT_LCA"] = 0
+        values["FAULT_DAS"] = 0
         if left_lane_warning or right_lane_warning:
-          values["HAPTIC_VIBRATE"] = 1
+          values["VIBRATE"] = 1
         ret.append(packer.make_can_msg("ADRV_0x162", CAN.ECAN, values))
 
     if frame % 20 == 0 and canfd_debug > 0: # 아직 시험중..
       if CS.hda_info_4a3 is not None:
         values = CS.hda_info_4a3
-        # SIGNAL_4: 7, SIGNAL_0: 0 으로 해도 .. 옆두부는 나오기도 함.. 아오5        
+        # SIGNAL_4: 7, SIGNAL_0: 0 으로 해도 .. 옆두부는 나오기도 함.. 아오5
         if canfd_debug == 1:
           test4 = 10
           test0 = 5
@@ -561,7 +554,7 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
       if CS.new_msg_4b4 is not None: #G80 HDA2개조차량은 안나옴...
         values = CS.new_msg_4b4
         values["NEW_SIGNAL_1"] = 8
-        values["NEW_SIGNAL_3"] = (frame / 100) % 10 
+        values["NEW_SIGNAL_3"] = (frame / 100) % 10
         values["NEW_SIGNAL_4"] = 146
         values["NEW_SIGNAL_5"] = 68
         values["NEW_SIGNAL_6"] = 76
