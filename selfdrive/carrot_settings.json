@@ -497,6 +497,19 @@
     },
     {
       "group": "조향일반",
+      "name": "GpsDelayTimeAdjust",
+      "title": "GpsDelayTimeAdjust(200)x0.01",
+      "descr": "Noo를 위한 gps표시위치 보정",
+      "egroup": "LATSET",
+      "etitle": "GpsDelayTimeAdjust",
+      "edescr": "",
+      "min": 0,
+      "max": 400,
+      "default": 200,
+      "unit": 10
+    },
+    {
+      "group": "조향일반",
       "name": "AutoTurnMapChange",
       "title": "ATC Helper 맵전환(0)",
       "descr": "ATC 작동시 자동맵전환",

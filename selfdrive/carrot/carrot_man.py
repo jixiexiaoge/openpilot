@@ -895,6 +895,8 @@ class CarrotServ:
     self.gas_override_speed = 0
     self.source_last = "none"
 
+    self.gpsDelayTimeAdjust = 2.0
+
     self.debugText = ""
 
     self.update_params()
@@ -913,6 +915,7 @@ class CarrotServ:
     self.autoTurnMapChange = self.params.get_int("AutoTurnMapChange")
     self.autoTurnControl = self.params.get_int("AutoTurnControl")
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
+    self.gpsDelayTimeAdjust = self.params.get_float("GpsDelayTimeAdjust") * 0.01
     #self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
 
 
@@ -1240,7 +1243,7 @@ class CarrotServ:
     now = time.monotonic()
     dt = now - self.last_calculate_gps_time
     #self.last_calculate_gps_time = now
-    self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + 1.0) # 1초앞의 위치로 계산
+    self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + self.gpsDelayTimeAdjust)
 
     #self.debugText = " {} {:.1f},{:.1f}={:.1f}+{:.1f}".format(self.active_sdi_count, self.nPosAngle, bearing_calculated, bearing, self.bearing_offset)
     #print("nPosAngle = {:.1f},{:.1f} = {:.1f}+{:.1f}".format(self.nPosAngle, bearing_calculated, bearing, self.bearing_offset))

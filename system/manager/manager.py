@@ -69,6 +69,7 @@ def get_default_params():
     ("AutoTurnControl", "0"),
     ("AutoTurnControlSpeedTurn", "20"),
     ("AutoTurnControlTurnEnd", "6"),
+    ("GpsDelayTimeAdjust", "200"),
     ("AutoTurnMapChange", "0"),
 
     ("AutoNaviSpeedCtrlEnd", "7"),
