@@ -65,9 +65,9 @@ class LanePlanner:
     self.debugText = ""
     self.lane_width_left = 0.0
     self.lane_width_right = 0.0
-    self.lane_width_left_filtered = FirstOrderFilter(1.0, 2.0, DT_MDL)
-    self.lane_width_right_filtered = FirstOrderFilter(1.0, 2.0, DT_MDL)
-    self.lane_offset_filtered = FirstOrderFilter(0.0, 5.0, DT_MDL)
+    self.lane_width_left_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
+    self.lane_width_right_filtered = FirstOrderFilter(1.0, 1.0, DT_MDL)
+    self.lane_offset_filtered = FirstOrderFilter(0.0, 2.0, DT_MDL)
 
     self.lanefull_mode = False
 
