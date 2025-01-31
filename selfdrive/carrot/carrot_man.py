@@ -1217,7 +1217,7 @@ class CarrotServ:
       return self.nPosAngle
 
     if not self.gps_valid:
-      if self.params_memory.get("LastGpsPosition"):
+      if self.params_memory.get("LastGPSPosition"):
         self.gps_valid = True
 
     if self.gps_valid:    # liveLocationKalman일때는 정확하나, livePose일때는 불안정함.
