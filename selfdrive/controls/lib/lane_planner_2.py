@@ -48,8 +48,9 @@ class LanePlanner:
     #self.lane_width_estimate = FirstOrderFilter(3.2, 9.95, DT_MDL)
     self.lane_width_estimate = FirstOrderFilter(3.2, 3.0, DT_MDL)
     self.lane_width = 3.2
+    self.lane_width_last = self.lane_width
     self.lane_change_multiplier = 1
-    self.lane_width_updated_count = 0
+    #self.lane_width_updated_count = 0
 
     self.lll_prob = 0.
     self.rll_prob = 0.
@@ -101,8 +102,8 @@ class LanePlanner:
       self.r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
 
   def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed):
-    if v_ego > 0.1:
-      self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
+    #if v_ego > 0.1:
+    #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
     # Reduce reliance on lanelines that are too far apart or
     # will be in a few seconds
     l_prob, r_prob = self.lll_prob, self.rll_prob
@@ -129,13 +130,16 @@ class LanePlanner:
 
     max_updated_count = 10.0 * DT_MDL
     both_lane_available = False
-    speed_lane_width = np.interp(v_ego*3.6, [0., 60.], [2.8, 3.5])
+    #speed_lane_width = np.interp(v_ego*3.6, [0., 60.], [2.8, 3.5])
     if l_prob > 0.5 and r_prob > 0.5:
       both_lane_available = True
-      self.lane_width_updated_count = max_updated_count
+      #self.lane_width_updated_count = max_updated_count
       self.lane_width_estimate.update(current_lane_width)
-    elif self.lane_width_updated_count <= 0 and v_ego > 0.1:   # 양쪽차선이 없을때.... 일정시간후(10초)부터 speed차선폭 적용함.
-      self.lane_width_estimate.update(speed_lane_width)
+      self.lane_width_last = self.lane_width_estimate.x
+    #elif self.lane_width_updated_count <= 0 and v_ego > 0.1:   # 양쪽차선이 없을때.... 일정시간후(10초)부터 speed차선폭 적용함.
+    #  self.lane_width_estimate.update(speed_lane_width)
+    else:
+      self.lane_width_estimate.update(self.lane_width_last)
 
     self.lane_width =  self.lane_width_estimate.x
     clipped_lane_width = min(4.0, self.lane_width)
