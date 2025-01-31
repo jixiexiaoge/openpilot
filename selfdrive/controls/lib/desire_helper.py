@@ -167,7 +167,7 @@ class DesireHelper:
                                                                                                     modeldata.laneLines[2], modeldata.roadEdges[1])
     self.lane_exist_left_count.update(lane_prob_left)
     self.lane_exist_right_count.update(lane_prob_right)
-    min_lane_width = 2.5
+    min_lane_width = 2.0
     self.lane_width_left_count.update(self.lane_width_left > min_lane_width)
     self.lane_width_right_count.update(self.lane_width_right > min_lane_width)
     self.road_edge_left_count.update(self.distance_to_road_edge_left > min_lane_width)
