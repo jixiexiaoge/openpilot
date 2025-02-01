@@ -720,12 +720,7 @@ int Localizer::locationd_thread() {
     if (sm.updated(trigger_msg)) {
       bool inputsOK = sm.allValid() && this->are_inputs_ok();
       if (ignore_gps) {
-        if(sm.valid(gps_location_socket)) {
-          ignore_gps = false;
-        }
-        else {
-          inputsOK = this->are_inputs_ok();
-        }
+        inputsOK = this->are_inputs_ok();
       }
       bool gpsOK = this->is_gps_ok();
       bool sensorsOK = sm.allAliveAndValid({"accelerometer", "gyroscope"});
