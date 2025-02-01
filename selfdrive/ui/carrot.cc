@@ -1059,7 +1059,8 @@ protected:
             int bx = tbt_x + 100;
             int by = tbt_y + 85;
             if (atc_type.length() > 0) {
-                ui_fill_rect(s->vg, { bx - 80, by - 90, 160, 230 }, atc_type.contains("prepare")?COLOR_GREEN_ALPHA(100) : COLOR_GREEN, 15);
+              stroke_color = COLOR_BLACK;
+              ui_fill_rect(s->vg, { bx - 80, by - 90, 160, 230 }, atc_type.contains("prepare")?COLOR_GREEN_ALPHA(100) : COLOR_GREEN, 15, 1.0f, &stroke_color);
             }
             switch (xTurnInfo) {
             case 1: ui_draw_image(s, { bx - icon_size / 2, by - icon_size / 2, icon_size, icon_size }, "ic_turn_l", 1.0f); break;
@@ -1071,7 +1072,7 @@ protected:
             case 8: ui_draw_text(s, bx, by + 20, "목적지", 35, COLOR_WHITE, BOLD); break;
             default:
                 sprintf(str, "감속:%d", xTurnInfo);
-                ui_draw_text(s, bx, by + 20, str, 35, COLOR_WHITE, BOLD, 0.0f, 0.0f);
+                ui_draw_text(s, bx, by + 20, str, 35, COLOR_WHITE, BOLD);
                 break;
             }
             if (xDistToTurn < 1000) sprintf(str, "%d m", xDistToTurn);
@@ -1581,7 +1582,7 @@ protected:
         }
         float max_distance = s->max_distance;
         max_distance -= 2.0;
-        int max_idx = get_path_length_idx(model_position, max_distance);
+        int max_idx = 32;// show path test...  get_path_length_idx(model_position, max_distance);
 
         auto selfdrive_state = sm["selfdriveState"].getSelfdriveState();
         bool longActive = selfdrive_state.getEnabled();
