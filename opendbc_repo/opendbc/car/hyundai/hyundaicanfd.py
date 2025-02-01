@@ -439,7 +439,7 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           #print("adrv_info_161 = ", CS.adrv_info_161)
 
           values["SETSPEED"] = 6 if hdp_active else 3 if main_enabled else 0
-          values["SETSPEED_HUD"] = 6 if hdp_active else 2 if cruise_enabled else 1
+          values["SETSPEED_HUD"] = 5 if hdp_active else 2 if cruise_enabled else 1
           values["vSetDis"] = int(hud_control.setSpeed * 3.6 + 0.5)
 
           values["DISTANCE"] = hud_control.leadDistanceBars
