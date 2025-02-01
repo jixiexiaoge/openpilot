@@ -2,6 +2,10 @@
 import bisect
 import json
 import numpy as np
+import threading
+import time
+
+import openpilot.system.sentry as sentry
 
 from sortedcontainers import SortedDict
 
@@ -15,6 +19,7 @@ from openpilot.selfdrive.frogpilot.frogpilot_variables import CRUISING_SPEED, PL
 CACHE_WINDOW = 1
 CURVATURE_THRESHOLD = 1e-5
 ROUNDING_PRECISION = 5
+EPSILON = 10**-ROUNDING_PRECISION
 V_CRUISE_MAX_CONVERTED = V_CRUISE_MAX * CV.KPH_TO_MS
 
 class SmartTurnSpeedController:
@@ -29,13 +34,19 @@ class SmartTurnSpeedController:
     self.cached_entries = None
     self.cached_speeds = None
 
+    #self.fill_user_curvature()
+
   def get_stsc_target(self, v_cruise, v_ego):
     self.update_cache(v_ego)
     if self.cached_speeds is None:
+      print(f"SmartTurnSpeedController.set_stsc_target: No cached speeds available; target set to {v_cruise}")
       return v_cruise
 
     road_curvature = round(self.frogpilot_planner.road_curvature, ROUNDING_PRECISION)
     closest_entry = min(self.cached_entries, key=lambda x: abs(x[0] - road_curvature))
+    print(f"SmartTurnSpeedController.road_curvature: road_curvature set to {road_curvature}")
+    print(f"SmartTurnSpeedController.closest_entry: closest_entry set to {closest_entry}")
+    print(f"SmartTurnSpeedController.stsc_target: stsc_target set to {clip((closest_entry[1] / closest_entry[0])**0.5, CRUISING_SPEED, v_cruise)}")
     return clip((closest_entry[1] / closest_entry[0])**0.5, CRUISING_SPEED, v_cruise)
 
   def update_cache(self, v_ego):
@@ -83,10 +94,9 @@ class SmartTurnSpeedController:
               lower_curves = np.mean(lower_data, axis=0)
               upper_curves = np.mean(upper_data, axis=0)
 
-          interpolated = [lower_curves + ratio * (upper_curves - lower_curves)]
-          if interpolated is not None:
-            data[speed] = interpolated
-            speeds_in_range.append(speed)
+              interpolated = [lower_curves + ratio * (upper_curves - lower_curves)]
+              data[speed] = interpolated
+              speeds_in_range.append(speed)
 
       sorted_speeds = sorted(speeds_in_range)
       self.cached_entries = np.vstack([data[speed] for speed in sorted_speeds])
@@ -126,3 +136,77 @@ class SmartTurnSpeedController:
 
     else:
       self.manual_long_timer = 0
+
+  def fill_user_curvature(self):
+    def curvature_worker():
+      print("Starting curvature_worker thread...")
+      fake_data = {}
+
+      try:
+        print("Iterating over speeds...")
+        for speed in np.arange(CRUISING_SPEED, V_CRUISE_MAX_CONVERTED + 0.01, 0.01):
+          try:
+            speed = round(speed, ROUNDING_PRECISION)
+            print(f"Processing speed: {speed}")
+            fake_curvatures = []
+
+            for curvature in np.arange(EPSILON, 1.0 + EPSILON, EPSILON):
+              try:
+                curvature = round(curvature, ROUNDING_PRECISION)
+                lateral_accel = round(speed ** 2 * curvature, ROUNDING_PRECISION)
+
+                print(f"  Curvature: {curvature}, Lateral Accel: {lateral_accel}")
+                fake_curvatures.append({"curvature": curvature, "lateral_accel": lateral_accel})
+
+                time.sleep(0.00001)
+              except Exception as error:
+                print(f"Error in curvature loop: {error}")
+                sentry_sdk.capture_exception(error)
+
+            fake_data[speed] = fake_curvatures
+
+          except Exception as error:
+            print(f"Error in speed loop at speed {speed}: {error}")
+            sentry_sdk.capture_exception(error)
+
+        print("Converting fake_data to SortedDict...")
+        try:
+          data = SortedDict({
+            speed: [np.array([entry["curvature"], entry["lateral_accel"]]) for entry in curvatures]
+            for speed, curvatures in fake_data.items()
+          })
+          print("SortedDict created successfully.")
+        except Exception as error:
+          print(f"Error while creating SortedDict: {error}")
+          sentry_sdk.capture_exception(error)
+          data = {}
+
+        print("Serializing data to JSON...")
+        try:
+          json_data = json.dumps([
+            {"speed": speed, "curvatures": [{"curvature": entry[0], "lateral_accel": entry[1]} for entry in entries]}
+            for speed, entries in data.items()
+          ])
+          print("JSON serialization successful.")
+        except Exception as error:
+          print(f"Error while serializing JSON: {error}")
+          sentry_sdk.capture_exception(error)
+          json_data = "{}"
+
+        print("Writing data to params.put_nonblocking...")
+        try:
+          params.put_nonblocking("UserCurvature", json_data)
+          print("Data written to params successfully.")
+        except Exception as error:
+          print(f"Error writing to params.put_nonblocking: {error}")
+          sentry_sdk.capture_exception(error)
+
+      except Exception as error:
+        print(f"Unexpected error in fill_user_curvature: {error}")
+        sentry_sdk.capture_exception(error)
+
+      print("curvature_worker thread completed execution.")
+
+    print("Starting fill_user_curvature thread...")
+    threading.Thread(target=curvature_worker, daemon=True).start()
+    print("fill_user_curvature thread started.")
