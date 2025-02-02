@@ -713,7 +713,15 @@ int Localizer::locationd_thread() {
         }
       }
     } else {
-      filterInitialized = sm.allAliveAndValid();
+      //filterInitialized = sm.allAliveAndValid();
+      bool allValid = true;
+      for (const char* service : service_list) {
+        if (service != gps_location_socket && !sm.valid(service)) {
+          allValid = false;
+          break;
+        }
+      }
+      filterInitialized = allValid;
     }
 
     const char* trigger_msg = "cameraOdometry";
@@ -733,7 +741,9 @@ int Localizer::locationd_thread() {
           }
         }
       }
+      printf("InputsOK: %d, SensorsOK: %d, GPSOK: %d, FilterInitialized: %d\n", inputsOK, sensorsOK, gpsOK, filterInitialized);
       */
+      
       // Log time to first fix
       if (gpsOK && std::isnan(this->ttff) && !std::isnan(this->first_valid_log_time)) {
         this->ttff = std::max(1e-3, (sm[trigger_msg].getLogMonoTime() * 1e-9) - this->first_valid_log_time);
@@ -744,7 +754,7 @@ int Localizer::locationd_thread() {
       pm.send("liveLocationKalman", bytes.begin(), bytes.size());
 
       if (cnt % 1200 == 0 && gpsOK) {  // once a minute
-        ignore_gps = false;
+        //ignore_gps = false;
         VectorXd posGeo = this->get_position_geodetic();
         std::string lastGPSPosJSON = util::string_format(
           "{\"latitude\": %.15f, \"longitude\": %.15f, \"altitude\": %.15f}", posGeo(0), posGeo(1), posGeo(2));

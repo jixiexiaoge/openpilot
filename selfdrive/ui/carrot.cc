@@ -2172,12 +2172,12 @@ public:
         int cruise_x = bx + 170;
         int cruise_y = by + 15;
         if(longActive) sprintf(cruise_speed, "%.0f", v_cruise);
-		else sprintf(cruise_speed, "--");
+		    else sprintf(cruise_speed, "--");
         if (strcmp(cruise_speed_last, cruise_speed) != 0) {
-			strcpy(cruise_speed_last, cruise_speed);
-            if(strcmp(cruise_speed, "--"))
-                ui_draw_text_a(s, cruise_x, cruise_y, cruise_speed, 60, COLOR_GREEN, BOLD);
-		}
+			    strcpy(cruise_speed_last, cruise_speed);
+          if(strcmp(cruise_speed, "--"))
+            ui_draw_text_a(s, cruise_x, cruise_y, cruise_speed, 60, COLOR_GREEN, BOLD);
+		    }
         ui_draw_text(s, cruise_x, cruise_y, cruise_speed, 60, COLOR_GREEN, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
 
         // draw apply speed
@@ -2193,11 +2193,12 @@ public:
             ui_draw_text(s, apply_x, apply_y, apply_speed_str, 50, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
             ui_draw_text(s, apply_x, apply_y - 50, apply_source.toStdString().c_str(), 30, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
         }
-		else if(abs(xTarget - v_cruise) > 0.5) {
+		    else if(abs(xTarget - v_cruise) > 0.5) {
             sprintf(apply_speed_str, "%.0f", xTarget);
-			ui_draw_text(s, apply_x, apply_y, apply_speed_str, 50, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
+			      ui_draw_text(s, apply_x, apply_y, apply_speed_str, 50, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
             ui_draw_text(s, apply_x, apply_y - 50, "eco", 30, textColor, BOLD, 1.0, 5.0, COLOR_BLACK, COLOR_BLACK);
-		}
+		    }
+        const SubMaster& sm = *(s->sm);
 
         // draw gap info
         char driving_mode_str[32] = "연비";
@@ -2217,6 +2218,12 @@ public:
         ui_draw_text(s, dx, dy, driving_mode_str, 40, text_color, BOLD);
         if (strcmp(driving_mode_str, driving_mode_str_last)) ui_draw_text_a(s, dx, dy, driving_mode_str, 30, COLOR_WHITE, BOLD);
         strcpy(driving_mode_str_last, driving_mode_str);
+
+        auto locationd = sm["liveLocationKalman"].getLiveLocationKalman();
+        bool is_gps_valid = locationd.getGpsOK();
+        if (is_gps_valid) {
+          ui_draw_text(s, dx, dy - 45, "GPS", 30, COLOR_GREEN, BOLD);
+        }
 
         char gap_str[32];
         int gap = params.getInt("LongitudinalPersonality") + 1;
@@ -2242,7 +2249,7 @@ public:
         char gear_str[32] = "R";
         dx = bx + 305;
         dy = by + 60;
-        const SubMaster& sm = *(s->sm);
+        //const SubMaster& sm = *(s->sm);
         auto carState = sm["carState"].getCarState();
         if (carState.getGearShifter() == cereal::CarState::GearShifter::UNKNOWN) strcpy(gear_str, "U");
         else if (carState.getGearShifter() == cereal::CarState::GearShifter::PARK) strcpy(gear_str, "P");
