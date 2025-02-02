@@ -34,7 +34,7 @@ class SmartTurnSpeedController:
     self.cached_entries = None
     self.cached_speeds = None
 
-    #self.fill_user_curvature()
+    self.fill_user_curvature()
 
   def get_stsc_target(self, v_cruise, v_ego):
     self.update_cache(v_ego)
