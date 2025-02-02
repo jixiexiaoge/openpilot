@@ -360,7 +360,7 @@ class CarrotMan:
                 distances.append(distance)
 
             # Apply acceleration limits in reverse to adjust speeds
-            accel_limit = self.carrot_serv.autoNaviSpeedDecelRate * 0.7 # m/s^2, 설정된값의 70%를 사용하여, 좀더 낮은속도로 진입하도록 유도
+            accel_limit = self.carrot_serv.autoNaviSpeedDecelRate * 0.9 # m/s^2, 설정된값의 90%를 사용하여, 좀더 낮은속도로 진입하도록 유도
             accel_limit_kmh = accel_limit * 3.6  # Convert to km/h per second
             out_speeds = [0] * len(speeds)
             out_speeds[-1] = speeds[-1]  # Set the last speed as the initial value
