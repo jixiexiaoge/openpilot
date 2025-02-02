@@ -12,6 +12,7 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.time import system_time_valid
+from openpilot.selfdrive.car.gm.values import GMFlags
 from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
@@ -208,7 +209,6 @@ frogpilot_default_params: list[tuple[str, str | bytes, int]] = [
   ("MTSCCurvatureCheck", "1", 2),
   ("NavigationUI", "1", 2),
   ("NewLongAPI", "0", 2),
-  ("NewLongAPIGM", "1", 2),
   ("NNFF", "1", 2),
   ("NNFFLite", "1", 2),
   ("NoLogging", "0", 2),
@@ -387,6 +387,7 @@ class FrogPilotVariables:
         toggle.car_model = CP.carFingerprint
         has_auto_tune = toggle.car_make in {"hyundai", "toyota"} and CP.lateralTuning.which() == "torque"
         has_bsm = CP.enableBsm
+        has_cc_long = bool(CP.flags & GMFlags.CC_LONG.value)
         has_pedal = CP.enableGasInterceptor
         has_radar = not CP.radarUnavailable
         is_pid_car = CP.lateralTuning.which() == "pid"
@@ -404,6 +405,7 @@ class FrogPilotVariables:
       toggle.car_model = "MOCK"
       has_auto_tune = False
       has_bsm = False
+      has_cc_long = False
       has_pedal = False
       has_radar = False
       is_pid_car = False
@@ -672,7 +674,7 @@ class FrogPilotVariables:
     toggle.show_speed_limits = toggle.navigation_ui and (params.get_bool("ShowSpeedLimits") if tuning_level >= level["ShowSpeedLimits"] else default.get_bool("ShowSpeedLimits"))
     toggle.speed_limit_vienna = toggle.navigation_ui and (params.get_bool("UseVienna") if tuning_level >= level["UseVienna"] else default.get_bool("UseVienna"))
 
-    toggle.old_long_api = openpilot_longitudinal and toggle.car_make == "gm" and not (params.get_bool("NewLongAPIGM") if tuning_level >= level["NewLongAPIGM"] else default.get_bool("NewLongAPIGM"))
+    toggle.old_long_api = openpilot_longitudinal and toggle.car_make == "gm" and has_cc_long and not has_pedal
     toggle.old_long_api |= openpilot_longitudinal and toggle.car_make == "hyundai" and not (params.get_bool("NewLongAPI") if tuning_level >= level["NewLongAPI"] else default.get_bool("NewLongAPI"))
 
     personalize_openpilot = params.get_bool("PersonalizeOpenpilot") if tuning_level >= level["PersonalizeOpenpilot"] else default.get_bool("PersonalizeOpenpilot")

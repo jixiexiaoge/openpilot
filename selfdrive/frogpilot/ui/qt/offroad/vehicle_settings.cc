@@ -151,7 +151,6 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 
   std::vector<std::tuple<QString, QString, QString, QString>> vehicleToggles {
     {"GMToggles", tr("General Motors Toggles"), tr("Toggles catered towards 'General Motors' vehicles."), ""},
-    {"NewLongAPIGM", tr("Enable comma's New Longitudinal API"), tr("Enable comma's new longitudinal control system that has shown great improvement with acceleration and braking, but has issues on some GM vehicles."), ""},
     {"ExperimentalGMTune", tr("Enable FrogsGoMoo's Experimental Longitudinal Tune"), tr("Enable FrogsGoMoo's experimental GM longitudinal tune that is based on nothing but guesswork. Use at your own risk!"), ""},
     {"VoltSNG", tr("Enable Stop and Go Hack"), tr("Force stop and go for the 2017 Chevy Volt."), ""},
     {"LongPitch", tr("Smoothen Pedal Response While Going Downhill/Uphill"), tr("Smoothen the gas and brake response when driving downhill or uphill."), ""},
@@ -239,7 +238,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
   ScrollView *toyotaPanel = new ScrollView(toyotaList, this);
   vehiclesLayout->addWidget(toyotaPanel);
 
-  std::set<QString> rebootKeys = {"NewLongAPI", "NewLongAPIGM"};
+  std::set<QString> rebootKeys = {"NewLongAPI"};
   for (const QString &key : rebootKeys) {
     QObject::connect(static_cast<ToggleControl*>(toggles[key]), &ToggleControl::toggleFlipped, [this]() {
       if (started) {

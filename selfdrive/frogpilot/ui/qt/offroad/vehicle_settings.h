@@ -22,9 +22,9 @@ private:
 
   std::map<QString, AbstractControl*> toggles;
 
-  std::set<QString> gmKeys = {"ExperimentalGMTune", "LongPitch", "NewLongAPIGM", "VoltSNG"};
+  std::set<QString> gmKeys = {"ExperimentalGMTune", "LongPitch", "VoltSNG"};
   std::set<QString> hkgKeys = {"NewLongAPI"};
-  std::set<QString> longitudinalKeys = {"ExperimentalGMTune", "FrogsGoMoosTweak", "LongPitch", "NewLongAPI", "NewLongAPIGM", "SNGHack", "VoltSNG"};
+  std::set<QString> longitudinalKeys = {"ExperimentalGMTune", "FrogsGoMoosTweak", "LongPitch", "NewLongAPI", "SNGHack", "VoltSNG"};
   std::set<QString> toyotaKeys = {"ClusterOffset", "FrogsGoMoosTweak", "LockDoorsTimer", "SNGHack", "ToyotaDoors"};
 
   FrogPilotSettingsWindow *parent;
