@@ -117,31 +117,53 @@ class Track:
     if standstill or self.vLead < 1:
       return False
 
-    lead_position = self.yRel + interp(self.dRel, model_data.position.x, model_data.position.y)
-
-    near_lane_index = 1 if left else 2
-    far_lane_index = 0 if left else 3
-
-    if far:
-      lane_position = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
-
-      return lead_position < lane_position if left else lead_position > lane_position
-    else:
-      near_lane = interp(self.dRel, model_data.laneLines[near_lane_index].x, model_data.laneLines[near_lane_index].y)
-      far_lane = interp(self.dRel, model_data.laneLines[far_lane_index].x, model_data.laneLines[far_lane_index].y)
-
-      return min(near_lane, far_lane) < lead_position < max(near_lane, far_lane)
-
-  def potential_far_lead(self, model_data: capnp._DynamicStructReader, standstill: bool):
-    if standstill or self.vLead < 1 and self.dRel < 100:
+    lane_lines = model_data.laneLines
+    if len(lane_lines) < 4:
       return False
 
-    left_lane = interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
-    right_lane = interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
+    far_left_lane, left_lane, right_lane, far_right_lane = lane_lines[:4]
+    if any(len(lane.x) <= 1 or len(lane.y) <= 1 for lane in [far_left_lane, left_lane, right_lane, far_right_lane]):
+      return False
 
-    lead_position = self.yRel + interp(self.dRel, model_data.position.x, model_data.position.y)
+    far_left_lane_y = interp(self.dRel, far_left_lane.x, far_left_lane.y)
+    left_lane_y = interp(self.dRel, left_lane.x, left_lane.y)
+    right_lane_y = interp(self.dRel, right_lane.x, right_lane.y)
+    far_right_lane_y = interp(self.dRel, far_right_lane.x, far_right_lane.y)
 
-    self.far_lead_filter.update(min(left_lane, right_lane) < lead_position < max(left_lane, right_lane))
+    if far and left and not (self.yRel < far_left_lane_y):
+      return False
+    if far and not left and not (self.yRel > far_right_lane_y):
+      return False
+    if not far and left and (self.yRel < min(far_left_lane_y, left_lane_y) or self.yRel > max(far_left_lane_y, left_lane_y)):
+      return False
+    if not far and not left and (self.yRel < min(right_lane_y, far_right_lane_y) or self.yRel > max(right_lane_y, far_right_lane_y)):
+      return False
+
+    return True
+
+  def potential_far_lead(self, model_data: capnp._DynamicStructReader, standstill: bool):
+    if standstill or (self.vLead < 1 and self.dRel < 100):
+      self.far_lead_filter.update(False)
+      return False
+
+    lane_lines = model_data.laneLines
+    if len(lane_lines) < 3:
+      self.far_lead_filter.update(False)
+      return False
+
+    left_lane, right_lane = lane_lines[1:3]
+    if any(len(lane.x) <= 1 or len(lane.y) <= 1 for lane in [left_lane, right_lane]):
+      self.far_lead_filter.update(False)
+      return False
+
+    left_y_at_d = interp(self.dRel, left_lane.x, left_lane.y)
+    right_y_at_d = interp(self.dRel, right_lane.x, right_lane.y)
+
+    if self.yRel < min(left_y_at_d, right_y_at_d) or self.yRel > max(left_y_at_d, right_y_at_d):
+      self.far_lead_filter.update(False)
+      return False
+
+    self.far_lead_filter.update(True)
     return self.far_lead_filter.x >= 0.99
 
   def potential_low_speed_lead(self, v_ego: float):
