@@ -2346,12 +2346,6 @@ public:
         // 시간표시
         int show_datetime = params.getInt("ShowDateTime");
         if (show_datetime) {
-             if(IS_TIMEZONE_SET == false)
-            {
-                setenv("TZ", "Asia/Shanghai", 1);
-                tzset();
-                IS_TIMEZONE_SET = true;
-            }
             time_t now = time(nullptr);
             struct tm* local = localtime(&now);
 
