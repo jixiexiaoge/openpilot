@@ -2761,6 +2761,9 @@ public:
         else if (longitudinal_control) {
             carName += " - OP Long";
         }
+        else{
+            carName += " - MRCC on Mazda";
+        }
         sprintf(top_left, "%s", carName.toStdString().c_str());
 
         // bottom
