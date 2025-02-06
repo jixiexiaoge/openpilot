@@ -429,23 +429,23 @@
     <name>DrawCarrot</name>
     <message>
         <source>ECO</source>
-        <translation>经济模式</translation>
+        <translation>省油</translation>
     </message>
     <message>
         <source>SAFE</source>
-        <translation>安全模式</translation>
+        <translation>安全</translation>
     </message>
     <message>
         <source>NORM</source>
-        <translation>标准模式</translation>
+        <translation>标准</translation>
     </message>
     <message>
         <source>FAST</source>
-        <translation>快速模式</translation>
+        <translation>激进</translation>
     </message>
     <message>
         <source>ERRM</source>
-        <translation>错误模式</translation>
+        <translation>错误</translation>
     </message>
 </context>
 <context>
