@@ -450,9 +450,20 @@ def store_toggle_values_route():
 def carinfo():
   params = Params()
 
-  # 获取车辆基本信息
-  car_name = params.get("CarName", encoding='utf8')
-  car_fingerprint = params.get("FrogPilotCarModel", encoding='utf8')
+  # 获取车辆基本信息，添加错误处理
+  try:
+    car_name = params.get("CarName", encoding='utf8')
+  except:
+    car_name = "未知车型"
+
+  try:
+    car_fingerprint = params.get("CarParamsCache")
+    if car_fingerprint:
+      car_fingerprint = car_fingerprint.decode('utf8')
+    else:
+      car_fingerprint = "未知车型指纹"
+  except:
+    car_fingerprint = "未知车型指纹"
 
   # 获取车辆状态信息
   try:
@@ -496,12 +507,14 @@ def carinfo():
         "右侧": "有车" if car_state.rightBlindspot else "无车"
       }
     }
-  except:
+  except Exception as e:
+    print(f"获取车辆状态信息时出错: {str(e)}")
     car_info = {
       "基本信息": {
         "车型": car_name,
         "指纹": car_fingerprint
-      }
+      },
+      "状态": "无法获取车辆状态信息"
     }
 
   return render_template("carinfo.html", car_info=car_info)
