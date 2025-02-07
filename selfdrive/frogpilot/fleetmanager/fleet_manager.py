@@ -452,7 +452,7 @@ def carinfo():
 
   # 获取车辆基本信息
   car_name = params.get("CarName", encoding='utf8')
-  car_fingerprint = params.get("CarFingerprint", encoding='utf8')
+  car_fingerprint = params.get("FrogPilotCarModel", encoding='utf8')
 
   # 获取车辆状态信息
   try:
