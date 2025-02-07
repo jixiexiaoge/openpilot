@@ -448,76 +448,82 @@ def store_toggle_values_route():
 
 @app.route("/carinfo")
 def carinfo():
-  params = Params()
-
-  # 获取车辆基本信息，添加错误处理
   try:
-    car_name = params.get("CarName", encoding='utf8')
-  except:
-    car_name = "未知车型"
+    params = Params()
 
-  try:
-    car_fingerprint = params.get("CarParamsCache")
-    if car_fingerprint:
-      car_fingerprint = car_fingerprint.decode('utf8')
-    else:
+    # 获取车辆基本信息
+    try:
+      car_name = params.get("CarName", encoding='utf8')
+      if not car_name:
+        car_name = "未知车型"
+    except:
+      car_name = "未知车型"
+
+    try:
+      car_fingerprint = params.get("CarParamsCache")
+      if car_fingerprint:
+        car_fingerprint = car_fingerprint.decode('utf8')
+      else:
+        car_fingerprint = "未知车型指纹"
+    except:
       car_fingerprint = "未知车型指纹"
-  except:
-    car_fingerprint = "未知车型指纹"
 
-  # 获取车辆状态信息
-  try:
-    car_state = log.CarState.from_bytes(params.get("CarState"))
-    car_info = {
-      "基本信息": {
-        "车型": car_name,
-        "指纹": car_fingerprint
-      },
-      "车速信息": {
-        "当前车速": f"{car_state.vEgo * 3.6:.1f} km/h",
-        "巡航目标速度": f"{car_state.cruiseState.speed * 3.6:.1f} km/h" if car_state.cruiseState.speed > 0 else "未设置",
-        "巡航状态": "开启" if car_state.cruiseState.enabled else "关闭"
-      },
-      "车轮速度": {
-        "左前轮": f"{car_state.wheelSpeeds.fl * 3.6:.1f} km/h",
-        "右前轮": f"{car_state.wheelSpeeds.fr * 3.6:.1f} km/h",
-        "左后轮": f"{car_state.wheelSpeeds.rl * 3.6:.1f} km/h",
-        "右后轮": f"{car_state.wheelSpeeds.rr * 3.6:.1f} km/h"
-      },
-      "转向系统": {
-        "转向角度": f"{car_state.steeringAngleDeg:.1f}°",
-        "转向扭矩": f"{car_state.steeringTorque:.1f} Nm",
-        "转向角速度": f"{car_state.steeringRateDeg:.1f}°/s"
-      },
-      "踏板状态": {
-        "油门踏板": f"{car_state.gas * 100:.1f}%",
-        "刹车踏板": f"{car_state.brake * 100:.1f}%"
-      },
-      "车门状态": {
-        "左前门": "开启" if car_state.doorOpen else "关闭",
-        "安全带": "已系" if not car_state.seatbeltUnlatched else "未系"
-      },
-      "灯光状态": {
-        "左转向灯": "开启" if car_state.leftBlinker else "关闭",
-        "右转向灯": "开启" if car_state.rightBlinker else "关闭",
-        "远光灯": "开启" if car_state.genericToggle else "关闭"
-      },
-      "盲点监测": {
-        "左侧": "有车" if car_state.leftBlindspot else "无车",
-        "右侧": "有车" if car_state.rightBlindspot else "无车"
+    # 获取车辆状态信息
+    try:
+      car_state = log.CarState.from_bytes(params.get("CarState"))
+      car_info = {
+        "基本信息": {
+          "车型": car_name,
+          "指纹": car_fingerprint
+        },
+        "车速信息": {
+          "当前车速": f"{car_state.vEgo * 3.6:.1f} km/h",
+          "巡航目标速度": f"{car_state.cruiseState.speed * 3.6:.1f} km/h" if car_state.cruiseState.speed > 0 else "未设置",
+          "巡航状态": "开启" if car_state.cruiseState.enabled else "关闭"
+        },
+        "车轮速度": {
+          "左前轮": f"{car_state.wheelSpeeds.fl * 3.6:.1f} km/h",
+          "右前轮": f"{car_state.wheelSpeeds.fr * 3.6:.1f} km/h",
+          "左后轮": f"{car_state.wheelSpeeds.rl * 3.6:.1f} km/h",
+          "右后轮": f"{car_state.wheelSpeeds.rr * 3.6:.1f} km/h"
+        },
+        "转向系统": {
+          "转向角度": f"{car_state.steeringAngleDeg:.1f}°",
+          "转向扭矩": f"{car_state.steeringTorque:.1f} Nm",
+          "转向角速度": f"{car_state.steeringRateDeg:.1f}°/s"
+        },
+        "踏板状态": {
+          "油门踏板": f"{car_state.gas * 100:.1f}%",
+          "刹车踏板": f"{car_state.brake * 100:.1f}%"
+        },
+        "车门状态": {
+          "左前门": "开启" if car_state.doorOpen else "关闭",
+          "安全带": "已系" if not car_state.seatbeltUnlatched else "未系"
+        },
+        "灯光状态": {
+          "左转向灯": "开启" if car_state.leftBlinker else "关闭",
+          "右转向灯": "开启" if car_state.rightBlinker else "关闭",
+          "远光灯": "开启" if car_state.genericToggle else "关闭"
+        },
+        "盲点监测": {
+          "左侧": "有车" if car_state.leftBlindspot else "无车",
+          "右侧": "有车" if car_state.rightBlindspot else "无车"
+        }
       }
-    }
-  except Exception as e:
-    print(f"获取车辆状态信息时出错: {str(e)}")
-    car_info = {
-      "基本信息": {
-        "车型": car_name,
-        "指纹": car_fingerprint
-      },
-      "状态": "无法获取车辆状态信息"
-    }
+    except Exception as e:
+      print(f"获取车辆状态信息时出错: {str(e)}")
+      car_info = {
+        "基本信息": {
+          "车型": car_name,
+          "指纹": car_fingerprint
+        },
+        "状态": "无法获取车辆状态信息"
+      }
 
-  return render_template("carinfo.html", car_info=car_info)
+    return render_template("carinfo.html", car_info=car_info)
+  except Exception as e:
+    print(f"carinfo 页面渲染出错: {str(e)}")
+    return render_template("carinfo.html", car_info={"错误": f"获取车辆信息时出错: {str(e)}"})
 
 def main():
   try:

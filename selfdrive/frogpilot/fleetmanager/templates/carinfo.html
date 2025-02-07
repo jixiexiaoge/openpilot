@@ -9,25 +9,39 @@
     <h1>车辆实时信息</h1>
     <br>
     <div class="container">
-        {% for section, data in car_info.items() %}
-        <div class="card mb-3 bg-dark text-white">
-            <div class="card-header">
-                <h5 class="mb-0">{{ section }}</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    {% for key, value in data.items() %}
-                    <div class="col-sm-6 mb-2">
-                        <div class="d-flex justify-content-between">
-                            <span>{{ key }}:</span>
-                            <span>{{ value }}</span>
-                        </div>
+        {% if car_info %}
+            {% for section, data in car_info.items() %}
+            <div class="card mb-3 bg-dark text-white">
+                <div class="card-header">
+                    <h5 class="mb-0">{{ section }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if data is mapping %}
+                            {% for key, value in data.items() %}
+                            <div class="col-sm-6 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <span>{{ key }}:</span>
+                                    <span>{{ value }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-12">
+                                <div class="alert alert-warning">
+                                    {{ data }}
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-        </div>
-        {% endfor %}
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-danger">
+                无法获取车辆信息
+            </div>
+        {% endif %}
     </div>
 
     <script>
