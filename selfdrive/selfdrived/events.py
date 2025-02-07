@@ -146,7 +146,7 @@ EmptyAlert = Alert("" , "", AlertStatus.normal, AlertSize.none, Priority.LOWEST,
 
 class NoEntryAlert(Alert):
   def __init__(self, alert_text_2: str,
-               alert_text_1: str = "openpilot Unavailable",
+               alert_text_1: str = "自动驾驶暂不可用",  # Changed from "openpilot Unavailable"
                visual_alert: car.CarControl.HUDControl.VisualAlert=VisualAlert.none):
     super().__init__(alert_text_1, alert_text_2, AlertStatus.normal,
                      AlertSize.mid, Priority.LOW, visual_alert,
@@ -155,10 +155,10 @@ class NoEntryAlert(Alert):
 
 class SoftDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("TAKE CONTROL IMMEDIATELY", alert_text_2,
-                     AlertStatus.userPrompt, AlertSize.full,
-                     Priority.MID, VisualAlert.steerRequired,
-                     AudibleAlert.warningSoft, 2.),
+    super().__init__("立即接管", alert_text_2,
+             AlertStatus.userPrompt, AlertSize.full,
+             Priority.MID, VisualAlert.steerRequired,
+             AudibleAlert.warningSoft, 2.),
 
 
 # less harsh version of SoftDisable, where the condition is user-triggered
@@ -170,10 +170,10 @@ class UserSoftDisableAlert(SoftDisableAlert):
 
 class ImmediateDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("TAKE CONTROL IMMEDIATELY", alert_text_2,
-                     AlertStatus.critical, AlertSize.full,
-                     Priority.HIGHEST, VisualAlert.steerRequired,
-                     AudibleAlert.warningImmediate, 4.),
+    super().__init__("立即接管控制", alert_text_2,
+             AlertStatus.critical, AlertSize.full,
+             Priority.HIGHEST, VisualAlert.steerRequired,
+             AudibleAlert.warningImmediate, 4.),
 
 
 class EngagementAlert(Alert):
@@ -824,39 +824,39 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # - CAN data is received, but some message are not received at the right frequency
   # If you're not writing a new car port, this is usually cause by faulty wiring
   EventName.canError: {
-    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("CAN Error"),
+    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("CAN总线故障"),
     ET.PERMANENT: Alert(
-      "CAN Error: Check Connections",
+      "CAN总线故障: 请检查连接",
       "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.none, 1., creation_delay=1.),
-    ET.NO_ENTRY: NoEntryAlert("CAN Error: Check Connections"),
+    ET.NO_ENTRY: NoEntryAlert("CAN总线故障: 请检查连接"),
   },
 
   EventName.canBusMissing: {
-    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("CAN Bus Disconnected"),
+    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("CAN总线已断开"),
     ET.PERMANENT: Alert(
-      "CAN Bus Disconnected: Likely Faulty Cable",
+      "CAN总线已断开: 可能是线缆故障", 
       "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.none, 1., creation_delay=1.),
-    ET.NO_ENTRY: NoEntryAlert("CAN Bus Disconnected: Check Connections"),
+    ET.NO_ENTRY: NoEntryAlert("CAN总线已断开: 请检查连接"),
   },
 
   EventName.steerUnavailable: {
-    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("LKAS Fault: Restart the Car"),
-    ET.PERMANENT: NormalPermanentAlert("LKAS Fault: Restart the car to engage"),
-    ET.NO_ENTRY: NoEntryAlert("LKAS Fault: Restart the Car"),
+    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("LKAS故障: 请重启车辆"),
+    ET.PERMANENT: NormalPermanentAlert("LKAS故障: 请重启车辆后再启用"),
+    ET.NO_ENTRY: NoEntryAlert("LKAS故障: 请重启车辆"),
   },
 
   EventName.reverseGear: {
     ET.PERMANENT: Alert(
-      "Reverse\nGear",
+      "已切换至\n倒车档",
       "",
       AlertStatus.normal, AlertSize.full,
       Priority.LOWEST, VisualAlert.none, AudibleAlert.none, .2, creation_delay=0.5),
-    ET.USER_DISABLE: ImmediateDisableAlert("Reverse Gear"),
-    ET.NO_ENTRY: NoEntryAlert("Reverse Gear"),
+    ET.USER_DISABLE: ImmediateDisableAlert("倒车档"),
+    ET.NO_ENTRY: NoEntryAlert("倒车档"),
   },
 
   # On cars that use stock ACC the car can decide to cancel ACC for various reasons.
