@@ -36,9 +36,9 @@ from openpilot.common.params import Params
 from cereal import log, messaging
 import time
 
-# 添加必要的导入
-from openpilot.opendbc_repo.opendbc.car.interfaces import get_car_params
-from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
+# 修正导入路径
+from openpilot.opendbc_repo.opendbc.car.interfaces import CarInterfaceBase
+from openpilot.opendbc_repo.opendbc.car.values import PLATFORMS
 
 app = Flask(__name__)
 
@@ -469,13 +469,18 @@ def carinfo():
         # 获取车辆基本信息
         try:
             car_name = params.get("CarName", encoding='utf8')
-            car_params = get_car_params(params.get("CarParamsCache", encoding='utf8'))
-            car_fingerprint = car_params.carFingerprint
+            if car_name in PLATFORMS:
+                platform = PLATFORMS[car_name]
+                car_fingerprint = platform.config.platform_str
+                car_specs = platform.config.specs
+            else:
+                car_fingerprint = "未知指纹"
+                car_specs = None
         except Exception as e:
             print(f"获取车辆基本信息失败: {e}")
             car_name = "未知车型"
             car_fingerprint = "未知指纹"
-            car_params = None
+            car_specs = None
 
         # 获取车辆状态信息
         try:
@@ -498,7 +503,9 @@ def carinfo():
                     "车型": car_name,
                     "指纹": str(car_fingerprint),
                     "VIN码": params.get("CarVin", encoding='utf8') or "未知",
-                    "固件版本": car_params.carFw[0].fwVersion if car_params and len(car_params.carFw) > 0 else "未知"
+                    "车重": f"{car_specs.mass:.0f} kg" if car_specs else "未知",
+                    "轴距": f"{car_specs.wheelbase:.3f} m" if car_specs else "未知",
+                    "转向比": f"{car_specs.steerRatio:.1f}" if car_specs else "未知"
                 }
             }
 
