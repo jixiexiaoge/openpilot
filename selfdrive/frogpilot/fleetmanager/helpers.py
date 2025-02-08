@@ -242,8 +242,11 @@ def get_amap_key():
   return (token.strip() if token is not None else None, token2.strip() if token2 is not None else None)
 
 def get_SearchInput():
-  SearchInput = params.get_int("SearchInput")
-  return SearchInput
+  try:
+    SearchInput = params.get_int("SearchInput")
+    return 1 if SearchInput is None else SearchInput  # 默认返回1，使用高德地图
+  except:
+    return 1  # 出错时默认使用高德地图
 
 def get_PrimeType():
   PrimeType = params.get_int("PrimeType")
@@ -258,44 +261,38 @@ def get_last_lon_lat():
   return l["longitude"], l["latitude"]
 
 def get_locations():
-  data = params.get("ApiCache_NavDestinations", encoding='utf-8')
-  return data
+  try:
+    data = params.get("ApiCache_NavDestinations", encoding='utf-8')
+    if data is None:
+      return "[]"
+    return data.rstrip('\x00')
+  except:
+    return "[]"
 
 def preload_favs():
   try:
     # 获取导航目的地数据
-    nav_destinations_str = params.get("ApiCache_NavDestinations", encoding='utf8')
-
-    # 检查是否为空
-    if nav_destinations_str is None or nav_destinations_str.strip() == "":
-      print("No navigation destinations found")
+    data = get_locations()
+    if data == "[]":
       return (None, None, None, None, None)
 
     # 尝试解析 JSON
     try:
-      nav_destinations = json.loads(nav_destinations_str)
-    except json.JSONDecodeError as e:
-      print(f"Failed to parse navigation destinations: {e}")
-      return (None, None, None, None, None)
-
-    # 检查是否为列表类型
-    if not isinstance(nav_destinations, list):
-      print("Navigation destinations is not a list")
+      nav_destinations = json.loads(data)
+    except:
       return (None, None, None, None, None)
 
     # 初始化位置字典
     locations = {"home": None, "work": None, "fav1": None, "fav2": None, "fav3": None}
 
     # 遍历并填充位置信息
-    for item in nav_destinations:
-      if not isinstance(item, dict):
-        continue
-
-      label = item.get("label")
-      if label in locations and locations[label] is None:
-        place_name = item.get("place_name")
-        if place_name:
-          locations[label] = place_name
+    if isinstance(nav_destinations, list):
+      for item in nav_destinations:
+        if isinstance(item, dict) and "save_type" in item:
+          if item["save_type"] == "favorite" and "label" in item:
+            label = item["label"]
+            if label in locations:
+              locations[label] = item.get("place_name", "未命名位置")
 
     return tuple(locations.values())
 
@@ -304,18 +301,30 @@ def preload_favs():
     return (None, None, None, None, None)
 
 def parse_addr(postvars, lon, lat, valid_addr, token):
-  addr = postvars.get("fav_val", [""])
-  real_addr = None
-  if addr != "favorites":
-    try:
-      dests = json.loads(params.get("ApiCache_NavDestinations", encoding='utf8'))
-    except TypeError:
-      dests = json.loads("[]")
+  try:
+    addr = postvars.get("fav_val")
+    if not addr or addr == "favorites":
+      return (None, lon, lat, False, token)
+
+    data = get_locations()
+    if data == "[]":
+      return (None, lon, lat, False, token)
+
+    dests = json.loads(data)
     for item in dests:
-      if "label" in item and item["label"] == addr:
-        lat, lon, real_addr = item["latitude"], item["longitude"], item["place_name"]
-        break
-  return (real_addr, lon, lat, real_addr is not None, token)
+      if isinstance(item, dict) and "label" in item and item["label"] == addr:
+        try:
+          lat = float(item["latitude"])
+          lon = float(item["longitude"])
+          real_addr = item.get("place_name", "未命名位置")
+          return (real_addr, lon, lat, True, token)
+        except:
+          continue
+
+    return (None, lon, lat, False, token)
+  except Exception as e:
+    print(f"Error in parse_addr: {str(e)}")
+    return (None, lon, lat, False, token)
 
 def search_addr(postvars, lon, lat, valid_addr, token):
   if "addr_val" in postvars:
@@ -356,46 +365,64 @@ def set_destination(postvars, valid_addr):
   return postvars, valid_addr
 
 def nav_confirmed(postvars):
-  if postvars is not None:
-    lat = float(postvars.get("lat"))
-    lng = float(postvars.get("lon"))
-    save_type = postvars.get("save_type")
-    name = postvars.get("name") if postvars.get("name") is not None else ""
+  if postvars is None:
+    return
+
+  try:
+    lat = float(postvars.get("lat", 0))
+    lng = float(postvars.get("lon", 0))
+    save_type = postvars.get("save_type", "recent")
+    name = postvars.get("name", "")
+
+    # 如果使用高德地图，进行坐标转换
     if params.get_int("SearchInput") == 1:
       lng, lat = gcj02towgs84(lng, lat)
-    params.put("NavDestination", f'{{"latitude": {lat:.6f}, "longitude": {lng:.6f}, "place_name": "{name}"}}')
-    if name == "":
-      name =  str(lat) + "," + str(lng)
-    new_dest = {"latitude": float(lat), "longitude": float(lng), "place_name": name}
-    if save_type == "recent":
-      new_dest["save_type"] = "recent"
-    else:
-      new_dest["save_type"] = "favorite"
+
+    # 保存导航目的地
+    nav_dest = {
+      "latitude": lat,
+      "longitude": lng,
+      "place_name": name if name else f"{lat:.6f},{lng:.6f}"
+    }
+    params.put("NavDestination", json.dumps(nav_dest))
+
+    # 构建新的目的地记录
+    new_dest = {
+      "latitude": lat,
+      "longitude": lng,
+      "place_name": name if name else f"{lat:.6f},{lng:.6f}",
+      "save_type": "favorite" if save_type != "recent" else "recent"
+    }
+    if save_type != "recent":
       new_dest["label"] = save_type
-    val = params.get("ApiCache_NavDestinations", encoding='utf8')
-    if val is not None:
-      val = val.rstrip('\x00')
-    dests = [] if val is None else json.loads(val)
-    # type idx
-    type_label_ids = {"home": None, "work": None, "fav1": None, "fav2": None, "fav3": None, "recent": []}
-    idx = 0
-    for d in dests:
-      if d["save_type"] == "favorite":
-        type_label_ids[d["label"]] = idx
-      else:
-        type_label_ids["recent"].append(idx)
-      idx += 1
+
+    # 获取现有目的地列表
+    data = get_locations()
+    dests = json.loads(data) if data != "[]" else []
+
+    # 更新目的地列表
     if save_type == "recent":
-      dest_id = None
-      if len(type_label_ids["recent"]) > 10:
-        dests.pop(type_label_ids["recent"][-1])
-    else:
-      dest_id = type_label_ids[save_type]
-    if dest_id is None:
+      # 对于最近位置，添加到列表开头
       dests.insert(0, new_dest)
+      # 保持最近位置不超过10个
+      dests = [d for d in dests if d.get("save_type") == "favorite"] + \
+              [d for d in dests if d.get("save_type") == "recent"][:10]
     else:
-      dests[dest_id] = new_dest
+      # 对于收藏位置，更新或添加
+      found = False
+      for i, d in enumerate(dests):
+        if d.get("save_type") == "favorite" and d.get("label") == save_type:
+          dests[i] = new_dest
+          found = True
+          break
+      if not found:
+        dests.insert(0, new_dest)
+
+    # 保存更新后的目的地列表
     params.put("ApiCache_NavDestinations", json.dumps(dests).rstrip("\n\r"))
+
+  except Exception as e:
+    print(f"Error in nav_confirmed: {str(e)}")
 
 def public_token_input(postvars):
   if postvars is None or "pk_token_val" not in postvars or postvars.get("pk_token_val")[0] == "":

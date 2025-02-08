@@ -294,11 +294,11 @@ def addr_input():
 
     # 获取其他必要参数
     try:
-      SearchInput = fleet.get_SearchInput()
+      SearchInput = fleet.get_SearchInput()  # 默认返回1，使用高德地图
       token = fleet.get_public_token()
       s_token = fleet.get_app_token()
       gmap_key = fleet.get_gmap_key()
-      PrimeType = fleet.get_PrimeType()
+      amap_key, amap_key_2 = fleet.get_amap_key()
     except Exception as e:
       print(f"Error getting parameters: {str(e)}")
       return render_template("error.html", error="获取系统参数失败")
@@ -306,7 +306,7 @@ def addr_input():
     lon = 0.0
     lat = 0.0
 
-    print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}, PrimeType: {PrimeType}")
+    print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}")
 
     if request.method == 'POST':
       valid_addr = False
@@ -321,32 +321,40 @@ def addr_input():
         return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
       else:
         return render_template("error.html", error="无法找到有效地址")
-    elif SearchInput == 1:
-      amap_key, amap_key_2 = fleet.get_amap_key()
-      if amap_key == "" or amap_key is None or amap_key_2 == "" or amap_key_2 is None:
+
+    # 默认使用高德地图导航
+    if SearchInput == 1 or SearchInput is None:
+      # 检查高德地图密钥
+      if not amap_key or not amap_key_2:
         return redirect(url_for('amap_key_input'))
-      elif token == "" or token is None:
-        return redirect(url_for('public_token_input'))
-      elif s_token == "" or s_token is None:
-        return redirect(url_for('app_token_input'))
       else:
-        return redirect(url_for('amap_addr_input'))
-    elif token == "" or token is None:
-      return redirect(url_for('public_token_input'))
-    elif s_token == "" or s_token is None:
-      return redirect(url_for('app_token_input'))
+        lon, lat = fleet.get_last_lon_lat()
+        return render_template("amap_addr_input.html",
+                             lon=lon, lat=lat,
+                             amap_key=amap_key,
+                             amap_key_2=amap_key_2,
+                             home=preload[0], work=preload[1],
+                             fav1=preload[2], fav2=preload[3], fav3=preload[4])
+    # Google地图导航
     elif SearchInput == 2:
-      lon, lat = fleet.get_last_lon_lat()
-      if gmap_key == "" or gmap_key is None:
+      if not gmap_key:
         return redirect(url_for('gmap_key_input'))
       else:
+        lon, lat = fleet.get_last_lon_lat()
         return render_template("addr.html",
                              gmap_key=gmap_key, lon=lon, lat=lat,
-                             home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
+                             home=preload[0], work=preload[1],
+                             fav1=preload[2], fav2=preload[3], fav3=preload[4])
     else:
-      return render_template("addr.html",
-                           gmap_key=None, lon=None, lat=None,
-                           home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
+      # 默认使用高德地图模板
+      lon, lat = fleet.get_last_lon_lat()
+      return render_template("amap_addr_input.html",
+                           lon=lon, lat=lat,
+                           amap_key=amap_key,
+                           amap_key_2=amap_key_2,
+                           home=preload[0], work=preload[1],
+                           fav1=preload[2], fav2=preload[3], fav3=preload[4])
+
   except Exception as e:
     print(f"Error in addr_input: {str(e)}")
     return render_template("error.html", error=f"导航页面加载错误: {str(e)}")
@@ -402,14 +410,29 @@ def amap_key_input():
 
 @app.route("/amap_addr_input", methods=['GET', 'POST'])
 def amap_addr_input():
-  if request.method == 'POST':
-    postvars = request.form.to_dict()
-    fleet.nav_confirmed(postvars)
-    return redirect(url_for('amap_addr_input'))
-  else:
-    lon, lat = fleet.get_last_lon_lat()
-    amap_key, amap_key_2 = fleet.get_amap_key()
-    return render_template("amap_addr_input.html", lon=lon, lat=lat, amap_key=amap_key, amap_key_2=amap_key_2)
+  try:
+    if request.method == 'POST':
+      postvars = request.form.to_dict()
+      fleet.nav_confirmed(postvars)
+      return redirect(url_for('amap_addr_input'))
+    else:
+      # 获取收藏的地址
+      preload = fleet.preload_favs()
+      if not preload or len(preload) != 5:
+        preload = (None, None, None, None, None)
+
+      lon, lat = fleet.get_last_lon_lat()
+      amap_key, amap_key_2 = fleet.get_amap_key()
+
+      return render_template("amap_addr_input.html",
+                           lon=lon, lat=lat,
+                           amap_key=amap_key,
+                           amap_key_2=amap_key_2,
+                           home=preload[0], work=preload[1],
+                           fav1=preload[2], fav2=preload[3], fav3=preload[4])
+  except Exception as e:
+    print(f"Error in amap_addr_input: {str(e)}")
+    return render_template("error.html", error=f"高德地图导航页面加载错误: {str(e)}")
 
 @app.route("/CurrentStep.json", methods=['GET'])
 def find_CurrentStep():
