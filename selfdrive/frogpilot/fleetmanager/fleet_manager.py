@@ -33,9 +33,21 @@ from openpilot.common.swaglog import cloudlog
 import traceback
 from ftplib import FTP
 from openpilot.common.params import Params
-from cereal import log
+from cereal import log, messaging
+import time
+
+# 添加必要的导入
+from openpilot.selfdrive.car.interfaces import get_car_params
+from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 
 app = Flask(__name__)
+
+# 初始化消息订阅
+def init_messaging():
+    services = ['carState', 'carControl', 'carParams', 'liveParameters']
+    return messaging.SubMaster(services)
+
+sm = init_messaging()
 
 @app.route("/")
 def home_page():
@@ -448,112 +460,127 @@ def store_toggle_values_route():
 
 @app.route("/carinfo")
 def carinfo():
-  try:
-    params = Params()
-
-    # 获取车辆基本信息
     try:
-      car_name = params.get("CarName", encoding='utf8')
-      if not car_name:
-        car_name = "未知车型"
-    except:
-      car_name = "未知车型"
+        params = Params()
 
-    try:
-      car_fingerprint = params.get("CarParamsCache")
-      if car_fingerprint:
-        car_fingerprint = car_fingerprint.decode('utf8')
-      else:
-        car_fingerprint = "未知车型指纹"
-    except:
-      car_fingerprint = "未知车型指纹"
+        # 更新消息
+        sm.update()
 
-    # 获取车辆状态信息
-    try:
-      car_state = log.CarState.from_bytes(params.get("CarState"))
+        # 获取车辆基本信息
+        try:
+            car_name = params.get("CarName", encoding='utf8')
+            car_params = get_car_params(params.get("CarParamsCache", encoding='utf8'))
+            car_fingerprint = car_params.carFingerprint
+        except Exception as e:
+            print(f"获取车辆基本信息失败: {e}")
+            car_name = "未知车型"
+            car_fingerprint = "未知指纹"
+            car_params = None
 
-      # 检查车辆运行状态
-      is_car_started = car_state.vEgo > 0.1  # 速度大于0.1m/s认为车辆在行驶
-      is_car_engaged = car_state.cruiseState.enabled  # 是否启用巡航
-      gear_shifter = getattr(car_state, 'gearShifter', None)
-      is_in_park = gear_shifter == 'park' if gear_shifter else None
+        # 获取车辆状态信息
+        try:
+            CS = sm['carState']
 
-      # 确定车辆当前状态
-      vehicle_status = "未启动"
-      if is_car_started:
-        vehicle_status = "行驶中"
-      elif is_in_park:
-        vehicle_status = "停车档"
-      elif car_state.brake > 0:
-        vehicle_status = "刹车中"
+            # 基本状态判断
+            is_car_started = CS.vEgo > 0.1
+            is_car_engaged = CS.cruiseState.enabled
 
-      car_info = {
-        "车辆状态": {
-          "运行状态": vehicle_status,
-          "巡航系统": "已启用" if is_car_engaged else "未启用",
-          "当前速度": f"{car_state.vEgo * 3.6:.1f} km/h"
-        },
-        "基本信息": {
-          "车型": car_name,
-          "指纹": car_fingerprint
-        }
-      }
+            # 构建基础信息
+            car_info = {
+                "车辆状态": {
+                    "运行状态": "行驶中" if is_car_started else "停车中",
+                    "巡航系统": "已启用" if is_car_engaged else "未启用",
+                    "当前速度": f"{CS.vEgo * 3.6:.1f} km/h",
+                    "发动机转速": f"{CS.engineRPM:.0f} RPM" if hasattr(CS, 'engineRPM') else "未知",
+                    "档位信息": str(CS.gearShifter) if hasattr(CS, 'gearShifter') else "未知"
+                },
+                "基本信息": {
+                    "车型": car_name,
+                    "指纹": str(car_fingerprint),
+                    "VIN码": params.get("CarVin", encoding='utf8') or "未知",
+                    "固件版本": car_params.carFw[0].fwVersion if car_params and len(car_params.carFw) > 0 else "未知"
+                }
+            }
 
-      # 只有在车辆启动时才显示详细信息
-      if is_car_started or is_car_engaged:
-        car_info.update({
-          "车速信息": {
-            "当前车速": f"{car_state.vEgo * 3.6:.1f} km/h",
-            "巡航目标速度": f"{car_state.cruiseState.speed * 3.6:.1f} km/h" if car_state.cruiseState.speed > 0 else "未设置",
-            "巡航状态": "开启" if car_state.cruiseState.enabled else "关闭"
-          },
-          "车轮速度": {
-            "左前轮": f"{car_state.wheelSpeeds.fl * 3.6:.1f} km/h",
-            "右前轮": f"{car_state.wheelSpeeds.fr * 3.6:.1f} km/h",
-            "左后轮": f"{car_state.wheelSpeeds.rl * 3.6:.1f} km/h",
-            "右后轮": f"{car_state.wheelSpeeds.rr * 3.6:.1f} km/h"
-          },
-          "转向系统": {
-            "转向角度": f"{car_state.steeringAngleDeg:.1f}°",
-            "转向扭矩": f"{car_state.steeringTorque:.1f} Nm",
-            "转向角速度": f"{car_state.steeringRateDeg:.1f}°/s"
-          },
-          "踏板状态": {
-            "油门踏板": f"{car_state.gas * 100:.1f}%",
-            "刹车踏板": f"{car_state.brake * 100:.1f}%"
-          },
-          "车门状态": {
-            "左前门": "开启" if car_state.doorOpen else "关闭",
-            "安全带": "已系" if not car_state.seatbeltUnlatched else "未系"
-          },
-          "灯光状态": {
-            "左转向灯": "开启" if car_state.leftBlinker else "关闭",
-            "右转向灯": "开启" if car_state.rightBlinker else "关闭",
-            "远光灯": "开启" if car_state.genericToggle else "关闭"
-          },
-          "盲点监测": {
-            "左侧": "有车" if car_state.leftBlindspot else "无车",
-            "右侧": "有车" if car_state.rightBlindspot else "无车"
-          }
-        })
+            # 详细信息
+            if is_car_started or is_car_engaged:
+                car_info.update({
+                    "巡航信息": {
+                        "巡航状态": "开启" if CS.cruiseState.enabled else "关闭",
+                        "自适应巡航": "开启" if CS.cruiseState.available else "关闭",
+                        "设定速度": f"{CS.cruiseState.speed * 3.6:.1f} km/h" if CS.cruiseState.speed > 0 else "未设置",
+                        "跟车距离": str(CS.cruiseState.followDistance) if hasattr(CS.cruiseState, 'followDistance') else "未知"
+                    },
+                    "车轮速度": {
+                        "左前轮": f"{CS.wheelSpeeds.fl * 3.6:.1f} km/h",
+                        "右前轮": f"{CS.wheelSpeeds.fr * 3.6:.1f} km/h",
+                        "左后轮": f"{CS.wheelSpeeds.rl * 3.6:.1f} km/h",
+                        "右后轮": f"{CS.wheelSpeeds.rr * 3.6:.1f} km/h"
+                    },
+                    "转向系统": {
+                        "转向角度": f"{CS.steeringAngleDeg:.1f}°",
+                        "转向扭矩": f"{CS.steeringTorque:.1f} Nm",
+                        "转向角速度": f"{CS.steeringRateDeg:.1f}°/s",
+                        "车道偏离": "是" if CS.leftBlinker or CS.rightBlinker else "否"
+                    },
+                    "踏板状态": {
+                        "油门位置": f"{CS.gas * 100:.1f}%",
+                        "刹车压力": f"{CS.brake * 100:.1f}%",
+                        "油门踏板": "踩下" if CS.gasPressed else "松开",
+                        "刹车踏板": "踩下" if CS.brakePressed else "松开"
+                    },
+                    "安全系统": {
+                        "ESP状态": "介入" if CS.espDisabled else "正常",
+                        "ABS状态": "介入" if hasattr(CS, 'absActive') and CS.absActive else "正常",
+                        "牵引力控制": "介入" if hasattr(CS, 'tcsActive') and CS.tcsActive else "正常",
+                        "碰撞预警": "警告" if hasattr(CS, 'collisionWarning') and CS.collisionWarning else "正常"
+                    },
+                    "车门状态": {
+                        "左前门": "开启" if CS.doorOpen else "关闭",
+                        "右前门": "开启" if hasattr(CS, 'passengerDoorOpen') and CS.passengerDoorOpen else "关闭",
+                        "后备箱": "开启" if hasattr(CS, 'trunkOpen') and CS.trunkOpen else "关闭",
+                        "引擎盖": "开启" if hasattr(CS, 'hoodOpen') and CS.hoodOpen else "关闭",
+                        "安全带": "未系" if CS.seatbeltUnlatched else "已系"
+                    },
+                    "灯光状态": {
+                        "左转向灯": "开启" if CS.leftBlinker else "关闭",
+                        "右转向灯": "开启" if CS.rightBlinker else "关闭",
+                        "远光灯": "开启" if CS.genericToggle else "关闭",
+                        "近光灯": "开启" if hasattr(CS, 'lowBeamOn') and CS.lowBeamOn else "关闭"
+                    },
+                    "盲点监测": {
+                        "左侧": "有车" if CS.leftBlindspot else "无车",
+                        "右侧": "有车" if CS.rightBlindspot else "无车"
+                    },
+                    "其他信息": {
+                        "车外温度": f"{CS.outsideTemp:.1f}°C" if hasattr(CS, 'outsideTemp') else "未知",
+                        "续航里程": f"{CS.fuelGauge:.1f}km" if hasattr(CS, 'fuelGauge') else "未知",
+                        "总里程": f"{CS.odometer:.1f}km" if hasattr(CS, 'odometer') else "未知",
+                        "瞬时油耗": f"{CS.instantFuelConsumption:.1f}L/100km" if hasattr(CS, 'instantFuelConsumption') else "未知"
+                    }
+                })
+
+        except Exception as e:
+            print(f"获取车辆状态信息时出错: {str(e)}")
+            traceback.print_exc()
+            car_info = {
+                "错误信息": {
+                    "错误类型": str(type(e).__name__),
+                    "错误描述": str(e),
+                    "详细信息": traceback.format_exc()
+                },
+                "基本信息": {
+                    "车型": car_name,
+                    "指纹": str(car_fingerprint)
+                }
+            }
+
+        return render_template("carinfo.html", car_info=car_info)
 
     except Exception as e:
-      print(f"获取车辆状态信息时出错: {str(e)}")
-      car_info = {
-        "车辆状态": {
-          "运行状态": "未知",
-          "错误信息": str(e)
-        },
-        "基本信息": {
-          "车型": car_name,
-          "指纹": car_fingerprint
-        }
-      }
-
-    return render_template("carinfo.html", car_info=car_info)
-  except Exception as e:
-    print(f"carinfo 页面渲染出错: {str(e)}")
-    return render_template("carinfo.html", car_info={"错误": f"获取车辆信息时出错: {str(e)}"})
+        print(f"carinfo 页面渲染出错: {str(e)}")
+        traceback.print_exc()
+        return render_template("carinfo.html", car_info={"错误": f"获取车辆信息时出错: {str(e)}"})
 
 def main():
   try:
