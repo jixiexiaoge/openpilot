@@ -254,18 +254,26 @@ def get_gmap_key():
     return ("", "")
 
 def get_amap_key():
+  """获取高德地图 API Keys"""
   try:
-    # 确保参数已初始化
-    init_amap_params()
+    # 尝试获取新的参数名
+    web_key = params.get("AMapKeyWeb", encoding='utf8')
+    js_key = params.get("AMapKeyJS", encoding='utf8')
 
-    token = params.get("AMapKeyWeb", encoding='utf8')  # Web端 API key
-    token2 = params.get("AMapKeyJS", encoding='utf8')  # Web端 JS API key
-    return (
-      token.strip() if token is not None else "",
-      token2.strip() if token2 is not None else ""
-    )
+    # 如果新参数不存在，尝试获取旧的参数名
+    if not web_key:
+      web_key = params.get("AMapKey1", encoding='utf8')
+    if not js_key:
+      js_key = params.get("AMapKey2", encoding='utf8')
+
+    # 确保返回的是字符串
+    web_key = web_key.strip() if web_key else ""
+    js_key = js_key.strip() if js_key else ""
+
+    return (web_key, js_key)
+
   except Exception as e:
-    print(f"Error in get_amap_key: {str(e)}")
+    print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
 
 def get_SearchInput():
@@ -491,57 +499,92 @@ def gmap_key_input(postvars):
 def init_amap_params():
   """初始化高德地图相关参数"""
   try:
-    # 确保参数存在
-    params.put_bool("SearchInput", True)  # 默认使用高德地图
+    print("开始初始化高德地图参数...")
 
-    # 初始化 API keys（如果不存在）
-    if params.get("AMapKeyWeb") is None:
-      params.put("AMapKeyWeb", "")
-    if params.get("AMapKeyJS") is None:
-      params.put("AMapKeyJS", "")
+    # 确保 SearchInput 参数存在并设置为 1 (使用高德地图)
+    try:
+      params.put("SearchInput", "1")
+      print("成功设置 SearchInput 参数")
+    except Exception as e:
+      print(f"设置 SearchInput 参数失败: {str(e)}")
+      return False
 
+    # 初始化 Web 服务 API Key
+    try:
+      if params.get("AMapKeyWeb") is None:
+        params.put("AMapKeyWeb", "")
+        print("初始化 AMapKeyWeb 参数")
+    except Exception as e:
+      print(f"初始化 AMapKeyWeb 参数失败: {str(e)}")
+      return False
+
+    # 初始化 Web端 JS API Key
+    try:
+      if params.get("AMapKeyJS") is None:
+        params.put("AMapKeyJS", "")
+        print("初始化 AMapKeyJS 参数")
+    except Exception as e:
+      print(f"初始化 AMapKeyJS 参数失败: {str(e)}")
+      return False
+
+    print("高德地图参数初始化成功")
     return True
+
   except Exception as e:
-    print(f"Error initializing AMap params: {str(e)}")
+    print(f"高德地图参数初始化过程中发生错误: {str(e)}")
     return False
 
 def amap_key_input(postvars):
+  """处理高德地图 API Key 的输入和保存"""
   try:
     if postvars is None:
-      print("Error: postvars is None")
+      print("错误: 未收到输入参数")
       return None
 
-    # 初始化参数
-    if not init_amap_params():
-      print("Error: Failed to initialize AMap parameters")
-      return None
-
-    # 获取并验证 Web API key
+    # 获取并验证 Web 服务 API Key
     web_key = postvars.get("amap_key_val", "").strip()
     if not web_key:
-      print("Error: Web API key is empty")
+      print("错误: Web 服务 API Key 不能为空")
       return None
 
-    # 获取并验证 JS API key
+    # 获取并验证 Web端 JS API Key
     js_key = postvars.get("amap_key_val_2", "").strip()
     if not js_key:
-      print("Error: JS API key is empty")
+      print("错误: Web端 JS API Key 不能为空")
       return None
 
     try:
-      # 保存 API keys
+      # 保存 API Keys
+      print(f"正在保存 API Keys - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
+
+      # 先删除旧的参数（如果存在）
+      params.remove("AMapKey1")
+      params.remove("AMapKey2")
+
+      # 保存新的参数
       params.put("AMapKeyWeb", web_key)
       params.put("AMapKeyJS", js_key)
 
-      print(f"Successfully saved AMap keys - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
+      # 设置默认搜索引擎为高德地图
+      params.put("SearchInput", "1")
+
+      # 验证保存结果
+      saved_web_key = params.get("AMapKeyWeb", encoding='utf8')
+      saved_js_key = params.get("AMapKeyJS", encoding='utf8')
+
+      if not saved_web_key or not saved_js_key:
+        print("错误: API Keys 保存失败")
+        return None
+
+      print("API Keys 保存成功")
       return web_key
 
     except Exception as e:
-      print(f"Error saving AMap keys: {str(e)}")
+      print(f"保存 API Keys 时发生错误: {str(e)}")
       return None
 
   except Exception as e:
-    print(f"Error in amap_key_input: {str(e)}")
+    print(f"处理 API Key 输入时发生错误: {str(e)}")
     return None
 
 def gcj02towgs84(lng, lat):

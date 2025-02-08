@@ -412,36 +412,41 @@ def gmap_key_input():
 
 @app.route("/amap_key_input", methods=['GET', 'POST'])
 def amap_key_input():
+  """处理高德地图 API Key 的输入页面和提交"""
   try:
-    # 确保参数已初始化
-    if not fleet.init_amap_params():
-      return render_template("error.html", error="初始化高德地图参数失败，请重试")
-
     if request.method == 'POST':
       postvars = request.form.to_dict()
 
-      # 验证输入
+      # 验证输入参数
       if not postvars.get("amap_key_val"):
         return render_template("error.html", error="请输入高德地图 Web服务 API Key")
       if not postvars.get("amap_key_val_2"):
         return render_template("error.html", error="请输入高德地图 Web端 JS API Key")
 
       # 尝试保存 API keys
-      result = fleet.amap_key_input(postvars)
-      if result is None:
-        return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入格式是否正确")
+      try:
+        result = fleet.amap_key_input(postvars)
+        if result is None:
+          return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入格式是否正确")
 
-      # 验证保存的结果
-      web_key, js_key = fleet.get_amap_key()
-      if not web_key or not js_key:
-        return render_template("error.html", error="API Key 保存失败，请重试")
+        # 验证保存的结果
+        web_key, js_key = fleet.get_amap_key()
+        if not web_key or not js_key:
+          return render_template("error.html", error="API Key 保存失败，请重试")
 
-      return redirect(url_for('amap_addr_input'))
+        print(f"API Keys 设置成功 - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
+        return redirect(url_for('addr_input'))
+
+      except Exception as e:
+        print(f"保存 API Keys 时发生错误: {str(e)}")
+        return render_template("error.html", error=f"保存 API Keys 失败: {str(e)}")
+
     else:
+      # GET 请求，显示输入页面
       return render_template("amap_key_input.html")
 
   except Exception as e:
-    print(f"Error in amap_key_input route: {str(e)}")
+    print(f"高德地图 API Key 设置页面出错: {str(e)}")
     return render_template("error.html", error=f"设置出错: {str(e)}")
 
 @app.route("/amap_addr_input", methods=['GET', 'POST'])
