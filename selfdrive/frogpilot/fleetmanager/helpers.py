@@ -219,46 +219,69 @@ def ffplay_mp4_wrap_process_builder(file_name):
   )
 
 def get_nav_active():
-  if params.get("NavDestination", encoding='utf8') is not None:
-    return True
-  else:
+  try:
+    return params.get("NavDestination", encoding='utf8') is not None
+  except:
     return False
 
 def get_public_token():
-  token = params.get("MapboxPublicKey", encoding='utf8')
-  return token.strip() if token is not None else None
+  try:
+    token = params.get("MapboxPublicKey", encoding='utf8')
+    return token.strip() if token is not None else ""
+  except:
+    return ""
 
 def get_app_token():
-  token = params.get("MapboxSecretKey", encoding='utf8')
-  return token.strip() if token is not None else None
+  try:
+    token = params.get("MapboxSecretKey", encoding='utf8')
+    return token.strip() if token is not None else ""
+  except:
+    return ""
 
 def get_gmap_key():
-  token = params.get("GMapKey", encoding='utf8')
-  return token.strip() if token is not None else None
+  try:
+    token = params.get("GMapKey", encoding='utf8')
+    return token.strip() if token is not None else ""
+  except:
+    return ""
 
 def get_amap_key():
-  token = params.get("AMapKey1", encoding='utf8')
-  token2 = params.get("AMapKey2", encoding='utf8')
-  return (token.strip() if token is not None else None, token2.strip() if token2 is not None else None)
+  try:
+    token = params.get("AMapKeyWeb", encoding='utf8')  # Web端 API key
+    token2 = params.get("AMapKeyJS", encoding='utf8')  # Web端 JS API key
+    return (
+      token.strip() if token is not None else "",
+      token2.strip() if token2 is not None else ""
+    )
+  except Exception as e:
+    print(f"Error in get_amap_key: {str(e)}")
+    return ("", "")
 
 def get_SearchInput():
   try:
-    SearchInput = params.get_int("SearchInput")
-    return 1 if SearchInput is None else SearchInput  # 默认返回1，使用高德地图
+    params.put("SearchInput", "1")  # 确保设置默认值
+    return 1  # 默认使用高德地图
   except:
-    return 1  # 出错时默认使用高德地图
+    return 1
 
 def get_PrimeType():
-  PrimeType = params.get_int("PrimeType")
-  return PrimeType
+  try:
+    return params.get_int("PrimeType") or 0
+  except:
+    return 0
 
 def get_last_lon_lat():
-  last_pos = params.get("LastGPSPosition")
-  if last_pos:
-    l = json.loads(last_pos)
-  else:
+  try:
+    last_pos = params.get("LastGPSPosition")
+    if last_pos:
+      try:
+        l = json.loads(last_pos)
+        return float(l.get("longitude", 0.0)), float(l.get("latitude", 0.0))
+      except:
+        pass
     return 0.0, 0.0
-  return l["longitude"], l["latitude"]
+  except:
+    return 0.0, 0.0
 
 def get_locations():
   try:
@@ -455,14 +478,21 @@ def gmap_key_input(postvars):
   return token
 
 def amap_key_input(postvars):
-  if postvars is None or "amap_key_val" not in postvars or postvars.get("amap_key_val")[0] == "":
-    return postvars
-  else:
-    token = postvars.get("amap_key_val").strip()
-    token2 = postvars.get("amap_key_val_2").strip()
-    params.put("AMapKey1", token)
-    params.put("AMapKey2", token2)
-  return token
+  try:
+    if postvars is None or "amap_key_val" not in postvars or postvars.get("amap_key_val") == "":
+      return None
+
+    token = postvars.get("amap_key_val", "").strip()
+    token2 = postvars.get("amap_key_val_2", "").strip()
+
+    # 使用正确的参数名称
+    params.put("AMapKeyWeb", token)  # Web端 API key
+    params.put("AMapKeyJS", token2)  # Web端 JS API key
+
+    return token
+  except Exception as e:
+    print(f"Error in amap_key_input: {str(e)}")
+    return None
 
 def gcj02towgs84(lng, lat):
   dlat = transform_lat(lng - 105.0, lat - 35.0)

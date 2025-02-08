@@ -295,18 +295,26 @@ def addr_input():
     # 获取其他必要参数
     try:
       SearchInput = fleet.get_SearchInput()  # 默认返回1，使用高德地图
+      amap_key, amap_key_2 = fleet.get_amap_key()
+      gmap_key = fleet.get_gmap_key()
       token = fleet.get_public_token()
       s_token = fleet.get_app_token()
-      gmap_key = fleet.get_gmap_key()
-      amap_key, amap_key_2 = fleet.get_amap_key()
     except Exception as e:
       print(f"Error getting parameters: {str(e)}")
-      return render_template("error.html", error="获取系统参数失败")
+      SearchInput = 1
+      amap_key, amap_key_2 = "", ""
+      gmap_key = ""
+      token = ""
+      s_token = ""
 
-    lon = 0.0
-    lat = 0.0
+    # 获取当前位置
+    try:
+      lon, lat = fleet.get_last_lon_lat()
+    except Exception as e:
+      print(f"Error getting location: {str(e)}")
+      lon, lat = 0.0, 0.0
 
-    print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}")
+    print(f"Request method: {request.method}, SearchInput: {SearchInput}, amap_key: {bool(amap_key)}, gmap_key: {bool(gmap_key)}")
 
     if request.method == 'POST':
       valid_addr = False
@@ -326,9 +334,9 @@ def addr_input():
     if SearchInput == 1 or SearchInput is None:
       # 检查高德地图密钥
       if not amap_key or not amap_key_2:
+        print("No AMap keys found, redirecting to key input")
         return redirect(url_for('amap_key_input'))
       else:
-        lon, lat = fleet.get_last_lon_lat()
         return render_template("amap_addr_input.html",
                              lon=lon, lat=lat,
                              amap_key=amap_key,
@@ -338,16 +346,18 @@ def addr_input():
     # Google地图导航
     elif SearchInput == 2:
       if not gmap_key:
+        print("No Google Maps key found, redirecting to key input")
         return redirect(url_for('gmap_key_input'))
       else:
-        lon, lat = fleet.get_last_lon_lat()
         return render_template("addr.html",
                              gmap_key=gmap_key, lon=lon, lat=lat,
                              home=preload[0], work=preload[1],
                              fav1=preload[2], fav2=preload[3], fav3=preload[4])
     else:
       # 默认使用高德地图模板
-      lon, lat = fleet.get_last_lon_lat()
+      if not amap_key or not amap_key_2:
+        print("No AMap keys found, redirecting to key input")
+        return redirect(url_for('amap_key_input'))
       return render_template("amap_addr_input.html",
                            lon=lon, lat=lat,
                            amap_key=amap_key,
@@ -357,7 +367,8 @@ def addr_input():
 
   except Exception as e:
     print(f"Error in addr_input: {str(e)}")
-    return render_template("error.html", error=f"导航页面加载错误: {str(e)}")
+    traceback.print_exc()  # 打印完整的错误堆栈
+    return render_template("error.html", error=f"导航页面加载错误，请检查系统参数设置")
 
 @app.route("/nav_confirmation", methods=['GET', 'POST'])
 def nav_confirmation():
@@ -401,12 +412,18 @@ def gmap_key_input():
 
 @app.route("/amap_key_input", methods=['GET', 'POST'])
 def amap_key_input():
-  if request.method == 'POST':
-    postvars = request.form.to_dict()
-    fleet.amap_key_input(postvars)
-    return redirect(url_for('amap_addr_input'))
-  else:
-    return render_template("amap_key_input.html")
+  try:
+    if request.method == 'POST':
+      postvars = request.form.to_dict()
+      result = fleet.amap_key_input(postvars)
+      if result is None:
+        return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入")
+      return redirect(url_for('amap_addr_input'))
+    else:
+      return render_template("amap_key_input.html")
+  except Exception as e:
+    print(f"Error in amap_key_input route: {str(e)}")
+    return render_template("error.html", error=f"高德地图 API Key 设置出错: {str(e)}")
 
 @app.route("/amap_addr_input", methods=['GET', 'POST'])
 def amap_addr_input():
