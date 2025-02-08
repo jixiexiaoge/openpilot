@@ -240,13 +240,24 @@ def get_app_token():
 
 def get_gmap_key():
   try:
-    token = params.get("GMapKey", encoding='utf8')
-    return token.strip() if token is not None else ""
-  except:
-    return ""
+    # 确保参数已初始化
+    init_amap_params()
+
+    token = params.get("AMapKeyWeb", encoding='utf8')  # Web端 API key
+    token2 = params.get("AMapKeyJS", encoding='utf8')  # Web端 JS API key
+    return (
+      token.strip() if token is not None else "",
+      token2.strip() if token2 is not None else ""
+    )
+  except Exception as e:
+    print(f"Error in get_amap_key: {str(e)}")
+    return ("", "")
 
 def get_amap_key():
   try:
+    # 确保参数已初始化
+    init_amap_params()
+
     token = params.get("AMapKeyWeb", encoding='utf8')  # Web端 API key
     token2 = params.get("AMapKeyJS", encoding='utf8')  # Web端 JS API key
     return (
@@ -477,19 +488,58 @@ def gmap_key_input(postvars):
     params.put("GMapKey", token)
   return token
 
+def init_amap_params():
+  """初始化高德地图相关参数"""
+  try:
+    # 确保参数存在
+    params.put_bool("SearchInput", True)  # 默认使用高德地图
+
+    # 初始化 API keys（如果不存在）
+    if params.get("AMapKeyWeb") is None:
+      params.put("AMapKeyWeb", "")
+    if params.get("AMapKeyJS") is None:
+      params.put("AMapKeyJS", "")
+
+    return True
+  except Exception as e:
+    print(f"Error initializing AMap params: {str(e)}")
+    return False
+
 def amap_key_input(postvars):
   try:
-    if postvars is None or "amap_key_val" not in postvars or postvars.get("amap_key_val") == "":
+    if postvars is None:
+      print("Error: postvars is None")
       return None
 
-    token = postvars.get("amap_key_val", "").strip()
-    token2 = postvars.get("amap_key_val_2", "").strip()
+    # 初始化参数
+    if not init_amap_params():
+      print("Error: Failed to initialize AMap parameters")
+      return None
 
-    # 使用正确的参数名称
-    params.put("AMapKeyWeb", token)  # Web端 API key
-    params.put("AMapKeyJS", token2)  # Web端 JS API key
+    # 获取并验证 Web API key
+    web_key = postvars.get("amap_key_val", "").strip()
+    if not web_key:
+      print("Error: Web API key is empty")
+      return None
 
-    return token
+    # 获取并验证 JS API key
+    js_key = postvars.get("amap_key_val_2", "").strip()
+    if not js_key:
+      print("Error: JS API key is empty")
+      return None
+
+    try:
+      # 保存 API keys
+      params.put("AMapKeyWeb", web_key)
+      params.put("AMapKeyJS", js_key)
+
+      print(f"Successfully saved AMap keys - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
+      return web_key
+
+    except Exception as e:
+      print(f"Error saving AMap keys: {str(e)}")
+      return None
+
   except Exception as e:
     print(f"Error in amap_key_input: {str(e)}")
     return None

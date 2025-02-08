@@ -413,17 +413,36 @@ def gmap_key_input():
 @app.route("/amap_key_input", methods=['GET', 'POST'])
 def amap_key_input():
   try:
+    # 确保参数已初始化
+    if not fleet.init_amap_params():
+      return render_template("error.html", error="初始化高德地图参数失败，请重试")
+
     if request.method == 'POST':
       postvars = request.form.to_dict()
+
+      # 验证输入
+      if not postvars.get("amap_key_val"):
+        return render_template("error.html", error="请输入高德地图 Web服务 API Key")
+      if not postvars.get("amap_key_val_2"):
+        return render_template("error.html", error="请输入高德地图 Web端 JS API Key")
+
+      # 尝试保存 API keys
       result = fleet.amap_key_input(postvars)
       if result is None:
-        return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入")
+        return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入格式是否正确")
+
+      # 验证保存的结果
+      web_key, js_key = fleet.get_amap_key()
+      if not web_key or not js_key:
+        return render_template("error.html", error="API Key 保存失败，请重试")
+
       return redirect(url_for('amap_addr_input'))
     else:
       return render_template("amap_key_input.html")
+
   except Exception as e:
     print(f"Error in amap_key_input route: {str(e)}")
-    return render_template("error.html", error=f"高德地图 API Key 设置出错: {str(e)}")
+    return render_template("error.html", error=f"设置出错: {str(e)}")
 
 @app.route("/amap_addr_input", methods=['GET', 'POST'])
 def amap_addr_input():
