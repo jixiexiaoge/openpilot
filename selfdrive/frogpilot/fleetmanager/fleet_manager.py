@@ -37,7 +37,7 @@ from cereal import log, messaging
 import time
 
 # 添加必要的导入
-from openpilot.selfdrive.car.interfaces import get_car_params
+from opendbc_repo.opendbc.car.interfaces import get_car_params
 from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 
 app = Flask(__name__)
