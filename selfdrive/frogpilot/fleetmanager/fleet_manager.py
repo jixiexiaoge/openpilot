@@ -282,15 +282,27 @@ def open_error_log(file_name):
 @app.route("/addr_input", methods=['GET', 'POST'])
 def addr_input():
   try:
-    preload = fleet.preload_favs()
-    if preload is None:
+    # 获取收藏的地址
+    try:
+      preload = fleet.preload_favs()
+      if not preload or len(preload) != 5:
+        print("Invalid preload data, using default values")
+        preload = (None, None, None, None, None)
+    except Exception as e:
+      print(f"Error loading favorites: {str(e)}")
       preload = (None, None, None, None, None)
 
-    SearchInput = fleet.get_SearchInput()
-    token = fleet.get_public_token()
-    s_token = fleet.get_app_token()
-    gmap_key = fleet.get_gmap_key()
-    PrimeType = fleet.get_PrimeType()
+    # 获取其他必要参数
+    try:
+      SearchInput = fleet.get_SearchInput()
+      token = fleet.get_public_token()
+      s_token = fleet.get_app_token()
+      gmap_key = fleet.get_gmap_key()
+      PrimeType = fleet.get_PrimeType()
+    except Exception as e:
+      print(f"Error getting parameters: {str(e)}")
+      return render_template("error.html", error="获取系统参数失败")
+
     lon = 0.0
     lat = 0.0
 
@@ -302,7 +314,6 @@ def addr_input():
       addr, lon, lat, valid_addr, token = fleet.parse_addr(postvars, lon, lat, valid_addr, token)
       if not valid_addr:
         # If address is not found, try searching
-        postvars = request.form.to_dict()
         addr = request.form.get('addr_val')
         addr, lon, lat, valid_addr, token = fleet.search_addr(postvars, lon, lat, valid_addr, token)
       if valid_addr:

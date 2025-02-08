@@ -263,24 +263,43 @@ def get_locations():
 
 def preload_favs():
   try:
+    # 获取导航目的地数据
     nav_destinations_str = params.get("ApiCache_NavDestinations", encoding='utf8')
+
+    # 检查是否为空
     if nav_destinations_str is None or nav_destinations_str.strip() == "":
+      print("No navigation destinations found")
       return (None, None, None, None, None)
 
-    nav_destinations = json.loads(nav_destinations_str)
+    # 尝试解析 JSON
+    try:
+      nav_destinations = json.loads(nav_destinations_str)
+    except json.JSONDecodeError as e:
+      print(f"Failed to parse navigation destinations: {e}")
+      return (None, None, None, None, None)
+
+    # 检查是否为列表类型
     if not isinstance(nav_destinations, list):
+      print("Navigation destinations is not a list")
       return (None, None, None, None, None)
 
+    # 初始化位置字典
     locations = {"home": None, "work": None, "fav1": None, "fav2": None, "fav3": None}
 
+    # 遍历并填充位置信息
     for item in nav_destinations:
-      if isinstance(item, dict):
-        label = item.get("label")
-        if label in locations and locations[label] is None:
-          locations[label] = item.get("place_name")
+      if not isinstance(item, dict):
+        continue
+
+      label = item.get("label")
+      if label in locations and locations[label] is None:
+        place_name = item.get("place_name")
+        if place_name:
+          locations[label] = place_name
 
     return tuple(locations.values())
-  except (TypeError, json.JSONDecodeError, Exception) as e:
+
+  except Exception as e:
     print(f"Error in preload_favs: {str(e)}")
     return (None, None, None, None, None)
 
