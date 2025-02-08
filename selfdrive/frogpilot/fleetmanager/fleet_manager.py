@@ -496,16 +496,15 @@ def carinfo():
                     "运行状态": "行驶中" if is_car_started else "停车中",
                     "巡航系统": "已启用" if is_car_engaged else "未启用",
                     "当前速度": f"{CS.vEgo * 3.6:.1f} km/h",
-                    "发动机转速": f"{CS.engineRPM:.0f} RPM" if hasattr(CS, 'engineRPM') else "未知",
+                    "发动机转速": f"{CS.engineRPM:.0f} RPM" if hasattr(CS, 'engineRPM') and CS.engineRPM > 0 else "未知",
                     "档位信息": str(CS.gearShifter) if hasattr(CS, 'gearShifter') else "未知"
                 },
                 "基本信息": {
                     "车型": car_name,
                     "指纹": str(car_fingerprint),
-                    "VIN码": params.get("CarVin", encoding='utf8') or "未知",
-                    "车重": f"{car_specs.mass:.0f} kg" if car_specs else "未知",
-                    "轴距": f"{car_specs.wheelbase:.3f} m" if car_specs else "未知",
-                    "转向比": f"{car_specs.steerRatio:.1f}" if car_specs else "未知"
+                    "车重": f"{car_specs.mass:.0f} kg" if car_specs and hasattr(car_specs, 'mass') else "未知",
+                    "轴距": f"{car_specs.wheelbase:.3f} m" if car_specs and hasattr(car_specs, 'wheelbase') else "未知",
+                    "转向比": f"{car_specs.steerRatio:.1f}" if car_specs and hasattr(car_specs, 'steerRatio') else "未知"
                 }
             }
 
@@ -558,28 +557,32 @@ def carinfo():
                     "盲点监测": {
                         "左侧": "有车" if CS.leftBlindspot else "无车",
                         "右侧": "有车" if CS.rightBlindspot else "无车"
-                    },
-                    "其他信息": {
-                        "车外温度": f"{CS.outsideTemp:.1f}°C" if hasattr(CS, 'outsideTemp') else "未知",
-                        "续航里程": f"{CS.fuelGauge:.1f}km" if hasattr(CS, 'fuelGauge') else "未知",
-                        "总里程": f"{CS.odometer:.1f}km" if hasattr(CS, 'odometer') else "未知",
-                        "瞬时油耗": f"{CS.instantFuelConsumption:.1f}L/100km" if hasattr(CS, 'instantFuelConsumption') else "未知"
                     }
                 })
+
+                # 添加可选的其他信息
+                other_info = {}
+                if hasattr(CS, 'outsideTemp'):
+                    other_info["车外温度"] = f"{CS.outsideTemp:.1f}°C"
+                if hasattr(CS, 'fuelGauge'):
+                    other_info["续航里程"] = f"{CS.fuelGauge:.1f}km"
+                if hasattr(CS, 'odometer'):
+                    other_info["总里程"] = f"{CS.odometer:.1f}km"
+                if hasattr(CS, 'instantFuelConsumption'):
+                    other_info["瞬时油耗"] = f"{CS.instantFuelConsumption:.1f}L/100km"
+
+                if other_info:
+                    car_info["其他信息"] = other_info
 
         except Exception as e:
             print(f"获取车辆状态信息时出错: {str(e)}")
             traceback.print_exc()
             car_info = {
-                "错误信息": {
-                    "错误类型": str(type(e).__name__),
-                    "错误描述": str(e),
-                    "详细信息": traceback.format_exc()
-                },
                 "基本信息": {
                     "车型": car_name,
                     "指纹": str(car_fingerprint)
-                }
+                },
+                "状态": "无法获取车辆状态信息，请检查车辆是否启动"
             }
 
         return render_template("carinfo.html", car_info=car_info)
