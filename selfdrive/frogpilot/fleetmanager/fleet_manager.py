@@ -281,67 +281,64 @@ def open_error_log(file_name):
 
 @app.route("/addr_input", methods=['GET', 'POST'])
 def addr_input():
-  preload = fleet.preload_favs()
-  SearchInput = fleet.get_SearchInput()
-  token = fleet.get_public_token()
-  s_token = fleet.get_app_token()
-  gmap_key = fleet.get_gmap_key()
-  PrimeType = fleet.get_PrimeType()
-  lon = 0.0
-  lat = 0.0
-  print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}, PrimeType: {PrimeType}")
-  if request.method == 'POST':
-    valid_addr = False
-    postvars = request.form.to_dict()
-    addr, lon, lat, valid_addr, token = fleet.parse_addr(postvars, lon, lat, valid_addr, token)
-    if not valid_addr:
-      # If address is not found, try searching
+  try:
+    preload = fleet.preload_favs()
+    if preload is None:
+      preload = (None, None, None, None, None)
+
+    SearchInput = fleet.get_SearchInput()
+    token = fleet.get_public_token()
+    s_token = fleet.get_app_token()
+    gmap_key = fleet.get_gmap_key()
+    PrimeType = fleet.get_PrimeType()
+    lon = 0.0
+    lat = 0.0
+
+    print(f"Request method: {request.method}, SearchInput: {SearchInput}, token: {token}, s_token: {s_token}, gmap_key: {gmap_key}, PrimeType: {PrimeType}")
+
+    if request.method == 'POST':
+      valid_addr = False
       postvars = request.form.to_dict()
-      addr = request.form.get('addr_val')
-      addr, lon, lat, valid_addr, token = fleet.search_addr(postvars, lon, lat, valid_addr, token)
-    if valid_addr:
-      # If a valid address is found, redirect to nav_confirmation
-      return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
-    else:
-      return render_template("error.html")
-  #elif PrimeType != 0:
-  #  return render_template("prime.html")
-  # amap stuff
-  elif SearchInput == 1:
-    amap_key, amap_key_2 = fleet.get_amap_key()
-    if amap_key == "" or amap_key is None or amap_key_2 == "" or amap_key_2 is None:
-      return redirect(url_for('amap_key_input'))
+      addr, lon, lat, valid_addr, token = fleet.parse_addr(postvars, lon, lat, valid_addr, token)
+      if not valid_addr:
+        # If address is not found, try searching
+        postvars = request.form.to_dict()
+        addr = request.form.get('addr_val')
+        addr, lon, lat, valid_addr, token = fleet.search_addr(postvars, lon, lat, valid_addr, token)
+      if valid_addr:
+        # If a valid address is found, redirect to nav_confirmation
+        return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
+      else:
+        return render_template("error.html", error="无法找到有效地址")
+    elif SearchInput == 1:
+      amap_key, amap_key_2 = fleet.get_amap_key()
+      if amap_key == "" or amap_key is None or amap_key_2 == "" or amap_key_2 is None:
+        return redirect(url_for('amap_key_input'))
+      elif token == "" or token is None:
+        return redirect(url_for('public_token_input'))
+      elif s_token == "" or s_token is None:
+        return redirect(url_for('app_token_input'))
+      else:
+        return redirect(url_for('amap_addr_input'))
     elif token == "" or token is None:
       return redirect(url_for('public_token_input'))
     elif s_token == "" or s_token is None:
       return redirect(url_for('app_token_input'))
-    else:
-      return redirect(url_for('amap_addr_input'))
-  elif False: #fleet.get_nav_active(): # carrot: 그냥지움... 이것때문에 토큰을 안물어보는듯...
-    if SearchInput == 2:
-      return render_template("nonprime.html",
-                             gmap_key=gmap_key, lon=lon, lat=lat,
-                             home=preload[0],work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
-    else:
-      return render_template("nonprime.html",
-                             gmap_key=None, lon=None, lat=None,
-                             home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
-  elif token == "" or token is None:
-    return redirect(url_for('public_token_input'))
-  elif s_token == "" or s_token is None:
-    return redirect(url_for('app_token_input'))
-  elif SearchInput == 2:
-    lon, lat = fleet.get_last_lon_lat()
-    if gmap_key == "" or gmap_key is None:
-      return redirect(url_for('gmap_key_input'))
-    else:
-      return render_template("addr.html",
+    elif SearchInput == 2:
+      lon, lat = fleet.get_last_lon_lat()
+      if gmap_key == "" or gmap_key is None:
+        return redirect(url_for('gmap_key_input'))
+      else:
+        return render_template("addr.html",
                              gmap_key=gmap_key, lon=lon, lat=lat,
                              home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
-  else:
+    else:
       return render_template("addr.html",
-                             gmap_key=None, lon=None, lat=None,
-                             home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
+                           gmap_key=None, lon=None, lat=None,
+                           home=preload[0], work=preload[1], fav1=preload[2], fav2=preload[3], fav3=preload[4])
+  except Exception as e:
+    print(f"Error in addr_input: {str(e)}")
+    return render_template("error.html", error=f"导航页面加载错误: {str(e)}")
 
 @app.route("/nav_confirmation", methods=['GET', 'POST'])
 def nav_confirmation():

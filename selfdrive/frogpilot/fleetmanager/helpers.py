@@ -263,18 +263,26 @@ def get_locations():
 
 def preload_favs():
   try:
-    nav_destinations = json.loads(params.get("ApiCache_NavDestinations", encoding='utf8'))
-  except TypeError:
+    nav_destinations_str = params.get("ApiCache_NavDestinations", encoding='utf8')
+    if nav_destinations_str is None or nav_destinations_str.strip() == "":
+      return (None, None, None, None, None)
+
+    nav_destinations = json.loads(nav_destinations_str)
+    if not isinstance(nav_destinations, list):
+      return (None, None, None, None, None)
+
+    locations = {"home": None, "work": None, "fav1": None, "fav2": None, "fav3": None}
+
+    for item in nav_destinations:
+      if isinstance(item, dict):
+        label = item.get("label")
+        if label in locations and locations[label] is None:
+          locations[label] = item.get("place_name")
+
+    return tuple(locations.values())
+  except (TypeError, json.JSONDecodeError, Exception) as e:
+    print(f"Error in preload_favs: {str(e)}")
     return (None, None, None, None, None)
-
-  locations = {"home": None, "work": None, "fav1": None, "fav2": None, "fav3": None}
-
-  for item in nav_destinations:
-    label = item.get("label")
-    if label in locations and locations[label] is None:
-      locations[label] = item.get("place_name")
-
-  return tuple(locations.values())
 
 def parse_addr(postvars, lon, lat, valid_addr, token):
   addr = postvars.get("fav_val", [""])
