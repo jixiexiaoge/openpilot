@@ -501,58 +501,51 @@ def init_amap_params():
   try:
     print("开始初始化高德地图参数...")
 
-    # 检查参数目录是否存在
+    # 检查参数目录和符号链接
     params_dir = "/data/params/d"
-    if not os.path.exists(params_dir):
-      print(f"参数目录 {params_dir} 不存在")
-      try:
-        os.makedirs(params_dir, mode=0o755, exist_ok=True)
-        print(f"创建参数目录 {params_dir}")
-      except Exception as e:
-        print(f"创建参数目录失败: {str(e)}")
-        return False
+    params_real_dir = "/data/params/d_tmp"
+
+    try:
+      # 检查真实目录是否存在
+      if not os.path.exists(params_real_dir):
+        print(f"创建参数实际目录: {params_real_dir}")
+        os.makedirs(params_real_dir, mode=0o755, exist_ok=True)
+
+      # 检查符号链接
+      if not os.path.exists(params_dir):
+        print(f"创建符号链接: {params_dir} -> {params_real_dir}")
+        os.symlink(params_real_dir, params_dir)
+
+      # 打印目录信息
+      stat_info = os.stat(params_real_dir)
+      print(f"参数目录权限: {oct(stat_info.st_mode)}")
+      print(f"参数目录所有者: {stat_info.st_uid}:{stat_info.st_gid}")
+
+    except Exception as e:
+      print(f"检查/创建参数目录失败: {str(e)}")
+      return False
 
     # 设置 SearchInput 参数
     try:
-      params.put("SearchInput", "1")
+      params.put_nonblocking("SearchInput", "1")
       print("设置 SearchInput 参数成功")
     except Exception as e:
       print(f"设置 SearchInput 参数失败: {str(e)}")
       return False
 
-    # 检查并迁移旧参数到新参数
+    # 尝试写入测试参数
     try:
-      old_web_key = params.get("AMapKey1", encoding='utf8')
-      old_js_key = params.get("AMapKey2", encoding='utf8')
-
-      if old_web_key:
-        params.put("AMapKeyWeb", old_web_key)
-        print(f"从 AMapKey1 迁移数据到 AMapKeyWeb: {old_web_key}")
-
-      if old_js_key:
-        params.put("AMapKeyJS", old_js_key)
-        print(f"从 AMapKey2 迁移数据到 AMapKeyJS: {old_js_key}")
-
-    except Exception as e:
-      print(f"迁移旧参数失败: {str(e)}")
-
-    # 确保新参数存在并设置默认值
-    try:
-      if not params.get("AMapKeyWeb"):
-        params.put("AMapKeyWeb", "")
-        print("初始化 AMapKeyWeb 参数")
-
-      if not params.get("AMapKeyJS"):
-        params.put("AMapKeyJS", "")
-        print("初始化 AMapKeyJS 参数")
-
-      # 验证参数是否成功创建
-      if params.get("AMapKeyWeb") is None or params.get("AMapKeyJS") is None:
-        print("参数创建验证失败")
+      test_key = "TestParam"
+      print(f"尝试写入测试参数: {test_key}")
+      params.put_nonblocking(test_key, "test")
+      test_value = params.get(test_key, encoding='utf8')
+      if test_value != "test":
+        print("参数写入测试失败")
         return False
-
+      params.remove(test_key)
+      print("参数写入测试成功")
     except Exception as e:
-      print(f"初始化新参数失败: {str(e)}")
+      print(f"参数写入测试失败: {str(e)}")
       return False
 
     print("高德地图参数初始化完成")
@@ -580,30 +573,27 @@ def amap_key_input(postvars):
     print(f"正在保存 API Keys - Web: {web_key}, JS: {js_key}")
 
     try:
-      # 确保参数目录存在
-      params_dir = "/data/params/d"
-      if not os.path.exists(params_dir):
-        os.makedirs(params_dir, mode=0o755, exist_ok=True)
+      # 检查参数目录
+      params_real_dir = "/data/params/d_tmp"
+      if not os.path.exists(params_real_dir):
+        print(f"创建参数目录: {params_real_dir}")
+        os.makedirs(params_real_dir, mode=0o755, exist_ok=True)
 
-      # 先尝试删除旧的参数文件（如果存在）
-      for key in ["AMapKey1", "AMapKey2", "AMapKeyWeb", "AMapKeyJS"]:
-        try:
-          params.remove(key)
-        except:
-          pass
-
-      # 保存新的参数
-      params.put_nonblocking("AMapKeyWeb", web_key)
-      params.put_nonblocking("AMapKeyJS", js_key)
-      params.put_nonblocking("AMapKey1", web_key)
-      params.put_nonblocking("AMapKey2", js_key)
-
-      # 设置默认搜索引擎为高德地图
-      params.put_nonblocking("SearchInput", "1")
+      # 使用 params 接口保存
+      try:
+        params.put("AMapKeyWeb", web_key)
+        params.put("AMapKeyJS", js_key)
+        params.put("AMapKey1", web_key)
+        params.put("AMapKey2", js_key)
+        params.put("SearchInput", "1")
+        print("通过 params 接口保存成功")
+      except Exception as e:
+        print(f"通过 params 接口保存失败: {str(e)}")
+        return None
 
       # 等待参数写入完成
       import time
-      time.sleep(0.5)
+      time.sleep(1)
 
       # 验证保存结果
       saved_web_key = params.get("AMapKeyWeb", encoding='utf8')
@@ -614,7 +604,9 @@ def amap_key_input(postvars):
         return None
 
       if saved_web_key.strip() != web_key or saved_js_key.strip() != js_key:
-        print(f"错误: 保存的 API Keys 与输入不匹配 - 保存的: Web={saved_web_key}, JS={saved_js_key}")
+        print(f"错误: 保存的 API Keys 与输入不匹配")
+        print(f"期望值 - Web: {web_key}, JS: {js_key}")
+        print(f"实际值 - Web: {saved_web_key}, JS: {saved_js_key}")
         return None
 
       print("API Keys 保存成功")
