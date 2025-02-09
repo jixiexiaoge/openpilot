@@ -240,15 +240,15 @@ def get_app_token():
 
 def get_gmap_key():
   try:
-    # 直接获取参数值，不指定编码
+    # 直接获取参数值
     token = params.get("AMapKey1")
     token2 = params.get("AMapKey2")
 
     # 处理字节串转换
     if isinstance(token, bytes):
-      token = token.decode('utf-8')
+      token = token.decode('utf-8', errors='ignore')
     if isinstance(token2, bytes):
-      token2 = token2.decode('utf-8')
+      token2 = token2.decode('utf-8', errors='ignore')
 
     # 去除空白并返回
     return (token.strip() if token else "", token2.strip() if token2 else "")
@@ -259,15 +259,15 @@ def get_gmap_key():
 def get_amap_key():
   """获取高德地图 API Keys"""
   try:
-    # 直接获取参数值，不指定编码
+    # 直接获取参数值
     token = params.get("AMapKey1")
     token2 = params.get("AMapKey2")
 
     # 处理字节串转换
     if isinstance(token, bytes):
-      token = token.decode('utf-8')
+      token = token.decode('utf-8', errors='ignore')
     if isinstance(token2, bytes):
-      token2 = token2.decode('utf-8')
+      token2 = token2.decode('utf-8', errors='ignore')
 
     # 去除空白并返回
     return (token.strip() if token else "", token2.strip() if token2 else "")
@@ -500,46 +500,26 @@ def init_amap_params():
   try:
     print("开始初始化高德地图参数...")
 
-    # 检查参数目录和符号链接
+    # 检查参数目录
     params_dir = "/data/params/d"
-    params_real_dir = "/data/params/d_tmp"
 
+    # 确保目录存在
     try:
-      # 检查真实目录是否存在
-      if not os.path.exists(params_real_dir):
-        print(f"创建参数实际目录: {params_real_dir}")
-        try:
-          os.makedirs(params_real_dir, mode=0o755, exist_ok=True)
-        except Exception as e:
-          print(f"创建目录失败: {str(e)}")
-          return False
-
-      # 检查符号链接
       if not os.path.exists(params_dir):
-        print(f"创建符号链接: {params_dir} -> {params_real_dir}")
-        try:
-          os.symlink(params_real_dir, params_dir)
-        except Exception as e:
-          print(f"创建符号链接失败: {str(e)}")
-          return False
+        os.makedirs(params_dir, mode=0o755, exist_ok=True)
+        print(f"创建参数目录: {params_dir}")
 
-      # 打印目录信息
-      try:
-        stat_info = os.stat(params_real_dir)
-        print(f"参数目录权限: {oct(stat_info.st_mode)}")
-        print(f"参数目录所有者: {stat_info.st_uid}:{stat_info.st_gid}")
-      except Exception as e:
-        print(f"获取目录信息失败: {str(e)}")
-        return False
+      # 设置目录权限
+      os.chmod(params_dir, 0o755)
+      print("设置目录权限成功")
 
     except Exception as e:
-      print(f"检查/创建参数目录失败: {str(e)}")
+      print(f"处理参数目录失败: {str(e)}")
       return False
 
     # 设置默认参数
     try:
-      # 将字符串转换为字节串后存储
-      params.put("SearchInput", b"1")
+      params.put_bool("SearchInput", True)
 
       # 检查并设置默认值
       if not params.get("AMapKey1"):
@@ -549,6 +529,7 @@ def init_amap_params():
 
       print("默认参数设置成功")
       return True
+
     except Exception as e:
       print(f"设置默认参数失败: {str(e)}")
       return False
@@ -583,9 +564,9 @@ def amap_key_input(postvars):
       # 保存参数
       try:
         # 将字符串转换为字节串后存储
-        params.put("AMapKey1", web_key.encode())
-        params.put("AMapKey2", js_key.encode())
-        params.put("SearchInput", b"1")
+        params.put("AMapKey1", web_key.encode('utf-8'))
+        params.put("AMapKey2", js_key.encode('utf-8'))
+        params.put_bool("SearchInput", True)
         print("参数保存成功")
 
         # 验证保存的结果
