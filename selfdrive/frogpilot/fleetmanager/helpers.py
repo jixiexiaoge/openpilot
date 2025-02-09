@@ -252,25 +252,32 @@ def get_gmap_key():
         token = token.decode('utf-8')
       except UnicodeDecodeError:
         print("AMapKey1 解码失败")
-        token = ""
+        token = "faf2f8ab406a8da1231ef7e10d501b65"  # 使用默认值
 
     if isinstance(token2, bytes):
       try:
         token2 = token2.decode('utf-8')
       except UnicodeDecodeError:
         print("AMapKey2 解码失败")
-        token2 = ""
+        token2 = "fc2724b3c96a7f244b2211f05c5264be"  # 使用默认值
+
+    # 如果值为空，使用默认值
+    if not token:
+      token = "faf2f8ab406a8da1231ef7e10d501b65"
+    if not token2:
+      token2 = "fc2724b3c96a7f244b2211f05c5264be"
 
     # 去除空白并返回
-    token = token.strip() if token else ""
-    token2 = token2.strip() if token2 else ""
+    token = token.strip()
+    token2 = token2.strip()
 
     print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
     return (token, token2)
 
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
-    return ("", "")
+    # 发生错误时返回默认值
+    return ("faf2f8ab406a8da1231ef7e10d501b65", "fc2724b3c96a7f244b2211f05c5264be")
 
 def get_amap_key():
   """获取高德地图 API Keys"""
@@ -287,25 +294,32 @@ def get_amap_key():
         token = token.decode('utf-8')
       except UnicodeDecodeError:
         print("AMapKey1 解码失败")
-        token = ""
+        token = "faf2f8ab406a8da1231ef7e10d501b65"  # 使用默认值
 
     if isinstance(token2, bytes):
       try:
         token2 = token2.decode('utf-8')
       except UnicodeDecodeError:
         print("AMapKey2 解码失败")
-        token2 = ""
+        token2 = "fc2724b3c96a7f244b2211f05c5264be"  # 使用默认值
+
+    # 如果值为空，使用默认值
+    if not token:
+      token = "faf2f8ab406a8da1231ef7e10d501b65"
+    if not token2:
+      token2 = "fc2724b3c96a7f244b2211f05c5264be"
 
     # 去除空白并返回
-    token = token.strip() if token else ""
-    token2 = token2.strip() if token2 else ""
+    token = token.strip()
+    token2 = token2.strip()
 
     print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
     return (token, token2)
 
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
-    return ("", "")
+    # 发生错误时返回默认值
+    return ("faf2f8ab406a8da1231ef7e10d501b65", "fc2724b3c96a7f244b2211f05c5264be")
 
 def get_SearchInput():
   try:
@@ -555,19 +569,30 @@ def init_amap_params():
       params.put_bool("SearchInput", True)
       print("SearchInput 参数设置成功")
 
-      # 检查并设置 AMapKey 参数
+      # 设置默认的 AMapKey 参数
       try:
+        # 默认的 API Keys
+        default_web_key = "faf2f8ab406a8da1231ef7e10d501b65"
+        default_js_key = "fc2724b3c96a7f244b2211f05c5264be"
+
         # 获取现有的值
         key1 = params.get("AMapKey1")
         key2 = params.get("AMapKey2")
 
-        # 如果不存在，设置空值
+        # 如果不存在，设置默认值
         if key1 is None:
-          params.put("AMapKey1", b"")
-          print("AMapKey1 初始化为空值")
+          print(f"设置 AMapKey1 默认值: {default_web_key}")
+          params.put("AMapKey1", default_web_key.encode())
         if key2 is None:
-          params.put("AMapKey2", b"")
-          print("AMapKey2 初始化为空值")
+          print(f"设置 AMapKey2 默认值: {default_js_key}")
+          params.put("AMapKey2", default_js_key.encode())
+
+        # 验证设置是否成功
+        saved_key1, saved_key2 = get_amap_key()
+        if not saved_key1 or not saved_key2:
+          print("警告: 默认参数设置可能不完整")
+        else:
+          print(f"当前 API Keys - Web: {saved_key1}, JS: {saved_key2}")
 
       except Exception as e:
         print(f"设置 AMapKey 参数失败: {str(e)}")
