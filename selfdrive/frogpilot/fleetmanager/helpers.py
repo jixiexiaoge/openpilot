@@ -240,25 +240,37 @@ def get_app_token():
 
 def get_gmap_key():
   try:
-    # 确保参数已初始化
-    init_amap_params()
+    # 直接获取参数值，不指定编码
+    token = params.get("AMapKey1")
+    token2 = params.get("AMapKey2")
 
-    token = params.get("AMapKeyWeb", encoding='utf8')  # Web端 API key
-    token2 = params.get("AMapKeyJS", encoding='utf8')  # Web端 JS API key
-    return (
-      token.strip() if token is not None else "",
-      token2.strip() if token2 is not None else ""
-    )
+    # 处理字节串转换
+    if isinstance(token, bytes):
+      token = token.decode('utf-8')
+    if isinstance(token2, bytes):
+      token2 = token2.decode('utf-8')
+
+    # 去除空白并返回
+    return (token.strip() if token else "", token2.strip() if token2 else "")
   except Exception as e:
-    print(f"Error in get_amap_key: {str(e)}")
+    print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
 
 def get_amap_key():
   """获取高德地图 API Keys"""
   try:
-    token = params.get("AMapKey1", encoding='utf8')
-    token2 = params.get("AMapKey2", encoding='utf8')
-    return (token.strip() if token is not None else "", token2.strip() if token2 is not None else "")
+    # 直接获取参数值，不指定编码
+    token = params.get("AMapKey1")
+    token2 = params.get("AMapKey2")
+
+    # 处理字节串转换
+    if isinstance(token, bytes):
+      token = token.decode('utf-8')
+    if isinstance(token2, bytes):
+      token2 = token2.decode('utf-8')
+
+    # 去除空白并返回
+    return (token.strip() if token else "", token2.strip() if token2 else "")
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
@@ -526,11 +538,15 @@ def init_amap_params():
 
     # 设置默认参数
     try:
-      params.put("SearchInput", "1")
-      if not params.get("AMapKey1", encoding='utf8'):
-        params.put("AMapKey1", "")
-      if not params.get("AMapKey2", encoding='utf8'):
-        params.put("AMapKey2", "")
+      # 将字符串转换为字节串后存储
+      params.put("SearchInput", b"1")
+
+      # 检查并设置默认值
+      if not params.get("AMapKey1"):
+        params.put("AMapKey1", b"")
+      if not params.get("AMapKey2"):
+        params.put("AMapKey2", b"")
+
       print("默认参数设置成功")
       return True
     except Exception as e:
@@ -566,10 +582,10 @@ def amap_key_input(postvars):
 
       # 保存参数
       try:
-        # 保存新的参数
-        params.put("AMapKey1", web_key)
-        params.put("AMapKey2", js_key)
-        params.put("SearchInput", "1")
+        # 将字符串转换为字节串后存储
+        params.put("AMapKey1", web_key.encode())
+        params.put("AMapKey2", js_key.encode())
+        params.put("SearchInput", b"1")
         print("参数保存成功")
 
         # 验证保存的结果
