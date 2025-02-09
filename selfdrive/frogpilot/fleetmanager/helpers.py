@@ -282,44 +282,43 @@ def get_gmap_key():
 def get_amap_key():
   """获取高德地图 API Keys"""
   try:
-    # 直接获取参数值，不指定编码
-    token = params.get("AMapKey1")
-    token2 = params.get("AMapKey2")
+    # 默认的 API Keys
+    default_web_key = "faf2f8ab406a8da1231ef7e10d501b65"
+    default_js_key = "fc2724b3c96a7f244b2211f05c5264be"
 
-    print(f"获取到的原始参数 - AMapKey1: {token}, AMapKey2: {token2}")
+    # 获取参数值
+    try:
+      token = params.get("AMapKey1")
+      token2 = params.get("AMapKey2")
 
-    # 处理字节串转换
-    if isinstance(token, bytes):
-      try:
+      print(f"获取到的原始参数 - AMapKey1: {token}, AMapKey2: {token2}")
+
+      # 如果参数不存在，使用默认值
+      if token is None:
+        token = default_web_key
+      if token2 is None:
+        token2 = default_js_key
+
+      # 如果是字节串，进行解码
+      if isinstance(token, bytes):
         token = token.decode('utf-8')
-      except UnicodeDecodeError:
-        print("AMapKey1 解码失败")
-        token = "faf2f8ab406a8da1231ef7e10d501b65"  # 使用默认值
-
-    if isinstance(token2, bytes):
-      try:
+      if isinstance(token2, bytes):
         token2 = token2.decode('utf-8')
-      except UnicodeDecodeError:
-        print("AMapKey2 解码失败")
-        token2 = "fc2724b3c96a7f244b2211f05c5264be"  # 使用默认值
 
-    # 如果值为空，使用默认值
-    if not token:
-      token = "faf2f8ab406a8da1231ef7e10d501b65"
-    if not token2:
-      token2 = "fc2724b3c96a7f244b2211f05c5264be"
+      # 确保有值
+      token = token.strip() if token else default_web_key
+      token2 = token2.strip() if token2 else default_js_key
 
-    # 去除空白并返回
-    token = token.strip()
-    token2 = token2.strip()
+      print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
+      return (token, token2)
 
-    print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
-    return (token, token2)
+    except Exception as e:
+      print(f"参数获取/处理失败: {str(e)}")
+      return (default_web_key, default_js_key)
 
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
-    # 发生错误时返回默认值
-    return ("faf2f8ab406a8da1231ef7e10d501b65", "fc2724b3c96a7f244b2211f05c5264be")
+    return (default_web_key, default_js_key)
 
 def get_SearchInput():
   try:
@@ -414,24 +413,42 @@ def parse_addr(postvars, lon, lat, valid_addr, token):
     return (None, lon, lat, False, token)
 
 def search_addr(postvars, lon, lat, valid_addr, token):
-  if "addr_val" in postvars:
-    addr = postvars.get("addr_val")
-    if addr != "":
-      # Properly encode the address to handle spaces
-      addr_encoded = quote(addr)
-      query = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{addr_encoded}.json?access_token={token}&limit=1"
-      # focus on place around last gps position
-      lngi, lati = get_last_lon_lat()
-      query += f"&proximity={lngi},{lati}"
-      r = requests.get(query)
-      if r.status_code != 200:
-        return (addr, lon, lat, valid_addr, token)
-      j = json.loads(r.text)
-      if not j["features"]:
-        return (addr, lon, lat, valid_addr, token)
-      lon, lat = j["features"][0]["geometry"]["coordinates"]
-      valid_addr = True
-  return (addr, lon, lat, valid_addr, token)
+  """搜索地址并返回坐标"""
+  try:
+    addr = ""
+    if "addr_val" in postvars:
+      addr = postvars.get("addr_val", "")
+      if addr:
+        # 编码地址以处理空格
+        addr_encoded = quote(addr)
+        query = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{addr_encoded}.json?access_token={token}&limit=1"
+
+        # 使用最后的GPS位置作为搜索中心
+        lngi, lati = get_last_lon_lat()
+        query += f"&proximity={lngi},{lati}"
+
+        try:
+          r = requests.get(query)
+          if r.status_code == 200:
+            j = json.loads(r.text)
+            if j["features"]:
+              lon, lat = j["features"][0]["geometry"]["coordinates"]
+              valid_addr = True
+              print(f"地址搜索成功 - 地址: {addr}, 坐标: ({lon}, {lat})")
+            else:
+              print(f"未找到地址: {addr}")
+        except Exception as e:
+          print(f"地址搜索请求失败: {str(e)}")
+      else:
+        print("地址为空")
+    else:
+      print("未提供地址参数")
+
+    return (addr, lon, lat, valid_addr, token)
+
+  except Exception as e:
+    print(f"地址搜索出错: {str(e)}")
+    return (addr if 'addr' in locals() else "", lon, lat, False, token)
 
 def set_destination(postvars, valid_addr):
   if postvars.get("latitude") is not None and postvars.get("longitude") is not None:
@@ -566,7 +583,7 @@ def init_amap_params():
     # 设置默认参数
     try:
       # 设置 SearchInput 参数
-      params.put_bool("SearchInput", True)
+      params.put("SearchInput", "1")
       print("SearchInput 参数设置成功")
 
       # 设置默认的 AMapKey 参数
@@ -575,17 +592,11 @@ def init_amap_params():
         default_web_key = "faf2f8ab406a8da1231ef7e10d501b65"
         default_js_key = "fc2724b3c96a7f244b2211f05c5264be"
 
-        # 获取现有的值
-        key1 = params.get("AMapKey1")
-        key2 = params.get("AMapKey2")
-
-        # 如果不存在，设置默认值
-        if key1 is None:
-          print(f"设置 AMapKey1 默认值: {default_web_key}")
-          params.put("AMapKey1", default_web_key.encode())
-        if key2 is None:
-          print(f"设置 AMapKey2 默认值: {default_js_key}")
-          params.put("AMapKey2", default_js_key.encode())
+        # 设置默认值
+        params.put("AMapKey1", default_web_key)
+        print(f"设置 AMapKey1 默认值: {default_web_key}")
+        params.put("AMapKey2", default_js_key)
+        print(f"设置 AMapKey2 默认值: {default_js_key}")
 
         # 验证设置是否成功
         saved_key1, saved_key2 = get_amap_key()

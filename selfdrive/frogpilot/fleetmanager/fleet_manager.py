@@ -281,6 +281,7 @@ def open_error_log(file_name):
 
 @app.route("/addr_input", methods=['GET', 'POST'])
 def addr_input():
+  """处理地址输入"""
   try:
     # 获取收藏的地址
     try:
@@ -306,7 +307,7 @@ def addr_input():
     except Exception as e:
       print(f"Error getting parameters: {str(e)}")
       SearchInput = 1
-      amap_key, amap_key_2 = "", ""
+      amap_key, amap_key_2 = fleet.get_amap_key()  # 使用默认值
       gmap_key = ""
       token = ""
       s_token = ""
@@ -321,18 +322,30 @@ def addr_input():
     print(f"Request method: {request.method}, SearchInput: {SearchInput}, amap_key: {bool(amap_key)}, gmap_key: {bool(gmap_key)}")
 
     if request.method == 'POST':
-      valid_addr = False
-      postvars = request.form.to_dict()
-      addr, lon, lat, valid_addr, token = fleet.parse_addr(postvars, lon, lat, valid_addr, token)
-      if not valid_addr:
-        # If address is not found, try searching
-        addr = request.form.get('addr_val')
-        addr, lon, lat, valid_addr, token = fleet.search_addr(postvars, lon, lat, valid_addr, token)
-      if valid_addr:
-        # If a valid address is found, redirect to nav_confirmation
-        return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
-      else:
-        return render_template("error.html", error="无法找到有效地址")
+      try:
+        valid_addr = False
+        postvars = request.form.to_dict()
+        print(f"收到的表单数据: {postvars}")
+
+        # 首先尝试解析地址
+        addr, lon, lat, valid_addr, token = fleet.parse_addr(postvars, lon, lat, valid_addr, token)
+
+        if not valid_addr and "addr_val" in postvars:
+          # 如果地址解析失败，尝试搜索
+          addr = postvars.get("addr_val")
+          print(f"尝试搜索地址: {addr}")
+          addr, lon, lat, valid_addr, token = fleet.search_addr(postvars, lon, lat, valid_addr, token)
+
+        if valid_addr:
+          print(f"找到有效地址: {addr}, 坐标: ({lon}, {lat})")
+          return redirect(url_for('nav_confirmation', addr=addr, lon=lon, lat=lat))
+        else:
+          print("未找到有效地址")
+          return render_template("error.html", error="无法找到有效地址")
+
+      except Exception as e:
+        print(f"处理POST请求时出错: {str(e)}")
+        return render_template("error.html", error="处理地址时出错，请重试")
 
     # 默认使用高德地图导航
     if SearchInput == 1 or SearchInput is None:
