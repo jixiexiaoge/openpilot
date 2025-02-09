@@ -288,32 +288,45 @@ def get_amap_key():
 
     # 获取参数值
     try:
-      token = params.get("AMapKey1")
-      token2 = params.get("AMapKey2")
+      # 直接获取字节串形式的参数
+      web_key = params.get("AMapKey1")
+      js_key = params.get("AMapKey2")
 
-      print(f"获取到的原始参数 - AMapKey1: {token}, AMapKey2: {token2}")
+      print(f"原始参数值 - AMapKey1: {web_key}, AMapKey2: {js_key}")
 
-      # 如果参数不存在，使用默认值
-      if token is None:
-        token = default_web_key
-      if token2 is None:
-        token2 = default_js_key
+      # 处理 web_key
+      if web_key is None or web_key == b"":
+        web_key = default_web_key.encode()
+      elif isinstance(web_key, bytes):
+        try:
+          web_key = web_key.decode('utf-8').strip()
+        except UnicodeDecodeError:
+          print("AMapKey1 解码失败，使用默认值")
+          web_key = default_web_key
+      else:
+        web_key = str(web_key).strip()
 
-      # 如果是字节串，进行解码
-      if isinstance(token, bytes):
-        token = token.decode('utf-8')
-      if isinstance(token2, bytes):
-        token2 = token2.decode('utf-8')
+      # 处理 js_key
+      if js_key is None or js_key == b"":
+        js_key = default_js_key.encode()
+      elif isinstance(js_key, bytes):
+        try:
+          js_key = js_key.decode('utf-8').strip()
+        except UnicodeDecodeError:
+          print("AMapKey2 解码失败，使用默认值")
+          js_key = default_js_key
+      else:
+        js_key = str(js_key).strip()
 
-      # 确保有值
-      token = token.strip() if token else default_web_key
-      token2 = token2.strip() if token2 else default_js_key
+      # 确保键值非空
+      web_key = web_key if web_key else default_web_key
+      js_key = js_key if js_key else default_js_key
 
-      print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
-      return (token, token2)
+      print(f"处理后的参数 - AMapKey1: {web_key}, AMapKey2: {js_key}")
+      return (web_key, js_key)
 
     except Exception as e:
-      print(f"参数获取/处理失败: {str(e)}")
+      print(f"参数处理失败: {str(e)}")
       return (default_web_key, default_js_key)
 
   except Exception as e:
@@ -565,49 +578,36 @@ def init_amap_params():
 
     # 检查参数目录
     params_dir = "/data/params/d"
-
-    # 确保目录存在
-    try:
-      if not os.path.exists(params_dir):
-        print(f"创建参数目录: {params_dir}")
+    if not os.path.exists(params_dir):
+      try:
         os.makedirs(params_dir, mode=0o755, exist_ok=True)
-
-      # 设置目录权限
-      os.chmod(params_dir, 0o755)
-      print(f"参数目录权限设置成功: {oct(os.stat(params_dir).st_mode)}")
-
-    except Exception as e:
-      print(f"处理参数目录失败: {str(e)}")
-      return False
+        print(f"创建参数目录: {params_dir}")
+      except Exception as e:
+        print(f"创建参数目录失败: {str(e)}")
+        return False
 
     # 设置默认参数
     try:
       # 设置 SearchInput 参数
-      params.put("SearchInput", "1")
+      params.put_bool("SearchInput", True)
       print("SearchInput 参数设置成功")
 
       # 设置默认的 AMapKey 参数
-      try:
-        # 默认的 API Keys
-        default_web_key = "faf2f8ab406a8da1231ef7e10d501b65"
-        default_js_key = "fc2724b3c96a7f244b2211f05c5264be"
+      default_web_key = "faf2f8ab406a8da1231ef7e10d501b65"
+      default_js_key = "fc2724b3c96a7f244b2211f05c5264be"
 
-        # 设置默认值
+      # 检查现有参数
+      existing_web_key = params.get("AMapKey1")
+      existing_js_key = params.get("AMapKey2")
+
+      # 只在参数不存在时设置默认值
+      if existing_web_key is None:
         params.put("AMapKey1", default_web_key)
         print(f"设置 AMapKey1 默认值: {default_web_key}")
+
+      if existing_js_key is None:
         params.put("AMapKey2", default_js_key)
         print(f"设置 AMapKey2 默认值: {default_js_key}")
-
-        # 验证设置是否成功
-        saved_key1, saved_key2 = get_amap_key()
-        if not saved_key1 or not saved_key2:
-          print("警告: 默认参数设置可能不完整")
-        else:
-          print(f"当前 API Keys - Web: {saved_key1}, JS: {saved_key2}")
-
-      except Exception as e:
-        print(f"设置 AMapKey 参数失败: {str(e)}")
-        return False
 
       print("默认参数设置成功")
       return True
@@ -638,47 +638,27 @@ def amap_key_input(postvars):
       return None
 
     try:
-      # 确保参数目录存在
-      if not init_amap_params():
-        print("参数初始化失败")
-        return None
-
       # 保存参数
-      try:
-        # 将字符串转换为字节串后存储
-        params.put("AMapKey1", web_key.encode())
-        print("AMapKey1 保存成功")
-        params.put("AMapKey2", js_key.encode())
-        print("AMapKey2 保存成功")
-        params.put_bool("SearchInput", True)
-        print("SearchInput 保存成功")
+      params.put("AMapKey1", web_key)
+      print("AMapKey1 保存成功")
+      params.put("AMapKey2", js_key)
+      print("AMapKey2 保存成功")
+      params.put_bool("SearchInput", True)
+      print("SearchInput 保存成功")
 
-        # 验证保存的结果
-        import time
-        time.sleep(0.5)  # 等待参数写入完成
+      # 验证保存的结果
+      saved_web_key, saved_js_key = get_amap_key()
+      print(f"验证保存的参数 - Web: {saved_web_key}, JS: {saved_js_key}")
 
-        saved_web_key, saved_js_key = get_amap_key()
-        print(f"验证保存的参数 - Web: {saved_web_key}, JS: {saved_js_key}")
-
-        if not saved_web_key or not saved_js_key:
-          print("错误: 参数保存验证失败")
-          return None
-
-        if saved_web_key != web_key or saved_js_key != js_key:
-          print("错误: 保存的参数与输入不匹配")
-          print(f"期望值 - Web: {web_key}, JS: {js_key}")
-          print(f"实际值 - Web: {saved_web_key}, JS: {saved_js_key}")
-          return None
-
-        print("API Keys 设置成功")
-        return web_key
-
-      except Exception as e:
-        print(f"保存参数失败: {str(e)}")
+      if not saved_web_key or not saved_js_key:
+        print("错误: 参数保存验证失败")
         return None
+
+      print("API Keys 设置成功")
+      return web_key
 
     except Exception as e:
-      print(f"处理参数保存失败: {str(e)}")
+      print(f"保存参数失败: {str(e)}")
       return None
 
   except Exception as e:
