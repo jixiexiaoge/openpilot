@@ -240,18 +240,34 @@ def get_app_token():
 
 def get_gmap_key():
   try:
-    # 直接获取参数值
+    # 直接获取参数值，不指定编码
     token = params.get("AMapKey1")
     token2 = params.get("AMapKey2")
 
+    print(f"获取到的原始参数 - AMapKey1: {token}, AMapKey2: {token2}")
+
     # 处理字节串转换
     if isinstance(token, bytes):
-      token = token.decode('utf-8', errors='ignore')
+      try:
+        token = token.decode('utf-8')
+      except UnicodeDecodeError:
+        print("AMapKey1 解码失败")
+        token = ""
+
     if isinstance(token2, bytes):
-      token2 = token2.decode('utf-8', errors='ignore')
+      try:
+        token2 = token2.decode('utf-8')
+      except UnicodeDecodeError:
+        print("AMapKey2 解码失败")
+        token2 = ""
 
     # 去除空白并返回
-    return (token.strip() if token else "", token2.strip() if token2 else "")
+    token = token.strip() if token else ""
+    token2 = token2.strip() if token2 else ""
+
+    print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
+    return (token, token2)
+
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
@@ -259,18 +275,34 @@ def get_gmap_key():
 def get_amap_key():
   """获取高德地图 API Keys"""
   try:
-    # 直接获取参数值
+    # 直接获取参数值，不指定编码
     token = params.get("AMapKey1")
     token2 = params.get("AMapKey2")
 
+    print(f"获取到的原始参数 - AMapKey1: {token}, AMapKey2: {token2}")
+
     # 处理字节串转换
     if isinstance(token, bytes):
-      token = token.decode('utf-8', errors='ignore')
+      try:
+        token = token.decode('utf-8')
+      except UnicodeDecodeError:
+        print("AMapKey1 解码失败")
+        token = ""
+
     if isinstance(token2, bytes):
-      token2 = token2.decode('utf-8', errors='ignore')
+      try:
+        token2 = token2.decode('utf-8')
+      except UnicodeDecodeError:
+        print("AMapKey2 解码失败")
+        token2 = ""
 
     # 去除空白并返回
-    return (token.strip() if token else "", token2.strip() if token2 else "")
+    token = token.strip() if token else ""
+    token2 = token2.strip() if token2 else ""
+
+    print(f"处理后的参数 - AMapKey1: {token}, AMapKey2: {token2}")
+    return (token, token2)
+
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
@@ -506,12 +538,12 @@ def init_amap_params():
     # 确保目录存在
     try:
       if not os.path.exists(params_dir):
-        os.makedirs(params_dir, mode=0o755, exist_ok=True)
         print(f"创建参数目录: {params_dir}")
+        os.makedirs(params_dir, mode=0o755, exist_ok=True)
 
       # 设置目录权限
       os.chmod(params_dir, 0o755)
-      print("设置目录权限成功")
+      print(f"参数目录权限设置成功: {oct(os.stat(params_dir).st_mode)}")
 
     except Exception as e:
       print(f"处理参数目录失败: {str(e)}")
@@ -519,13 +551,27 @@ def init_amap_params():
 
     # 设置默认参数
     try:
+      # 设置 SearchInput 参数
       params.put_bool("SearchInput", True)
+      print("SearchInput 参数设置成功")
 
-      # 检查并设置默认值
-      if not params.get("AMapKey1"):
-        params.put("AMapKey1", b"")
-      if not params.get("AMapKey2"):
-        params.put("AMapKey2", b"")
+      # 检查并设置 AMapKey 参数
+      try:
+        # 获取现有的值
+        key1 = params.get("AMapKey1")
+        key2 = params.get("AMapKey2")
+
+        # 如果不存在，设置空值
+        if key1 is None:
+          params.put("AMapKey1", b"")
+          print("AMapKey1 初始化为空值")
+        if key2 is None:
+          params.put("AMapKey2", b"")
+          print("AMapKey2 初始化为空值")
+
+      except Exception as e:
+        print(f"设置 AMapKey 参数失败: {str(e)}")
+        return False
 
       print("默认参数设置成功")
       return True
@@ -549,11 +595,11 @@ def amap_key_input(postvars):
     web_key = postvars.get("amap_key_val", "").strip()
     js_key = postvars.get("amap_key_val_2", "").strip()
 
+    print(f"接收到的 API Keys - Web: {web_key}, JS: {js_key}")
+
     if not web_key or not js_key:
       print("错误: API Keys 不能为空")
       return None
-
-    print(f"正在保存 API Keys - Web: {web_key}, JS: {js_key}")
 
     try:
       # 确保参数目录存在
@@ -564,16 +610,19 @@ def amap_key_input(postvars):
       # 保存参数
       try:
         # 将字符串转换为字节串后存储
-        params.put("AMapKey1", web_key.encode('utf-8'))
-        params.put("AMapKey2", js_key.encode('utf-8'))
+        params.put("AMapKey1", web_key.encode())
+        print("AMapKey1 保存成功")
+        params.put("AMapKey2", js_key.encode())
+        print("AMapKey2 保存成功")
         params.put_bool("SearchInput", True)
-        print("参数保存成功")
+        print("SearchInput 保存成功")
 
         # 验证保存的结果
         import time
         time.sleep(0.5)  # 等待参数写入完成
 
         saved_web_key, saved_js_key = get_amap_key()
+        print(f"验证保存的参数 - Web: {saved_web_key}, JS: {saved_js_key}")
 
         if not saved_web_key or not saved_js_key:
           print("错误: 参数保存验证失败")

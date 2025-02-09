@@ -299,6 +299,10 @@ def addr_input():
       gmap_key = fleet.get_gmap_key()
       token = fleet.get_public_token()
       s_token = fleet.get_app_token()
+
+      print(f"参数状态 - SearchInput: {SearchInput}")
+      print(f"API Keys - AMap: {bool(amap_key)}, GMap: {bool(gmap_key)}")
+
     except Exception as e:
       print(f"Error getting parameters: {str(e)}")
       SearchInput = 1
@@ -415,31 +419,41 @@ def amap_key_input():
   """处理高德地图 API Key 的输入页面和提交"""
   try:
     if request.method == 'POST':
+      print("收到 POST 请求")
       postvars = request.form.to_dict()
+      print(f"表单数据: {postvars}")
 
       # 验证输入参数
       if not postvars.get("amap_key_val"):
+        print("缺少 Web服务 API Key")
         return render_template("error.html", error="请输入高德地图 Web服务 API Key")
       if not postvars.get("amap_key_val_2"):
+        print("缺少 Web端 JS API Key")
         return render_template("error.html", error="请输入高德地图 Web端 JS API Key")
 
       # 确保参数已初始化
+      print("初始化参数...")
       if not fleet.init_amap_params():
         print("初始化高德地图参数失败")
         return render_template("error.html", error="初始化高德地图参数失败，请检查系统权限")
 
       # 尝试保存 API keys
       try:
+        print("保存 API Keys...")
         result = fleet.amap_key_input(postvars)
         if result is None:
+          print("API Key 设置失败")
           return render_template("error.html", error="高德地图 API Key 设置失败，请检查系统权限和输入格式")
 
         # 验证保存的结果
         web_key, js_key = fleet.get_amap_key()
+        print(f"验证保存结果 - Web: {web_key}, JS: {js_key}")
+
         if not web_key or not js_key:
+          print("API Key 验证失败")
           return render_template("error.html", error="API Key 保存失败，请重试")
 
-        print(f"API Keys 设置成功 - Web: {web_key}, JS: {js_key}")
+        print("API Keys 设置成功，重定向到地址输入页面")
         return redirect(url_for('addr_input'))
 
       except Exception as e:
@@ -448,6 +462,7 @@ def amap_key_input():
 
     else:
       # GET 请求，显示输入页面
+      print("显示 API Key 输入页面")
       return render_template("amap_key_input.html")
 
   except Exception as e:
