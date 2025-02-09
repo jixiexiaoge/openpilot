@@ -257,18 +257,18 @@ def get_amap_key():
   """获取高德地图 API Keys"""
   try:
     # 尝试获取新的参数名
-    web_key = params.get("AMapKeyWeb")
-    js_key = params.get("AMapKeyJS")
+    web_key = params.get("AMapKeyWeb", encoding='utf8')
+    js_key = params.get("AMapKeyJS", encoding='utf8')
 
     # 如果新参数不存在，尝试获取旧的参数名
     if web_key is None:
-      web_key = params.get("AMapKey1")
+      web_key = params.get("AMapKey1", encoding='utf8')
     if js_key is None:
-      js_key = params.get("AMapKey2")
+      js_key = params.get("AMapKey2", encoding='utf8')
 
-    # 确保返回的是字符串
-    web_key = web_key.decode('utf-8').strip() if web_key is not None else ""
-    js_key = js_key.decode('utf-8').strip() if js_key is not None else ""
+    # 去除空白并返回
+    web_key = web_key.strip() if web_key is not None else ""
+    js_key = js_key.strip() if js_key is not None else ""
 
     return (web_key, js_key)
 
@@ -539,22 +539,13 @@ def init_amap_params():
 
     # 设置默认参数
     try:
-      # 使用encode()确保写入的是bytes类型
-      params.put("SearchInput", "1".encode())
-
-      # 检查并初始化AMap参数
-      try:
-        if params.get("AMapKeyWeb") is None:
-          params.put("AMapKeyWeb", "".encode())
-        if params.get("AMapKeyJS") is None:
-          params.put("AMapKeyJS", "".encode())
-      except Exception as e:
-        print(f"初始化AMap参数失败: {str(e)}")
-        # 继续执行，不返回False
-
+      params.put("SearchInput", "1")
+      if not params.get("AMapKeyWeb", encoding='utf8'):
+        params.put("AMapKeyWeb", "")
+      if not params.get("AMapKeyJS", encoding='utf8'):
+        params.put("AMapKeyJS", "")
       print("默认参数设置成功")
       return True
-
     except Exception as e:
       print(f"设置默认参数失败: {str(e)}")
       return False
@@ -595,12 +586,12 @@ def amap_key_input(postvars):
           except:
             pass
 
-        # 保存新的参数，确保使用encode()
-        params.put("AMapKeyWeb", web_key.encode())
-        params.put("AMapKeyJS", js_key.encode())
-        params.put("AMapKey1", web_key.encode())  # 兼容旧版本
-        params.put("AMapKey2", js_key.encode())   # 兼容旧版本
-        params.put("SearchInput", "1".encode())
+        # 保存新的参数
+        params.put("AMapKeyWeb", web_key)
+        params.put("AMapKeyJS", js_key)
+        params.put("AMapKey1", web_key)  # 兼容旧版本
+        params.put("AMapKey2", js_key)   # 兼容旧版本
+        params.put("SearchInput", "1")
         print("参数保存成功")
 
         # 验证保存的结果
