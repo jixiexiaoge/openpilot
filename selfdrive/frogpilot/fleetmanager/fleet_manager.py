@@ -423,18 +423,23 @@ def amap_key_input():
       if not postvars.get("amap_key_val_2"):
         return render_template("error.html", error="请输入高德地图 Web端 JS API Key")
 
+      # 确保参数已初始化
+      if not fleet.init_amap_params():
+        print("初始化高德地图参数失败")
+        return render_template("error.html", error="初始化高德地图参数失败，请检查系统权限")
+
       # 尝试保存 API keys
       try:
         result = fleet.amap_key_input(postvars)
         if result is None:
-          return render_template("error.html", error="高德地图 API Key 设置失败，请检查输入格式是否正确")
+          return render_template("error.html", error="高德地图 API Key 设置失败，请检查系统权限和输入格式")
 
         # 验证保存的结果
         web_key, js_key = fleet.get_amap_key()
         if not web_key or not js_key:
           return render_template("error.html", error="API Key 保存失败，请重试")
 
-        print(f"API Keys 设置成功 - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
+        print(f"API Keys 设置成功 - Web: {web_key}, JS: {js_key}")
         return redirect(url_for('addr_input'))
 
       except Exception as e:

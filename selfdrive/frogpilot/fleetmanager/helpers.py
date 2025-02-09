@@ -501,37 +501,32 @@ def init_amap_params():
   try:
     print("开始初始化高德地图参数...")
 
-    # 确保 SearchInput 参数存在并设置为 1 (使用高德地图)
-    try:
-      params.put("SearchInput", "1")
-      print("成功设置 SearchInput 参数")
-    except Exception as e:
-      print(f"设置 SearchInput 参数失败: {str(e)}")
-      return False
+    # 设置 SearchInput 参数
+    params.put("SearchInput", "1")
 
-    # 初始化 Web 服务 API Key
-    try:
-      if params.get("AMapKeyWeb") is None:
-        params.put("AMapKeyWeb", "")
-        print("初始化 AMapKeyWeb 参数")
-    except Exception as e:
-      print(f"初始化 AMapKeyWeb 参数失败: {str(e)}")
-      return False
+    # 检查并迁移旧参数到新参数
+    old_web_key = params.get("AMapKey1", encoding='utf8')
+    old_js_key = params.get("AMapKey2", encoding='utf8')
 
-    # 初始化 Web端 JS API Key
-    try:
-      if params.get("AMapKeyJS") is None:
-        params.put("AMapKeyJS", "")
-        print("初始化 AMapKeyJS 参数")
-    except Exception as e:
-      print(f"初始化 AMapKeyJS 参数失败: {str(e)}")
-      return False
+    if old_web_key:
+      params.put("AMapKeyWeb", old_web_key)
+      print("从 AMapKey1 迁移数据到 AMapKeyWeb")
 
-    print("高德地图参数初始化成功")
+    if old_js_key:
+      params.put("AMapKeyJS", old_js_key)
+      print("从 AMapKey2 迁移数据到 AMapKeyJS")
+
+    # 确保新参数存在
+    if params.get("AMapKeyWeb") is None:
+      params.put("AMapKeyWeb", "")
+    if params.get("AMapKeyJS") is None:
+      params.put("AMapKeyJS", "")
+
+    print("高德地图参数初始化完成")
     return True
 
   except Exception as e:
-    print(f"高德地图参数初始化过程中发生错误: {str(e)}")
+    print(f"高德地图参数初始化失败: {str(e)}")
     return False
 
 def amap_key_input(postvars):
@@ -541,29 +536,22 @@ def amap_key_input(postvars):
       print("错误: 未收到输入参数")
       return None
 
-    # 获取并验证 Web 服务 API Key
+    # 获取并验证输入的 API Keys
     web_key = postvars.get("amap_key_val", "").strip()
-    if not web_key:
-      print("错误: Web 服务 API Key 不能为空")
+    js_key = postvars.get("amap_key_val_2", "").strip()
+
+    if not web_key or not js_key:
+      print("错误: API Keys 不能为空")
       return None
 
-    # 获取并验证 Web端 JS API Key
-    js_key = postvars.get("amap_key_val_2", "").strip()
-    if not js_key:
-      print("错误: Web端 JS API Key 不能为空")
-      return None
+    print(f"正在保存 API Keys - Web: {web_key}, JS: {js_key}")
 
     try:
-      # 保存 API Keys
-      print(f"正在保存 API Keys - Web: {web_key[:4]}..., JS: {js_key[:4]}...")
-
-      # 先删除旧的参数（如果存在）
-      params.remove("AMapKey1")
-      params.remove("AMapKey2")
-
-      # 保存新的参数
+      # 同时保存到新旧参数
       params.put("AMapKeyWeb", web_key)
       params.put("AMapKeyJS", js_key)
+      params.put("AMapKey1", web_key)
+      params.put("AMapKey2", js_key)
 
       # 设置默认搜索引擎为高德地图
       params.put("SearchInput", "1")
@@ -573,7 +561,11 @@ def amap_key_input(postvars):
       saved_js_key = params.get("AMapKeyJS", encoding='utf8')
 
       if not saved_web_key or not saved_js_key:
-        print("错误: API Keys 保存失败")
+        print("错误: API Keys 保存验证失败")
+        return None
+
+      if saved_web_key.strip() != web_key or saved_js_key.strip() != js_key:
+        print("错误: 保存的 API Keys 与输入不匹配")
         return None
 
       print("API Keys 保存成功")
