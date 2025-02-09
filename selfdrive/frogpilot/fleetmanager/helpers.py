@@ -256,22 +256,9 @@ def get_gmap_key():
 def get_amap_key():
   """获取高德地图 API Keys"""
   try:
-    # 尝试获取新的参数名
-    web_key = params.get("AMapKeyWeb", encoding='utf8')
-    js_key = params.get("AMapKeyJS", encoding='utf8')
-
-    # 如果新参数不存在，尝试获取旧的参数名
-    if web_key is None:
-      web_key = params.get("AMapKey1", encoding='utf8')
-    if js_key is None:
-      js_key = params.get("AMapKey2", encoding='utf8')
-
-    # 去除空白并返回
-    web_key = web_key.strip() if web_key is not None else ""
-    js_key = js_key.strip() if js_key is not None else ""
-
-    return (web_key, js_key)
-
+    token = params.get("AMapKey1", encoding='utf8')
+    token2 = params.get("AMapKey2", encoding='utf8')
+    return (token.strip() if token is not None else "", token2.strip() if token2 is not None else "")
   except Exception as e:
     print(f"获取高德地图 API Keys 时发生错误: {str(e)}")
     return ("", "")
@@ -540,10 +527,10 @@ def init_amap_params():
     # 设置默认参数
     try:
       params.put("SearchInput", "1")
-      if not params.get("AMapKeyWeb", encoding='utf8'):
-        params.put("AMapKeyWeb", "")
-      if not params.get("AMapKeyJS", encoding='utf8'):
-        params.put("AMapKeyJS", "")
+      if not params.get("AMapKey1", encoding='utf8'):
+        params.put("AMapKey1", "")
+      if not params.get("AMapKey2", encoding='utf8'):
+        params.put("AMapKey2", "")
       print("默认参数设置成功")
       return True
     except Exception as e:
@@ -579,18 +566,9 @@ def amap_key_input(postvars):
 
       # 保存参数
       try:
-        # 先移除旧的参数
-        for key in ["AMapKeyWeb", "AMapKeyJS", "AMapKey1", "AMapKey2"]:
-          try:
-            params.remove(key)
-          except:
-            pass
-
         # 保存新的参数
-        params.put("AMapKeyWeb", web_key)
-        params.put("AMapKeyJS", js_key)
-        params.put("AMapKey1", web_key)  # 兼容旧版本
-        params.put("AMapKey2", js_key)   # 兼容旧版本
+        params.put("AMapKey1", web_key)
+        params.put("AMapKey2", js_key)
         params.put("SearchInput", "1")
         print("参数保存成功")
 
