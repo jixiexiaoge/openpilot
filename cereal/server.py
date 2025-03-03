@@ -123,25 +123,36 @@ class OpenpilotDataServer:
                 }
             }
 
+            def convert_to_native(value):
+                """将 _DynamicListReader 转换为原生 Python 类型"""
+                if hasattr(value, 'is_') and callable(value.is_):
+                    return bool(value.is_())
+                if hasattr(value, '__iter__') and not isinstance(value, (str, bytes, dict)):
+                    return [convert_to_native(item) for item in value]
+                if hasattr(value, '__dict__'):
+                    return {k: convert_to_native(v) for k, v in value.__dict__.items() if not k.startswith('_')}
+                return value
+
             # 逐个检查和更新数据
             if self.sm.updated.get('carState'):
                 try:
+                    car_state = convert_to_native(self.sm['carState'])
                     data['car'].update({
-                        'speed': round(self.sm['carState'].vEgo * 3.6, 2),
-                        'steeringAngle': round(self.sm['carState'].steeringAngleDeg, 2),
+                        'speed': round(car_state.get('vEgo', 0) * 3.6, 2),
+                        'steeringAngle': round(car_state.get('steeringAngleDeg', 0), 2),
                         'cruiseState': {
-                            'enabled': self.sm['carState'].cruiseState.enabled,
-                            'speed': round(self.sm['carState'].cruiseState.speed * 3.6, 2) if self.sm['carState'].cruiseState.speed else None,
+                            'enabled': car_state.get('cruiseState', {}).get('enabled', False),
+                            'speed': round(car_state.get('cruiseState', {}).get('speed', 0) * 3.6, 2) if car_state.get('cruiseState', {}).get('speed') else None,
                         },
-                        'brake': self.sm['carState'].brake,
-                        'gas': self.sm['carState'].gas,
+                        'brake': car_state.get('brake', 0),
+                        'gas': car_state.get('gas', 0),
                     })
                 except Exception as e:
                     self.logger.error(f"处理车辆状态数据时出错: {str(e)}")
 
             if self.sm.updated.get('deviceState'):
                 try:
-                    device_state = self.sm['deviceState']
+                    device_state = convert_to_native(self.sm['deviceState'])
                     device_data = {
                         'battery': {
                             'percent': None,
@@ -152,90 +163,72 @@ class OpenpilotDataServer:
                     }
 
                     # 检查每个字段是否存在
-                    try:
-                        device_data['battery']['percent'] = device_state.batteryPercent
-                    except Exception:
-                        self.logger.debug("设备状态中没有 batteryPercent 字段")
-
-                    try:
-                        device_data['battery']['charging'] = device_state.charging
-                    except Exception:
-                        self.logger.debug("设备状态中没有 charging 字段")
-
-                    try:
-                        device_data['temperature'] = device_state.cpuTempC
-                    except Exception:
-                        # 尝试其他可能的温度字段
-                        try:
-                            device_data['temperature'] = device_state.cpuTemp
-                        except Exception:
-                            self.logger.debug("设备状态中没有温度相关字段")
-
-                    try:
-                        device_data['memory'] = device_state.memoryUsagePercent
-                    except Exception:
-                        try:
-                            device_data['memory'] = device_state.memoryUsage * 100 if hasattr(device_state, 'memoryUsage') else None
-                        except Exception:
-                            self.logger.debug("设备状态中没有内存使用相关字段")
+                    device_data['battery']['percent'] = device_state.get('batteryPercent')
+                    device_data['battery']['charging'] = device_state.get('charging')
+                    device_data['temperature'] = device_state.get('cpuTempC') or device_state.get('cpuTemp')
+                    device_data['memory'] = device_state.get('memoryUsagePercent') or (device_state.get('memoryUsage', 0) * 100)
 
                     # 更新数据
                     data['device'].update(device_data)
 
                 except Exception as e:
                     self.logger.error(f"处理设备状态数据时出错: {str(e)}")
-                    # 不影响其他数据的继续处理
 
             if self.sm.updated.get('accelerometer'):
                 try:
-                    sensor_data = self.sm['accelerometer'].sensor
-                    data['sensors']['accelerometer'].update({
-                        'x': round(sensor_data[0], 3),
-                        'y': round(sensor_data[1], 3),
-                        'z': round(sensor_data[2], 3),
-                    })
+                    sensor_data = convert_to_native(self.sm['accelerometer'].sensor)
+                    if isinstance(sensor_data, (list, tuple)) and len(sensor_data) >= 3:
+                        data['sensors']['accelerometer'].update({
+                            'x': round(sensor_data[0], 3),
+                            'y': round(sensor_data[1], 3),
+                            'z': round(sensor_data[2], 3),
+                        })
                 except Exception as e:
                     self.logger.error(f"处理加速度计数据时出错: {str(e)}")
 
             if self.sm.updated.get('gyroscope'):
                 try:
-                    sensor_data = self.sm['gyroscope'].sensor
-                    data['sensors']['gyroscope'].update({
-                        'x': round(sensor_data[0], 3),
-                        'y': round(sensor_data[1], 3),
-                        'z': round(sensor_data[2], 3),
-                    })
+                    sensor_data = convert_to_native(self.sm['gyroscope'].sensor)
+                    if isinstance(sensor_data, (list, tuple)) and len(sensor_data) >= 3:
+                        data['sensors']['gyroscope'].update({
+                            'x': round(sensor_data[0], 3),
+                            'y': round(sensor_data[1], 3),
+                            'z': round(sensor_data[2], 3),
+                        })
                 except Exception as e:
                     self.logger.error(f"处理陀螺仪数据时出错: {str(e)}")
 
             if self.sm.updated.get('gpsLocationExternal'):
                 try:
+                    gps_data = convert_to_native(self.sm['gpsLocationExternal'])
                     data['gps'].update({
-                        'latitude': self.sm['gpsLocationExternal'].latitude,
-                        'longitude': self.sm['gpsLocationExternal'].longitude,
-                        'altitude': self.sm['gpsLocationExternal'].altitude,
-                        'speed': round(self.sm['gpsLocationExternal'].speed * 3.6, 2),
-                        'bearing': self.sm['gpsLocationExternal'].bearing,
+                        'latitude': gps_data.get('latitude'),
+                        'longitude': gps_data.get('longitude'),
+                        'altitude': gps_data.get('altitude'),
+                        'speed': round(gps_data.get('speed', 0) * 3.6, 2),
+                        'bearing': gps_data.get('bearing'),
                     })
                 except Exception as e:
                     self.logger.error(f"处理GPS数据时出错: {str(e)}")
 
             if self.sm.updated.get('controlsState'):
                 try:
+                    controls_data = convert_to_native(self.sm['controlsState'])
                     data['controls'].update({
-                        'enabled': self.sm['controlsState'].enabled,
-                        'active': self.sm['controlsState'].active,
-                        'alertText1': self.sm['controlsState'].alertText1,
-                        'alertText2': self.sm['controlsState'].alertText2,
+                        'enabled': controls_data.get('enabled'),
+                        'active': controls_data.get('active'),
+                        'alertText1': controls_data.get('alertText1'),
+                        'alertText2': controls_data.get('alertText2'),
                     })
                 except Exception as e:
                     self.logger.error(f"处理控制状态数据时出错: {str(e)}")
 
             if self.sm.updated.get('driverMonitoringState'):
                 try:
+                    monitoring_data = convert_to_native(self.sm['driverMonitoringState'])
                     data['driverMonitoring'].update({
-                        'faceDetected': self.sm['driverMonitoringState'].faceDetected,
-                        'isDistracted': self.sm['driverMonitoringState'].isDistracted,
+                        'faceDetected': monitoring_data.get('faceDetected'),
+                        'isDistracted': monitoring_data.get('isDistracted'),
                     })
                 except Exception as e:
                     self.logger.error(f"处理驾驶监控数据时出错: {str(e)}")
@@ -274,8 +267,11 @@ class OpenpilotDataServer:
             while self.running:
                 try:
                     # 检查连接状态
-                    if not websocket.open:
-                        self.logger.info("WebSocket 连接已关闭")
+                    try:
+                        pong_waiter = await websocket.ping()
+                        await asyncio.wait_for(pong_waiter, timeout=1.0)
+                    except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
+                        self.logger.info("WebSocket 连接已关闭或无响应")
                         break
 
                     data = self.format_data()
