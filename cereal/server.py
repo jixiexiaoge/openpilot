@@ -334,7 +334,7 @@ async def main():
             ping_timeout=10,
             close_timeout=5
         ) as websocket_server:
-            server.logger.info("服务器启动在 ws://0.0.0.0:8088")
+            server.logger.info("服务器启动在 ws://0.0.0.0:8080")
 
             # 等待服务器运行
             try:
