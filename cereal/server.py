@@ -123,36 +123,61 @@ class OpenpilotDataServer:
                 }
             }
 
-            def convert_to_native(value):
-                """将 _DynamicListReader 转换为原生 Python 类型"""
-                if hasattr(value, 'is_') and callable(value.is_):
-                    return bool(value.is_())
-                if hasattr(value, '__iter__') and not isinstance(value, (str, bytes, dict)):
-                    return [convert_to_native(item) for item in value]
-                if hasattr(value, '__dict__'):
-                    return {k: convert_to_native(v) for k, v in value.__dict__.items() if not k.startswith('_')}
-                return value
+            def safe_float(value):
+                """安全地将值转换为浮点数"""
+                try:
+                    if hasattr(value, 'as_float'):
+                        return value.as_float()
+                    if hasattr(value, 'as_int'):
+                        return float(value.as_int())
+                    if hasattr(value, '__float__'):
+                        return float(value)
+                    if isinstance(value, (list, tuple)):
+                        return [safe_float(x) for x in value]
+                    return float(value)
+                except (ValueError, TypeError, AttributeError):
+                    return None
+
+            def safe_bool(value):
+                """安全地将值转换为布尔值"""
+                try:
+                    if hasattr(value, 'as_bool'):
+                        return value.as_bool()
+                    if hasattr(value, 'is_'):
+                        return bool(value.is_())
+                    return bool(value)
+                except (ValueError, TypeError, AttributeError):
+                    return None
+
+            def safe_str(value):
+                """安全地将值转换为字符串"""
+                try:
+                    if hasattr(value, 'as_text'):
+                        return value.as_text()
+                    return str(value)
+                except (ValueError, TypeError, AttributeError):
+                    return None
 
             # 逐个检查和更新数据
             if self.sm.updated.get('carState'):
                 try:
-                    car_state = convert_to_native(self.sm['carState'])
+                    car_state = self.sm['carState']
                     data['car'].update({
-                        'speed': round(car_state.get('vEgo', 0) * 3.6, 2),
-                        'steeringAngle': round(car_state.get('steeringAngleDeg', 0), 2),
+                        'speed': round(safe_float(car_state.vEgo) * 3.6, 2) if hasattr(car_state, 'vEgo') else None,
+                        'steeringAngle': round(safe_float(car_state.steeringAngleDeg), 2) if hasattr(car_state, 'steeringAngleDeg') else None,
                         'cruiseState': {
-                            'enabled': car_state.get('cruiseState', {}).get('enabled', False),
-                            'speed': round(car_state.get('cruiseState', {}).get('speed', 0) * 3.6, 2) if car_state.get('cruiseState', {}).get('speed') else None,
+                            'enabled': safe_bool(car_state.cruiseState.enabled) if hasattr(car_state, 'cruiseState') else False,
+                            'speed': round(safe_float(car_state.cruiseState.speed) * 3.6, 2) if hasattr(car_state, 'cruiseState') and hasattr(car_state.cruiseState, 'speed') else None,
                         },
-                        'brake': car_state.get('brake', 0),
-                        'gas': car_state.get('gas', 0),
+                        'brake': safe_float(car_state.brake) if hasattr(car_state, 'brake') else None,
+                        'gas': safe_float(car_state.gas) if hasattr(car_state, 'gas') else None,
                     })
                 except Exception as e:
                     self.logger.error(f"处理车辆状态数据时出错: {str(e)}")
 
             if self.sm.updated.get('deviceState'):
                 try:
-                    device_state = convert_to_native(self.sm['deviceState'])
+                    device_state = self.sm['deviceState']
                     device_data = {
                         'battery': {
                             'percent': None,
@@ -162,11 +187,21 @@ class OpenpilotDataServer:
                         'memory': None,
                     }
 
-                    # 检查每个字段是否存在
-                    device_data['battery']['percent'] = device_state.get('batteryPercent')
-                    device_data['battery']['charging'] = device_state.get('charging')
-                    device_data['temperature'] = device_state.get('cpuTempC') or device_state.get('cpuTemp')
-                    device_data['memory'] = device_state.get('memoryUsagePercent') or (device_state.get('memoryUsage', 0) * 100)
+                    # 直接访问属性并安全转换
+                    if hasattr(device_state, 'batteryPercent'):
+                        device_data['battery']['percent'] = safe_float(device_state.batteryPercent)
+                    if hasattr(device_state, 'charging'):
+                        device_data['battery']['charging'] = safe_bool(device_state.charging)
+                    if hasattr(device_state, 'cpuTempC'):
+                        device_data['temperature'] = safe_float(device_state.cpuTempC)
+                    elif hasattr(device_state, 'cpuTemp'):
+                        device_data['temperature'] = safe_float(device_state.cpuTemp)
+                    if hasattr(device_state, 'memoryUsagePercent'):
+                        device_data['memory'] = safe_float(device_state.memoryUsagePercent)
+                    elif hasattr(device_state, 'memoryUsage'):
+                        memory_usage = safe_float(device_state.memoryUsage)
+                        if memory_usage is not None:
+                            device_data['memory'] = memory_usage * 100
 
                     # 更新数据
                     data['device'].update(device_data)
@@ -176,59 +211,63 @@ class OpenpilotDataServer:
 
             if self.sm.updated.get('accelerometer'):
                 try:
-                    sensor_data = convert_to_native(self.sm['accelerometer'].sensor)
-                    if isinstance(sensor_data, (list, tuple)) and len(sensor_data) >= 3:
-                        data['sensors']['accelerometer'].update({
-                            'x': round(sensor_data[0], 3),
-                            'y': round(sensor_data[1], 3),
-                            'z': round(sensor_data[2], 3),
-                        })
+                    sensor = self.sm['accelerometer']
+                    if hasattr(sensor, 'sensor'):
+                        sensor_data = safe_float(sensor.sensor)
+                        if isinstance(sensor_data, list) and len(sensor_data) >= 3:
+                            data['sensors']['accelerometer'].update({
+                                'x': round(sensor_data[0], 3),
+                                'y': round(sensor_data[1], 3),
+                                'z': round(sensor_data[2], 3),
+                            })
                 except Exception as e:
                     self.logger.error(f"处理加速度计数据时出错: {str(e)}")
 
             if self.sm.updated.get('gyroscope'):
                 try:
-                    sensor_data = convert_to_native(self.sm['gyroscope'].sensor)
-                    if isinstance(sensor_data, (list, tuple)) and len(sensor_data) >= 3:
-                        data['sensors']['gyroscope'].update({
-                            'x': round(sensor_data[0], 3),
-                            'y': round(sensor_data[1], 3),
-                            'z': round(sensor_data[2], 3),
-                        })
+                    sensor = self.sm['gyroscope']
+                    if hasattr(sensor, 'sensor'):
+                        sensor_data = safe_float(sensor.sensor)
+                        if isinstance(sensor_data, list) and len(sensor_data) >= 3:
+                            data['sensors']['gyroscope'].update({
+                                'x': round(sensor_data[0], 3),
+                                'y': round(sensor_data[1], 3),
+                                'z': round(sensor_data[2], 3),
+                            })
                 except Exception as e:
                     self.logger.error(f"处理陀螺仪数据时出错: {str(e)}")
 
             if self.sm.updated.get('gpsLocationExternal'):
                 try:
-                    gps_data = convert_to_native(self.sm['gpsLocationExternal'])
+                    gps = self.sm['gpsLocationExternal']
                     data['gps'].update({
-                        'latitude': gps_data.get('latitude'),
-                        'longitude': gps_data.get('longitude'),
-                        'altitude': gps_data.get('altitude'),
-                        'speed': round(gps_data.get('speed', 0) * 3.6, 2),
-                        'bearing': gps_data.get('bearing'),
+                        'latitude': safe_float(gps.latitude) if hasattr(gps, 'latitude') else None,
+                        'longitude': safe_float(gps.longitude) if hasattr(gps, 'longitude') else None,
+                        'altitude': safe_float(gps.altitude) if hasattr(gps, 'altitude') else None,
+                        'speed': round(safe_float(gps.speed) * 3.6, 2) if hasattr(gps, 'speed') else None,
+                        'bearing': safe_float(gps.bearing) if hasattr(gps, 'bearing') else None,
                     })
                 except Exception as e:
                     self.logger.error(f"处理GPS数据时出错: {str(e)}")
 
             if self.sm.updated.get('controlsState'):
                 try:
-                    controls_data = convert_to_native(self.sm['controlsState'])
+                    controls = self.sm['controlsState']
                     data['controls'].update({
-                        'enabled': controls_data.get('enabled'),
-                        'active': controls_data.get('active'),
-                        'alertText1': controls_data.get('alertText1'),
-                        'alertText2': controls_data.get('alertText2'),
+                        'enabled': safe_bool(controls.enabled) if hasattr(controls, 'enabled') else None,
+                        'active': safe_bool(controls.active) if hasattr(controls, 'active') else None,
+                        'alertText1': safe_str(controls.alertText1) if hasattr(controls, 'alertText1') else None,
+                        'alertText2': safe_str(controls.alertText2) if hasattr(controls, 'alertText2') else None,
                     })
                 except Exception as e:
                     self.logger.error(f"处理控制状态数据时出错: {str(e)}")
 
             if self.sm.updated.get('driverMonitoringState'):
                 try:
-                    monitoring_data = convert_to_native(self.sm['driverMonitoringState'])
+                    monitoring = self.sm['driverMonitoringState']
                     data['driverMonitoring'].update({
-                        'faceDetected': monitoring_data.get('faceDetected'),
-                        'isDistracted': monitoring_data.get('isDistracted'),
+                        'faceDetected': safe_bool(monitoring.faceDetected) if hasattr(monitoring, 'faceDetected') else None,
+                        'isDistracted': safe_bool(monitoring.isDistracted) if hasattr(monitoring, 'isDistracted') else None,
                     })
                 except Exception as e:
                     self.logger.error(f"处理驾驶监控数据时出错: {str(e)}")
