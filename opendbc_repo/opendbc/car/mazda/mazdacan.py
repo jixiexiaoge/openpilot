@@ -2,18 +2,21 @@ from opendbc.car.mazda.values import Buttons, MazdaFlags
 
 
 def create_steering_control(packer, CP, frame, apply_steer, lkas):
+  # 安全检查和错误处理
+  if lkas is None or not isinstance(lkas, dict):
+    lkas = {"BIT_1": 0, "ERR_BIT_1": 0, "ERR_BIT_2": 0}
 
   tmp = apply_steer + 2048
 
   lo = tmp & 0xFF
   hi = tmp >> 8
 
-  # copy values from camera
-  b1 = int(lkas["BIT_1"])
-  er1 = int(lkas["ERR_BIT_1"])
+  # copy values from camera - 添加安全获取
+  b1 = int(lkas.get("BIT_1", 0))
+  er1 = int(lkas.get("ERR_BIT_1", 0))
   lnv = 0
   ldw = 0
-  er2 = int(lkas["ERR_BIT_2"])
+  er2 = int(lkas.get("ERR_BIT_2", 0))
 
   # Some older models do have these, newer models don't.
   # Either way, they all work just fine if set to zero.
@@ -63,17 +66,22 @@ def create_steering_control(packer, CP, frame, apply_steer, lkas):
 
 
 def create_alert_command(packer, cam_msg: dict, ldw: bool, steer_required: bool):
-  values = {s: cam_msg[s] for s in [
-    "LINE_VISIBLE",
-    "LINE_NOT_VISIBLE",
-    "LANE_LINES",
-    "BIT1",
-    "BIT2",
-    "BIT3",
-    "NO_ERR_BIT",
-    "S1",
-    "S1_HBEAM",
-  ]}
+  # 安全检查和错误处理
+  if cam_msg is None or not isinstance(cam_msg, dict):
+    cam_msg = {}
+
+  # 需要确保的关键字段
+  required_keys = [
+    "LINE_VISIBLE", "LINE_NOT_VISIBLE", "LANE_LINES",
+    "BIT1", "BIT2", "BIT3", "NO_ERR_BIT", "S1", "S1_HBEAM"
+  ]
+
+  # 创建一个包含所有必需键的默认值字典
+  default_values = {key: 0 for key in required_keys}
+
+  # 使用字典推导式安全地获取值
+  values = {s: cam_msg.get(s, default_values.get(s, 0)) for s in required_keys}
+
   values.update({
     # TODO: what's the difference between all these? do we need to send all?
     "HANDS_WARN_3_BITS": 0b111 if steer_required else 0,
@@ -89,12 +97,20 @@ def create_alert_command(packer, cam_msg: dict, ldw: bool, steer_required: bool)
 
 
 def create_button_cmd(packer, CP, counter, button):
+  # 确保button是有效的按钮值
+  if button not in [Buttons.NONE, Buttons.SET_PLUS, Buttons.SET_MINUS,
+                   Buttons.RESUME, Buttons.CANCEL, Buttons.TURN_ON]:
+    button = Buttons.NONE  # 默认为NONE
+
+  # 确保counter在有效范围内
+  counter = max(0, min(counter, 15))  # 限制在0-15范围内
 
   can = int(button == Buttons.CANCEL)
   res = int(button == Buttons.RESUME)
   inc = int(button == Buttons.SET_PLUS)
   dec = int(button == Buttons.SET_MINUS)
-  
+  turn_on = int(button == Buttons.TURN_ON)
+
   if CP.flags & MazdaFlags.GEN1:
     values = {
       "CAN_OFF": can,
@@ -128,3 +144,6 @@ def create_button_cmd(packer, CP, counter, button):
     }
 
     return packer.make_can_msg("CRZ_BTNS", 0, values)
+
+  # 如果CP.flags不包含MazdaFlags.GEN1，则返回None
+  return None

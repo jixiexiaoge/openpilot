@@ -21,6 +21,8 @@ class CarState(CarStateBase):
     self.low_speed_alert = False
     self.lkas_allowed_speed = False
     self.lkas_disabled = False
+    self.lkas_enabled = True
+    self.lkas_previously_enabled = True
 
     self.prev_distance_button = 0
     self.distance_button = 0
@@ -30,30 +32,49 @@ class CarState(CarStateBase):
     self.cruise_buttons = Buttons.NONE
     self.prev_cruise_buttons = Buttons.NONE
     self.cruise_setting = False
-    self.is_metric = False  # 用于判断速度单位
+    self.is_metric = True  # 默认使用公制单位
+
+    # 存储摄像头和车身总线数据
+    self.cam_lkas = {}
+    self.cam_laneinfo = {}
+    self.crz_info = {"ACCEL_CMD": 0}  # 初始化为空字典
+
+    # 巡航状态跟踪
+    self.cruiseState_enabled = False
+    self.cruiseState_available = False
+    self.cruiseState_speed = 0
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
+    cp_body = can_parsers[2]  # Body bus可能为None
 
     ret = structs.CarState()
 
     self.prev_distance_button = self.distance_button
-    self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
+    self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"] if "DISTANCE_LESS" in cp.vl["CRZ_BTNS"] else 0
 
     self.prev_cruise_buttons = self.cruise_buttons
 
+    # 检测巡航按钮状态
     if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
       self.cruise_buttons = Buttons.SET_PLUS
     elif bool(cp.vl["CRZ_BTNS"]["SET_M"]):
       self.cruise_buttons = Buttons.SET_MINUS
     elif bool(cp.vl["CRZ_BTNS"]["RES"]):
       self.cruise_buttons = Buttons.RESUME
+    elif bool(cp.vl["CRZ_BTNS"]["CANCEL"]):
+      self.cruise_buttons = Buttons.CANCEL
     else:
       self.cruise_buttons = Buttons.NONE
 
-    # 检测是否处于公制单位
-    self.is_metric = not cp.vl["CRZ_BTNS"]["MPH_UNIT"]
+    # 检测是否处于公制单位，如果字段存在则使用该值
+    if "MPH_UNIT" in cp.vl["CRZ_BTNS"]:
+      self.is_metric = not cp.vl["CRZ_BTNS"]["MPH_UNIT"]
+
+    # 继承CRZ_BTNS计数器
+    if "CTR" in cp.vl["CRZ_BTNS"]:
+      self.crz_btns_counter = cp.vl["CRZ_BTNS"]["CTR"]
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
@@ -70,16 +91,18 @@ class CarState(CarStateBase):
 
     can_gear = int(cp.vl["GEAR"]["GEAR"])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"]
-    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"] # for mazda RPM
+    ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"] if "GEAR_BOX" in cp.vl["GEAR"] else 0
+    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"] if "RPM" in cp.vl["ENGINE_DATA"] else 0
+
     # 将CAN总线上的DISTANCE_SETTING值转换为与车辆显示一致的值
-    can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
-    # 假设最大值为4，使用5减去CAN值来获取正确的显示值
-    ret.pcmCruiseGap = 5 - can_distance_setting if 1 <= can_distance_setting <= 4 else can_distance_setting
+    if "DISTANCE_SETTING" in cp.vl["CRZ_CTRL"]:
+      can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
+      # 假设最大值为4，使用5减去CAN值来获取正确的显示值
+      ret.pcmCruiseGap = 5 - can_distance_setting if 1 <= can_distance_setting <= 4 else can_distance_setting
 
     ret.genericToggle = bool(cp.vl["BLINK_INFO"]["HIGH_BEAMS"])
-    ret.leftBlindspot = cp.vl["BSM"]["LEFT_BS_STATUS"] != 0
-    ret.rightBlindspot = cp.vl["BSM"]["RIGHT_BS_STATUS"] != 0
+    ret.leftBlindspot = cp.vl["BSM"]["LEFT_BS_STATUS"] != 0 if "LEFT_BS_STATUS" in cp.vl["BSM"] else False
+    ret.rightBlindspot = cp.vl["BSM"]["RIGHT_BS_STATUS"] != 0 if "RIGHT_BS_STATUS" in cp.vl["BSM"] else False
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(40, cp.vl["BLINK_INFO"]["LEFT_BLINK"] == 1,
                                                                       cp.vl["BLINK_INFO"]["RIGHT_BLINK"] == 1)
 
@@ -90,20 +113,23 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE"]["STEER_TORQUE_MOTOR"]
     ret.steeringRateDeg = cp.vl["STEER_RATE"]["STEER_ANGLE_RATE"]
 
-    # TODO: this should be from 0 - 1.
+    # Brake pedal and pressure
     ret.brakePressed = cp.vl["PEDALS"]["BRAKE_ON"] == 1
-    ret.brake = cp.vl["BRAKE"]["BRAKE_PRESSURE"]
+    ret.brake = cp.vl["BRAKE"]["BRAKE_PRESSURE"] if "BRAKE_PRESSURE" in cp.vl["BRAKE"] else 0
 
-    ret.seatbeltUnlatched = cp.vl["SEATBELT"]["DRIVER_SEATBELT"] == 0
-    ret.doorOpen = any([cp.vl["DOORS"]["FL"], cp.vl["DOORS"]["FR"],
-                        cp.vl["DOORS"]["BL"], cp.vl["DOORS"]["BR"]])
+    ret.seatbeltUnlatched = cp.vl["SEATBELT"]["DRIVER_SEATBELT"] == 0 if "DRIVER_SEATBELT" in cp.vl["SEATBELT"] else False
+    if "DOORS" in cp.vl:
+      ret.doorOpen = any([cp.vl["DOORS"]["FL"], cp.vl["DOORS"]["FR"],
+                          cp.vl["DOORS"]["BL"], cp.vl["DOORS"]["BR"]])
+    else:
+      ret.doorOpen = False
 
-    # TODO: this should be from 0 - 1.
-    ret.gas = cp.vl["ENGINE_DATA"]["PEDAL_GAS"]
+    # Gas pedal
+    ret.gas = cp.vl["ENGINE_DATA"]["PEDAL_GAS"] if "PEDAL_GAS" in cp.vl["ENGINE_DATA"] else 0
     ret.gasPressed = ret.gas > 0
 
-    # Either due to low speed or hands off
-    lkas_blocked = cp.vl["STEER_RATE"]["LKAS_BLOCK"] == 1
+    # LKAS状态检测
+    lkas_blocked = cp.vl["STEER_RATE"]["LKAS_BLOCK"] == 1 if "LKAS_BLOCK" in cp.vl["STEER_RATE"] else False
 
     if self.CP.minSteerSpeed > 0:
       # LKAS is enabled at 52kph going up and disabled at 45kph going down
@@ -122,43 +148,80 @@ class CarState(CarStateBase):
       self.lkas_disabled = lkas_blocked
       self.lkas_allowed_speed = True
 
+    # 更新低速警告状态
     if self.lkas_disabled:
       self.low_speed_alert = True
     else:
       self.low_speed_alert = False
 
+    # 处理巡航控制状态
     # The camera on Mazda (and other similar platforms) will continuously send LKAS messages
     # even when LKAS is disabled. We need to analyze the CRZ_CTRL message from the DSU to
     # determine if LKAS is actually enabled, which will tell us if we can send control messages
     # to the car.
 
-    self.cruise_setting = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1 or cp.vl["CRZ_CTRL"]["RESUME_READY"] == 1
+    # 处理巡航控制状态 - 确保字段存在
+    self.cruise_setting = False
+    if "CRZ_ACTIVE" in cp.vl["CRZ_CTRL"]:
+      self.cruise_setting = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
+    if "RESUME_READY" in cp.vl["CRZ_CTRL"]:
+      self.cruise_setting = self.cruise_setting or cp.vl["CRZ_CTRL"]["RESUME_READY"] == 1
 
     # Check for Cruise active / available
-    ret.cruiseState.available = self.cruise_setting or cp.vl["CRZ_CTRL"]["CRZ_READY"] == 1
-    ret.cruiseState.enabled = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
-    ret.cruiseState.speed = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
-    ret.cruiseState.nonAdaptive = False
-    ret.cruiseState.standstill = False
+    ret.cruiseState.available = False
+    if "CRZ_READY" in cp.vl["CRZ_CTRL"]:
+      ret.cruiseState.available = self.cruise_setting or cp.vl["CRZ_CTRL"]["CRZ_READY"] == 1
 
-    # Update ACC properties
-    ret.cruiseState.speedCluster = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
-    ret.cruiseGap = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
+    ret.cruiseState.enabled = False
+    if "CRZ_ACTIVE" in cp.vl["CRZ_CTRL"]:
+      ret.cruiseState.enabled = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
+
+    ret.cruiseState.speed = 0
+    if "CRUISE_SPEED" in cp.vl["CRZ_CTRL"]:
+      ret.cruiseState.speed = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
+
+    ret.cruiseState.nonAdaptive = False
+    ret.cruiseState.standstill = ret.standstill
+
+    # 更新巡航状态参数 - 确保字段存在
+    if "CRUISE_SPEED" in cp.vl["CRZ_CTRL"]:
+      ret.cruiseState.speedCluster = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
+
+    if "DISTANCE_SETTING" in cp.vl["CRZ_CTRL"]:
+      ret.cruiseGap = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
+
+    # 存储前一次巡航状态用于比较
+    self.cruiseState_enabled = ret.cruiseState.enabled
+    self.cruiseState_available = ret.cruiseState.available
+    self.cruiseState_speed = ret.cruiseState.speed
 
     # 通过按钮事件控制巡航功能
     ret.buttonEvents = []
 
+    # 只有当按钮状态变化时才添加按钮事件
     if self.cruise_buttons != self.prev_cruise_buttons:
       be = structs.CarState.ButtonEvent.new_message()
       be.type = BUTTONS_DICT.get(self.cruise_buttons, ButtonType.unknown)
       ret.buttonEvents.append(be)
 
-    # Update ACC main button state
-    ret.cruiseState.available = self.cruise_setting or cp.vl["CRZ_CTRL"]["CRZ_READY"] == 1
-
     # 保存摄像头相关信息，用于发送HUD警告
-    self.cam_lkas = cp_cam.vl["CAM_LKAS"]
-    self.cam_laneinfo = cp_cam.vl["CAM_LANEINFO"]
+    if cp_cam is not None:
+      if "CAM_LKAS" in cp_cam.vl:
+        self.cam_lkas = cp_cam.vl["CAM_LKAS"]
+      if "CAM_LANEINFO" in cp_cam.vl:
+        self.cam_laneinfo = cp_cam.vl["CAM_LANEINFO"]
+
+      # 更新LKAS启用状态
+      self.lkas_previously_enabled = self.lkas_enabled
+      if "LANE_LINES" in cp_cam.vl.get("CAM_LANEINFO", {}):
+        self.lkas_enabled = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] != 0
+      else:
+        self.lkas_enabled = not self.lkas_disabled
+
+    # 保存车身总线数据（如果存在）
+    if cp_body is not None:
+      # 处理车身总线数据
+      pass
 
     return ret
 
@@ -208,6 +271,7 @@ class CarState(CarStateBase):
       ("CANCEL", "CRZ_BTNS"),
       ("DISTANCE_LESS", "CRZ_BTNS"),
       ("MPH_UNIT", "CRZ_BTNS"),  # 是否使用MPH单位
+      ("CTR", "CRZ_BTNS"),       # 按钮计数器
     ]
 
     checks = [
