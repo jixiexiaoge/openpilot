@@ -88,6 +88,7 @@ class Buttons:
   SET_MINUS = 2
   RESUME = 3
   CANCEL = 4
+  TURN_ON = 5
 
 
 FW_QUERY_CONFIG = FwQueryConfig(

@@ -26,6 +26,12 @@ class CarState(CarStateBase):
     self.distance_button = 0
     self.pcmCruiseGap = 0 # copy from Hyundai
 
+    # 巡航控制相关变量
+    self.cruise_buttons = Buttons.NONE
+    self.prev_cruise_buttons = Buttons.NONE
+    self.cruise_setting = False
+    self.is_metric = False  # 用于判断速度单位
+
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
@@ -45,6 +51,9 @@ class CarState(CarStateBase):
       self.cruise_buttons = Buttons.RESUME
     else:
       self.cruise_buttons = Buttons.NONE
+
+    # 检测是否处于公制单位
+    self.is_metric = not cp.vl["CRZ_BTNS"]["MPH_UNIT"]
 
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
@@ -98,93 +107,163 @@ class CarState(CarStateBase):
 
     if self.CP.minSteerSpeed > 0:
       # LKAS is enabled at 52kph going up and disabled at 45kph going down
-      # wait for LKAS_BLOCK signal to clear when going up since it lags behind the speed sometimes
-      if speed_kph > LKAS_LIMITS.ENABLE_SPEED and not lkas_blocked:
-        self.lkas_allowed_speed = True
-      elif speed_kph < LKAS_LIMITS.DISABLE_SPEED:
-        self.lkas_allowed_speed = False
+      # If the car is going below 45kph, wait for the LKAS_BLOCK signal before disabling
+      # to avoid disabling LKAS during a turn where the speed momentarily drops below 45kph...
+      self.lkas_allowed_speed = ret.vEgo > (LKAS_LIMITS.ENABLE_SPEED * CV.KPH_TO_MS)
+      if self.lkas_allowed_speed:
+        self.lkas_disabled = False
+      elif lkas_blocked:
+        self.lkas_disabled = True
+      # ...however, if the car is going below 40kph, disabling LKAS is correct behavior
+      elif ret.vEgo < (LKAS_LIMITS.DISABLE_SPEED * CV.KPH_TO_MS):
+        self.lkas_disabled = True
     else:
+      # If the car doesn't have a minimum steer speed, use the LKAS_BLOCK signal
+      self.lkas_disabled = lkas_blocked
       self.lkas_allowed_speed = True
 
-    # TODO: the signal used for available seems to be the adaptive cruise signal, instead of the main on
-    #       it should be used for carState.cruiseState.nonAdaptive instead
-    ret.cruiseState.available = cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"] == 1
+    if self.lkas_disabled:
+      self.low_speed_alert = True
+    else:
+      self.low_speed_alert = False
+
+    # The camera on Mazda (and other similar platforms) will continuously send LKAS messages
+    # even when LKAS is disabled. We need to analyze the CRZ_CTRL message from the DSU to
+    # determine if LKAS is actually enabled, which will tell us if we can send control messages
+    # to the car.
+
+    self.cruise_setting = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1 or cp.vl["CRZ_CTRL"]["RESUME_READY"] == 1
+
+    # Check for Cruise active / available
+    ret.cruiseState.available = self.cruise_setting or cp.vl["CRZ_CTRL"]["CRZ_READY"] == 1
     ret.cruiseState.enabled = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
-    ret.cruiseState.standstill = cp.vl["PEDALS"]["STANDSTILL"] == 1
-    ret.cruiseState.speed = cp.vl["CRZ_EVENTS"]["CRZ_SPEED"] * CV.KPH_TO_MS
+    ret.cruiseState.speed = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
+    ret.cruiseState.nonAdaptive = False
+    ret.cruiseState.standstill = False
 
-    # stock lkas should be on
-    # TODO: is this needed?
-    ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
+    # Update ACC properties
+    ret.cruiseState.speedCluster = cp.vl["CRZ_CTRL"]["CRUISE_SPEED"] * CV.KPH_TO_MS
+    ret.cruiseGap = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
 
-    if ret.cruiseState.enabled:
-      if not self.lkas_allowed_speed and self.acc_active_last:
-        self.low_speed_alert = True
-      else:
-        self.low_speed_alert = False
-    ret.lowSpeedAlert = self.low_speed_alert
+    # 通过按钮事件控制巡航功能
+    ret.buttonEvents = []
 
-    # Check if LKAS is disabled due to lack of driver torque when all other states indicate
-    # it should be enabled (steer lockout). Don't warn until we actually get lkas active
-    # and lose it again, i.e, after initial lkas activation
-    ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked
+    if self.cruise_buttons != self.prev_cruise_buttons:
+      be = structs.CarState.ButtonEvent.new_message()
+      be.type = BUTTONS_DICT.get(self.cruise_buttons, ButtonType.unknown)
+      ret.buttonEvents.append(be)
 
-    self.acc_active_last = ret.cruiseState.enabled
+    # Update ACC main button state
+    ret.cruiseState.available = self.cruise_setting or cp.vl["CRZ_CTRL"]["CRZ_READY"] == 1
 
-    self.crz_btns_counter = cp.vl["CRZ_BTNS"]["CTR"]
-
-    # camera signals
-    self.lkas_disabled = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
+    # 保存摄像头相关信息，用于发送HUD警告
     self.cam_lkas = cp_cam.vl["CAM_LKAS"]
     self.cam_laneinfo = cp_cam.vl["CAM_LANEINFO"]
-    ret.steerFaultPermanent = cp_cam.vl["CAM_LKAS"]["ERR_BIT_1"] == 1
 
-    self.lkas_previously_enabled = self.lkas_enabled
-    self.lkas_enabled = not self.lkas_disabled
-
-    # TODO: add button types for inc and dec
-    #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
-    ret.buttonEvents = [
-      *create_button_events(self.cruise_buttons, self.prev_cruise_buttons, BUTTONS_DICT),
-      *create_button_events(self.distance_button, self.prev_distance_button, {1: ButtonType.gapAdjustCruise}),
-      *create_button_events(self.lkas_enabled, self.lkas_previously_enabled, {1: ButtonType.lfaButton}),
-    ]
     return ret
 
   @staticmethod
   def get_can_parsers(CP):
-    pt_messages = [
-      # sig_address, frequency
-      ("BLINK_INFO", 10),
-      ("STEER", 67),
-      ("STEER_RATE", 83),
-      ("STEER_TORQUE", 83),
-      ("WHEEL_SPEEDS", 100),
+    signals = [
+      # sig_name, sig_address
+      ("LEFT_BLINK", "BLINK_INFO"),
+      ("RIGHT_BLINK", "BLINK_INFO"),
+      ("HIGH_BEAMS", "BLINK_INFO"),
+      ("STEER_ANGLE", "STEER"),
+      ("STEER_ANGLE_RATE", "STEER_RATE"),
+      ("LKAS_BLOCK", "STEER_RATE"),
+      ("STEER_TORQUE_SENSOR", "STEER_TORQUE"),
+      ("STEER_TORQUE_MOTOR", "STEER_TORQUE"),
+      ("FL", "WHEEL_SPEEDS"),
+      ("FR", "WHEEL_SPEEDS"),
+      ("RL", "WHEEL_SPEEDS"),
+      ("RR", "WHEEL_SPEEDS"),
+      ("BRAKE_ON", "PEDALS"),
+      ("GEAR", "GEAR"),
+      ("GEAR_BOX", "GEAR"),
+      ("SPEED", "ENGINE_DATA"),
+      ("PEDAL_GAS", "ENGINE_DATA"),
+      ("RPM", "ENGINE_DATA"),
+      ("DRIVER_SEATBELT", "SEATBELT"),
+      ("FL", "DOORS"),
+      ("FR", "DOORS"),
+      ("BL", "DOORS"),
+      ("BR", "DOORS"),
+      ("BRAKE_PRESSURE", "BRAKE"),
+      # Cruise state
+      ("CRZ_ACTIVE", "CRZ_CTRL"),
+      ("CRZ_READY", "CRZ_CTRL"),
+      ("CRUISE_SPEED", "CRZ_CTRL"),
+      ("RESUME_READY", "CRZ_CTRL"),
+      ("SET_ALLOW", "CRZ_CTRL"),
+      ("ACC_ACTIVE", "CRZ_CTRL"),
+      ("DISTANCE_SETTING", "CRZ_CTRL"),
+      # BSM
+      ("LEFT_BS_STATUS", "BSM"),
+      ("RIGHT_BS_STATUS", "BSM"),
+      # Cruise buttons
+      ("SET_P", "CRZ_BTNS"),
+      ("SET_M", "CRZ_BTNS"),
+      ("RES", "CRZ_BTNS"),
+      ("CANCEL", "CRZ_BTNS"),
+      ("DISTANCE_LESS", "CRZ_BTNS"),
+      ("MPH_UNIT", "CRZ_BTNS"),  # 是否使用MPH单位
     ]
 
-    if CP.flags & MazdaFlags.GEN1:
-      pt_messages += [
-        ("ENGINE_DATA", 100),
-        ("CRZ_CTRL", 50),
-        ("CRZ_EVENTS", 50),
-        ("CRZ_BTNS", 10),
-        ("PEDALS", 50),
-        ("BRAKE", 50),
-        ("SEATBELT", 10),
-        ("DOORS", 10),
-        ("GEAR", 20),
-        ("BSM", 10),
-      ]
+    checks = [
+      # sig_address, frequency
+      ("BLINK_INFO", 10),
+      ("STEER", 80),
+      ("STEER_RATE", 80),
+      ("STEER_TORQUE", 80),
+      ("WHEEL_SPEEDS", 80),
+      ("PEDALS", 80),
+      ("GEAR", 40),
+      ("ENGINE_DATA", 100),
+      ("SEATBELT", 10),
+      ("DOORS", 10),
+      ("BRAKE", 50),
+      ("CRZ_CTRL", 50),
+      ("BSM", 10),
+      ("CRZ_BTNS", 10),
+    ]
 
-    cam_messages = []
-    if CP.flags & MazdaFlags.GEN1:
-      cam_messages += [
-        # sig_address, frequency
-        ("CAM_LANEINFO", 2),
-        ("CAM_LKAS", 16),
-      ]
+    # Camera measurements are at 60Hz
+    cam_signals = [
+      # sig_name, sig_address
+      ("BIT_1", "CAM_LKAS"),
+      ("ERR_BIT_1", "CAM_LKAS"),
+      ("LINE_NOT_VISIBLE", "CAM_LKAS"),
+      ("LDW", "CAM_LKAS"),
+      ("ERR_BIT_2", "CAM_LKAS"),
+      # Lane info
+      ("LINE_VISIBLE", "CAM_LANEINFO"),
+      ("LINE_NOT_VISIBLE", "CAM_LANEINFO"),
+      ("LANE_LINES", "CAM_LANEINFO"),
+      ("BIT1", "CAM_LANEINFO"),
+      ("BIT2", "CAM_LANEINFO"),
+      ("BIT3", "CAM_LANEINFO"),
+      ("NO_ERR_BIT", "CAM_LANEINFO"),
+      ("S1", "CAM_LANEINFO"),
+      ("S1_HBEAM", "CAM_LANEINFO"),
+      ("HANDS_WARN_3_BITS", "CAM_LANEINFO"),
+      ("HANDS_ON_STEER_WARN", "CAM_LANEINFO"),
+      ("HANDS_ON_STEER_WARN_2", "CAM_LANEINFO"),
+      ("LDW_WARN_LL", "CAM_LANEINFO"),
+      ("LDW_WARN_RL", "CAM_LANEINFO"),
+    ]
 
-    return {
-      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
-      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
-    }
+    cam_checks = [
+      # sig_address, frequency
+      ("CAM_LKAS", 16),
+      ("CAM_LANEINFO", 2),
+    ]
+
+    return [
+      # pt = powertrain bus
+      CANParser(DBC[CP.carFingerprint][Bus.pt], signals, checks, Bus.pt),
+      # cam = camera bus
+      CANParser(DBC[CP.carFingerprint][Bus.pt], cam_signals, cam_checks, Bus.cam),
+      # body = radar bus
+      None,
+    ]
