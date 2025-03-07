@@ -34,6 +34,8 @@ class CarController(CarControllerBase):
     self.resume_count = 0  # 用于跟踪恢复巡航的尝试次数
     self.resume_delay = 0  # 恢复巡航的延迟计数器
     self.set_speed_counter = 0  # 速度调整计数器
+    self.last_cruise_enabled = False  # 跟踪上次巡航状态
+    self.target_speed = 0  # 缓存目标速度
 
   def update(self, CC, CS, now_nanos):
     if self.frame % 50 == 0:
@@ -71,71 +73,104 @@ class CarController(CarControllerBase):
         button_interval = self.frame - self.last_button_frame
         can_send_button = button_interval >= 10  # 至少100ms间隔
 
-        # Mazda Stop and Go需要在车辆停止超过3秒后按下RES按钮
-        if CC.cruiseControl.resume and CS.out.standstill and can_send_button:
-          self.resume_delay += 1
-          # 只有在延迟足够后才发送RESUME按钮，避免过于频繁发送
-          if self.resume_delay >= 5:  # 约50ms * 5 = 250ms
-            self.button_counter = (self.button_counter + 1) % 16
-            can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.RESUME))
-            self.last_button_frame = self.frame
-            self.resume_delay = 0
-            self.resume_count += 1
+        # 检测巡航状态变化
+        cruise_state_changed = self.last_cruise_enabled != CS.out.cruiseState.enabled
+        self.last_cruise_enabled = CS.out.cruiseState.enabled
+
+        # 恢复巡航功能 - 处理两种情况：1.静止状态需要恢复 2.巡航状态丢失需要恢复
+        resume_needed = False
+        if CS.out.standstill and CC.cruiseControl.resume:
+            # 静止状态需要恢复巡航
+            resume_needed = True
+        elif cruise_state_changed and not CS.out.cruiseState.enabled and CC.enabled:
+            # 巡航状态丢失需要恢复
+            resume_needed = True
+        elif CC.cruiseControl.resume and not CS.out.cruiseState.enabled and CC.enabled:
+            # 明确要求恢复巡航
+            resume_needed = True
+
+        if resume_needed and can_send_button:
+            self.resume_delay += 1
+            # 只有在延迟足够后才发送RESUME按钮，避免过于频繁发送
+            if self.resume_delay >= 5:  # 约50ms * 5 = 250ms
+                self.button_counter = (self.button_counter + 1) % 16
+                can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.RESUME))
+                self.last_button_frame = self.frame
+                self.resume_delay = 0
+                self.resume_count += 1
         else:
-          self.resume_delay = 0
+            self.resume_delay = 0
 
         # 自动调节巡航速度，避免频繁发送调整命令
         if can_send_button and CC.enabled and CS.out.cruiseState.enabled:
-          # 减少速度调整频率，只在每20帧时检查并且使用计数器限制调整速率
-          if self.frame % 20 == 0 and self.set_speed_counter == 0:
-            # 获取目标速度和当前速度
-            set_speed_in_units = CC.hudControl.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
-            target = int(round(set_speed_in_units / 5.0) * 5.0)  # 四舍五入到最接近的5
-            current = int(round(CS.out.cruiseState.speed * CV.MS_TO_KPH / 5.0) * 5.0)
+            # 减少速度调整频率，只在每20帧时检查并且使用计数器限制调整速率
+            if self.frame % 20 == 0 and self.set_speed_counter == 0:
+                # 安全获取目标速度和当前速度，确保单位正确
+                try:
+                    # 获取目标速度
+                    set_speed_in_units = CC.hudControl.setSpeed
+                    # 确保速度单位一致（公制或英制）
+                    if set_speed_in_units > 0:
+                        conversion = CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH
+                        set_speed_in_units *= conversion
+                        target = int(round(set_speed_in_units / 5.0) * 5.0)  # 四舍五入到最接近的5
 
-            # 设置速度差阈值，避免小的波动触发调整
-            speed_diff = abs(target - current)
-            if speed_diff >= 5:  # 至少5km/h差异才调整
-              # 根据目标速度和当前速度决定是增加还是减少速度
-              if target < current and current >= 31:
-                self.button_counter = (self.button_counter + 1) % 16
-                can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.SET_MINUS))
-                self.last_button_frame = self.frame
-                self.set_speed_counter = 3  # 设置计数器，限制调整频率
-              elif target > current and current < 160:
-                self.button_counter = (self.button_counter + 1) % 16
-                can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.SET_PLUS))
-                self.last_button_frame = self.frame
-                self.set_speed_counter = 3  # 设置计数器，限制调整频率
+                        # 获取当前速度
+                        current_speed = CS.out.cruiseState.speed
+                        if current_speed > 0:
+                            current = int(round(current_speed * conversion / 5.0) * 5.0)
+
+                            # 缓存目标速度供后续使用
+                            self.target_speed = target
+
+                            # 设置速度差阈值，避免小的波动触发调整
+                            speed_diff = abs(target - current)
+                            if speed_diff >= 5:  # 至少5km/h或5mph差异才调整
+                                # 根据目标速度和当前速度决定是增加还是减少速度
+                                if target < current and current >= 31:
+                                    self.button_counter = (self.button_counter + 1) % 16
+                                    can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.SET_MINUS))
+                                    self.last_button_frame = self.frame
+                                    self.set_speed_counter = 3  # 设置计数器，限制调整频率
+                                elif target > current and current < 160:
+                                    self.button_counter = (self.button_counter + 1) % 16
+                                    can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.SET_PLUS))
+                                    self.last_button_frame = self.frame
+                                    self.set_speed_counter = 3  # 设置计数器，限制调整频率
+                except (TypeError, AttributeError, ValueError) as e:
+                    # 如果出现任何异常，不执行速度调整
+                    pass
 
         # 计数器递减
         if self.set_speed_counter > 0:
-          self.set_speed_counter -= 1
+            self.set_speed_counter -= 1
 
-      # 自动激活巡航功能
-      if CC.enabled and not CS.out.cruiseState.enabled and can_send_button:
-        v_ego_kph = CS.out.vEgo * CV.MS_TO_KPH
-        cant_activate = CS.out.brakePressed or CS.out.gasPressed
+        # 自动激活巡航功能
+        if CC.enabled and not CS.out.cruiseState.enabled and can_send_button:
+            v_ego_kph = CS.out.vEgo * CV.MS_TO_KPH
+            cant_activate = CS.out.brakePressed or CS.out.gasPressed
 
-        # 只有当速度足够且没有按下刹车或油门时才尝试激活
-        if (CC.hudControl.leadVisible or v_ego_kph > 10.0) and not cant_activate and self.frame % 50 == 0:
-          self.button_counter = (self.button_counter + 1) % 16
-          can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.RESUME))
-          self.last_button_frame = self.frame
+            # 只有当速度足够且没有按下刹车或油门时才尝试激活
+            if (CC.hudControl.leadVisible or v_ego_kph > 10.0) and not cant_activate and self.frame % 50 == 0:
+                self.button_counter = (self.button_counter + 1) % 16
+                can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.button_counter, Buttons.RESUME))
+                self.last_button_frame = self.frame
 
     self.apply_steer_last = apply_steer
 
     # send HUD alerts
     if self.frame % 50 == 0:
-      ldw = CC.hudControl.visualAlert == VisualAlert.ldw
-      steer_required = CC.hudControl.visualAlert == VisualAlert.steerRequired
-      # TODO: find a way to silence audible warnings so we can add more hud alerts
-      steer_required = steer_required and CS.lkas_allowed_speed
-      can_sends.append(mazdacan.create_alert_command(self.packer, CS.cam_laneinfo, ldw, steer_required))
+        ldw = CC.hudControl.visualAlert == VisualAlert.ldw
+        steer_required = CC.hudControl.visualAlert == VisualAlert.steerRequired
+        # TODO: find a way to silence audible warnings so we can add more hud alerts
+        steer_required = steer_required and CS.lkas_allowed_speed
+        cam_laneinfo = getattr(CS, 'cam_laneinfo', {})
+        can_sends.append(mazdacan.create_alert_command(self.packer, cam_laneinfo, ldw, steer_required))
 
     # send steering command
+    cam_lkas = getattr(CS, 'cam_lkas', {})
     can_sends.append(mazdacan.create_steering_control(self.packer, self.CP,
-                                                      self.frame, apply_steer, CS.cam_lkas))
+                                                    self.frame, apply_steer, cam_lkas))
 
     new_actuators = CC.actuators.as_builder()
     new_actuators.steer = apply_steer / CarControllerParams.STEER_MAX
