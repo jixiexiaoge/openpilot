@@ -244,12 +244,11 @@ QPixmap bootstrapPixmap(const QString &id) {
   return pixmap;
 }
 
-bool hasLongitudinalControl(const cereal::CarParams::Reader &car_params) {
-  // Using the experimental longitudinal toggle, returns whether longitudinal control
-  // will be active without needing a restart of openpilot
-  return car_params.getExperimentalLongitudinalAvailable()
-             ? Params().getBool("ExperimentalLongitudinalEnabled")
-             : car_params.getOpenpilotLongitudinalControl();
+bool hasLongitudinalControl(const cereal::CarParams::Reader &CP) {
+  // 移除对experimentalLongitudinalAvailable的检查
+  // 只要ExperimentalLongitudinalEnabled为true，就允许使用实验性纵向控制
+  return CP.getOpenpilotLongitudinalControl() ||
+         (/*CP.getExperimentalLongitudinalAvailable() && */Params().getBool("ExperimentalLongitudinalEnabled"));
 }
 
 // ParamWatcher

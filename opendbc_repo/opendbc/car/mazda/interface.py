@@ -29,8 +29,11 @@ class CarInterface(CarInterfaceBase):
 
     ret.dashcamOnly = candidate not in (CAR.MAZDA_CX5_2022, CAR.MAZDA_CX9_2021)
 
-    # 增加对纵向控制的支持
-    ret.openpilotLongitudinalControl = True
+    # 允许实验性纵向控制
+    ret.experimentalLongitudinalAvailable = True
+
+    # 增加对纵向控制的支持，根据experimental_long参数决定是否启用
+    ret.openpilotLongitudinalControl = experimental_long
 
     # 增加纵向控制的调整参数 - 优化PID参数
     ret.longitudinalTuning.kpBP = [0., 5., 15., 35.]

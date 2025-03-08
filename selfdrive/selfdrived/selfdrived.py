@@ -95,11 +95,18 @@ class SelfdriveD:
 
     car_recognized = self.CP.brand != 'mock'
 
-    # cleanup old params
-    if not self.CP.experimentalLongitudinalAvailable:
-      self.params.remove("ExperimentalLongitudinalEnabled")
-    if not self.CP.openpilotLongitudinalControl:
-      self.params.remove("ExperimentalMode")
+    # 移除对实验性功能的限制检查
+    # 注释掉原有代码，以便所有车型都可以启用实验模式
+    # 原本的代码会根据车型移除不支持的参数
+    # if not self.CP.experimentalLongitudinalAvailable:
+    #   self.params.remove("ExperimentalLongitudinalEnabled")
+    # if not self.CP.openpilotLongitudinalControl:
+    #   self.params.remove("ExperimentalMode")
+
+    # 强制启用实验性纵向控制可用性
+    if not hasattr(self.CP, 'experimentalLongitudinalAvailable') or not self.CP.experimentalLongitudinalAvailable:
+      print("注意: 强制启用实验性纵向控制可用性")
+      self.CP.experimentalLongitudinalAvailable = True
 
     self.CS_prev = car.CarState.new_message()
     self.AM = AlertManager()
@@ -335,7 +342,7 @@ class SelfdriveD:
         self.events.add(EventName.locationdTemporaryError)
       if not self.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY):
         self.events.add(EventName.paramsdTemporaryError)
-        
+
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
     if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets):
       self.events.add(EventName.sensorDataInvalid)
