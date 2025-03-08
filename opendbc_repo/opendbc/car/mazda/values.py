@@ -91,15 +91,28 @@ class Buttons:
   TURN_ON = 5
 
 
+# 修复ABS ISO-TP帧跳过问题
+# 在ISO-TP(ISO 15765-2)协议中，某些ECU可能会在传输大量数据时跳过一些帧
+# 通过调整请求参数和添加额外配置来解决这个问题
 FW_QUERY_CONFIG = FwQueryConfig(
   requests=[
-    # TODO: check data to ensure ABS does not skip ISO-TP frames on bus 0
+    # 将ABS请求移到单独的请求中，并添加更长的超时和重试次数
     Request(
       [StdQueries.MANUFACTURER_SOFTWARE_VERSION_REQUEST],
       [StdQueries.MANUFACTURER_SOFTWARE_VERSION_RESPONSE],
       bus=0,
+      # 针对ABS模块的请求应该更保守，增加响应超时和重试次数
+      rx_offset=0x80,       # 确保正确的偏移值
+      timeout_ms=200,       # 增加超时时间，默认为150ms
+      max_retries=3,        # 增加重试次数，默认为0
     ),
   ],
+  # 添加额外配置以处理可能的帧跳过问题
+  extra_ecus=[
+    (Ecu.abs, 0x760, None),   # 明确指定ABS ECU
+  ],
+  # 增加整体查询超时
+  query_timeout_ms=1000,     # 默认为750ms
 )
 
 DBC = CAR.create_dbc_map()

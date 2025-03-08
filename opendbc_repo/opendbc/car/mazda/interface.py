@@ -10,6 +10,19 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, experimental_long, docs) -> structs.CarParams:
+    """获取车辆参数配置
+
+    Args:
+        ret: 车辆参数对象
+        candidate: 车型候选
+        fingerprint: 车辆特征码
+        car_fw: 车辆固件信息
+        experimental_long: 是否启用实验性纵向控制
+        docs: 文档信息
+
+    Returns:
+        structs.CarParams: 配置好的车辆参数对象
+    """
     ret.brand = "mazda"
     ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.mazda)]
     ret.radarUnavailable = True
@@ -46,11 +59,14 @@ class CarInterface(CarInterfaceBase):
     ret.steerActuatorDelay = 0.1
     ret.steerLimitTimer = 0.8
 
+    # 配置转向力矩参数
     CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
 
+    # 设置最小转向速度（部分车型）
     if candidate not in (CAR.MAZDA_CX5_2022,):
       ret.minSteerSpeed = LKAS_LIMITS.DISABLE_SPEED * CV.KPH_TO_MS
 
+    # 车辆重心位置（相对于车轮轴）
     ret.centerToFront = ret.wheelbase * 0.41
 
     return ret
@@ -59,12 +75,12 @@ class CarInterface(CarInterfaceBase):
     """更新车辆状态信息和事件
 
     参数:
-      c: 控制命令
-      frogpilot_toggles: frogpilot切换状态，默认为None
+        c: 控制命令
+        frogpilot_toggles: frogpilot切换状态，默认为None
 
     返回:
-      ret: 车辆状态信息
-      fp_ret: frogpilot状态信息，默认为None
+        ret: 车辆状态信息
+        fp_ret: frogpilot状态信息，默认为None
     """
     try:
       # 确保正确处理frogpilot_toggles参数
@@ -84,12 +100,17 @@ class CarInterface(CarInterfaceBase):
       elif hasattr(self.CS, 'low_speed_alert') and self.CS.low_speed_alert:
         events.add(structs.CarEvent.EventName.belowSteerSpeed)
 
+      # 添加事件到返回值
       ret.events = events.to_msg()
 
       return ret, fp_ret
     except Exception as e:
       # 捕获任何异常，确保不会导致系统崩溃
       # 在生产环境中应记录异常信息
+      import traceback
+      print(f"Mazda interface update error: {e}")
+      print(traceback.format_exc())
+
       # 返回一个基本的CarState对象以保持系统运行
       ret = structs.CarState.new_message()
       fp_ret = None

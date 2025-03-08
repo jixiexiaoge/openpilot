@@ -26,11 +26,11 @@ def create_steering_control(packer, CP, frame, apply_steer, lkas):
   lo = tmp & 0xFF
   hi = tmp >> 8
 
-  # copy values from camera - 添加安全获取
+  # 安全获取LKAS数据，使用get方法避免KeyError
   b1 = int(lkas.get("BIT_1", 0))
   er1 = int(lkas.get("ERR_BIT_1", 0))
-  lnv = 0
-  ldw = 0
+  lnv = int(lkas.get("LINE_NOT_VISIBLE", 0))
+  ldw = int(lkas.get("LDW", 0))
   er2 = int(lkas.get("ERR_BIT_2", 0))
 
   # Some older models do have these, newer models don't.
