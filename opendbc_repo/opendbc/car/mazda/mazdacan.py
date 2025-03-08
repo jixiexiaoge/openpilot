@@ -138,6 +138,10 @@ def create_button_cmd(packer, CP, counter, button):
   Returns:
       packer.make_can_msg: 打包好的按钮命令CAN消息，如果不支持则返回None
   """
+  # 检查输入参数合法性
+  if packer is None or CP is None:
+    return None
+
   # 确保button是有效的按钮值
   if button not in [Buttons.NONE, Buttons.SET_PLUS, Buttons.SET_MINUS,
                    Buttons.RESUME, Buttons.CANCEL, Buttons.TURN_ON]:
@@ -154,7 +158,7 @@ def create_button_cmd(packer, CP, counter, button):
   turn_on = int(button == Buttons.TURN_ON)
 
   # 检查车辆标志
-  if CP.flags & MazdaFlags.GEN1:
+  if hasattr(CP, 'flags') and CP.flags & MazdaFlags.GEN1:
     # 设置按钮值及其反转值，确保符合Mazda的CAN协议
     values = {
       "CAN_OFF": can,
@@ -190,7 +194,11 @@ def create_button_cmd(packer, CP, counter, button):
       "CTR": (counter + 1) % 16,  # 计数器递增并循环
     }
 
-    return packer.make_can_msg("CRZ_BTNS", 0, values)
+    try:
+      return packer.make_can_msg("CRZ_BTNS", 0, values)
+    except Exception as e:
+      print(f"Error creating button command: {e}")
+      return None
 
   # 如果CP.flags不包含MazdaFlags.GEN1，则返回None
   return None
