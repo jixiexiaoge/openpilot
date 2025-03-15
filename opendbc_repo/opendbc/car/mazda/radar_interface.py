@@ -43,6 +43,7 @@ def create_radar_can_parser(car_fingerprint):
     # 创建并返回配置好的CAN解析器
     try:
         logger.info(f"初始化马自达雷达接口，使用DBC: {DBC[car_fingerprint][Bus.radar]}")
+        # 使用主CAN总线解析雷达数据
         return CANParser(DBC[car_fingerprint][Bus.radar], messages, CanBus.main)
     except Exception as e:
         logger.error(f"创建雷达CAN解析器失败：{e}")

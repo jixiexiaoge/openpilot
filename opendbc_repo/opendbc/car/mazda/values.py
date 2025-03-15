@@ -10,6 +10,14 @@ from opendbc.car.fw_query_definitions import FwQueryConfig, Request, StdQueries
 Ecu = CarParams.Ecu
 
 
+# CAN 总线定义
+class CanBus:
+  main = 0    # 主CAN总线
+  radar = 1   # 雷达CAN总线
+  camera = 2  # 相机CAN总线
+  chassis = 3 # 底盘CAN总线
+
+
 # Steer torque limits
 
 class CarControllerParams:
