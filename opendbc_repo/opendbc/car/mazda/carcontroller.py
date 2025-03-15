@@ -1,15 +1,37 @@
 from opendbc.can.packer import CANPacker
-from opendbc.car import Bus, apply_driver_steer_torque_limits, structs
+from opendbc.car import Bus, apply_driver_steer_torque_limits, structs, DT_CTRL
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.mazda import mazdacan
 from opendbc.car.mazda.values import CarControllerParams, Buttons
 from opendbc.car.common.conversions import Conversions as CV
 from openpilot.common.params import Params
-from openpilot.common.realtime import ControlsTimer as Timer, DT_CTRL
 from openpilot.common.filter_simple import FirstOrderFilter
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
+
+
+# 实现一个简单的计时器类，替代原有的ControlsTimer
+class Timer:
+  def __init__(self, duration):
+    self.duration = duration
+    self.t = 0.0
+    self.is_active = False
+
+  def reset(self):
+    self.t = 0.0
+    self.is_active = True
+
+  def update(self, increment):
+    if self.is_active:
+      self.t += increment
+      if self.t >= self.duration:
+        self.is_active = False
+        return True
+    return False
+
+  def check(self):
+    return self.is_active and self.t >= self.duration
 
 
 class CarController(CarControllerBase):

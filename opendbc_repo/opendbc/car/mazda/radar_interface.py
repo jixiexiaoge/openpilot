@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import math
+import logging
 
 from opendbc.can.parser import CANParser
 from opendbc.car import Bus, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.mazda.values import DBC, CanBus, MazdaFlags
 from opendbc.car.interfaces import RadarInterfaceBase
+
+# 设置日志
+logger = logging.getLogger(__name__)
 
 # 根据 mazda_radar.dbc 文件定义的雷达跟踪消息 ID
 RADAR_TRACK_MSGS = list(range(865, 871))  # 从 RADAR_TRACK_361 到 RADAR_TRACK_366
@@ -21,7 +25,8 @@ def create_radar_can_parser(car_fingerprint):
         CANParser: 配置好的雷达CAN解析器，如果不支持雷达则返回None
     """
     # 检查是否有雷达DBC定义
-    if car_fingerprint not in DBC or 'radar' not in DBC[car_fingerprint]:
+    if car_fingerprint not in DBC or Bus.radar not in DBC[car_fingerprint]:
+        logger.warning(f"雷达DBC未找到，车型: {car_fingerprint}")
         return None
 
     signals = []
@@ -37,9 +42,10 @@ def create_radar_can_parser(car_fingerprint):
 
     # 创建并返回配置好的CAN解析器
     try:
-        return CANParser(DBC[car_fingerprint][Bus.pt], messages, CanBus.main)
+        logger.info(f"初始化马自达雷达接口，使用DBC: {DBC[car_fingerprint][Bus.radar]}")
+        return CANParser(DBC[car_fingerprint][Bus.radar], messages, CanBus.main)
     except Exception as e:
-        print(f"创建雷达CAN解析器失败：{e}")
+        logger.error(f"创建雷达CAN解析器失败：{e}")
         return None
 
 
@@ -98,10 +104,12 @@ class RadarInterface(RadarInterfaceBase):
             # 检查CAN总线状态
             if not self.rcp.can_valid:
                 errors.append("canError")
+                logger.warning("雷达CAN总线通信错误")
             ret.errors = errors
 
             # 跟踪当前帧中的有效目标
             current_targets = set()
+            valid_targets_count = 0  # 计数有效目标
 
             # 遍历所有雷达跟踪消息进行处理
             for track_msg in self.updated_messages:
@@ -122,23 +130,30 @@ class RadarInterface(RadarInterfaceBase):
                     angle = msg.get('ANG_OBJ', self.INVALID_ANGLE)
                     rel_vel = msg.get('RELV_OBJ', self.INVALID_REL_VEL)
 
-                    valid = (distance != self.INVALID_DISTANCE and
-                             angle != self.INVALID_ANGLE and
-                             rel_vel != self.INVALID_REL_VEL)
+                    # 单位转换
+                    distance_m = distance / 16  # 距离单位转换(cm -> m)
+                    angle_deg = angle / 64      # 角度值
+                    rel_vel_ms = rel_vel / 16   # 速度单位转换
 
-                    # 额外合理性检查：距离和速度在合理范围内
+                    # 详细的有效性检查
+                    valid = (distance != self.INVALID_DISTANCE and
+                            angle != self.INVALID_ANGLE and
+                            rel_vel != self.INVALID_REL_VEL)
+
+                    # 额外合理性检查：确保转换后的值在物理上合理
                     if valid:
                         # 距离应在0.1-200米范围内
-                        distance_m = distance / 16
                         if not (0.1 <= distance_m <= 200):
+                            logger.debug(f"雷达目标距离无效: {distance_m}m")
                             valid = False
 
                         # 相对速度应在-100至100 m/s范围内
-                        rel_vel_ms = rel_vel / 16
                         if not (-100 <= rel_vel_ms <= 100):
+                            logger.debug(f"雷达目标相对速度无效: {rel_vel_ms}m/s")
                             valid = False
 
                     if valid:
+                        valid_targets_count += 1
                         # 使用消息ID作为目标跟踪ID
                         addr = track_msg
                         current_targets.add(addr)
@@ -168,8 +183,12 @@ class RadarInterface(RadarInterfaceBase):
                         self.pts[addr].jLead = float('nan')
 
                 except (KeyError, ValueError, TypeError) as e:
-                    # 处理消息解析错误，继续处理下一个消息
+                    logger.error(f"处理雷达消息错误: {e}, 消息ID: {track_msg}")
                     continue
+
+            # 记录有效目标数量
+            if valid_targets_count > 0:
+                logger.debug(f"当前帧检测到 {valid_targets_count} 个有效雷达目标")
 
             # 删除消失的目标
             for old_target in list(self.pts.keys()):
