@@ -109,8 +109,6 @@ FW_QUERY_CONFIG = FwQueryConfig(
   extra_ecus=[
     (Ecu.abs, 0x760, None),   # 明确指定ABS ECU
   ],
-  # 增加整体查询超时
-  query_timeout_ms=1000,     # 默认为750ms
 )
 
 DBC = CAR.create_dbc_map()
