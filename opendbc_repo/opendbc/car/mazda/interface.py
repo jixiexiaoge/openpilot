@@ -40,8 +40,10 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalTuning.kpV = [1.2, 0.9, 0.7, 0.6]
     ret.longitudinalTuning.kiBP = [0., 5., 12., 35.]
     ret.longitudinalTuning.kiV = [0.32, 0.22, 0.16, 0.09]
-    ret.longitudinalTuning.kdBP = [0., 5., 35.]  # 更精细的kd控制
-    ret.longitudinalTuning.kdV = [0.5, 0.4, 0.3]  # 较低速度时更高的微分增益以提高稳定性
+
+    # 注意: 以下kdBP和kdV设置在当前openpilot版本中不可用
+    # ret.longitudinalTuning.kdBP = [0., 5., 35.]  # 更精细的kd控制
+    # ret.longitudinalTuning.kdV = [0.5, 0.4, 0.3]  # 较低速度时更高的微分增益以提高稳定性
 
     # 调整停车和起步参数
     ret.stopAccel = -0.7  # 更积极的停车减速度
