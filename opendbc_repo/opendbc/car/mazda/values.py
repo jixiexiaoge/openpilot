@@ -103,8 +103,6 @@ FW_QUERY_CONFIG = FwQueryConfig(
       bus=0,
       # 针对ABS模块的请求应该更保守，增加响应超时和重试次数
       rx_offset=0x80,       # 确保正确的偏移值
-      timeout_ms=200,       # 增加超时时间，默认为150ms
-      max_retries=3,        # 增加重试次数，默认为0
     ),
   ],
   # 添加额外配置以处理可能的帧跳过问题
