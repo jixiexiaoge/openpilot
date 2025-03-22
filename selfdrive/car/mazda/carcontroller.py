@@ -21,6 +21,17 @@ class CarController(CarControllerBase):
     self.packer = CANPacker(dbc_name)
     self.brake_counter = 0
     self.frame = 0
+    self.low_speed_mode_active = False
+    self.real_target_speed = 0
+    # 最低速度限制（单位：km/h）
+    self.MIN_ALLOWED_SPEED = 15.0
+    # MRCC最低支持速度（单位：km/h）
+    self.MRCC_MIN_SPEED = 30.0
+    # 用于平滑减速的比例控制参数
+    self.DECEL_FACTOR_NORMAL = 0.01  # 正常减速系数
+    self.DECEL_FACTOR_GENTLE = 0.005  # 接近目标速度时的减速系数
+    self.SMOOTH_THRESHOLD = 2.0      # 平滑减速阈值 (km/h)
+    self.MAX_DECEL_LIMIT = 0.1       # 最大减速限制
 
   def update(self, CC, CS, now_nanos, frogpilot_variables):
     hud_control = CC.hudControl
@@ -29,6 +40,9 @@ class CarController(CarControllerBase):
       hud_v_cruise = 0
     actuators = CC.actuators
     accel = actuators.accel
+
+    # 获取当前速度（km/h）
+    current_speed = CS.out.vEgo * CV.MS_TO_KPH
 
     can_sends = []
 
@@ -41,6 +55,9 @@ class CarController(CarControllerBase):
                                                      CS.out.steeringTorque, CarControllerParams)
 
     if CC.cruiseControl.cancel:
+      # 取消低速控制模式
+      self.low_speed_mode_active = False
+
       # If brake is pressed, let us wait >70ms before trying to disable crz to avoid
       # a race condition with the stock system, where the second cancel from openpilot
       # will disable the crz 'main on'. crz ctrl msg runs at 50hz. 70ms allows us to
@@ -59,7 +76,47 @@ class CarController(CarControllerBase):
       # ACC Spam
       elif frogpilot_variables.CSLC:
         if CC.enabled and self.frame % 10 == 0 and CS.cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not CS.distance_button:
+          # 获取OpenPilot请求的设定速度
           slcSet = get_set_speed(self, hud_v_cruise)
+          target_speed_kph = slcSet * CV.MS_TO_KPH
+
+          # 确保目标速度不低于最低允许速度
+          target_speed_kph = max(target_speed_kph, self.MIN_ALLOWED_SPEED)
+
+          # 存储原始目标速度用于控制
+          self.real_target_speed = target_speed_kph
+
+          # 处理低速控制逻辑
+          original_accel = accel  # 保存原始加速度值
+
+          if target_speed_kph < self.MRCC_MIN_SPEED and target_speed_kph >= self.MIN_ALLOWED_SPEED:
+            # 激活低速模式
+            self.low_speed_mode_active = True
+
+            # 计算需要的减速力度（基于当前速度和目标速度的差值）
+            speed_diff = current_speed - target_speed_kph
+
+            # 只有当当前速度高于目标速度时才施加额外的减速
+            if speed_diff > 0:
+              # 比例控制，速度差越大，减速越强
+              if speed_diff < self.SMOOTH_THRESHOLD:
+                # 接近目标速度时，使用更温和的减速系数
+                decel_factor = self.DECEL_FACTOR_GENTLE * speed_diff
+              else:
+                # 正常减速
+                decel_factor = min(self.DECEL_FACTOR_NORMAL * speed_diff, self.MAX_DECEL_LIMIT)
+
+              # 应用减速
+              accel = accel - decel_factor
+
+            # 将slcSet提高到MRCC最低限速，以保持MRCC激活
+            # 转换为m/s用于发送给ACC系统
+            slcSet = self.MRCC_MIN_SPEED / CV.MS_TO_KPH
+          else:
+            # 不在低速控制范围内，退出低速模式
+            self.low_speed_mode_active = False
+
+          # 创建和发送ACC命令
           can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_variables, accel))
 
     self.apply_steer_last = apply_steer
