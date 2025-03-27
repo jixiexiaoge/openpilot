@@ -2,32 +2,73 @@ from openpilot.selfdrive.car.mazda.values import Buttons, MazdaFlags
 from openpilot.common.conversions import Conversions as CV
 
 def create_steering_control(packer, CP, frame, apply_steer, lkas):
-    tmp = apply_steer + 2048
+    # 基础安全检查
+    if not isinstance(lkas, dict):
+        return None
 
-    # 增加安全检查
-    MAX_STEER_DELTA = 100  # 每次转向变化的最大值
-    if abs(apply_steer) > abs(lkas.steer_torque):
-        apply_steer = max(min(apply_steer, lkas.steer_torque + MAX_STEER_DELTA), 
-                         lkas.steer_torque - MAX_STEER_DELTA)
-    
+    # 转向力矩限制和平滑处理
+    MAX_STEER = 2047
+    MAX_RATE_UP = 10    # 每帧最大增加值
+    MAX_RATE_DOWN = 25  # 每帧最大减少值
+
     # 确保转向值在安全范围内
-    apply_steer = max(min(apply_steer, 2047), -2048)
-    
-    # 添加平滑过渡
-    if frame % 2 == 0:  # 降低控制频率，使转向更平滑
-        tmp = apply_steer + 2048
-    else:
-        return None  # 跳过此帧的转向控制
+    apply_steer = max(min(apply_steer, MAX_STEER), -MAX_STEER)
 
+    # 计算实际转向值
+    tmp = apply_steer + 2048
+    lo = tmp & 0xFF
+    hi = tmp >> 8
+
+    # 从相机获取状态值
+    b1 = int(lkas.get("BIT_1", 0))
+    er1 = int(lkas.get("ERR_BIT_1", 0))
+    lnv = int(lkas.get("LINE_NOT_VISIBLE", 0))
+    ldw = int(lkas.get("LDW", 0))
+    er2 = int(lkas.get("ERR_BIT_2", 0))
+
+    # 转向角度处理
+    steering_angle = 0
+    b2 = 0
+    tmp_angle = steering_angle + 2048
+    ahi = tmp_angle >> 10
+    amd = (tmp_angle & 0x3FF) >> 2
+    amd = (amd >> 4) | ((amd & 0xF) << 4)
+    alo = (tmp_angle & 0x3) << 2
+
+    # 计数器和校验和
+    ctr = frame % 16
+
+    # 计算校验和
+    csum = 249 - ctr - hi - lo - (lnv << 3) - er1 - (ldw << 7) - (er2 << 4) - (b1 << 5)
+    csum = csum - ahi - amd - alo - b2
+
+    if ahi == 1:
+        csum = csum + 15
+
+    # 校验和调整
+    if csum < 0:
+        if csum < -256:
+            csum = csum + 512
+        else:
+            csum = csum + 256
+
+    csum = csum % 256
+
+    # 构建消息值
     values = {
-        "LKAS_REQUEST": 1 if lkas.enabled else 0,
+        "LKAS_REQUEST": 1 if lkas.get("LKAS_REQUEST", 0) else 0,
+        "CTR": ctr,
+        "ERR_BIT_1": er1,
+        "LINE_NOT_VISIBLE": lnv,
+        "LDW": ldw,
+        "BIT_1": b1,
+        "ERR_BIT_2": er2,
+        "STEERING_ANGLE": steering_angle,
+        "ANGLE_ENABLED": b2,
+        "CHKSUM": csum,
         "LKAS_STEERING_TORQUE": tmp,
-        "LKAS_HEADING_ANGLE": 0,
-        "SET_1": 1,
-        "COUNTER": frame % 4,
-        "CHECKSUM": 0,
     }
-    
+
     return packer.make_can_msg("CAM_LKAS", 0, values)
 
 

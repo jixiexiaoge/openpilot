@@ -34,15 +34,40 @@ class CarController(CarControllerBase):
 
     apply_steer = 0
 
-    if CS.out.vEgo < 7.0:  # 25km/h
-        CC.latActive = False
-        apply_steer = 0
+    # 转向控制条件检查
+    MIN_SPEED = 7.0  # 25km/h
+    steering_enabled = (
+        CS.out.vEgo > MIN_SPEED and  # 速度检查
+        not CS.out.steerFaultTemporary and  # 无临时故障
+        not CS.out.steerFaultPermanent and  # 无永久故障
+        CS.lkas_allowed_speed and  # LKAS允许速度
+        not CS.out.steerWarning  # 无转向警告
+    )
+
+    if steering_enabled and CC.latActive:
+        # 计算转向力矩并应用限制
+        new_steer = int(round(actuators.steer * CarControllerParams.STEER_MAX))
+
+        # 增加转向渐变限制
+        MAX_RATE_UP = 10    # 每帧最大增加值
+        MAX_RATE_DOWN = 25  # 每帧最大减少值
+
+        if new_steer > self.apply_steer_last:
+            new_steer = min(new_steer, self.apply_steer_last + MAX_RATE_UP)
+        else:
+            new_steer = max(new_steer, self.apply_steer_last - MAX_RATE_DOWN)
+
+        apply_steer = apply_driver_steer_torque_limits(
+            new_steer,
+            self.apply_steer_last,
+            CS.out.steeringTorque,
+            CarControllerParams
+        )
     else:
-      if CC.latActive:
-        # calculate steer and also set limits due to driver torque
-        new_steer = int(round(CC.actuators.steer * CarControllerParams.STEER_MAX))
-        apply_steer = apply_driver_steer_torque_limits(new_steer, self.apply_steer_last,
-                                                       CS.out.steeringTorque, CarControllerParams)
+        apply_steer = 0
+        if not steering_enabled and CC.latActive:
+            # 如果转向控制被禁用但系统仍在尝试控制，发送警告
+            hud_control.visualAlert = VisualAlert.steerRequired
 
     if CC.cruiseControl.cancel:
       # If brake is pressed, let us wait >70ms before trying to disable crz to avoid
@@ -66,8 +91,6 @@ class CarController(CarControllerBase):
           slcSet = get_set_speed(self, hud_v_cruise)
           can_sends.extend(mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, slcSet, CS.out.vEgo, frogpilot_variables, accel))
 
-    self.apply_steer_last = apply_steer
-
     # send HUD alerts
     if self.frame % 50 == 0:
       ldw = CC.hudControl.visualAlert == VisualAlert.ldw
@@ -80,9 +103,19 @@ class CarController(CarControllerBase):
 
       can_sends.append(mazdacan.create_alert_command(self.packer, CS.cam_laneinfo, ldw, steer_required))
 
-    # send steering command
-    can_sends.append(mazdacan.create_steering_control(self.packer, self.CP,
-                                                      self.frame, apply_steer, CS.cam_lkas))
+    # 发送转向控制命令前的最后检查
+    if steering_enabled:
+        steer_cmd = mazdacan.create_steering_control(
+            self.packer,
+            self.CP,
+            self.frame,
+            apply_steer,
+            CS.cam_lkas
+        )
+        if steer_cmd is not None:
+            can_sends.append(steer_cmd)
+
+    self.apply_steer_last = apply_steer
 
     new_actuators = CC.actuators.copy()
     new_actuators.steer = apply_steer / CarControllerParams.STEER_MAX
