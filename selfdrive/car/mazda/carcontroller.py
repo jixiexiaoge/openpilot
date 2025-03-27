@@ -34,11 +34,15 @@ class CarController(CarControllerBase):
 
     apply_steer = 0
 
-    if CC.latActive:
-      # calculate steer and also set limits due to driver torque
-      new_steer = int(round(CC.actuators.steer * CarControllerParams.STEER_MAX))
-      apply_steer = apply_driver_steer_torque_limits(new_steer, self.apply_steer_last,
-                                                     CS.out.steeringTorque, CarControllerParams)
+    if CS.out.vEgo < 7.0:  # 25km/h
+        CC.latActive = False
+        apply_steer = 0
+    else:
+      if CC.latActive:
+        # calculate steer and also set limits due to driver torque
+        new_steer = int(round(CC.actuators.steer * CarControllerParams.STEER_MAX))
+        apply_steer = apply_driver_steer_torque_limits(new_steer, self.apply_steer_last,
+                                                       CS.out.steeringTorque, CarControllerParams)
 
     if CC.cruiseControl.cancel:
       # If brake is pressed, let us wait >70ms before trying to disable crz to avoid
@@ -88,11 +92,20 @@ class CarController(CarControllerBase):
     return new_actuators, can_sends
 
 def get_set_speed(self, hud_v_cruise):
-  v_cruise = min(hud_v_cruise, V_CRUISE_MAX * CV.KPH_TO_MS)
+    # 基础速度限制
+    v_cruise = min(hud_v_cruise, V_CRUISE_MAX * CV.KPH_TO_MS)
 
-  v_cruise_slc: float = 0.
-  v_cruise_slc = params_memory.get_float("CSLCSpeed")
+    # 获取自定义巡航速度
+    v_cruise_slc: float = 0.
+    v_cruise_slc = params_memory.get_float("CSLCSpeed")
 
-  if v_cruise_slc > 0.:
-    v_cruise = v_cruise_slc
-  return v_cruise
+    # 低速控制优化
+    MIN_CONTROL_SPEED = 7.0  # 最小控制速度 (m/s, 约25km/h)
+    if v_cruise < MIN_CONTROL_SPEED:
+        v_cruise = MIN_CONTROL_SPEED
+
+    # 使用自定义巡航速度
+    if v_cruise_slc > 0.:
+        v_cruise = max(v_cruise_slc, MIN_CONTROL_SPEED)
+
+    return v_cruise
