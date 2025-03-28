@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from enum import IntFlag, Enum
+from enum import IntFlag
 
 from cereal import car
 from opendbc.can.parser import CANParser
 from opendbc.car import Bus, CarSpecs, DbcDict, PlatformConfig, Platforms
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.structs import CarParams
-from opendbc.car.docs_definitions import CarFootnote, CarHarness, CarDocs, CarParts, Column
+from opendbc.car.docs_definitions import CarHarness, CarDocs, CarParts
 from opendbc.car.fw_query_definitions import FwQueryConfig, Request, StdQueries
 
 Ecu = CarParams.Ecu
@@ -27,51 +27,16 @@ class CarControllerParams:
     pass
 
 
-class BYDFlags(IntFlag):
-  CANFD = 1
-  EV = 2
-  HYBRID = 4
-  CAMERA_SCC = 8
-  RADAR_SCC = 16
-  MANDO_RADAR = 32
-  LEGACY = 64
-  UNSUPPORTED_LONGITUDINAL = 128
-  CHECKSUM_CRC8 = 256
-  CHECKSUM_6B = 512
-  CLUSTER_GEARS = 1024
-  TCU_GEARS = 2048
-  MIN_STEER_32_MPH = 4096
-  ANGLE_CONTROL = 8192
-  CC_ONLY_CAR = 16384
-
-
-class BYDExtFlags(IntFlag):
-  HAS_SCC13 = 1
-  HAS_SCC14 = 2
-  NAVI_CLUSTER = 4
-  HAS_LFAHDA = 8
-  HAS_LFA_BUTTON = 16
-  CANFD_GEARS_NONE = 32
-  BSM_IN_ADAS = 64
-  CANFD_TPMS = 128
-  CANFD_GEARS_69 = 256
-  CANFD_161 = 512
-  CRUISE_BUTTON_ALT = 1024
-
-
-class Footnote(Enum):
-  CANFD = CarFootnote(
-    "Requires a CAN FD panda kit if not using comma 3X for this CAN FD car.",
-    Column.MODEL, shop_footnote=False)
-
-
 @dataclass
 class BYDCarDocs(CarDocs):
   package: str = "智能驾驶辅助系统"
+  car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.hyundai_k]))
 
-  def init_make(self, CP: CarParams):
-    if CP.flags & BYDFlags.CANFD:
-      self.footnotes.insert(0, Footnote.CANFD)
+  def __init__(self, name: str, package: str = "智能驾驶辅助系统", **kwargs):
+    # 确保名称前缀为 BYD
+    if not name.startswith("BYD "):
+      name = f"BYD {name}"
+    super().__init__(name=name, package=package, **kwargs)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -79,82 +44,76 @@ class BYDCarSpecs(CarSpecs):
   tireStiffnessFactor: float = 0.7  # not optimized yet
 
 
+class BYDFlags(IntFlag):
+  # Static flags
+  GEN1 = 1
+
+
 @dataclass
 class BYDPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'byd_2023'})
-  flags: int = BYDFlags.CANFD
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'byd_han_dmev_2020'})
+  flags: int = BYDFlags.GEN1
 
 
 class CAR(Platforms):
   # BYD Han
   BYD_HAN_DM_20 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪汉DM 2020", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example1")],
-    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Han DM 2020")],
+    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_HAN_EV_20 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪汉EV 2020", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example2")],
-    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.EV | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Han EV 2020")],
+    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Tang
   BYD_TANG_DM = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪唐DM", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example3")],
-    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Tang DM")],
+    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_TANG_DMI_21 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪唐DM-i 2021", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example4")],
-    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Tang DMI 2021")],
+    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Song
   BYD_SONG_PLUS_DMI_21 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪宋PLUS DM-i 2021", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example5")],
-    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Song Plus DMI 2021")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪宋PLUS DM-i 2022", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example6")],
-    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Song Plus DMI 2022")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_5G_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪宋PLUS 5G DM-i 2022", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example7")],
-    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Song Plus 5G DMI 2022")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_23 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪宋PLUS DM-i 2023", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example8")],
-    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Song Plus DMI 2023")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PRO_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪宋PRO DM-i 2022", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example9")],
-    BYDCarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Song Pro DMI 2022")],
+    BYDCarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Qin
   BYD_QIN_PLUS_DMI_23 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪秦PLUS DM-i 2023", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example10")],
-    BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Qin Plus DMI 2023")],
+    BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Yuan
   BYD_YUAN_PLUS_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("比亚迪元PLUS DM-i 2022", "智能驾驶辅助系统", video_link="https://www.youtube.com/watch?v=example11")],
-    BYDCarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4),
-    flags=BYDFlags.HYBRID | BYDFlags.CAMERA_SCC
+    [BYDCarDocs("BYD Yuan Plus DMI 2022")],
+    BYDCarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
 
@@ -170,7 +129,6 @@ class Buttons:
   SET_MINUS = 2
   RESUME = 3
   CANCEL = 4
-  LFA_BUTTON = 5
 
 
 FW_QUERY_CONFIG = FwQueryConfig(
