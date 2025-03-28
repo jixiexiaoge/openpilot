@@ -56,64 +56,63 @@ class BYDPlatformConfig(PlatformConfig):
 
 
 class CAR(Platforms):
-  # BYD Seal
-  BYD_SEAL = BYDPlatformConfig(
-    [BYDCarDocs("BYD Seal 2023-24", video_link="https://www.youtube.com/watch?v=example1")],
-    BYDCarSpecs(mass=2200, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
-  )
-
   # BYD Han
-  BYD_HAN_DM = BYDPlatformConfig(
-    [BYDCarDocs("BYD Han DM 2020-23", video_link="https://www.youtube.com/watch?v=example2")],
+  BYD_HAN_DM_20 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Han DM 2020", video_link="https://www.youtube.com/watch?v=example1")],
     BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
-  BYD_HAN_EV = BYDPlatformConfig(
-    [BYDCarDocs("BYD Han EV 2020-23", video_link="https://www.youtube.com/watch?v=example3")],
+  BYD_HAN_EV_20 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Han EV 2020", video_link="https://www.youtube.com/watch?v=example2")],
     BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Tang
   BYD_TANG_DM = BYDPlatformConfig(
-    [BYDCarDocs("BYD Tang DM 2021-23", video_link="https://www.youtube.com/watch?v=example4")],
+    [BYDCarDocs("BYD Tang DM", video_link="https://www.youtube.com/watch?v=example3")],
     BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
-  BYD_TANG_EV = BYDPlatformConfig(
-    [BYDCarDocs("BYD Tang EV 2021-23", video_link="https://www.youtube.com/watch?v=example5")],
+  BYD_TANG_DMI_21 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Tang DMI 2021", video_link="https://www.youtube.com/watch?v=example4")],
     BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Song
-  BYD_SONG_PLUS = BYDPlatformConfig(
-    [BYDCarDocs("BYD Song Plus 2021-23", video_link="https://www.youtube.com/watch?v=example6")],
+  BYD_SONG_PLUS_DMI_21 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Song Plus DMI 2021", video_link="https://www.youtube.com/watch?v=example5")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
-  BYD_SONG_PLUS_DM = BYDPlatformConfig(
-    [BYDCarDocs("BYD Song Plus DM 2021-23", video_link="https://www.youtube.com/watch?v=example7")],
+  BYD_SONG_PLUS_DMI_22 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Song Plus DMI 2022", video_link="https://www.youtube.com/watch?v=example6")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
-  BYD_SONG_PLUS_EV = BYDPlatformConfig(
-    [BYDCarDocs("BYD Song Plus EV 2021-23", video_link="https://www.youtube.com/watch?v=example8")],
+  BYD_SONG_PLUS_5G_DMI_22 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Song Plus 5G DMI 2022", video_link="https://www.youtube.com/watch?v=example7")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
+  )
+
+  BYD_SONG_PLUS_DMI_23 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Song Plus DMI 2023", video_link="https://www.youtube.com/watch?v=example8")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
+  )
+
+  BYD_SONG_PRO_DMI_22 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Song Pro DMI 2022", video_link="https://www.youtube.com/watch?v=example9")],
+    BYDCarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Qin
-  BYD_QIN_PLUS_DM = BYDPlatformConfig(
-    [BYDCarDocs("BYD Qin Plus DM 2021-23", video_link="https://www.youtube.com/watch?v=example9")],
-    BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4)
-  )
-
-  BYD_QIN_PLUS_EV = BYDPlatformConfig(
-    [BYDCarDocs("BYD Qin Plus EV 2021-23", video_link="https://www.youtube.com/watch?v=example10")],
+  BYD_QIN_PLUS_DMI_23 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Qin Plus DMI 2023", video_link="https://www.youtube.com/watch?v=example10")],
     BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # BYD Yuan
-  BYD_YUAN_PLUS = BYDPlatformConfig(
-    [BYDCarDocs("BYD Yuan Plus 2022-23", video_link="https://www.youtube.com/watch?v=example11")],
+  BYD_YUAN_PLUS_DMI_22 = BYDPlatformConfig(
+    [BYDCarDocs("BYD Yuan Plus DMI 2022", video_link="https://www.youtube.com/watch?v=example11")],
     BYDCarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
