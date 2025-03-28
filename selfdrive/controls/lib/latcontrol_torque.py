@@ -145,7 +145,7 @@ class LatControlTorque(LatControl):
     if self.frame % 100 == 0:
       lateralTorqueCustom = self.params.get_int("LateralTorqueCustom")
       self.dampingFactor = self.params.get_float("DampingFactor") * 0.01
-      if lateralTorqueCustom > 0:
+      if lateralTorqueCustom ==1:
         self.torque_params.latAccelFactor = self.params.get_float("LateralTorqueAccelFactor")*0.001
         self.torque_params.friction = self.params.get_float("LateralTorqueFriction")*0.001
 

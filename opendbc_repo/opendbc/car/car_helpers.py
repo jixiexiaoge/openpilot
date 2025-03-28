@@ -8,6 +8,7 @@ from opendbc.car.fingerprints import eliminate_incompatible_cars, all_legacy_fin
 from opendbc.car.fw_versions import ObdCallback, get_fw_versions_ordered, get_present_ecus, match_fw_to_car
 from opendbc.car.interfaces import get_interface_attr
 from opendbc.car.mock.values import CAR as MOCK
+from opendbc.car.byd.values import CAR as BYD
 from opendbc.car.vin import get_vin, is_valid_vin, VIN_UNKNOWN
 
 from common.params import Params
@@ -177,6 +178,12 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
       from opendbc.car.gm.values import CAR as GM
       from opendbc.car.toyota.values import CAR as TOYOTA
       from opendbc.car.mazda.values import CAR as MAZDA
+      from opendbc.car.byd.values import CAR as BYD
+      for platform in BYD:
+        for doc in platform.config.car_docs:
+          if name == doc.name:
+            return platform
+
       for platform in GM:
         for doc in platform.config.car_docs:
           if name == doc.name:
@@ -200,7 +207,7 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
 
   print(f"SelectedCar = {candidate}")
   Params().put("CarName", candidate)
-  
+
   CarInterface, _, _, _ = interfaces[candidate]
   CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, experimental_long_allowed, docs=False)
   CP.carVin = vin
