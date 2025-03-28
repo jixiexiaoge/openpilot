@@ -16,6 +16,7 @@
 #include "common/timing.h"
 #include "common/util.h"
 #include "system/hardware/hw.h"
+#include "common/params.h"
 
 // -- Multi-panda conventions --
 // Ordering:
@@ -188,7 +189,7 @@ void fill_panda_can_state(cereal::PandaState::PandaCanState::Builder &cs, const 
   cs.setCanCoreResetCnt(can_health.can_core_reset_cnt);
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started, Params &params) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -235,8 +236,7 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     if (red_panda_comma_three && (panda->hw_type == cereal::PandaState::PandaType::DOS)) {
       health.ignition_line_pkt = 0;
     }
-
-    ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
+    ignition_local |= (((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0))) && !params.getBool("ForceOffroad");
 
     pandaStates.push_back(health);
   }
@@ -323,14 +323,14 @@ void send_peripheral_state(Panda *panda, PubMaster *pm) {
   pm->send("peripheralState", msg);
 }
 
-void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool engaged, bool spoofing_started) {
+void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool engaged, bool spoofing_started , Params &params) {
   std::vector<std::string> connected_serials;
   for (Panda *p : pandas) {
     connected_serials.push_back(p->hw_serial());
   }
 
   {
-    auto ignition_opt = send_panda_states(pm, pandas, spoofing_started);
+    auto ignition_opt = send_panda_states(pm, pandas, spoofing_started , params);
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");
       return;
@@ -422,7 +422,7 @@ void pandad_run(std::vector<Panda *> &pandas) {
 
   // Start the CAN send thread
   std::thread send_thread(can_send_thread, pandas, fake_send);
-
+  Params params;
   RateKeeper rk("pandad", 100);
   SubMaster sm({"selfdriveState"});
   PubMaster pm({"can", "pandaStates", "peripheralState"});
@@ -443,7 +443,7 @@ void pandad_run(std::vector<Panda *> &pandas) {
     if (rk.frame() % 10 == 0) {
       sm.update(0);
       engaged = sm.allAliveAndValid({"selfdriveState"}) && sm["selfdriveState"].getSelfdriveState().getEnabled();
-      process_panda_state(pandas, &pm, engaged, spoofing_started);
+      process_panda_state(pandas, &pm, engaged, spoofing_started, params);
       panda_safety.configureSafetyMode();
     }
 

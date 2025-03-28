@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-
+#include "common/params.h"
 #include <QtConcurrent>
 
 #include "common/transformations/orientation.hpp"
@@ -64,7 +64,8 @@ static void update_state(UIState *s) {
     scene.carrot_experimental_mode = lp.getXState() == 4;
   }
 
-  scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
+  auto params = Params();
+  scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition && !params.getBool("ForceOffroad");
 }
 
 void ui_update_params(UIState *s) {

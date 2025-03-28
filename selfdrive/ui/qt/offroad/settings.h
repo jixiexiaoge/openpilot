@@ -50,12 +50,15 @@ signals:
 private slots:
   void poweroff();
   void reboot();
+  void offroadswitch();
+  void updateLabels();
   //re_Calibration
   void calibration();
   void updateCalibDescription();
 
 private:
   Params params;
+  QPushButton *offroadswitch_btn;
   ButtonControl *pair_device;
 };
 
@@ -92,6 +95,7 @@ private:
   bool is_onroad = false;
 
   QLabel *onroadLbl;
+  ParamControl* updateToggle;
   LabelControl *versionLbl;
   ButtonControl *installBtn;
   ButtonControl *downloadBtn;
@@ -130,7 +134,7 @@ class CValueControl : public AbstractControl {
   Q_OBJECT
 
 public:
-  CValueControl(const QString& params, const QString& title, const QString& desc, const QString& icon, int min, int max, int unit = 1);
+  CValueControl(const QString& params, const QString& title, const QString& desc, const QString& icon, int min, int max, int unit = 1, int dp = 0);
 
 private slots:
   void increaseValue();
@@ -149,4 +153,5 @@ private:
   int m_min;
   int m_max;
   int m_unit;
+  int m_dp;
 };

@@ -49,7 +49,7 @@ class CarSpecificEvents:
     if self.CP.brand in ('body', 'mock'):
       events = Events()
 
-    elif self.CP.brand in ('subaru', 'mazda'):
+    elif self.CP.brand in ('byd','subaru', 'mazda'):
       events = self.create_common_events(CS, CS_prev)
 
     elif self.CP.brand == 'ford':

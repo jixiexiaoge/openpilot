@@ -18,6 +18,8 @@ class Sidebar : public QFrame {
   Q_PROPERTY(ItemStatus tempStatus MEMBER temp_status NOTIFY valueChanged);
   Q_PROPERTY(QString netType MEMBER net_type NOTIFY valueChanged);
   Q_PROPERTY(int netStrength MEMBER net_strength NOTIFY valueChanged);
+  Q_PROPERTY(QString sidebarTemp MEMBER sidebar_temp_str NOTIFY valueChanged);
+  Q_PROPERTY(QString gpuUsage MEMBER gpu_usage_str NOTIFY valueChanged);
 
 public:
   explicit Sidebar(QWidget* parent = 0);
@@ -61,4 +63,8 @@ protected:
 private:
   std::unique_ptr<PubMaster> pm;
   Networking *networking = nullptr;
+  QString sidebar_temp = "0";
+  QString sidebar_temp_str = "0";
+  QString gpu_usage = "0";
+  QString gpu_usage_str = "0";
 };

@@ -244,7 +244,7 @@ struct CarState {
   pcmCruiseGap @63 :Int16;      #0: can't read, 1,2,3,4: gap setting
   speedLimit @64 :Float32;
   speedLimitDistance @65 :Float32;
-  gearStep @66 :Int16;          
+  gearStep @66 :Int16;
 
   struct Tpms {
     fl @0 :Float32;
@@ -680,6 +680,7 @@ struct CarParams {
     chryslerCusw @30;
     psa @31;
     fcaGiorgio @32;
+    byd @33;
   }
 
   enum SteerControlType {

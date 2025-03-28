@@ -11,6 +11,7 @@ from opendbc.car.nissan.values import CAR as NISSAN
 from opendbc.car.subaru.values import CAR as SUBARU
 from opendbc.car.toyota.values import CAR as TOYOTA
 from opendbc.car.volkswagen.values import CAR as VW
+from opendbc.car.byd.values import CAR as BYD
 
 FW_VERSIONS = get_interface_attr('FW_VERSIONS', combine_brands=True, ignore_none=True)
 _FINGERPRINTS = get_interface_attr('FINGERPRINTS', combine_brands=True, ignore_none=True)
@@ -64,6 +65,8 @@ MIGRATION = {
   "ACURA RDX 2018 ACURAWATCH PLUS": HONDA.ACURA_RDX,
   "ACURA RDX 2020 TECH": HONDA.ACURA_RDX_3G,
   "AUDI A3": VW.AUDI_A3_MK3,
+  "BYD HAN DM 20": BYD.BYD_HAN_DM_20,
+  "BYD HAN EV 20": BYD.BYD_HAN_EV_20,
   "HONDA ACCORD 2018 HYBRID TOURING": HONDA.HONDA_ACCORD,
   "HONDA ACCORD 1.5T 2018": HONDA.HONDA_ACCORD,
   "HONDA ACCORD 2018 LX 1.5T": HONDA.HONDA_ACCORD,

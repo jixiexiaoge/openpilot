@@ -90,7 +90,9 @@ class Controls:
     # carrot
     gear = car.CarState.GearShifter
     driving_gear = CS.gearShifter not in (gear.neutral, gear.park, gear.reverse, gear.unknown)
-    lateral_enabled = driving_gear
+    #lateral_enabled = driving_gear
+    alkas = self.params.get_int("AlwaysOnLKAS") != 0
+    lateral_enabled = driving_gear and alkas
     #self.soft_hold_active = CS.softHoldActive #car.OnroadEvent.EventName.softHold in [e.name for e in self.sm['onroadEvents']]
 
     # Check which actuators can be enabled
@@ -125,7 +127,7 @@ class Controls:
     curve_speed_abs = abs(self.sm['carrotMan'].vTurnSpeed)
     self.lanefull_mode_enabled = (lat_plan.useLaneLines and self.params.get_int("UseLaneLineSpeedApply") > 0 and
                                   curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
-    
+
     steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
     if self.params.get_bool("CarrotLatControl"):
       model_turn_delay = self.params.get_float("ModelTurnDelay") * 0.01

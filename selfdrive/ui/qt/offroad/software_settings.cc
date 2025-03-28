@@ -29,6 +29,12 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
   versionLbl = new LabelControl(tr("Current Version"), "");
   addItem(versionLbl);
 
+  //online update switch
+  updateToggle = new ParamControl("DisableUpdates", tr("Disable Updates"), "", "");
+  QObject::connect(updateToggle, &ParamControl::toggleFlipped, [=](bool state) {
+  });
+  addItem(updateToggle);
+
   // download update btn
   downloadBtn = new ButtonControl(tr("Download"), tr("CHECK"));
   connect(downloadBtn, &ButtonControl::clicked, [=]() {

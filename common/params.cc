@@ -122,6 +122,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ExperimentalModeConfirmed", PERSISTENT},
     {"FirmwareQueryDone", CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION},
     {"ForcePowerDown", PERSISTENT},
+    {"ForceOffroad", CLEAR_ON_MANAGER_START},
     {"GitBranch", PERSISTENT},
     {"GitCommit", PERSISTENT},
     {"GitCommitDate", PERSISTENT},
@@ -160,6 +161,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"LongitudinalManeuverMode", CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION},
     {"LongitudinalPersonality", PERSISTENT},
     {"NetworkMetered", PERSISTENT},
+    {"BydModifiedStockLong", PERSISTENT},
     {"ObdMultiplexingChanged", CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION},
     {"ObdMultiplexingEnabled", CLEAR_ON_MANAGER_START | CLEAR_ON_ONROAD_TRANSITION},
     {"Offroad_BadNvme", CLEAR_ON_MANAGER_START},
@@ -202,9 +204,10 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"Version", PERSISTENT},
 
     // carrot
+    {"AlwaysOnLKAS", PERSISTENT},
     {"LongitudinalPersonalityMax", PERSISTENT},
     {"NetworkAddress", CLEAR_ON_MANAGER_START},
-    
+
     {"ApiCache_NavDestinations", PERSISTENT},
     {"NavDestination", CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION},
     {"NavDestinationWaypoints", CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION},
@@ -330,6 +333,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"LateralTorqueKiV", PERSISTENT},
     {"LateralTorqueKf", PERSISTENT},
     {"LateralTorqueKd", PERSISTENT},
+    {"LateralTorqueKp", PERSISTENT},
+    {"LateralTorqueKi", PERSISTENT},
     {"CustomSteerMax", PERSISTENT},
     {"CustomSteerDeltaUp", PERSISTENT},
     {"CustomSteerDeltaDown", PERSISTENT},
@@ -344,11 +349,11 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"CustomSR", PERSISTENT},
     {"SteerRatioRate", PERSISTENT},
     {"SoftRestartTriggered", CLEAR_ON_MANAGER_START},
-    
+
     {"NNFF", PERSISTENT},
     {"NNFFLite", PERSISTENT},
     {"NNFFModelName", CLEAR_ON_OFFROAD_TRANSITION},
- 
+
 };
 
 } // namespace

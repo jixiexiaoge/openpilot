@@ -10,6 +10,7 @@ from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 from openpilot.selfdrive.locationd.helpers import PointBuckets, ParameterEstimator
+from opendbc.car.byd.tuning import Tuning
 
 HISTORY = 5  # secs
 POINTS_PER_BUCKET = 1500
@@ -32,7 +33,7 @@ MIN_BUCKET_POINTS = np.array([100, 300, 500, 500, 500, 500, 300, 100])
 MIN_ENGAGE_BUFFER = 2  # secs
 
 VERSION = 1  # bump this to invalidate old parameter caches
-ALLOWED_CARS = ['toyota', 'hyundai']
+ALLOWED_CARS = ['byd', 'toyota', 'hyundai']
 
 
 def slope2rot(slope):
@@ -71,7 +72,8 @@ class TorqueEstimator(ParameterEstimator):
     self.offline_friction = 0.0
     self.offline_latAccelFactor = 0.0
     self.resets = 0.0
-    self.use_params = CP.brand in ALLOWED_CARS and CP.lateralTuning.which() == 'torque'
+    #self.use_params = CP.brand in ALLOWED_CARS and CP.lateralTuning.which() == 'torque'
+    self.use_params = CP.brand in ALLOWED_CARS and CP.lateralTuning.which() == 'torque' and Tuning.AUTO_TUNING
 
     if CP.lateralTuning.which() == 'torque':
       self.offline_friction = CP.lateralTuning.torque.friction
