@@ -1,106 +1,142 @@
+from dataclasses import dataclass, field
+from enum import IntFlag
+
 from cereal import car
 from opendbc.can.parser import CANParser
-from enum import StrEnum
-from opendbc.car import CarSpecs, PlatformConfig, Platforms
-from opendbc.car.docs_definitions import CarDocs
+from opendbc.car import Bus, CarSpecs, DbcDict, PlatformConfig, Platforms
 from opendbc.car.common.conversions import Conversions as CV
+from opendbc.car.structs import CarParams
+from opendbc.car.docs_definitions import CarHarness, CarDocs, CarParts
+from opendbc.car.fw_query_definitions import FwQueryConfig, Request, StdQueries
 
-class BYDPlatformConfig(PlatformConfig):
-  def init(self):
+Ecu = CarParams.Ecu
+
+
+# Steer torque limits
+class CarControllerParams:
+  STEER_MAX = 800                # theoretical max_steer 2047
+  STEER_DELTA_UP = 10             # torque increase per refresh
+  STEER_DELTA_DOWN = 25           # torque decrease per refresh
+  STEER_DRIVER_ALLOWANCE = 15     # allowed driver torque before start limiting
+  STEER_DRIVER_MULTIPLIER = 1     # weight driver torque
+  STEER_DRIVER_FACTOR = 1         # from dbc
+  STEER_ERROR_MAX = 350           # max delta between torque cmd and torque motor
+  STEER_STEP = 1  # 100 Hz
+
+  def __init__(self, CP):
     pass
+
+
+@dataclass
+class BYDCarDocs(CarDocs):
+  package: str = "All"
+  car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.hyundai_k]))
+
+
+@dataclass(frozen=True, kw_only=True)
+class BYDCarSpecs(CarSpecs):
+  tireStiffnessFactor: float = 0.7  # not optimized yet
+
+
+class BYDFlags(IntFlag):
+  # Static flags
+  GEN1 = 1
+
+
+@dataclass
+class BYDPlatformConfig(PlatformConfig):
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'byd_2023'})
+  flags: int = BYDFlags.GEN1
+
 
 class CAR(Platforms):
   # BYD 比亚迪车型
   BYD_SEAL = BYDPlatformConfig(
-    [CarDocs("BYD SEAL 2023-24", "All")],
-    CarSpecs(mass=2200, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_seal_2023_pt'},
+    [BYDCarDocs("BYD SEAL 2023-24")],
+    BYDCarSpecs(mass=2200, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # 增加根据 fingerprints.py 中的车型
   BYD_HAN_DM_20 = BYDPlatformConfig(
-    [CarDocs("BYD HAN DM 2020", "All")],
-    CarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_han_dm_2020_pt'},
+    [BYDCarDocs("BYD HAN DM 2020")],
+    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_HAN_EV_20 = BYDPlatformConfig(
-    [CarDocs("BYD HAN EV 2020", "All")],
-    CarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_han_ev_2020_pt'},
+    [BYDCarDocs("BYD HAN EV 2020")],
+    BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_TANG_DM = BYDPlatformConfig(
-    [CarDocs("BYD TANG DM", "All")],
-    CarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_tang_dm_pt'},
+    [BYDCarDocs("BYD TANG DM")],
+    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_TANG_DMI_21 = BYDPlatformConfig(
-    [CarDocs("BYD TANG DMI 2021", "All")],
-    CarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_tang_dmi_2021_pt'},
+    [BYDCarDocs("BYD TANG DMI 2021")],
+    BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_21 = BYDPlatformConfig(
-    [CarDocs("BYD SONG PLUS DMI 2021", "All")],
-    CarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_song_plus_dmi_2021_pt'},
+    [BYDCarDocs("BYD SONG PLUS DMI 2021")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_22 = BYDPlatformConfig(
-    [CarDocs("BYD SONG PLUS DMI 2022", "All")],
-    CarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_song_plus_dmi_2022_pt'},
+    [BYDCarDocs("BYD SONG PLUS DMI 2022")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_5G_DMI_22 = BYDPlatformConfig(
-    [CarDocs("BYD SONG PLUS 5G DMI 2022", "All")],
-    CarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_song_plus_5g_dmi_2022_pt'},
+    [BYDCarDocs("BYD SONG PLUS 5G DMI 2022")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_23 = BYDPlatformConfig(
-    [CarDocs("BYD SONG PLUS DMI 2023", "All")],
-    CarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_song_plus_dmi_2023_pt'},
+    [BYDCarDocs("BYD SONG PLUS DMI 2023")],
+    BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PRO_DMI_22 = BYDPlatformConfig(
-    [CarDocs("BYD SONG PRO DMI 2022", "All")],
-    CarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_song_pro_dmi_2022_pt'},
+    [BYDCarDocs("BYD SONG PRO DMI 2022")],
+    BYDCarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_QIN_PLUS_DMI_23 = BYDPlatformConfig(
-    [CarDocs("BYD QIN PLUS DMI 2023", "All")],
-    CarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_qin_plus_dmi_2023_pt'},
+    [BYDCarDocs("BYD QIN PLUS DMI 2023")],
+    BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_YUAN_PLUS_DMI_22 = BYDPlatformConfig(
-    [CarDocs("BYD YUAN PLUS DMI 2022", "All")],
-    CarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4, tireStiffnessFactor=0.7),
-    {0: 'byd_yuan_plus_dmi_2022_pt'},
+    [BYDCarDocs("BYD YUAN PLUS DMI 2022")],
+    BYDCarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
-  @classmethod
-  def create_dbc_map(cls):
-    # 返回车型到DBC文件的映射
-    return {
-      cls.BYD_SEAL: 'byd_seal_2023_pt',
-      cls.BYD_HAN_DM_20: 'byd_han_dm_2020_pt',
-      cls.BYD_HAN_EV_20: 'byd_han_ev_2020_pt',
-      cls.BYD_TANG_DM: 'byd_tang_dm_pt',
-      cls.BYD_TANG_DMI_21: 'byd_tang_dmi_2021_pt',
-      cls.BYD_SONG_PLUS_DMI_21: 'byd_song_plus_dmi_2021_pt',
-      cls.BYD_SONG_PLUS_DMI_22: 'byd_song_plus_dmi_2022_pt',
-      cls.BYD_SONG_PLUS_5G_DMI_22: 'byd_song_plus_5g_dmi_2022_pt',
-      cls.BYD_SONG_PLUS_DMI_23: 'byd_song_plus_dmi_2023_pt',
-      cls.BYD_SONG_PRO_DMI_22: 'byd_song_pro_dmi_2022_pt',
-      cls.BYD_QIN_PLUS_DMI_23: 'byd_qin_plus_dmi_2023_pt',
-      cls.BYD_YUAN_PLUS_DMI_22: 'byd_yuan_plus_dmi_2022_pt',
-    }
+
+class LKAS_LIMITS:
+  STEER_THRESHOLD = 15
+  DISABLE_SPEED = 45    # kph
+  ENABLE_SPEED = 52     # kph
+
+
+class Buttons:
+  NONE = 0
+  SET_PLUS = 1
+  SET_MINUS = 2
+  RESUME = 3
+  CANCEL = 4
+
+
+FW_QUERY_CONFIG = FwQueryConfig(
+  requests=[
+    Request(
+      [StdQueries.MANUFACTURER_SOFTWARE_VERSION_REQUEST],
+      [StdQueries.MANUFACTURER_SOFTWARE_VERSION_RESPONSE],
+      bus=0,
+    ),
+  ],
+)
+
 
 def get_can_parser(CP):
   signals = [
@@ -144,6 +180,7 @@ def get_can_parser(CP):
   ]
 
   return CANParser(CP.carFingerprint, signals, checks, 0)
+
 
 DBC = CAR.create_dbc_map()
 
