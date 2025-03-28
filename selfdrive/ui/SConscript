@@ -8,7 +8,9 @@ base_libs = [common, messaging, visionipc, transformations,
 if arch == 'larch64':
   base_libs.append('EGL')
 
-maps = arch in ['larch64', 'aarch64', 'x86_64']
+# 暂时禁用地图功能以解决编译问题
+# maps = arch in ['larch64', 'aarch64', 'x86_64']
+maps = False
 
 if arch == "Darwin":
   del base_libs[base_libs.index('OpenCL')]
@@ -53,7 +55,7 @@ def is_running_on_wsl2():
       return 'WSL2' in contents or 'Ubuntu' in contents
   except FileNotFoundError:
     return False
-  
+
 if is_running_on_wsl2():
   qt_env.Append(CXXFLAGS=['-DWSL2'])
   base_libs.remove('OmxCore')
