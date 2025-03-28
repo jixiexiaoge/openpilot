@@ -32,11 +32,11 @@ class BYDCarDocs(CarDocs):
   package: str = "All"
   car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.hyundai_k]))
 
-  def __init__(self, name: str, **kwargs):
+  def __init__(self, name: str, package: str = "All", **kwargs):
     # 确保名称前缀为 BYD
     if not name.startswith("BYD "):
       name = f"BYD {name}"
-    super().__init__(name=name, **kwargs)
+    super().__init__(name=name, package=package, **kwargs)
 
 
 @dataclass(frozen=True, kw_only=True)
