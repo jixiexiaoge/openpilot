@@ -32,6 +32,12 @@ class BYDCarDocs(CarDocs):
   package: str = "All"
   car_parts: CarParts = field(default_factory=CarParts.common([CarHarness.hyundai_k]))
 
+  def __init__(self, name: str, **kwargs):
+    # 确保名称前缀为 BYD
+    if not name.startswith("BYD "):
+      name = f"BYD {name}"
+    super().__init__(name=name, **kwargs)
+
 
 @dataclass(frozen=True, kw_only=True)
 class BYDCarSpecs(CarSpecs):
@@ -52,63 +58,63 @@ class BYDPlatformConfig(PlatformConfig):
 class CAR(Platforms):
   # BYD 比亚迪车型
   BYD_SEAL = BYDPlatformConfig(
-    [BYDCarDocs("BYD SEAL 2023-24")],
+    [BYDCarDocs("SEAL 2023-24")],
     BYDCarSpecs(mass=2200, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   # 增加根据 fingerprints.py 中的车型
   BYD_HAN_DM_20 = BYDPlatformConfig(
-    [BYDCarDocs("BYD HAN DM 2020")],
+    [BYDCarDocs("HAN DM 2020")],
     BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_HAN_EV_20 = BYDPlatformConfig(
-    [BYDCarDocs("BYD HAN EV 2020")],
+    [BYDCarDocs("HAN EV 2020")],
     BYDCarSpecs(mass=2050, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_TANG_DM = BYDPlatformConfig(
-    [BYDCarDocs("BYD TANG DM")],
+    [BYDCarDocs("TANG DM")],
     BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_TANG_DMI_21 = BYDPlatformConfig(
-    [BYDCarDocs("BYD TANG DMI 2021")],
+    [BYDCarDocs("TANG DMI 2021")],
     BYDCarSpecs(mass=2300, wheelbase=2.82, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_21 = BYDPlatformConfig(
-    [BYDCarDocs("BYD SONG PLUS DMI 2021")],
+    [BYDCarDocs("SONG PLUS DMI 2021")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("BYD SONG PLUS DMI 2022")],
+    [BYDCarDocs("SONG PLUS DMI 2022")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_5G_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("BYD SONG PLUS 5G DMI 2022")],
+    [BYDCarDocs("SONG PLUS 5G DMI 2022")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PLUS_DMI_23 = BYDPlatformConfig(
-    [BYDCarDocs("BYD SONG PLUS DMI 2023")],
+    [BYDCarDocs("SONG PLUS DMI 2023")],
     BYDCarSpecs(mass=1800, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_SONG_PRO_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("BYD SONG PRO DMI 2022")],
+    [BYDCarDocs("SONG PRO DMI 2022")],
     BYDCarSpecs(mass=1700, wheelbase=2.70, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_QIN_PLUS_DMI_23 = BYDPlatformConfig(
-    [BYDCarDocs("BYD QIN PLUS DMI 2023")],
+    [BYDCarDocs("QIN PLUS DMI 2023")],
     BYDCarSpecs(mass=1600, wheelbase=2.72, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
   BYD_YUAN_PLUS_DMI_22 = BYDPlatformConfig(
-    [BYDCarDocs("BYD YUAN PLUS DMI 2022")],
+    [BYDCarDocs("YUAN PLUS DMI 2022")],
     BYDCarSpecs(mass=1500, wheelbase=2.62, steerRatio=15.0, centerToFrontRatio=0.4)
   )
 
