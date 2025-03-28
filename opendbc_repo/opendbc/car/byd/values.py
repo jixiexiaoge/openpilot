@@ -1,6 +1,20 @@
 from cereal import car
 from opendbc.can.parser import CANParser
 
+class CAR:
+  # 比亚迪车型定义
+  BYD_SEAL = "BYD SEAL"
+  BYD_SEAL_2024 = "BYD SEAL 2024"
+  BYD_SEAL_2024_2 = "BYD SEAL 2024 2"
+  BYD_SEAL_2024_3 = "BYD SEAL 2024 3"
+  BYD_SEAL_2024_4 = "BYD SEAL 2024 4"
+  BYD_SEAL_2024_5 = "BYD SEAL 2024 5"
+  BYD_SEAL_2024_6 = "BYD SEAL 2024 6"
+  BYD_SEAL_2024_7 = "BYD SEAL 2024 7"
+  BYD_SEAL_2024_8 = "BYD SEAL 2024 8"
+  BYD_SEAL_2024_9 = "BYD SEAL 2024 9"
+  BYD_SEAL_2024_10 = "BYD SEAL 2024 10"
+
 def get_can_parser(CP):
   signals = [
     # Steering
