@@ -67,6 +67,7 @@ class CarState(CarStateBase):
     self.adrv_info_162 = None
     self.hda_info_4a3 = None
     self.new_msg_4b4 = None
+    self.tcs_info_373 = None
     
     self.cruise_buttons_msg = None
     self.hda2_lfa_block_msg = None
@@ -368,11 +369,11 @@ class CarState(CarStateBase):
       #ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FL_INDICATOR"] != 0
       #ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FR_INDICATOR"] != 0
       if self.CP.extFlags & HyundaiExtFlags.BSM_IN_ADAS.value:
-        ret.leftBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_FOUR"] != 0
-        ret.rightBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_FOUR"] != 0
+        ret.leftBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_FOUR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_THREE"] != 0
+        ret.rightBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_FOUR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_THREE"] != 0
       else:
-        ret.leftBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["FL_INDICATOR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_TWO"] != 0
-        ret.rightBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["FR_INDICATOR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_TWO"] != 0
+        ret.leftBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["FL_INDICATOR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_TWO"] != 0  or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_LEFT_FOUR"] != 0
+        ret.rightBlindspot = cp_.vl["BLINDSPOTS_REAR_CORNERS"]["FR_INDICATOR"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_TWO"] != 0 or cp_.vl["BLINDSPOTS_REAR_CORNERS"]["INDICATOR_RIGHT_FOUR"] != 0
 
     # cruise state
     # CAN FD cars enable on main button press, set available if no TCS faults preventing engagement
@@ -411,6 +412,9 @@ class CarState(CarStateBase):
         self.hda_info_4a3 = copy.copy(cp.vl.get("HDA_INFO_4A3", {}))
       if "NEW_MSG_4B4" in cp.vl:
         self.new_msg_4b4 = copy.copy(cp.vl.get("NEW_MSG_4B4", {}))
+
+      if "TCS" in cp.vl:
+        self.tcs_info_373 = copy.copy(cp.vl.get("TCS", {}))
 
     if "GEAR" in cp.vl:
       ret.gearStep = cp.vl["GEAR"]["GEAR_STEP"]

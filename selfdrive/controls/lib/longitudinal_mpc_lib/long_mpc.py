@@ -352,7 +352,7 @@ class LongitudinalMpc:
     if lead is not None and lead.status:
       x_lead = lead.dRel
       v_lead = lead.vLead
-      a_lead = lead.aLead
+      a_lead = lead.aLeadK
       j_lead = lead.jLead
       a_lead_tau = lead.aLeadTau
     else:

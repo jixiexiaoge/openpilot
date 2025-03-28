@@ -354,7 +354,7 @@ protected:
             data[1] = velocity.getX()[32];
             data[2] = velocity.getX()[0];
             sprintf(title, "3.Model(Y:pos_32, G:vel_32, O:vel_0)");
-			break;
+			      break;
         case 4:
             data[0] = a_ego;
             data[1] = lead_radar.getALeadK();
@@ -364,8 +364,8 @@ protected:
         case 5:
             data[0] = a_ego;
             data[1] = lead_radar.getALead();
-            data[2] = lead_radar.getALeadK();
-            sprintf(title, "5.Lead(Y:a_ego, G:a_lead, O:a_lead_k)");
+            data[2] = lead_radar.getJLead();
+            sprintf(title, "5.Lead(Y:a_ego, G:a_lead, O:j_lead)");
             break;
         case 6:
             data[0] = torque_state.getActualLateralAccel() * 10.0;
@@ -665,7 +665,7 @@ protected:
         return true;
 	};
     bool isLeadSCC() {
-        return radarTrackId == 0;
+        return radarTrackId < 2;
     }
     bool isRadarDetected() {
         return radarTrackId >= 0;

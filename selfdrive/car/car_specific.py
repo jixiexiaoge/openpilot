@@ -169,8 +169,9 @@ class CarSpecificEvents:
       events.add(EventName.doorOpen)
     if CS.seatbeltUnlatched:
       events.add(EventName.seatbeltNotLatched)
-    if CS.gearShifter != GearShifter.drive and (extra_gears is None or
-       CS.gearShifter not in extra_gears):
+    if CS.gearShifter == GearShifter.park:
+      events.add(EventName.wrongGear)
+    if CS.gearShifter == GearShifter.neutral:
       events.add(EventName.wrongGear)
     if CS.gearShifter == GearShifter.reverse:
       events.add(EventName.reverseGear)

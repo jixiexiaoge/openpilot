@@ -6,6 +6,7 @@ from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.hyundai.values import DBC, HyundaiFlags
 from openpilot.common.params import Params
 from opendbc.car.hyundai.hyundaicanfd import CanBus
+from openpilot.common.filter_simple import MyMovingAverage
 
 RADAR_START_ADDR = 0x500
 RADAR_MSG_COUNT = 32
@@ -48,11 +49,16 @@ class RadarInterface(RadarInterfaceBase):
     self.radar_tracks = Params().get_int("EnableRadarTracks") >= 1
     self.rcp = get_radar_can_parser(CP, self.radar_tracks)
 
-
     self.canfd = True if CP.flags & HyundaiFlags.CANFD else False
     if not self.radar_tracks:
       self.rcp = get_radar_can_parser_scc(CP)
       self.trigger_msg = 416 if self.canfd else 0x420
+
+    # 50Hz (SCC), 20Hz (RadarTracks)
+    self.vLead_filter = MyMovingAverage(13) # for SCC radar 0.1 unit
+    self.vRel_last = 0
+    self.dRel_last = 0
+
 
   def update(self, can_strings):
     if self.radar_off_can or (self.rcp is None):
@@ -121,16 +127,20 @@ class RadarInterface(RadarInterfaceBase):
     if self.canfd:
       dRel = cpt["SCC_CONTROL"]['ACC_ObjDist']
       vRel = cpt["SCC_CONTROL"]['ACC_ObjRelSpd']
+      new_pts = abs(dRel - self.dRel_last) > 3 or abs(vRel - self.vRel_last) > 1
+      vLead = vRel + self.v_ego
       valid = 0 < dRel < 150 #cpt["SCC_CONTROL"]['OBJ_STATUS'] and dRel < 150
       for ii in range(1):
         if valid:
-          if ii not in self.pts:
+          if ii not in self.pts or new_pts:
             self.pts[ii] = structs.RadarData.RadarPoint()
-            self.pts[ii].trackId = 0 #self.track_id
+            self.pts[ii].trackId = self.track_id
+            self.track_id = min(1 - self.track_id, 1)
+            self.vLead_filter.set_all(vLead)
           self.pts[ii].dRel = dRel
           self.pts[ii].yRel = 0
           self.pts[ii].vRel = vRel
-          self.pts[ii].vLead = vRel + self.v_ego
+          self.pts[ii].vLead = self.vLead_filter.process(vLead)
           self.pts[ii].aRel = 0 #float('nan')
           self.pts[ii].yvRel = float('nan')
           self.pts[ii].measured = True
@@ -140,16 +150,20 @@ class RadarInterface(RadarInterfaceBase):
     else:
       dRel = cpt["SCC11"]['ACC_ObjDist']
       vRel = cpt["SCC11"]['ACC_ObjRelSpd']
+      new_pts = abs(dRel - self.dRel_last) > 3 or abs(vRel - self.vRel_last) > 1
+      vLead = vRel + self.v_ego
       valid = cpt["SCC11"]['ACC_ObjStatus'] and dRel < 150
       for ii in range(1):
         if valid:
-          if ii not in self.pts:
+          if ii not in self.pts or new_pts:
             self.pts[ii] = structs.RadarData.RadarPoint()
-            self.pts[ii].trackId = 0 #self.track_id
+            self.pts[ii].trackId = self.track_id
+            self.track_id = min(1 - self.track_id, 1)
+            self.vLead_filter.set_all(vLead)
           self.pts[ii].dRel = dRel
           self.pts[ii].yRel = -cpt["SCC11"]['ACC_ObjLatPos']  # in car frame's y axis, left is negative
           self.pts[ii].vRel = vRel
-          self.pts[ii].vLead = vRel + self.v_ego
+          self.pts[ii].vLead = self.vLead_filter.process(vLead)
           self.pts[ii].aRel = 0 #float('nan')
           self.pts[ii].yvRel = float('nan')
           self.pts[ii].measured = True
@@ -157,6 +171,8 @@ class RadarInterface(RadarInterfaceBase):
           if ii in self.pts:
             del self.pts[ii]
 
+    self.dRel_last = dRel
+    self.vRel_last = vRel
     ret.points = list(self.pts.values())
     ret.errors = errors
     return ret

@@ -227,6 +227,7 @@ bool safety_rx_hook(const CANPacket_t *to_push) {
   return valid;
 }
 
+int _prev_not_allowed_addr = -1;
 static bool tx_msg_safety_check(const CANPacket_t *to_send, const CanMsg msg_list[], int len) {
   int addr = GET_ADDR(to_send);
   int bus = GET_BUS(to_send);
@@ -239,9 +240,20 @@ static bool tx_msg_safety_check(const CANPacket_t *to_send, const CanMsg msg_lis
       break;
     }
   }
+  if (!allowed && _prev_not_allowed_addr != addr && len > 0) {
+    print("allowed addr = ");
+    for(int i=0;i<len;i++) {putui((uint32_t)msg_list[i].addr); print(",");}
+    print("\nbus = ");
+    for(int i=0;i<len;i++) {putui((uint32_t)msg_list[i].bus); print(",");}
+    print("\nlen = ");
+    for(int i=0;i<len;i++) {putui((uint32_t)msg_list[i].len); print(",");}
+    print("\n");
+    _prev_not_allowed_addr = addr;
+  }
   return allowed;
 }
 
+int _prev_error_addr = -1;
 bool safety_tx_hook(CANPacket_t *to_send) {
   bool allowed = tx_msg_safety_check(to_send, current_safety_config.tx_msgs, current_safety_config.tx_msgs_len);
   if ((current_safety_mode == SAFETY_ALLOUTPUT) || (current_safety_mode == SAFETY_ELM327)) {
@@ -250,8 +262,8 @@ bool safety_tx_hook(CANPacket_t *to_send) {
 
   const bool safety_allowed = current_hooks->tx(to_send);
 
-  if (!allowed || !safety_allowed) {
-      int addr = GET_ADDR(to_send);
+  int addr = GET_ADDR(to_send);
+  if ((!allowed || !safety_allowed) && (addr!=_prev_error_addr)) {
       int bus = GET_BUS(to_send);
       int length = GET_LEN(to_send);
       print("not allowed:");
@@ -270,6 +282,7 @@ bool safety_tx_hook(CANPacket_t *to_send) {
       print(" rely=");
       putui((uint32_t)relay_malfunction);
       print("\n");
+      _prev_error_addr = addr;
   }
 
   return !relay_malfunction && allowed && safety_allowed;

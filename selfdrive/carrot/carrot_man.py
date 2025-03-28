@@ -1292,7 +1292,7 @@ class CarrotServ:
         bearing = self.nPosAnglePhone
         self.bearing_offset = 0.0
 
-    print(f"bearing = {bearing:.1f}, posA=={self.nPosAngle:.1f}, posP=={self.nPosAnglePhone:.1f}, offset={self.bearing_offset:.1f}, {gps_updated_phone}, {gps_updated_navi}")
+    #print(f"bearing = {bearing:.1f}, posA=={self.nPosAngle:.1f}, posP=={self.nPosAnglePhone:.1f}, offset={self.bearing_offset:.1f}, {gps_updated_phone}, {gps_updated_navi}")
     gpsDelayTimeAdjust = 0.0
     if gps_updated_navi:
       gpsDelayTimeAdjust = self.gpsDelayTimeAdjust
@@ -1322,7 +1322,7 @@ class CarrotServ:
     #print(f"dt = {dt:.1f}, {self.vpPosPointLatNavi}, {self.vpPosPointLonNavi}")
     if dt > 5.0:
       self.vpPosPointLat, self.vpPosPointLon = 0.0, 0.0
-    elif dt == 0 or True:
+    elif dt == 0:
       self.vpPosPointLat, self.vpPosPointLon = self.vpPosPointLatNavi, self.vpPosPointLonNavi
     else:
       self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + gpsDelayTimeAdjust)

@@ -71,7 +71,6 @@ class LateralPlanner:
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
     self.curve_speed = 0
-    
 
   def reset_mpc(self, x0=None):
     if x0 is None:
@@ -197,7 +196,7 @@ class LateralPlanner:
       self.solution_invalid_cnt += 1
     else:
       self.solution_invalid_cnt = 0
-
+  
   def publish(self, sm, pm, carrot):
     plan_solution_valid = self.solution_invalid_cnt < 2
     plan_send = messaging.new_message('lateralPlan')

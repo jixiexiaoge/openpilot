@@ -43,6 +43,8 @@ from openpilot.opendbc_repo.opendbc.car.values import PLATFORMS
 
 # Initialize messaging
 sm = messaging.SubMaster(['carState'])
+tempseg = -1
+temproute = "None"
 
 app = Flask(__name__)
 
@@ -58,10 +60,10 @@ def internal_error(exception):
 
 @app.route("/footage/full/<cameratype>/<route>")
 def full(cameratype, route):
-  chunk_size = 1024 * 512  # 5KiB
+  chunk_size = 1024 * 512  
   file_name = cameratype + (".ts" if cameratype == "qcamera" else ".hevc")
   vidlist = "|".join(Paths.log_root() + "/" + segment + "/" + file_name for segment in fleet.segments_in_route(route))
-
+  
   def generate_buffered_stream():
     with fleet.ffmpeg_mp4_concat_wrap_process_builder(vidlist, cameratype, chunk_size) as process:
       for chunk in iter(lambda: process.stdout.read(chunk_size), b""):
@@ -72,7 +74,7 @@ def full(cameratype, route):
 def download_rlog(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
-  return send_from_directory(file_name, "rlog", as_attachment=True)
+  return send_from_directory(file_name, "rlog.zst", as_attachment=True)
 
 @app.route("/footage/full/qcamera/<route>/<segment>")
 def download_qcamera(route, segment):
@@ -91,10 +93,15 @@ def download_dcamera(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
   return send_from_directory(file_name, "dcamera.hevc", as_attachment=True)
-
-
+  
+@app.route("/footage/full/ecamera/<route>/<segment>")
+def download_ecamera(route, segment):
+  file_name = Paths.log_root() + route + "--" + segment + "/"
+  print("download_route=", route, file_name, segment)
+  return send_from_directory(file_name, "ecamera.hevc", as_attachment=True)
+        
 def upload_folder_to_ftp(local_folder, directory, remote_path):
-    from tqdm import tqdm  # tqdm���� ���� �� ǥ��
+    from tqdm import tqdm
     ftp_server = "shind0.synology.me"
     ftp_port = 8021
     ftp_username = "carrotpilot"
@@ -104,70 +111,154 @@ def upload_folder_to_ftp(local_folder, directory, remote_path):
     ftp.login(ftp_username, ftp_password)
 
     try:
-        print(f"Create remote path = {directory}")
-        try:
-          ftp.mkd(directory)
-        except Exception as e:
-          print(f"Directory creation failed: {e}")
-        ftp.cwd(directory)
-        try:
-          ftp.mkd(remote_path)
-        except Exception as e:
-          print(f"Directory creation failed: {e}")
-        ftp.cwd(remote_path)
+        def create_path(path):
+            try:
+                ftp.mkd(path)
+            except:
+                pass
+            ftp.cwd(path)
 
-        # ���� ������ ��� ���� ��������
-        files = [
-            os.path.join(root, filename)
-            for root, _, filenames in os.walk(local_folder)
-            for filename in filenames
-        ]
+        for part in [directory, remote_path]:
+            create_path(part)
 
-        # tqdm�� ����� ���� �� ǥ��
+        files = []
+        for root, _, filenames in os.walk(local_folder):
+            for filename in filenames:
+                if filename in ['rlog.zst', 'qcamera.ts']:
+                    files.append(os.path.join(root, filename))
+
         with tqdm(total=len(files), desc="Uploading Files", unit="file") as pbar:
             for local_file in files:
                 filename = os.path.basename(local_file)
-                if filename in ['rlog', 'rlog.zst', 'qcamera.ts']:
-                  try:
-                      with open(local_file, 'rb') as file:
-                          ftp.storbinary(f'STOR {filename}', file)
-                          print(f"Uploaded: {local_file} -> {filename}")
-                  except Exception as e:
-                      print(f"Failed to upload {local_file}: {e}")
-
-                  pbar.update(1)  # ���� �� ������Ʈ
+                try:
+                    with open(local_file, 'rb') as f:
+                        ftp.storbinary(f'STOR {filename}', f)
+                    pbar.update(1)
+                except Exception as e:
+                    print(f"Failed to upload {local_file}: {e}")
 
         ftp.quit()
         return True
     except Exception as e:
         print(f"FTP Upload Error: {e}")
         return False
+        
 
-@app.route("/footage/full/upload_carrot/<route>/<segment>")
+@app.route("/folder-info")
+def get_folder_info():
+    path = request.args.get('path')
+    if not path or not os.path.exists(path):
+        return jsonify({'error': 'Folder not found'}), 404
+    
+    try:
+        folder_name = os.path.basename(path)
+        seg_num = int(folder_name.split('--')[2])
+        stat_info = os.stat(path)
+        created_time = stat_info.st_ctime
+        if seg_num == 0:
+            try:
+                base_name = '--'.join(folder_name.split('--')[:2])
+                seg1_path = os.path.join(os.path.dirname(path), f"{base_name}--1")
+                
+                if os.path.exists(seg1_path):
+                    seg1_stat = os.stat(seg1_path)
+                    created_time = seg1_stat.st_ctime - 60
+            except Exception as e:
+                print(f"Error calculating time for segment 0: {e}")
+        formatted_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_time))
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                try:
+                    total_size += os.path.getsize(fp)
+                except OSError:
+                    continue
+        
+        return jsonify({
+            'created_date': formatted_date,
+            'size': total_size,
+            'status': 'success'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+        
+@app.route("/folder-date")
+def get_folder_date():
+    path = request.args.get('path')
+    subtract_minutes = int(request.args.get('subtract_minutes', 0))
+    
+    if not path or not os.path.exists(path):
+        return jsonify({'error': 'Folder not found'}), 404
+    
+    try:
+        stat_info = os.stat(path)
+        created_time = stat_info.st_ctime
+        
+        if subtract_minutes > 0:
+            created_time -= subtract_minutes * 60
+        
+        formatted_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_time))
+        
+        return jsonify({
+            'date': formatted_date,
+            'status': 'success'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route("/folder-exists")
+def check_folder_exists():
+    path = request.args.get('path')
+    exists = os.path.exists(path) if path else False
+    return jsonify({'exists': exists})
+
+@app.route("/footage/full/upload_carrot/<route>/<segment>", methods=['POST'])
 def upload_carrot(route, segment):
-    local_folder = Paths.log_root() + f"{route}--{segment}"
-
-    # ������ �����ϴ��� Ȯ��
-    if not os.path.isdir(local_folder):
-        print(f"Folder not found: {local_folder}")
-        return abort(404, "Folder not found")
-
-    car_selected = Params().get("CarName")
-    if car_selected is None:
-      car_selected = "none"
+    global tempseg
+    global temproute
+    if tempseg != segment or temproute != route:
+        local_folder = os.path.join(Paths.log_root(), f"{route}--{segment}")
+        if not os.path.isdir(local_folder):
+            abort(404, "Folder not found")
+        car_selected = Params().get("CarName", "none").decode('utf-8')
+        dongle_id = Params().get("DongleId", "unknown").decode('utf-8')
+        directory = f"routes {car_selected} {dongle_id}"
+        success = upload_folder_to_ftp(local_folder, directory, f"{route}--{segment}")
+        if success:
+            temproute = route
+            tempseg = segment
+            return "All files uploaded successfully", 200
+        else:
+            return "Failed to upload files", 500
     else:
-      car_selected = car_selected.decode('utf-8')
-
-    directory = "routes " + car_selected + " " + Params().get("DongleId").decode('utf-8')
-
-    # FTP�� ������ ���� ���ε� ����
-    #remote_path = f"{directory}/{route}--{segment}"
-    success = upload_folder_to_ftp(local_folder, directory, f"{route}--{segment}")
-
-    if success:
-        return "All files uploaded successfully", 200
-    else:
-        return "Failed to upload files", 500
+        return "Segment already uploaded", 200
+        
+@app.template_filter('datetimeformat')
+def datetimeformat_filter(filename):
+    try:
+        date_part = filename[:8]
+        time_part = filename[9:15]
+        
+        year = date_part[:4]
+        month = date_part[4:6]
+        day = date_part[6:8]
+        
+        hour = time_part[:2]
+        minute = time_part[2:4]
+        
+        return f"{year}년 {month}월 {day}일 {hour}시 {minute}분"
+    except:
+        return filename
+        
+@app.route("/file-size")
+def get_file_size():
+    path = request.args.get('path')
+    try:
+        size = os.path.getsize(path)
+        return jsonify({'size': size, 'status': 'success'})
+    except Exception as e:
+        return jsonify({'size': 0, 'status': str(e)}), 404
 
 @app.route("/footage/<cameratype>/<segment>")
 def fcamera(cameratype, segment):
@@ -179,22 +270,30 @@ def fcamera(cameratype, segment):
 
 @app.route("/footage/<route>")
 def route(route):
-  if len(route) != 20:
-    return render_template("error.html", error="route not found")
+    if len(route) != 20:
+        return render_template("error.html", error="route not found")
 
-  if str(request.query_string) == "b''":
-    query_segment = "0"
-    query_type = "qcamera"
-  else:
-    query_segment = (str(request.query_string).split(","))[0][2:]
-    query_type = (str(request.query_string).split(","))[1][:-1]
+    query_params = request.query_string.decode('utf-8').split(',')
+    if len(query_params) >= 2:
+        query_segment = query_params[0]
+        query_type = query_params[1]
+    else:
+        query_segment = "0"
+        query_type = "qcamera"
 
-  links = ""
-  segments = ""
-  for segment in fleet.segments_in_route(route):
-    links += "<a href='"+route+"?"+segment.split("--")[2]+","+query_type+"'>"+segment+"</a><br>"
-    segments += "'"+segment+"',"
-  return render_template("route.html", route=route, query_type=query_type, links=links, segments=segments, query_segment=query_segment)
+    links = []
+    segments = []
+    for segment in fleet.segments_in_route(route):
+        seg_num = segment.split("--")[2]
+        links.append(f'<a href="{route}?{seg_num},{query_type}">{segment}</a>')
+        segments.append(f"'{segment}'")
+    
+    return render_template("route.html", 
+                         route=route,
+                         query_type=query_type,
+                         links="<br>".join(links),
+                         segments=",".join(segments),
+                         query_segment=query_segment)
 
 
 @app.route("/footage/")
@@ -235,13 +334,24 @@ def preserved():
 def screenrecords():
   rows = fleet.list_file(fleet.SCREENRECORD_PATH)
   if not rows:
-    return render_template("error.html", error="no screenrecords found at:<br><br>" + fleet.SCREENRECORD_PATH)
-  return render_template("screenrecords.html", rows=rows, clip=rows[0])
+    return render_template("error.html", error="no screenrecords found")
+  files_with_size = []
+  for file in rows:
+    file_path = os.path.join(fleet.SCREENRECORD_PATH, file)
+    size_bytes = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+    files_with_size.append((file, size_bytes))
+  return render_template("screenrecords.html", rows=files_with_size, clip=rows[0])
 
 
 @app.route("/screenrecords/<clip>")
 def screenrecord(clip):
-  return render_template("screenrecords.html", rows=fleet.list_files(fleet.SCREENRECORD_PATH), clip=clip)
+  rows = fleet.list_file(fleet.SCREENRECORD_PATH)
+  files_with_size = []
+  for file in rows:
+    file_path = os.path.join(fleet.SCREENRECORD_PATH, file)
+    size_bytes = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+    files_with_size.append((file, size_bytes))
+  return render_template("screenrecords.html", rows=files_with_size, clip=clip)
 
 
 @app.route("/screenrecords/play/pipe/<file>")

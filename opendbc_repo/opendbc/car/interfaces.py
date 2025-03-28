@@ -22,6 +22,7 @@ from opendbc.car.values import PLATFORMS
 from opendbc.can.parser import CANParser
 
 from openpilot.common.params import Params
+from openpilot.common.filter_simple import FirstOrderFilter
 
 GearShifter = structs.CarState.GearShifter
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -404,69 +405,52 @@ class CarInterfaceBase(ABC):
 
     return ret
 
-class RadarConfig:
-  ALPHA = 0.15
-  MAX_VLEAD_DIFF = 20.0
-  MAX_DREL_DIFF = 5.0
-
 class MyTrack:
-  def __init__(self, track_id: int, radar_point):
+  def __init__(self, track_id: int, radar_point, dt: float):
     self.track_id = track_id
+    self.cnt = 0
     self.dRel = radar_point.dRel
     self.vRel = radar_point.vRel
     self.yRel = radar_point.yRel
     self.vLead = radar_point.vLead
+    self.vLead_averaged = self.vLead
     self.aLead = 0.0
     self.jLead = 0.0
-    self.filtered_vLead = self.vLead
-    self.filtered_aLead = 0.0
-    self.filtered_jLead = 0.0
-    self.cnt = 0  # 초기값 0
-    
-  def update(self, radar_point, dt: float):
+    self.dt = dt
+    self.vLead_avg = FirstOrderFilter(self.vLead, 0.1, self.dt)
+    self.aLead_avg = FirstOrderFilter(self.aLead, 0.15, self.dt)
+    self.jLead_avg = FirstOrderFilter(self.jLead, 0.4, self.dt)
+        
+  def update(self, radar_point):
+    self.vLead = radar_point.vLead
+    """
+    if abs(radar_point.dRel - self.dRel) > 3.0 or abs(self.vRel - radar_point.vRel) > 20.0 * self.dt:
+      self.cnt = 0
+      self.jLead = 0.0
+      self.aLead = 0.0
+      self.vLead_avg.x = self.vLead
+      self.aLead_avg.x = self.aLead
+      self.jLead_avg.x = self.jLead
+      self.vLead_averaged = self.vLead
+    """
+
     self.yRel = radar_point.yRel
-    #new_vLead = v_ego + new_vRel    
-    dRel_diff = abs(radar_point.dRel - self.dRel)
-    vLead_diff = abs(radar_point.vLead - self.vLead) * dt
 
-    if dRel_diff > RadarConfig.MAX_DREL_DIFF:
-      self.filtered_vLead = radar_point.vLead
-      self.filtered_aLead = 0.0
-      self.filtered_jLead = 0.0
-      self.cnt = 0  # 거리 변화가 크면 초기화
-    else:
-      if vLead_diff > RadarConfig.MAX_VLEAD_DIFF:
-        self.filtered_vLead = radar_point.vLead
-        self.cnt = 0
-      else:
-        self.filtered_vLead = RadarConfig.ALPHA * radar_point.vLead + (1 - RadarConfig.ALPHA) * self.filtered_vLead
+    v_lead = self.vLead_avg.update(self.vLead)
 
-      self.cnt += 1  # cnt 증가
+    a_raw = (v_lead - self.vLead_averaged) / self.dt
+    self.vLead_averaged = v_lead
+    a_lead = self.aLead_avg.update(a_raw)
 
-      if self.cnt > 2:  # 2 이상일 때 가속도 계산 (원래 1이상인데.. 이해못할 vLead초기 에러값이 있음, 아래 전반적으로 1씩 안정cnt를 증가함.)
-        aLead_new = (self.filtered_vLead - self.vLead) / dt
-        if self.cnt > 3:  # 2
-          self.filtered_aLead = RadarConfig.ALPHA * aLead_new + (1 - RadarConfig.ALPHA) * self.filtered_aLead
-        else:
-          self.filtered_aLead = aLead_new
-        
-        if self.cnt > 4:  # 3
-          jLead_new = (self.filtered_aLead - self.aLead) / dt
-          self.filtered_jLead = RadarConfig.ALPHA * jLead_new + (1 - RadarConfig.ALPHA) * self.filtered_jLead
-        else:
-          jLead_new = 0.0
-      else:
-        self.filtered_aLead = 0.0
-        self.filtered_jLead = 0.0
+    j_lead = (a_lead - self.aLead) / self.dt
+    self.aLead = a_lead
+    self.jLead = self.jLead_avg.update(j_lead)
 
-        
-    self.vLead = self.filtered_vLead
-    self.aLead = self.filtered_aLead
-    self.jLead = self.filtered_jLead
+    # Store latest values
     self.dRel = radar_point.dRel
     self.vRel = radar_point.vRel
 
-    
+    self.cnt += 1
 
 class RadarInterfaceBase(ABC):
   def __init__(self, CP: structs.CarParams):
@@ -478,8 +462,21 @@ class RadarInterfaceBase(ABC):
     delay = CP.radarDelay
     self.v_ego_hist = deque([0.0], maxlen=int(round(delay / DT_CTRL)) + 1)
     self.v_ego = 0.0
-    self.last_timestamp = time.time()
-    self.dt = 0.05
+    self.last_timestamp = None
+    self.dt = None
+
+    self.init_samples = []
+    self.init_done = False
+
+  def estimate_dt(self, rcv_time):
+    if len(self.init_samples) > 20:
+      estimated_dt = np.mean(np.diff(self.init_samples))
+      self.dt = estimated_dt
+      self.init_done = True
+      print(f"Estimated radar dt: {self.dt} sec")
+    else:
+      self.init_samples.append(rcv_time)
+
      
   def update_carrot(self, v_ego, rcv_time, can_packets: list[tuple[int, list[CanData]]]) -> structs.RadarDataT | None:
     self.v_ego_hist.append(v_ego)
@@ -487,25 +484,34 @@ class RadarInterfaceBase(ABC):
     ret = self.update(can_packets)
 
     if ret is not None:
-      current_time = rcv_time #time.time()
-      dt = max(current_time - self.last_timestamp, 1e-3)
-      self.dt = self.dt * 0.98 + dt * 0.02
-      self.last_timestamp = current_time
-      #print(f"{rcv_time:.6f}, dt: {self.dt:.5f}")
-      new_tracks = {}
+      if not self.init_done:
+        self.estimate_dt(rcv_time)
+        return None
 
+      new_tracks = {}
       for addr, radar_point in self.pts.items():
         track_id = radar_point.trackId
         if track_id not in self.tracks:
-          new_tracks[track_id] = MyTrack(track_id, radar_point)
+          new_tracks[track_id] = MyTrack(track_id, radar_point, self.dt)
         else:
           new_tracks[track_id] = self.tracks[track_id]
-          new_tracks[track_id].update(radar_point, self.dt)
+        new_tracks[track_id].update(radar_point)
 
-        radar_point.aLead = new_tracks[track_id].aLead
-        radar_point.jLead = new_tracks[track_id].jLead
+        radar_point.aLead = float(new_tracks[track_id].aLead)
+        radar_point.jLead = float(new_tracks[track_id].jLead)
                 
       self.tracks = new_tracks
+      """
+      if self.last_timestamp is not None:
+        print(f"dt1 = {rcv_time - self.last_timestamp:.6f}")
+      if self.last_timestamp is not None and (rcv_time - self.last_timestamp) < 0.045:  # 0.05 - 0.005
+        if self.last_timestamp is not None:
+          print(f"dt3 = {rcv_time - self.last_timestamp:.6f}")
+        return None
+      if self.last_timestamp is not None:
+        print(f"dt2 = {rcv_time - self.last_timestamp:.6f}")
+      self.last_timestamp = rcv_time
+      """
     return ret
 
   def update(self, can_packets: list[tuple[int, list[CanData]]]) -> structs.RadarDataT | None:

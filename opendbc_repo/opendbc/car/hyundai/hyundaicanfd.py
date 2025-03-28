@@ -341,6 +341,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
 
   values["NEW_SIGNAL_2"] = 0    # 이것이 켜지면 가속을 안하는듯함.
   #values["NEW_SIGNAL_4"] = 0    # signal2와 조합하여.. 앞차와 깜박이등이 인식되는것 같음..
+  values["NEW_SIGNAL_1"] = 0    # 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
@@ -417,6 +418,14 @@ def create_fca_warning_light(CP, packer, CAN, frame):
     ret.append(packer.make_can_msg("ADRV_0x160", CAN.ECAN, values))
   return ret
 
+def create_tcs_messages(packer, CAN, CS):
+  ret = []
+  if CS.tcs_info_373 is not None:
+    values = CS.tcs_info_373
+    values["DriverBraking"] = 0
+    values["DriverBrakingLowSens"] = 0
+    ret.append(packer.make_can_msg("TCS", CAN.CAM, values))
+  return ret
 
 def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle, left_lane_warning, right_lane_warning, canfd_debug):
   # messages needed to car happy after disabling
@@ -443,7 +452,15 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           cruise_enabled = CC.enabled
           lat_active = CC.latActive
           nav_active = hud_control.activeCarrot > 1
-          hdp_active = cruise_enabled and nav_active
+          
+          # hdpuse carrot
+          hdp_use = int(Params().get("HDPuse"))
+          hdp_active = False
+          if hdp_use == 1:
+              hdp_active = cruise_enabled and nav_active
+          elif hdp_use == 2:
+              hdp_active = cruise_enabled
+          # hdpuse carrot
 
           values = CS.adrv_info_161
           #print("adrv_info_161 = ", CS.adrv_info_161)
@@ -470,7 +487,7 @@ def create_adrv_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           values["LKA_ICON"] = 4 if lat_active else 3
           values["FCA_ALT_ICON"] = 0
 
-          if values["ALERTS_2"] == 5:
+          if values["ALERTS_2"] in [1, 2, 5]:
             values["ALERTS_2"] = 0
             values["SOUNDS_2"] = 0
             values["DAW_ICON"] = 0

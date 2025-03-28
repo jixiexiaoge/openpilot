@@ -684,7 +684,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   latLongToggles->addItem(new CValueControl("RadarReactionFactor", "LONG: Radar reaction factor(10)", "", "../assets/offroad/icon_logic.png", 0, 200, 10));
   //latLongToggles->addItem(new CValueControl("StartAccelApply", "LONG: StartingAccel 2.0x(0)%", "정지->출발시 가속도의 가속율을 지정합니다 0: 사용안함.", "../assets/offroad/icon_road.png", 0, 100, 10));
   //latLongToggles->addItem(new CValueControl("StopAccelApply", "LONG: StoppingAccel -2.0x(0)%", "정지유지시 브레이크압을 조정합니다. 0: 사용안함. ", "../assets/offroad/icon_road.png", 0, 100, 10));
-  latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "LaneChange need torque", "", "../assets/offroad/icon_logic.png", 0, 1, 1));
+  latLongToggles->addItem(new CValueControl("LaneChangeNeedTorque", "LaneChange need torque", "1:need torque, 2:no lanechange", "../assets/offroad/icon_logic.png", 0, 2, 1));
   latLongToggles->addItem(new CValueControl("StoppingAccel", "LONG: StoppingStartAccelx0.01(-40)", "", "../assets/offroad/icon_logic.png", -100, 0, 5));
   latLongToggles->addItem(new CValueControl("StopDistanceCarrot", "LONG: StopDistance (600)cm", "", "../assets/offroad/icon_logic.png", 300, 1000, 10));
   //latLongToggles->addItem(new CValueControl("TraffStopDistanceAdjust", "LONG: TrafficStopDistance adjust(150)cm", "", "../assets/offroad/icon_road.png", -1000, 1000, 10));
@@ -808,6 +808,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   //startToggles->addItem(new CValueControl("CarrotCountDownSpeed", "NaviCountDown Speed(10)", "", "../assets/offroad/icon_shell.png", 0, 200, 5));
   startToggles->addItem(new CValueControl("MapboxStyle", "Mapbox Style(0)", "", "../assets/offroad/icon_shell.png", 0, 2, 1));
   startToggles->addItem(new CValueControl("RecordRoadCam", "Record Road camera(0)", "1:RoadCam, 2:RoadCam+WideRoadCam", "../assets/offroad/icon_shell.png", 0, 2, 1));
+  startToggles->addItem(new CValueControl("HDPuse", "Use HDP(CCNC)(0)", "1:While Using APN, 2:Always", "../assets/offroad/icon_shell.png", 0, 2, 1));
   startToggles->addItem(new ParamControl("HotspotOnBoot", "Hotspot enabled on boot", "", "../assets/offroad/icon_shell.png", this));
   //startToggles->addItem(new ParamControl("NoLogging", "Disable Logger", "", "../assets/offroad/icon_shell.png", this));
   //startToggles->addItem(new ParamControl("LaneChangeNeedTorque", "LaneChange: Need Torque", "", "../assets/offroad/icon_shell.png", this));

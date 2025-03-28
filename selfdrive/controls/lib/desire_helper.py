@@ -126,7 +126,7 @@ class DesireHelper:
     self.edge_available_last = False
     self.object_detected_count = 0
 
-    self.laneChangeNeedTorque = False
+    self.laneChangeNeedTorque = 0
     self.driver_blinker_state = BLINKER_NONE
     self.atc_type = ""
 
@@ -166,7 +166,7 @@ class DesireHelper:
 
   def update(self, carstate, modeldata, lateral_active, lane_change_prob, carrotMan, radarState):
 
-    self.laneChangeNeedTorque = self.params.get_bool("LaneChangeNeedTorque")
+    self.laneChangeNeedTorque = self.params.get_int("LaneChangeNeedTorque")
 
     self.carrot_lane_change_count = max(0, self.carrot_lane_change_count - 1)
 
@@ -178,6 +178,8 @@ class DesireHelper:
     driver_blinker_changed = driver_blinker_state != self.driver_blinker_state
     self.driver_blinker_state = driver_blinker_state
     driver_desire_enabled = driver_blinker_state in [BLINKER_LEFT, BLINKER_RIGHT]
+    if self.laneChangeNeedTorque == 2:
+      driver_desire_enabled = False
 
     ##### check ATC's blinker state
     atc_type = carrotMan.atcType
@@ -295,7 +297,7 @@ class DesireHelper:
           self.lane_change_state = LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
         elif not blindspot_detected:
-          if self.laneChangeNeedTorque:
+          if self.laneChangeNeedTorque > 0:
             if torque_applied and lane_available:
               self.lane_change_state = LaneChangeState.laneChangeStarting
           # 운전자가 깜박이켠경우는 바로 차선변경 시작

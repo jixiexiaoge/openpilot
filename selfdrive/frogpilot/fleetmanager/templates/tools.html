@@ -5,74 +5,82 @@ Tools
 {% endblock %}
 
 {% block main %}
-<style>
-  .center {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    flex-wrap: wrap;
-  }
-  .textarea-container {
-    width: 80%;
-    margin-top: 20px;
-  }
-  textarea {
-    width: 100%;
-    height: 200px;
-  }
-  button {
-    margin-top: 10px;
-  }
-</style>
+<div class="container">
+    <h1 class="my-4">Toggle Values Manager</h1>
+    
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <textarea 
+                id="toggleValuesBox" 
+                class="form-control" 
+                style="height: 300px; font-family: monospace;"
+                placeholder='Enter Values here...'
+            ></textarea>
+        </div>
+    </div>
 
-<div class="center">
-  <h1>Toggle Values</h1>
-  <div class="textarea-container">
-    <textarea id="toggleValuesBox" placeholder='Paste new values or retrieve current...'></textarea>
-    <button type="button" id="retrieveButton">Retrieve Toggle Values</button>
-    <button type="button" id="submitButton">Submit New Values</button>
-  </div>
+    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+        <button 
+            id="retrieveButton" 
+            class="btn btn-primary"
+            onclick="fetchToggleValues()"
+        >
+            <i class="fas fa-download me-2"></i>Get Values
+        </button>
+        <button 
+            id="submitButton" 
+            class="btn btn-success"
+            onclick="saveToggleValues()"
+        >
+            <i class="fas fa-upload me-2"></i>Save Values
+        </button>
+    </div>
 </div>
 
 <script>
-  const toggleValuesBox = document.getElementById('toggleValuesBox');
-  const retrieveButton = document.getElementById('retrieveButton');
-  const submitButton = document.getElementById('submitButton');
-
-  retrieveButton.addEventListener('click', function() {
-    fetch('/get_toggle_values')
-      .then(response => response.json())
-      .then(data => {
-        toggleValuesBox.value = JSON.stringify(data, null, 2);
-      })
-      .catch(error => console.error('Error fetching toggle values:', error));
-  });
-
-  submitButton.addEventListener('click', function() {
-    let inputData;
-    try {
-      inputData = JSON.parse(toggleValuesBox.value);
-    } catch (error) {
-      alert('Invalid JSON format');
-      console.error('Error parsing JSON input:', error);
-      return;
+    async function fetchToggleValues() {
+        try {
+            const response = await fetch('/get_toggle_values');
+            const data = await response.json();
+            document.getElementById('toggleValuesBox').value = 
+                JSON.stringify(data, null, 2);
+        } catch (error) {
+            alert('Error fetching values');
+        }
     }
 
-    fetch('/store_toggle_values', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(inputData),
-    })
-    .then(response => response.json().then(data => ({ status: response.status, body: data })))
-    .then(result => {
-      if (result.status === 200) {
-        alert('Values stored successfully.');
-      } else {
-        alert('Error storing values: ' + result.body.error);
-      }
-    })
-    .catch(error => console.error('Error storing toggle values:', error));
-  });
+    async function saveToggleValues() {
+        const textarea = document.getElementById('toggleValuesBox');
+        try {
+            const jsonData = JSON.parse(textarea.value);
+            
+            const response = await fetch('/store_toggle_values', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(jsonData),
+            });
+
+            if (response.ok) {
+                alert('Successfully saved!');
+            } else {
+                throw new Error('Save failed');
+            }
+        } catch (error) {
+            alert('Invalid JSON format!');
+            textarea.classList.add('is-invalid');
+            setTimeout(() => textarea.classList.remove('is-invalid'), 2000);
+        }
+    }
 </script>
+
+<style>
+    .card {
+        border-radius: 12px;
+    }
+    textarea {
+        white-space: pre;
+        overflow-wrap: normal;
+        overflow-x: auto;
+    }
+</style>
 {% endblock %}
