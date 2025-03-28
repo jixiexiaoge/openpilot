@@ -56,7 +56,7 @@ class BYDPlatformConfig(PlatformConfig):
 
 
 class CAR(Platforms):
-  # BYD 比亚迪车型
+  # BYD 比亚迪车型的
   BYD_SEAL = BYDPlatformConfig(
     [BYDCarDocs("SEAL 2023-24")],
     BYDCarSpecs(mass=2200, wheelbase=2.92, steerRatio=15.0, centerToFrontRatio=0.4)
