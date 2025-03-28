@@ -335,11 +335,11 @@ def manager_thread() -> None:
 def main() -> None:
   manager_init()
   print(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
-  print(f"python ../../opendbc/car/byd/values.py > {Params().get_param_path()}/SupportedCars")
   os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
   os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
   os.system(f"python ../../opendbc/car/toyota/values.py > {Params().get_param_path()}/SupportedCars_toyota")
   os.system(f"python ../../opendbc/car/mazda/values.py > {Params().get_param_path()}/SupportedCars_mazda")
+  os.system(f"python ../../opendbc/car/volkswagen/values.py > {Params().get_param_path()}/SupportedCars_volkswagen")
   os.system(f"python ../../opendbc/car/byd/values.py > {Params().get_param_path()}/SupportedCars_byd")
 
   if os.getenv("PREPAREONLY") is not None:
