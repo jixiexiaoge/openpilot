@@ -413,6 +413,31 @@ void DevicePanel::poweroff() {
   }
 }
 
+void DevicePanel::offroadswitch() {
+  if (!uiState()->engaged()) {
+    if (ConfirmationDialog::confirm(tr("Are you sure you want to switch offroad?"), tr("OffRoad Switch"), this)) {
+      // Check engaged again in case it changed while the dialog was open
+      if (!uiState()->engaged()) {
+        params.putBool("DoSoftSwitch", true);
+      }
+    }
+  } else {
+    ConfirmationDialog::alert(tr("Disengage to Switch"), this);
+  }
+}
+
+void DevicePanel::updateLabels() {
+  // 更新设备面板上的标签信息
+  QString dongleId = getDongleId().value_or(tr("N/A"));
+
+  // 可以在这里更新其他标签
+  for (auto btn : findChildren<ButtonControl *>()) {
+    if (!params.getBool("HardwareAcc")) {
+      btn->setEnabled(true);
+    }
+  }
+}
+
 void SettingsWindow::showEvent(QShowEvent *event) {
   setCurrentPanel(0);
 }
