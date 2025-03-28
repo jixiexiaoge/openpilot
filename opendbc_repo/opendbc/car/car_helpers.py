@@ -8,7 +8,6 @@ from opendbc.car.fingerprints import eliminate_incompatible_cars, all_legacy_fin
 from opendbc.car.fw_versions import ObdCallback, get_fw_versions_ordered, get_present_ecus, match_fw_to_car
 from opendbc.car.interfaces import get_interface_attr
 from opendbc.car.mock.values import CAR as MOCK
-from opendbc.car.byd.values import CAR as BYD
 from opendbc.car.vin import get_vin, is_valid_vin, VIN_UNKNOWN
 
 from common.params import Params
