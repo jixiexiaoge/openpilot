@@ -84,6 +84,24 @@ class CAR(Platforms):
     {0: 'byd_yuan_plus_dmi_2022_pt'},
   )
 
+  @classmethod
+  def create_dbc_map(cls):
+    # 返回车型到DBC文件的映射
+    return {
+      cls.BYD_SEAL: 'byd_seal_2023_pt',
+      cls.BYD_HAN_DM_20: 'byd_han_dm_2020_pt',
+      cls.BYD_HAN_EV_20: 'byd_han_ev_2020_pt',
+      cls.BYD_TANG_DM: 'byd_tang_dm_pt',
+      cls.BYD_TANG_DMI_21: 'byd_tang_dmi_2021_pt',
+      cls.BYD_SONG_PLUS_DMI_21: 'byd_song_plus_dmi_2021_pt',
+      cls.BYD_SONG_PLUS_DMI_22: 'byd_song_plus_dmi_2022_pt',
+      cls.BYD_SONG_PLUS_5G_DMI_22: 'byd_song_plus_5g_dmi_2022_pt',
+      cls.BYD_SONG_PLUS_DMI_23: 'byd_song_plus_dmi_2023_pt',
+      cls.BYD_SONG_PRO_DMI_22: 'byd_song_pro_dmi_2022_pt',
+      cls.BYD_QIN_PLUS_DMI_23: 'byd_qin_plus_dmi_2023_pt',
+      cls.BYD_YUAN_PLUS_DMI_22: 'byd_yuan_plus_dmi_2022_pt',
+    }
+
 def get_can_parser(CP):
   signals = [
     # Steering
@@ -126,3 +144,14 @@ def get_can_parser(CP):
   ]
 
   return CANParser(CP.carFingerprint, signals, checks, 0)
+
+DBC = CAR.create_dbc_map()
+
+if __name__ == "__main__":
+  cars = []
+  for platform in CAR:
+    for doc in platform.config.car_docs:
+      cars.append(doc.name)
+  cars.sort()
+  for c in cars:
+    print(c)
