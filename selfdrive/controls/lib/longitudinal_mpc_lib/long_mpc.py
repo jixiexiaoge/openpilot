@@ -32,7 +32,7 @@ COST_E_DIM = 5
 COST_DIM = COST_E_DIM + 1
 CONSTR_DIM = 4
 
-X_EGO_OBSTACLE_COST = 6. #3.
+X_EGO_OBSTACLE_COST = 3.
 X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
@@ -369,7 +369,15 @@ class LongitudinalMpc:
     v_lead = np.clip(v_lead, 0.0, 1e8)
     a_lead = np.clip(a_lead, -10., 5.)
     j_lead = np.clip(j_lead, -2., 2.)
-    lead_xv = self.extrapolate_lead(x_lead, v_lead, a_lead, j_lead * carrot.j_lead_factor, a_lead_tau)
+
+    j_lead_factor = carrot.j_lead_factor
+    if j_lead >= 0:
+        j_lead_factor = np.interp(j_lead, [0.0, 0.5], [j_lead_factor, j_lead_factor * 10.])
+    if j_lead > 0 and a_lead < 0:
+      a_lead = min(a_lead + j_lead * j_lead_factor * 2.0, 0.0)
+    
+    j_lead_apply = j_lead * j_lead_factor
+    lead_xv = self.extrapolate_lead(x_lead, v_lead, a_lead, j_lead_apply, a_lead_tau)
     return lead_xv, v_lead
 
   def set_accel_limits(self, min_a, max_a):
@@ -435,8 +443,7 @@ class LongitudinalMpc:
       x[:], v[:], a[:], j[:] = 0.0, 0.0, 0.0, 0.0
 
       safe_distance = lead_0_obstacle[0] - get_safe_obstacle_distance(v_ego, comfort_brake, stop_distance)
-      lead_danger_factor = np.interp(safe_distance, [-30.0, 0.0], [1.0, LEAD_DANGER_FACTOR])
-      self.lead_danger_factor = self.lead_danger_factor * 0.9 + lead_danger_factor * 0.1
+      self.lead_danger_factor = np.interp(safe_distance, [-30.0, 0.0], [0.9, LEAD_DANGER_FACTOR])
       self.params[:,5] = self.lead_danger_factor
       
     elif mode == 'blended':

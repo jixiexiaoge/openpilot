@@ -15,6 +15,7 @@ MAX_VEL_ERR = 5.0  # m/s
 # EU guidelines
 MAX_LATERAL_JERK = 5.0  # m/s^3
 MAX_LATERAL_ACCEL_NO_ROLL = 3.0  # m/s^2
+MAX_CURVATURE_DELTA_FRAME = 0.03 #0.019 # about 3 degree / DT_CTRL 
 
 def apply_deadzone(error, deadzone):
   if error > deadzone:
@@ -68,8 +69,16 @@ def clip_curvature(v_ego, prev_curvature, new_curvature, roll):
   new_curvature, limited_accel = clamp(new_curvature, min_lat_accel / v_ego ** 2, max_lat_accel / v_ego ** 2)
 
   new_curvature, limited_max_curv = clamp(new_curvature, -MAX_CURVATURE, MAX_CURVATURE)
-  return float(new_curvature), limited_accel or limited_max_curv
+  
+  new_curvature = np.clip(
+    new_curvature,
+    prev_curvature - MAX_CURVATURE_DELTA_FRAME,
+    prev_curvature + MAX_CURVATURE_DELTA_FRAME
+  )
+  
+  was_limited = limited_accel or limited_max_curv or (abs(new_curvature - prev_curvature) >= MAX_CURVATURE_DELTA_FRAME)
 
+  return float(new_curvature), was_limited
 
 def get_speed_error(modelV2: log.ModelDataV2, v_ego: float) -> float:
   # ToDo: Try relative error, and absolute speed

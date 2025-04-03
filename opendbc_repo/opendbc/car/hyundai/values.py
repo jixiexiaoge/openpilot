@@ -16,12 +16,12 @@ class CarControllerParams:
   ACCEL_MAX = 2.5 # m/s
   ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(
     # LKAS angle command is unlimited, but LFA is limited to 176.7 deg (but does not fault if requesting above)
-    180,  # deg
+    180, # deg
     # stock comma's
     #([0, 9, 16, 25], [1.4, 0.6, 0.4, 0.1]),
     #([0, 9, 16, 25], [1.4, 0.7, 0.5, 0.1]),
-    ([0, 9, 16, 25], [1.0, 1.0, 0.8, 0.2]),
-    ([0, 9, 16, 25], [1.8, 1.8, 1.0, 0.35]),
+    ([0, 9, 16, 25], [1.4, 1.2, 0.8, 0.2]),
+    ([0, 9, 16, 25], [2.0, 1.6, 1.0, 0.35]),
     #([0, 9, 16, 25], [1.6, 1.0, 0.6, 0.15]),
     #([0, 9, 16, 25], [2.0, 1.2, 0.8, 0.28]),
     # sunny's
@@ -32,8 +32,8 @@ class CarControllerParams:
   # 250 can at least achieve 4 m/s^2, 80 corresponds to ~2.5 m/s^2
   ANGLE_MAX_TORQUE = 200  # The maximum amount of torque that will be allowed
   ANGLE_MIN_TORQUE = 25  # equivalent to ~0.8 m/s^2 of torque (based on ANGLE_MAX_TORQUE) when overriding
-  ANGLE_TORQUE_UP_RATE = 2 #2  # Indicates how fast the torque ramps up after user intervention.
-  ANGLE_TORQUE_DOWN_RATE = 4  #4 Indicates how fast the torque ramps down during user intervention (handing off).
+  ANGLE_TORQUE_UP_RATE = 8 #2  # Indicates how fast the torque ramps up after user intervention.
+  ANGLE_TORQUE_DOWN_RATE = 12  #4 Indicates how fast the torque ramps down during user intervention (handing off).
   
   def __init__(self, CP):
     self.STEER_DELTA_UP = 3

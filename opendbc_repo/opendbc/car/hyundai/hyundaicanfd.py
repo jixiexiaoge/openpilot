@@ -4,6 +4,19 @@ from opendbc.car import CanBusBase
 from opendbc.car.hyundai.values import HyundaiFlags, HyundaiExtFlags
 from openpilot.common.params import Params
 
+def hyundai_crc8(data: bytes) -> int:
+  poly = 0x2F
+  crc = 0xFF
+
+  for byte in data:
+    crc ^= byte
+    for _ in range(8):
+      if crc & 0x80:
+        crc = ((crc << 1) ^ poly) & 0xFF
+      else:
+        crc = (crc << 1) & 0xFF
+
+  return crc ^ 0xFF
 
 class CanBus(CanBusBase):
   def __init__(self, CP, fingerprint=None, lka_steering=None) -> None:
@@ -65,15 +78,39 @@ class CanBus(CanBusBase):
 
 
 
-def create_steering_messages_camera_scc(packer, CP, CAN, CC, lat_active, apply_steer, CS, apply_angle, max_torque, angle_control):
+def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, apply_steer, CS, apply_angle, max_torque, angle_control):
 
   ret = []
+  values = CS.mdps_info
   if angle_control:
-    values = {
-      "LKAS_ANGLE_ACTIVE": 2 if CC.latActive else 1,
-      "LKAS_ANGLE_CMD": -apply_angle,
-      "LKAS_ANGLE_MAX_TORQUE": max_torque if CC.latActive else 0,
-    }
+    if CS.lfa_alt_info is not None:
+      values["LFA2_ACTIVE"] = CS.lfa_alt_info["LKAS_ANGLE_ACTIVE"]
+  else:
+    if CS.lfa_info is not None:
+      values["LKA_ACTIVE"] = 1 if CS.lfa_info["STEER_REQ"] == 1 else 0
+      
+  if frame % 1000 < 40:
+    values["STEERING_COL_TORQUE"] += 100
+  ret.append(packer.make_can_msg("MDPS", CAN.CAM, values))
+
+  if frame % 10 == 0:
+    if CP.extFlags & HyundaiExtFlags.STEER_TOUCH:
+      values = CS.steer_touch_info
+      if frame % 1000 < 40:
+        values["TOUCH_DETECT"] = 3
+        values["TOUCH1"] = 50
+        values["TOUCH2"] = 50
+        values["CHECKSUM_"] = 0
+        dat = packer.make_can_msg("STEER_TOUCH_2AF", 0, values)[1]
+        values["CHECKSUM_"] = hyundai_crc8(dat[1:8])
+
+      ret.append(packer.make_can_msg("STEER_TOUCH_2AF", CAN.CAM, values))
+
+  if angle_control:
+    values = {} #CS.lfa_alt_info
+    values["LKAS_ANGLE_ACTIVE"] = 2 if CC.latActive else 1
+    values["LKAS_ANGLE_CMD"] = -apply_angle
+    values["LKAS_ANGLE_MAX_TORQUE"] = max_torque if CC.latActive else 0
     ret.append(packer.make_can_msg("LFA_ALT", CAN.ECAN, values))
 
     values = CS.lfa_info
@@ -110,6 +147,7 @@ def create_steering_messages_camera_scc(packer, CP, CAN, CC, lat_active, apply_s
     #values["VALUE82_SET256"] = 0
 
   ret.append(packer.make_can_msg("LFA", CAN.ECAN, values))
+
   return ret
 
 def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, apply_angle, max_torque, angle_control):
@@ -214,11 +252,10 @@ def create_acc_cancel(packer, CP, CAN, cruise_info_copy):
   })
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
-def create_lfahda_cluster(packer, CAN, enabled):
-  values = {
-    "HDA_ICON": 1 if enabled else 0,
-    "LFA_ICON": 2 if enabled else 0,
-  }
+def create_lfahda_cluster(packer, CS, CAN, enabled):
+  values = {} #CS.lfahda_cluster_info
+  values["HDA_ICON"] = 1 if enabled else 0
+  values["LFA_ICON"] = 2 if enabled else 0
   return packer.make_can_msg("LFAHDA_CLUSTER", CAN.ECAN, values)
 
 
@@ -244,6 +281,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   values["JerkLowerLimit"] = jerk_l if enabled else 1
   values["JerkUpperLimit"] = jerk_u
   values["DISTANCE_SETTING"] = hud_control.leadDistanceBars # + 5
+  #values["DISTANCE_SETTING"] = hud_control.leadDistanceBars  + 5
 
   #values["ACC_ObjDist"] = 1
   #values["ObjValid"] = 0
@@ -252,18 +290,24 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   #values["SET_ME_3"] = 0x3  # objRelsped와 충돌
   values["SET_ME_TMP_64"] = 0x64
 
-  values["NEW_SIGNAL_3"] = 1 if hud_control.leadVisible else 0 #0  # 1이되면 차선이탈방지 알람이 뜬다고...  => 앞에 차가 있으면, 1또는 2가 됨. 전방두부?
+  hud_lead_info = 0
+  if hud_control.leadVisible:
+    hud_lead_info = 1 if values["ACC_ObjRelSpd"] > 0 else 2
+  values["HUD_LEAD_INFO"] = hud_lead_info
 
   #values["NEW_SIGNAL_4"] = 2
 
   values["ZEROS_5"] = 0
+  values["ZEROS_9"] = 0   # 전방주의(24)... 포함. 여러가지 알람이 있을듯..
 
   values["TARGET_DISTANCE"] = CS.out.vEgo * 1.0 + 4.0
 
-  values["CRUISE_STANDSTILL"] = 1 if stopping and CS.out.aEgo > -0.1 else 0
+  soft_hold_info = 1 if CS.softHoldActive > 1 and enabled else 0
+
+  values["CRUISE_STANDSTILL"] = soft_hold_info # 이건 button 누르라는 display message로 보임.. # 1 if stopping and CS.out.aEgo > -0.1 else 0
 
   values["NEW_SIGNAL_2"] = 0    # 이것이 켜지면 가속을 안하는듯함.
-  #values["NEW_SIGNAL_4"] = 0    # signal2와 조합하여.. 앞차와 깜박이등이 인식되는것 같음..
+  values["NEW_SIGNAL_4"] = 9 if hud_control.leadVisible else 0
   values["NEW_SIGNAL_1"] = 0    # 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
@@ -298,7 +342,7 @@ def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_ov
     #"SET_ME_3": 0x3,
     "SET_ME_TMP_64": 0x64,
     "DISTANCE_SETTING": hud_control.leadDistanceBars, # + 5,
-    "CRUISE_STANDSTILL": 1 if stopping and CS.out.cruiseState.standstill else 0,
+    "CRUISE_STANDSTILL": 0, #1 if stopping and CS.out.cruiseState.standstill else 0,
   }
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
@@ -429,10 +473,11 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
             
           values["SOUNDS_2"] = 0  # 2: STEER중지 경고후에도 사운드가 나옴.
 
-          if values["ALERTS_3"] in [17, 26]:
+          if values["ALERTS_3"] in [3, 4, 13, 17, 26, 7, 8, 9, 10]:
             values["ALERTS_3"] = 0
+            values["SOUNDS_3"] = 0
 
-          if values["ALERTS_5"] in [1, 4, 5]:
+          if values["ALERTS_5"] in [1, 2, 4, 5]:
             values["ALERTS_5"] = 0
 
           if values["ALERTS_5"] in [11] and CS.softHoldActive == 0:
@@ -442,7 +487,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
             i: (31 if i == -1 else 13 - abs(i + 15)) if i < 0 else 15 + i
             for i in range(-15, 16)
           }
-          values["LANELINE_CURVATURE"] = curvature.get(max(-15, min(int(disp_angle / 3), 15)), 14) if lat_active else 15
+          values["LANELINE_CURVATURE"] = curvature.get(max(-15, min(round(disp_angle / 3), 15)), 14)
           if hud_control.leftLaneDepart:
             values["LANELINE_LEFT"] = 4 if (frame // 50) % 2 == 0 else 1
           else:
@@ -477,14 +522,25 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
 
       if CS.adrv_info_162 is not None:
         values = CS.adrv_info_162
+        if hud_control.leadDistance > 0:
+          values["FF_DETECT_POS"] = hud_control.leadDistance
+          #values["FF_DETECT"] = 11 if hud_control.leadRelSpeed > -0.1 else 12  # bicycle
+          #values["FF_DETECT"] = 5 if hud_control.leadRelSpeed > -0.1 else 6 # truck
+          ff_type = 3 if hud_control.leadRadar == 1 else 13
+          values["FF_DETECT"] = ff_type if hud_control.leadRelSpeed > -0.1 else ff_type + 1
+          #values["FF_DETECT_LAT"] = - hud_control.leadDPath
+
+
+        """
         values["FAULT_FCA"] = 0
         values["FAULT_LSS"] = 0
         values["FAULT_LFA"] = 0
         values["FAULT_LCA"] = 0
         values["FAULT_DAS"] = 0
         values["FAULT_HDA"] = 0
+        """
 
-        if left_lane_warning or right_lane_warning:
+        if (left_lane_warning and not CS.out.leftBlinker) or (right_lane_warning and not CS.out.rightBlinker):
           values["VIBRATE"] = 1
         ret.append(packer.make_can_msg("ADRV_0x162", CAN.ECAN, values))
 
@@ -493,8 +549,13 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         if CS.hda_info_4a3 is not None:
           values = CS.hda_info_4a3
           #if canfd_debug == 1:
-          values["SIGNAL_0"] = 1
+          values["SIGNAL_0"] = 5
+          values["NEW_SIGNAL_1"] = 4
           values["SPEED_LIMIT"] = 80
+          values["NEW_SIGNAL_3"] = 154
+          values["NEW_SIGNAL_4"] = 9
+          values["NEW_SIGNAL_5"] = 0
+          values["NEW_SIGNAL_6"] = 256
           ret.append(packer.make_can_msg("HDA_INFO_4A3", CAN.CAM, values))
       # CLUSTER_SPEED_LIMIT는 의미없음.. 카메라가 만들어서 보내는듯...
       # ADAS 콤마연결하면.. 0번에서.. (카메라혹은 다른곳에서)

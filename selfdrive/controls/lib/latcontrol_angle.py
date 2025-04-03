@@ -1,4 +1,5 @@
 import math
+import numpy as np
 
 from cereal import log
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
@@ -10,6 +11,7 @@ class LatControlAngle(LatControl):
   def __init__(self, CP, CI):
     super().__init__(CP, CI)
     self.sat_check_min_speed = 5.
+    self.angle_steers_des = 0.0
 
   def update(self, active, CS, VM, params, steer_limited_by_controls, desired_curvature, llk, curvature_limited, model_data=None):  
     angle_log = log.ControlsState.LateralAngleState.new_message()
@@ -25,5 +27,5 @@ class LatControlAngle(LatControl):
     angle_control_saturated = abs(angle_steers_des - CS.steeringAngleDeg) > STEER_ANGLE_SATURATION_THRESHOLD
     angle_log.saturated = bool(self._check_saturation(angle_control_saturated, CS, False, curvature_limited))
     angle_log.steeringAngleDeg = float(CS.steeringAngleDeg)
-    angle_log.steeringAngleDesiredDeg = angle_steers_des if not CS.steeringPressed else float(CS.steeringAngleDeg)
+    angle_log.steeringAngleDesiredDeg = float(angle_steers_des) if not CS.steeringPressed else float(CS.steeringAngleDeg)
     return 0, float(angle_steers_des), angle_log

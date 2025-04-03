@@ -7,7 +7,6 @@ from opendbc.car.hyundai.carstate import CarState
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR, CAN_GEARS, HyundaiExtFlags
 from opendbc.car.interfaces import CarControllerBase
-from openpilot.common.filter_simple import MyMovingAverage
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
@@ -21,6 +20,15 @@ MAX_ANGLE = 85
 MAX_ANGLE_FRAMES = 89
 MAX_ANGLE_CONSECUTIVE_FRAMES = 2
 
+vibrate_intervals = [
+  (0.0, 0.5),
+  (1.0, 1.5),
+  #(2.5, 3.0),
+  #(3.5, 4.0),
+  (5.0, 5.5),
+  (6.0, 6.5),
+  (7.5, 8.0),
+]
 
 def process_hud_alert(enabled, fingerprint, hud_control):
   sys_warning = (hud_control.visualAlert in (VisualAlert.steerRequired, VisualAlert.ldw))
@@ -79,13 +87,13 @@ class CarController(CarControllerBase):
 
     self.apply_angle_last = 0
     self.lkas_max_torque = 0
-    self.lkas_max_torque_in = 0
     self.angle_max_torque = 200
-    self.angle_average = MyMovingAverage(20)
 
     self.canfd_debug = 0
     self.MainMode_ACC_trigger = 0
     self.LFA_trigger = 0
+
+    self.activeCarrot = 0
 
   def update(self, CC, CS, now_nanos):
 
@@ -134,37 +142,33 @@ class CarController(CarControllerBase):
     apply_angle = apply_std_steer_angle_limits(actuators.steeringAngleDeg, self.apply_angle_last, CS.out.vEgoRaw, 
                                                CS.out.steeringAngleDeg, CC.latActive, self.params.ANGLE_LIMITS)
 
-    #if abs(CS.out.steeringTorqueEps) >= 100.0: # carrot. fault avoidance, test code
-    #  apply_angle = CS.out.steeringAngleDeg
-
-    # prevent steering error. carrot
-    #error_limit = 5.0
-    #apply_angle = float(np.clip(apply_angle, CS.out.steeringAngleDeg - error_limit, CS.out.steeringAngleDeg + error_limit))
     if angle_control:
       apply_steer_req = CC.latActive
 
     if CS.out.steeringPressed:
-      self.lkas_max_torque = self.lkas_max_torque_in = max(self.lkas_max_torque - 20, 25)
-      self.angle_average.set_all(self.lkas_max_torque_in)
+      self.apply_angle_last = actuators.steeringAngleDeg
+      self.lkas_max_torque = self.lkas_max_torque = max(self.lkas_max_torque - 20, 25)
     else:
-      #angle_max_torque = np.interp(CS.out.vEgo, [0, 4], [40, self.angle_max_torque])
-      #target_torque = np.interp(abs(actuators.curvature), [0.0, 0.003, 0.006], [0.5 * angle_max_torque, 0.75 * angle_max_torque, angle_max_torque])
-      #speed_multiplier = np.interp(CS.out.vEgo, [0, 15, 30], [1.0, 1.4, 1.8])
-      speed_multiplier = np.interp(CS.out.vEgo, [0, 5, 30], [0.2, 0.5, 1.0])
-      target_torque = min(np.interp(abs(actuators.curvature), [0.0, 0.003, 0.01, 0.02, 0.03], [0.25, 0.50, 0.65, 0.75, 1.0]) * self.angle_max_torque * speed_multiplier, self.angle_max_torque)
-      #if abs(self.apply_angle_last) < 1.0:
-      #  torque_ratio = np.interp(abs(self.apply_angle_last), [0, 1.0], [0.5, 1.0])
-      #  target_torque = min(target_torque, self.angle_max_torque * torque_ratio)
-
-      if self.lkas_max_torque_in > target_torque:
-        self.lkas_max_torque_in = max(self.lkas_max_torque_in - self.params.ANGLE_TORQUE_DOWN_RATE, target_torque)
+      if hud_control.modelDesire in [1,2]:
+        angle_max_torque = self.angle_max_torque
       else:
-        self.lkas_max_torque_in = min(self.lkas_max_torque_in + self.params.ANGLE_TORQUE_UP_RATE, target_torque)
-      self.lkas_max_torque = self.angle_average.process(self.lkas_max_torque_in)
+        angle_max_torque = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 20, 30], [25, 50, self.angle_max_torque])
+        #angle_max_torque = np.interp(CS.out.vEgo * CV.MS_TO_KPH, [0, 20], [25, self.angle_max_torque])
+      
+      target_torque = np.interp(abs(actuators.curvature), [0.0, 0.003, 0.006], [0.5 * angle_max_torque, 0.75 * angle_max_torque, angle_max_torque])
+
+      max_steering_tq = self.params.STEER_DRIVER_ALLOWANCE * 0.7
+      rate_ratio = max(20, max_steering_tq - abs(CS.out.steeringTorque)) / max_steering_tq
+      rate_up = self.params.ANGLE_TORQUE_UP_RATE * rate_ratio
+      rate_down = self.params.ANGLE_TORQUE_DOWN_RATE * rate_ratio
+
+      if self.lkas_max_torque > target_torque:
+        self.lkas_max_torque = max(self.lkas_max_torque - rate_down, target_torque)
+      else:
+        self.lkas_max_torque = min(self.lkas_max_torque + rate_up, target_torque)
 
 
     if not CC.latActive:
-      apply_angle = CS.out.steeringAngleDeg
       apply_torque = 0
       self.lkas_max_torque = 0
 
@@ -184,18 +188,23 @@ class CarController(CarControllerBase):
     sys_warning, sys_state, left_lane_warning, right_lane_warning = process_hud_alert(CC.enabled, self.car_fingerprint,
                                                                                       hud_control)
 
-    active_speed_decel = hud_control.activeCarrot == 3 # 3: Speed Decel
-    if active_speed_decel and self.speedCameraHapticEndFrame < 0: # 과속카메라 감속시작
+    active_speed_decel = hud_control.activeCarrot == 3 and self.activeCarrot != 3 # 3: Speed Decel
+    self.activeCarrot = hud_control.activeCarrot
+    if active_speed_decel and self.speedCameraHapticEndFrame < 0: # 과속카메라 감속시작      
       self.speedCameraHapticEndFrame = self.frame + (8.0 / DT_CTRL)  #8초간 켜줌.
     elif not active_speed_decel:
       self.speedCameraHapticEndFrame = -1
 
-    if self.frame < self.speedCameraHapticEndFrame and self.hapticFeedbackWhenSpeedCamera>0:
-      haptic_stop = (self.speedCameraHapticEndFrame - (5.0/DT_CTRL)) < self.frame < (self.speedCameraHapticEndFrame - (3.0/DT_CTRL))
-      if not haptic_stop:
-         left_lane_warning = right_lane_warning = self.hapticFeedbackWhenSpeedCamera
-      if self.speedCameraHapticEndFrame < self.frame:
-        self.speedCameraHapticEndFrame = -1
+    if 0 <= self.speedCameraHapticEndFrame - self.frame < int(8.0 / DT_CTRL) and self.hapticFeedbackWhenSpeedCamera > 0:
+      t = (self.frame - (self.speedCameraHapticEndFrame - int(8.0 / DT_CTRL))) * DT_CTRL
+
+      for start, end in vibrate_intervals:
+        if start <= t < end:
+          left_lane_warning = right_lane_warning = self.hapticFeedbackWhenSpeedCamera
+          break
+
+    if self.frame >= self.speedCameraHapticEndFrame:
+      self.speedCameraHapticEndFrame = -1
 
     if self.frame % self.blinking_frame == 0:
       self.blinking_signal = True
@@ -228,7 +237,7 @@ class CarController(CarControllerBase):
 
       # steering control
       if camera_scc:
-        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.packer, self.CP, self.CAN, CC, apply_steer_req, apply_torque, CS, apply_angle, self.lkas_max_torque, angle_control))
+        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.frame, self.packer, self.CP, self.CAN, CC, apply_steer_req, apply_torque, CS, apply_angle, self.lkas_max_torque, angle_control))
       else:
         can_sends.extend(hyundaicanfd.create_steering_messages(self.packer, self.CP, self.CAN, CC.enabled, apply_steer_req, apply_torque, apply_angle, self.lkas_max_torque, angle_control))
 
@@ -239,7 +248,7 @@ class CarController(CarControllerBase):
 
       # LFA and HDA icons
       if self.frame % 5 == 0 and (not hda2 or hda2_long):
-        can_sends.append(hyundaicanfd.create_lfahda_cluster(self.packer, self.CAN, CC.enabled))
+        can_sends.append(hyundaicanfd.create_lfahda_cluster(self.packer, CS, self.CAN, CC.enabled))
 
       # blinkers
       if hda2 and self.CP.flags & HyundaiFlags.ENABLE_BLINKERS:
@@ -346,7 +355,7 @@ class CarController(CarControllerBase):
       if CS.cruise_buttons_msg is not None and self.CP.flags & HyundaiFlags.CANFD_ALT_BUTTONS:
         try:
           cruise_buttons_msg_values = {key: value[0] for key, value in CS.cruise_buttons_msg.items()}
-        except IndexError:
+        except: # IndexError:
           #print("IndexError....")
           cruise_buttons_msg_values = None
           self.cruise_buttons_msg_cnt += 1

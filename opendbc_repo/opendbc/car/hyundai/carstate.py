@@ -60,6 +60,8 @@ class CarState(CarStateBase):
 
     self.cruise_info = {}
     self.lfa_info = {}
+    self.lfa_alt_info = {}
+    self.lfahda_cluster_info = {}
     self.adrv_info_161 = None
     self.adrv_info_200 = None
     self.adrv_info_1ea = None
@@ -68,6 +70,8 @@ class CarState(CarStateBase):
     self.hda_info_4a3 = None
     self.new_msg_4b4 = None
     self.tcs_info_373 = None
+    self.mdps_info = {}
+    self.steer_touch_info = {}
     
     self.cruise_buttons_msg = None
     self.hda2_lfa_block_msg = None
@@ -280,29 +284,31 @@ class CarState(CarStateBase):
     vEgoClu, aEgoClu = self.update_clu_speed_kf(ret.vEgoCluster)
     ret.vCluRatio = (ret.vEgo / vEgoClu) if (vEgoClu > 3. and ret.vEgo > 3.) else 1.0
 
-    self.totalDistance += ret.vEgo * DT_CTRL 
-    #ret.totalDistance = self.totalDistance
-
     if self.CP.extFlags & HyundaiExtFlags.NAVI_CLUSTER.value:
       speedLimit = cp.vl["Navi_HU"]["SpeedLim_Nav_Clu"]
       speedLimitCam = cp.vl["Navi_HU"]["SpeedLim_Nav_Cam"]
       ret.speedLimit = speedLimit if speedLimit < 255 and speedLimitCam == 1 else 0
-      if ret.speedLimit>0 and not ret.gasPressed:
-        if self.speedLimitDistance <= self.totalDistance:
-          self.speedLimitDistance = self.totalDistance + ret.speedLimit * 6  
-        self.speedLimitDistance = max(self.totalDistance+1, self.speedLimitDistance) 
-      else:
-        self.speedLimitDistance = self.totalDistance
-      ret.speedLimitDistance = self.speedLimitDistance - self.totalDistance
     else:
       ret.speedLimit = 0
       ret.speedLimitDistance = 0
+      
+    self.update_speed_limit(ret)
 
     if prev_main_buttons == 0 and self.main_buttons[-1] != 0:
       self.main_enabled = not self.main_enabled
 
     return ret
-
+  
+  def update_speed_limit(self, ret):
+    self.totalDistance += ret.vEgo * DT_CTRL 
+    if ret.speedLimit > 0 and not ret.gasPressed:
+      if self.speedLimitDistance <= self.totalDistance:
+        self.speedLimitDistance = self.totalDistance + ret.speedLimit * 6
+      self.speedLimitDistance = max(self.totalDistance + 1, self.speedLimitDistance)
+    else:
+      self.speedLimitDistance = self.totalDistance
+    ret.speedLimitDistance = self.speedLimitDistance - self.totalDistance
+    
   def update_canfd(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
@@ -355,6 +361,10 @@ class CarState(CarStateBase):
     ret.steerFaultTemporary = cp.vl["MDPS"]["LKA_FAULT"] != 0 or cp.vl["MDPS"]["LFA2_FAULT"] != 0
     #ret.steerFaultTemporary = False
 
+    self.mdps_info = copy.copy(cp.vl["MDPS"])
+    if self.CP.extFlags & HyundaiExtFlags.STEER_TOUCH:
+      self.steer_touch_info = copy.copy(cp.vl["STEER_TOUCH_2AF"])
+
     # carrot test
     left_blinker_lamp = cp.vl["BLINKERS"]["LEFT_LAMP"] or cp.vl["BLINKERS"]["LEFT_LAMP_ALT"] 
     right_blinker_lamp = cp.vl["BLINKERS"]["RIGHT_LAMP"] or cp.vl["BLINKERS"]["RIGHT_LAMP_ALT"] 
@@ -387,6 +397,8 @@ class CarState(CarStateBase):
       if self.CP.flags & HyundaiFlags.CAMERA_SCC.value:
         self.MainMode_ACC = cp_cam.vl["SCC_CONTROL"]["MainMode_ACC"] == 1
         self.LFA_ICON = cp_cam.vl["LFAHDA_CLUSTER"]["LFA_ICON"]
+        if self.MainMode_ACC:
+          self.main_enabled = True
     else:
       cp_cruise_info = cp_cam if self.CP.flags & HyundaiFlags.CANFD_CAMERA_SCC else cp
       ret.cruiseState.enabled = cp_cruise_info.vl["SCC_CONTROL"]["ACCMode"] in (1, 2)
@@ -400,6 +412,9 @@ class CarState(CarStateBase):
     if self.CP.flags & HyundaiFlags.CAMERA_SCC.value:
       self.cruise_info = copy.copy(cp_cam.vl["SCC_CONTROL"])
       self.lfa_info = copy.copy(cp_cam.vl["LFA"])
+      if self.CP.flags & HyundaiFlags.ANGLE_CONTROL.value:
+        self.lfa_alt_info = copy.copy(cp_cam.vl["LFA_ALT"])
+      self.lfahda_cluster_info = copy.copy(cp_cam.vl["LFAHDA_CLUSTER"])
 
       if self.CP.extFlags & HyundaiExtFlags.CANFD_161.value:
         if "ADRV_0x161" in cp_cam.vl:
@@ -415,6 +430,10 @@ class CarState(CarStateBase):
 
       if "HDA_INFO_4A3" in cp.vl:
         self.hda_info_4a3 = copy.copy(cp.vl.get("HDA_INFO_4A3", {}))
+        if int(self.hda_info_4a3["NEW_SIGNAL_4"]) == 17:
+          speedLimit = self.hda_info_4a3["SPEED_LIMIT"]
+          ret.speedLimit = speedLimit if speedLimit < 255 else 0 # 안됨.. 고속화도로나 고속도로는....
+        
       if "NEW_MSG_4B4" in cp.vl:
         self.new_msg_4b4 = copy.copy(cp.vl.get("NEW_MSG_4B4", {}))
 
@@ -436,6 +455,11 @@ class CarState(CarStateBase):
     prev_cruise_buttons = self.cruise_buttons[-1]
     #self.cruise_buttons.extend(cp.vl_all[self.cruise_btns_msg_canfd]["CRUISE_BUTTONS"])
     #carrot {{
+
+    if self.cruise_btns_msg_canfd == "CRUISE_BUTTONS":
+      if cp.vl["CRUISE_BUTTONS"]["RIGHT_PADDLE"] == 1 or cp.vl["CRUISE_BUTTONS"]["LEFT_PADDLE"] == 1:
+        self.main_enabled = False
+
     if cp.vl[self.cruise_btns_msg_canfd]["LFA_BTN"]:
       cruise_button = [Buttons.LFA_BUTTON]
     else:
@@ -473,6 +497,7 @@ class CarState(CarStateBase):
     vEgoClu, aEgoClu = self.update_clu_speed_kf(ret.vEgoCluster)
     ret.vCluRatio = (ret.vEgo / vEgoClu) if (vEgoClu > 3. and ret.vEgo > 3.) else 1.0
 
+    self.update_speed_limit(ret)
 
     ret.buttonEvents = [*create_button_events(self.cruise_buttons[-1], prev_cruise_buttons, BUTTONS_DICT),
                         *create_button_events(self.main_buttons[-1], prev_main_buttons, {1: ButtonType.mainCruise})]
@@ -567,6 +592,10 @@ class CarState(CarStateBase):
         cam_messages += [
           ("ADRV_0x161", 20),
           ("ADRV_0x162", 20),
+        ]
+      if CP.flags & HyundaiFlags.ANGLE_CONTROL:
+        cam_messages += [
+          ("LFA_ALT", 100),
         ]
 
     #if not (CP.flags & HyundaiFlags.CANFD_HDA2) and CP.extFlags & HyundaiExtFlags.NAVI_CLUSTER.value and (CP.extFlags & HyundaiExtFlags.SCC_BUS2.value) :
