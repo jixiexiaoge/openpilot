@@ -239,7 +239,7 @@
       "group": "조향튜닝",
       "name": "CustomSteerMax",
       "title": "_CustomSteerMax(0)",
-      "descr": "",
+      "descr": "토크제어: 270,384,409, 앵글제어: 180~240",
       "egroup": "LAT",
       "etitle": "_CustomSteerMax(0)",
       "edescr": "",

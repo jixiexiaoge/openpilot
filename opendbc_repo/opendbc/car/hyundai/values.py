@@ -17,15 +17,23 @@ class CarControllerParams:
   ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(
     # LKAS angle command is unlimited, but LFA is limited to 176.7 deg (but does not fault if requesting above)
     180,  # deg
-    ([0, 9, 16, 25], [1.4, 0.6, 0.4, 0.1]),
-    ([0, 9, 16, 25], [1.4, 0.7, 0.5, 0.1]),
+    # stock comma's
+    #([0, 9, 16, 25], [1.4, 0.6, 0.4, 0.1]),
+    #([0, 9, 16, 25], [1.4, 0.7, 0.5, 0.1]),
+    ([0, 9, 16, 25], [1.0, 1.0, 0.8, 0.2]),
+    ([0, 9, 16, 25], [1.8, 1.8, 1.0, 0.35]),
+    #([0, 9, 16, 25], [1.6, 1.0, 0.6, 0.15]),
+    #([0, 9, 16, 25], [2.0, 1.2, 0.8, 0.28]),
+    # sunny's
+    #([0, 5, 25], [0.6, 0.4, 0.15]),
+    #([0, 5, 25], [1.0, 0.5, 0.26]),   
   )
     # Stock LFA system is seen sending 250 max, but for LKAS events it's 175 max.
   # 250 can at least achieve 4 m/s^2, 80 corresponds to ~2.5 m/s^2
   ANGLE_MAX_TORQUE = 200  # The maximum amount of torque that will be allowed
   ANGLE_MIN_TORQUE = 25  # equivalent to ~0.8 m/s^2 of torque (based on ANGLE_MAX_TORQUE) when overriding
-  ANGLE_TORQUE_UP_RATE = 1 #2  # Indicates how fast the torque ramps up after user intervention.
-  ANGLE_TORQUE_DOWN_RATE = 3 #4  # Indicates how fast the torque ramps down during user intervention (handing off).
+  ANGLE_TORQUE_UP_RATE = 2 #2  # Indicates how fast the torque ramps up after user intervention.
+  ANGLE_TORQUE_DOWN_RATE = 4  #4 Indicates how fast the torque ramps down during user intervention (handing off).
   
   def __init__(self, CP):
     self.STEER_DELTA_UP = 3
@@ -146,6 +154,7 @@ class HyundaiExtFlags(IntFlag):
   CANFD_GEARS_69 = 2 ** 10
   CANFD_161 = 2 ** 11
   CRUISE_BUTTON_ALT = 2 ** 12     # for CASPER_EV
+  STEER_TOUCH = 2 ** 13
 
 class Footnote(Enum):
   CANFD = CarFootnote(
@@ -177,7 +186,7 @@ class HyundaiPlatformConfig(PlatformConfig):
 
 @dataclass
 class HyundaiCanFDPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "hyundai_canfd_generated"})
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "hyundai_canfd"})
 
   def init(self):
     self.flags |= HyundaiFlags.CANFD
@@ -464,6 +473,20 @@ class CAR(Platforms):
     [HyundaiCarDocs("Kia K5 Hybrid 2020-22", car_parts=CarParts.common([CarHarness.hyundai_a]))],
     KIA_K5_2021.specs,
     flags=HyundaiFlags.MANDO_RADAR | HyundaiFlags.CHECKSUM_CRC8 | HyundaiFlags.HYBRID,
+  )
+  KIA_K5_DL3_24 = HyundaiCanFDPlatformConfig(
+    [
+      HyundaiCarDocs("KIA K5 2024 (DL3)", car_parts=CarParts.common([CarHarness.hyundai_k])),
+      HyundaiCarDocs("Kia K5 2024", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_k])),
+    ],
+    CarSpecs(mass=1553, wheelbase=2.85, steerRatio=13.27, tireStiffnessFactor=0.5),
+  )
+  KIA_K5_DL3_24_HEV = HyundaiCanFDPlatformConfig(
+    [
+      HyundaiCarDocs("KIA K5 HYBRID 2024 (DL3)", car_parts=CarParts.common([CarHarness.hyundai_k])),
+      HyundaiCarDocs("Kia K5 Hybrid 2024", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_k])),
+    ],
+    CarSpecs(mass=1553, wheelbase=2.85, steerRatio=13.27, tireStiffnessFactor=0.5),
   )
   KIA_K8_HEV_1ST_GEN = HyundaiCanFDPlatformConfig(
     [HyundaiCarDocs("Kia K8 Hybrid (with HDA II) 2023", "Highway Driving Assist II", car_parts=CarParts.common([CarHarness.hyundai_q]))],

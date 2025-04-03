@@ -635,6 +635,14 @@ FW_VERSIONS = {
       b'\xf1\x00DL3HMFC  AT KOR LHD 1.00 1.04 99210-L2000 210527',
     ],
   },
+  CAR.KIA_K5_DL3_24_HEV: {  # (DL3)
+    (Ecu.fwdCamera, 0x7c4, None): [
+      b'\xf1\x00DL3HMFC  AT KOR LHD 1.00 1.02 99210-L2500 230911'
+    ],
+    (Ecu.fwdRadar, 0x7d0, None): [
+      b'\xf1\x00DL3_ RDR -----      1.00 1.01 99110-L2500         ',
+    ],
+  },
   CAR.HYUNDAI_KONA_EV: {
     (Ecu.abs, 0x7d1, None): [
       b'\xf1\x00OS IEB \x01 212 \x11\x13 58520-K4000',

@@ -323,7 +323,7 @@ class LongitudinalMpc:
     a_lead_traj = np.zeros_like(T_IDXS)
     a_lead_traj[0] = a_lead 
 
-    
+    """
     for i in range(1, len(T_IDXS)):
         dt = T_IDXS[i] - T_IDXS[i - 1]
         a_lead_traj[i] = (
@@ -340,7 +340,6 @@ class LongitudinalMpc:
           a_lead_traj[i - 1] * np.exp(-a_lead_tau * dt) 
           + j_lead_decayed * dt  
       )
-    """
 
     v_lead_traj = np.clip(v_lead + np.cumsum(T_DIFFS * a_lead_traj), 0.0, 1e8)
     x_lead_traj = x_lead + np.cumsum(T_DIFFS * v_lead_traj)

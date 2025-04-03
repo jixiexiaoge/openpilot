@@ -96,7 +96,12 @@ class CarInterface(CarInterfaceBase):
           
       if 0x161 in fingerprint[CAN.ECAN]: # 0x161(353)
         ret.extFlags |= HyundaiExtFlags.CANFD_161.value
-        print("$$$CANFD 161")
+        print("$$$CANFD 161(CCNC)")
+
+      if 0x2af in fingerprint[CAN.ECAN]: # 0x2af(687)
+        ret.extFlags |= HyundaiExtFlags.STEER_TOUCH.value
+        print("$$$STEER_TOUCH")
+        
       cfgs = [get_safety_config(structs.CarParams.SafetyModel.hyundaiCanfd), ]
       if CAN.ECAN >= 4:
         cfgs.insert(0, get_safety_config(structs.CarParams.SafetyModel.noOutput))

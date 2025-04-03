@@ -7,6 +7,7 @@ from opendbc.car.hyundai.carstate import CarState
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR, CAN_GEARS, HyundaiExtFlags
 from opendbc.car.interfaces import CarControllerBase
+from openpilot.common.filter_simple import MyMovingAverage
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
@@ -78,9 +79,13 @@ class CarController(CarControllerBase):
 
     self.apply_angle_last = 0
     self.lkas_max_torque = 0
+    self.lkas_max_torque_in = 0
     self.angle_max_torque = 200
+    self.angle_average = MyMovingAverage(20)
 
     self.canfd_debug = 0
+    self.MainMode_ACC_trigger = 0
+    self.LFA_trigger = 0
 
   def update(self, CC, CS, now_nanos):
 
@@ -97,8 +102,10 @@ class CarController(CarControllerBase):
         self.angle_max_torque = 200
       if steerDeltaUp > 0:
         self.params.STEER_DELTA_UP = steerDeltaUp
+        #self.params.ANGLE_TORQUE_UP_RATE = steerDeltaUp
       if steerDeltaDown > 0:
         self.params.STEER_DELTA_DOWN = steerDeltaDown
+        #self.params.ANGLE_TORQUE_DOWN_RATE = steerDeltaDown
       self.soft_hold_mode = 1 if params.get_int("AutoCruiseControl") > 1 else 2
       self.hapticFeedbackWhenSpeedCamera = int(params.get_int("HapticFeedbackWhenSpeedCamera"))
 
@@ -112,6 +119,8 @@ class CarController(CarControllerBase):
 
     actuators = CC.actuators
     hud_control = CC.hudControl
+    
+    angle_control = self.CP.flags & HyundaiFlags.ANGLE_CONTROL
 
     # steering torque
     new_torque = int(round(actuators.torque * self.params.STEER_MAX))
@@ -129,21 +138,29 @@ class CarController(CarControllerBase):
     #  apply_angle = CS.out.steeringAngleDeg
 
     # prevent steering error. carrot
-    error_limit = 5.0
-    apply_angle = float(np.clip(apply_angle, CS.out.steeringAngleDeg - error_limit, CS.out.steeringAngleDeg + error_limit))
+    #error_limit = 5.0
+    #apply_angle = float(np.clip(apply_angle, CS.out.steeringAngleDeg - error_limit, CS.out.steeringAngleDeg + error_limit))
+    if angle_control:
+      apply_steer_req = CC.latActive
 
     if CS.out.steeringPressed:
-      self.lkas_max_torque = max(self.lkas_max_torque - 20, 25)
+      self.lkas_max_torque = self.lkas_max_torque_in = max(self.lkas_max_torque - 20, 25)
+      self.angle_average.set_all(self.lkas_max_torque_in)
     else:
-      target_torque = np.interp(CS.out.vEgo, [0, 4], [40, self.angle_max_torque])
-      if abs(self.apply_angle_last) < 1.0:
-        torque_ratio = np.interp(abs(self.apply_angle_last), [0, 1.0], [0.5, 1.0])
-        target_torque = min(target_torque, self.angle_max_torque * torque_ratio)
+      #angle_max_torque = np.interp(CS.out.vEgo, [0, 4], [40, self.angle_max_torque])
+      #target_torque = np.interp(abs(actuators.curvature), [0.0, 0.003, 0.006], [0.5 * angle_max_torque, 0.75 * angle_max_torque, angle_max_torque])
+      #speed_multiplier = np.interp(CS.out.vEgo, [0, 15, 30], [1.0, 1.4, 1.8])
+      speed_multiplier = np.interp(CS.out.vEgo, [0, 5, 30], [0.2, 0.5, 1.0])
+      target_torque = min(np.interp(abs(actuators.curvature), [0.0, 0.003, 0.01, 0.02, 0.03], [0.25, 0.50, 0.65, 0.75, 1.0]) * self.angle_max_torque * speed_multiplier, self.angle_max_torque)
+      #if abs(self.apply_angle_last) < 1.0:
+      #  torque_ratio = np.interp(abs(self.apply_angle_last), [0, 1.0], [0.5, 1.0])
+      #  target_torque = min(target_torque, self.angle_max_torque * torque_ratio)
 
-      if self.lkas_max_torque > target_torque:
-        self.lkas_max_torque = max(self.lkas_max_torque - self.params.ANGLE_TORQUE_DOWN_RATE, target_torque)
+      if self.lkas_max_torque_in > target_torque:
+        self.lkas_max_torque_in = max(self.lkas_max_torque_in - self.params.ANGLE_TORQUE_DOWN_RATE, target_torque)
       else:
-        self.lkas_max_torque = min(self.lkas_max_torque + self.params.ANGLE_TORQUE_UP_RATE, target_torque)
+        self.lkas_max_torque_in = min(self.lkas_max_torque_in + self.params.ANGLE_TORQUE_UP_RATE, target_torque)
+      self.lkas_max_torque = self.angle_average.process(self.lkas_max_torque_in)
 
 
     if not CC.latActive:
@@ -210,9 +227,8 @@ class CarController(CarControllerBase):
       hda2_long = hda2 and self.CP.openpilotLongitudinalControl
 
       # steering control
-      angle_control = self.CP.flags & HyundaiFlags.ANGLE_CONTROL
       if camera_scc:
-        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.packer, self.CP, self.CAN, CC.enabled, apply_steer_req, apply_torque, CS, apply_angle, self.lkas_max_torque, angle_control))
+        can_sends.extend(hyundaicanfd.create_steering_messages_camera_scc(self.packer, self.CP, self.CAN, CC, apply_steer_req, apply_torque, CS, apply_angle, self.lkas_max_torque, angle_control))
       else:
         can_sends.extend(hyundaicanfd.create_steering_messages(self.packer, self.CP, self.CAN, CC.enabled, apply_steer_req, apply_torque, apply_angle, self.lkas_max_torque, angle_control))
 
@@ -233,8 +249,11 @@ class CarController(CarControllerBase):
         self.hyundai_jerk.make_jerk(self.CP, CS, accel, actuators, hud_control)
 
         if True: #not camera_scc:
+          if camera_scc:
+            self.canfd_toggle_adas(CC, CS)
+          can_sends.extend(hyundaicanfd.create_ccnc_messages(self.CP, self.packer, self.CAN, self.frame, CC, CS, hud_control, apply_angle, left_lane_warning, right_lane_warning, self.canfd_debug, self.MainMode_ACC_trigger, self.LFA_trigger))
           if hda2:
-            can_sends.extend(hyundaicanfd.create_adrv_messages(self.CP, self.packer, self.CAN, self.frame, CC, CS, hud_control, apply_angle, left_lane_warning, right_lane_warning, self.canfd_debug))
+            can_sends.extend(hyundaicanfd.create_adrv_messages(self.CP, self.packer, self.CAN, self.frame))
           else:
             can_sends.extend(hyundaicanfd.create_fca_warning_light(self.CP, self.packer, self.CAN, self.frame))
         if self.frame % 2 == 0:
@@ -369,6 +388,17 @@ class CarController(CarControllerBase):
           self.cruise_buttons_msg_cnt += 1
 
     return can_sends
+
+  def canfd_toggle_adas(self, CC, CS):
+    trigger_min = -200
+    trigger_start = 6
+    self.MainMode_ACC_trigger = max(trigger_min, self.MainMode_ACC_trigger - 1)
+    self.LFA_trigger = max(trigger_min, self.LFA_trigger - 1)
+    if self.MainMode_ACC_trigger == trigger_min and self.LFA_trigger == trigger_min:
+      if CC.enabled and not CS.MainMode_ACC and CS.out.vEgo > 3.:
+        self.MainMode_ACC_trigger = trigger_start
+      elif CC.latActive and CS.LFA_ICON == 0:
+        self.LFA_trigger = trigger_start
 
   def canfd_speed_control_pcm(self, CC, CS, cruise_buttons_msg_values):
 
