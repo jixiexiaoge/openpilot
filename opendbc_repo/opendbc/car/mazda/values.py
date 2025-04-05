@@ -45,7 +45,7 @@ class MazdaFlags(IntFlag):
 
 @dataclass
 class MazdaPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'mazda_2017', 'radar': 'mazda_radar'})
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'mazda_2017', Bus.radar: 'mazda_radar'})
   flags: int = MazdaFlags.GEN1
 
 

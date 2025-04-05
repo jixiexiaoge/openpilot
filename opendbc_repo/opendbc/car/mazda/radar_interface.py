@@ -4,14 +4,14 @@ import math
 from cereal import car
 from opendbc.can.parser import CANParser
 from opendbc.car.interfaces import RadarInterfaceBase
-from opendbc.car.mazda.values import DBC, MazdaFlags
+from opendbc.car.mazda.values import DBC, MazdaFlags, Bus
 
 def get_radar_can_parser(CP):
-  if DBC[CP.carFingerprint].get('radar') is None:
+  if DBC[CP.carFingerprint].get(Bus.radar) is None:
     return None
   # 忽略雷达拦截器标志检查，直接使用雷达DBC
   messages = [(f"RADAR_TRACK_{addr}", 10) for addr in range(361, 367)]
-  return CANParser(DBC[CP.carFingerprint]['radar'], messages, 2)
+  return CANParser(DBC[CP.carFingerprint][Bus.radar], messages, 2)
 
 class RadarInterface(RadarInterfaceBase):
   def __init__(self, CP):
