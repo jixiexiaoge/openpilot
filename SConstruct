@@ -377,12 +377,8 @@ SConscript(['third_party/SConscript'])
 
 SConscript(['selfdrive/SConscript'])
 
-# 确保 tools/replay 被编译
-if Dir('#tools/replay/').exists():
-  SConscript(['tools/replay/SConscript'])
-
-# 编译 Cabana（如果存在且开启了额外功能）
 if Dir('#tools/cabana/').exists() and GetOption('extras'):
+  SConscript(['tools/replay/SConscript'])
   if arch != "larch64":
     SConscript(['tools/cabana/SConscript'])
 
