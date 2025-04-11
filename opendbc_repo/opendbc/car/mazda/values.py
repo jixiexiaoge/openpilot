@@ -82,7 +82,37 @@ class LKAS_LIMITS:
   ENABLE_SPEED = 52     # kph
 
 
-# 以下雷达相关常量使用整数值替代枚举，确保与系统兼容
+# VIN映射 - 帮助识别不同型号
+VIN_MODEL_MAP = {
+  # 马自达 CX-5 VIN前缀
+  "VHK": CAR.MAZDA_CX5,         # 2017-2019款 CX-5
+  "LVH": CAR.MAZDA_CX5_2022,    # 2022款 CX-5
+  "JM0": CAR.MAZDA_CX5,         # 部分地区 CX-5
+  "LVR": CAR.MAZDA_CX5_2022,    # 您的车型 (从日志中看到)
+}
+
+# 通过VIN识别车型
+def get_car_from_vin(vin):
+  if vin is None or len(vin) < 3:
+    return None
+
+  # 尝试匹配VIN前缀
+  for prefix, car_type in VIN_MODEL_MAP.items():
+    if vin.startswith(prefix):
+      print(f"通过VIN前缀 {prefix} 识别为 {car_type}")
+      return car_type
+
+  # 尝试通过前三位识别
+  prefix = vin[:3]
+  if prefix in VIN_MODEL_MAP:
+    print(f"通过VIN前三位识别为 {VIN_MODEL_MAP[prefix]}")
+    return VIN_MODEL_MAP[prefix]
+
+  print(f"无法通过VIN识别车型: {vin}")
+  return None
+
+
+# 定义雷达限制常量
 class RADAR_LIMITS:
   RADAR_TRACK_ID_MAX = 16      # 最大雷达目标跟踪数
   MIN_DISTANCE = 0.0           # 最小检测距离(米)
@@ -113,7 +143,13 @@ FW_QUERY_CONFIG = FwQueryConfig(
   ],
 )
 
+# 确保DBC映射正确创建并可用
 DBC = CAR.create_dbc_map()
+
+# 打印DBC映射以便调试
+print("DBC Map generated:")
+for car_type, dbc_dict in DBC.items():
+  print(f"  {car_type}: {dbc_dict}")
 
 if __name__ == "__main__":
   cars = []
@@ -124,9 +160,9 @@ if __name__ == "__main__":
   for c in cars:
     print(c)
 
-# 使用简单的整数常量替代枚举，确保兼容性
+# 雷达相关常量 - 使用简单整数值
 RADAR_TRACK_RANGE_START = 361  # 跟踪ID起始值
-RADAR_TRACK_RANGE_END = 368    # 跟踪ID结束值 (注意修改为368，确保完整范围361-367)
+RADAR_TRACK_RANGE_END = 368    # 跟踪ID结束值 (确保完整范围361-367)
 RADAR_UPDATE_RATE = 20         # 更新频率(Hz)
 RADAR_MAX_TRACKS = 16          # 最大跟踪目标数
 
