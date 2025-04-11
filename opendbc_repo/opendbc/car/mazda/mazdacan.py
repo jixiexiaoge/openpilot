@@ -94,7 +94,7 @@ def create_button_cmd(packer, CP, counter, button):
   res = int(button == Buttons.RESUME)
   inc = int(button == Buttons.SET_PLUS)
   dec = int(button == Buttons.SET_MINUS)
-  
+
   if CP.flags & MazdaFlags.GEN1:
     values = {
       "CAN_OFF": can,
@@ -128,3 +128,52 @@ def create_button_cmd(packer, CP, counter, button):
     }
 
     return packer.make_can_msg("CRZ_BTNS", 0, values)
+
+
+def create_radar_command(packer, CP, radar_data):
+  """
+  创建雷达控制命令
+  Args:
+    packer: can包装器
+    CP: 车辆参数
+    radar_data: 雷达数据字典，包含distance和rel_speed
+  """
+  if CP.flags & MazdaFlags.GEN1:
+    values = {
+      "RADAR_TRACK_ACTIVE": 1 if radar_data.get("distance", 0) > 0 else 0,
+      "RADAR_TRACK_VALID": 1 if radar_data.get("distance", 0) > 0 else 0,
+      "RADAR_DISTANCE": radar_data.get("distance", 0),
+      "RADAR_REL_SPEED": radar_data.get("rel_speed", 0),
+      "RADAR_COUNTER": (radar_data.get("counter", 0) + 1) % 16,
+      "RADAR_FAULT": 0,  # 默认无故障
+      "RADAR_CAN_ID": radar_data.get("track_id", 0),
+      "RADAR_CROSS_FLAG": 0,  # 默认无横向移动
+      "RADAR_HUD_ALERT": 0,  # 默认无HUD警告
+    }
+    return packer.make_can_msg("RADAR_HUD", 0, values)
+  return None
+
+
+def create_radar_track(packer, CP, track_id, track_data):
+  """
+  创建雷达目标跟踪消息
+  Args:
+    packer: can包装器
+    CP: 车辆参数
+    track_id: 目标ID
+    track_data: 目标数据字典
+  """
+  if CP.flags & MazdaFlags.GEN1:
+    values = {
+      "TRACK_ID": track_id,
+      "TRACK_VALID": 1 if track_data.get("valid", False) else 0,
+      "TRACK_RANGE": track_data.get("distance", 0),
+      "TRACK_RANGE_RATE": track_data.get("rel_speed", 0),
+      "TRACK_ANGLE": track_data.get("angle", 0),
+      "TRACK_LATERAL_RATE": track_data.get("lat_speed", 0),
+      "TRACK_WIDTH": track_data.get("width", 0),
+      "TRACK_TYPE": track_data.get("type", 0),
+      "TRACK_PROB": track_data.get("probability", 0),
+    }
+    return packer.make_can_msg(f"RADAR_TRACK_{track_id}", 0, values)
+  return None
