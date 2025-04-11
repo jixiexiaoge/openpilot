@@ -82,6 +82,7 @@ class LKAS_LIMITS:
   ENABLE_SPEED = 52     # kph
 
 
+# 以下雷达相关常量使用整数值替代枚举，确保与系统兼容
 class RADAR_LIMITS:
   RADAR_TRACK_ID_MAX = 16      # 最大雷达目标跟踪数
   MIN_DISTANCE = 0.0           # 最小检测距离(米)
@@ -123,48 +124,33 @@ if __name__ == "__main__":
   for c in cars:
     print(c)
 
-class Bus:
-  """车辆总线定义"""
-  pt = 0   # Powertrain总线
-  cam = 2  # 摄像头总线
-  radar = 1  # 雷达总线
+# 使用简单的整数常量替代枚举，确保兼容性
+RADAR_TRACK_RANGE_START = 361  # 跟踪ID起始值
+RADAR_TRACK_RANGE_END = 368    # 跟踪ID结束值 (注意修改为368，确保完整范围361-367)
+RADAR_UPDATE_RATE = 20         # 更新频率(Hz)
+RADAR_MAX_TRACKS = 16          # 最大跟踪目标数
 
-class RADAR_TRACK_LIMITS:
-  """雷达跟踪限制"""
-  TRACK_RANGE_START = 361  # 跟踪ID起始值
-  TRACK_RANGE_END = 367   # 跟踪ID结束值
-  UPDATE_RATE = 20        # 更新频率(Hz)
-  MAX_TRACKS = 16         # 最大跟踪目标数
+# 雷达信号值
+RADAR_INVALID_DISTANCE = 4095  # 无效距离值
+RADAR_INVALID_ANGLE = 2046     # 无效角度值
+RADAR_INVALID_SPEED = -16      # 无效速度值
+RADAR_ANGLE_SCALE = 64.0       # 角度缩放因子
+RADAR_DISTANCE_SCALE = 16.0    # 距离缩放因子
+RADAR_SPEED_SCALE = 16.0       # 速度缩放因子
 
-class RADAR_SIGNALS:
-  """雷达信号定义"""
-  INVALID_DISTANCE = 4095  # 无效距离值
-  INVALID_ANGLE = 2046    # 无效角度值
-  INVALID_SPEED = -16     # 无效速度值
-  ANGLE_SCALE = 64.0      # 角度缩放因子
-  DISTANCE_SCALE = 16.0   # 距离缩放因子
-  SPEED_SCALE = 16.0      # 速度缩放因子
+# 雷达状态值
+RADAR_FAULT_NONE = 0           # 无故障
+RADAR_FAULT_TEMPORARY = 1      # 临时故障
+RADAR_FAULT_PERMANENT = 2      # 永久故障
+RADAR_BLOCKED = 3              # 雷达被遮挡
 
-class RADAR_STATUS:
-  """雷达状态定义"""
-  FAULT_NONE = 0          # 无故障
-  FAULT_TEMPORARY = 1     # 临时故障
-  FAULT_PERMANENT = 2     # 永久故障
-  BLOCKED = 3             # 雷达被遮挡
+# CAN消息ID
+RADAR_DISTANCE_ID = 0x300      # 雷达距离消息ID
+RADAR_RELATIVE_SPEED_ID = 0x301 # 相对速度消息ID
+RADAR_CROSS_TRAFFIC_ID = 0x302 # 横向交通消息ID
+RADAR_HUD_ID = 0x303           # HUD显示消息ID
+RADAR_TRACK_BASE_ID = 0x400    # 雷达跟踪消息基础ID
 
-class CAN_MESSAGES:
-  """CAN消息定义"""
-  RADAR_BASE = {
-    "RADAR_DISTANCE": 0x300,      # 雷达距离消息ID
-    "RADAR_RELATIVE_SPEED": 0x301, # 相对速度消息ID
-    "RADAR_CROSS_TRAFFIC": 0x302, # 横向交通消息ID
-    "RADAR_HUD": 0x303,           # HUD显示消息ID
-  }
-
-  RADAR_TRACK_BASE = 0x400        # 雷达跟踪消息基础ID
-
-class RADAR_PARAMS:
-  """雷达参数定义"""
-  MIN_TRACK_PROBABILITY = 0.7     # 最小跟踪概率
-  MAX_AGE_WITHOUT_UPDATE = 2.5    # 最大无更新时间(秒)
-  FUSION_CONFIDENCE_SCALE = 0.01  # 融合置信度缩放因子
+# 雷达参数
+RADAR_MIN_TRACK_PROBABILITY = 0.7  # 最小跟踪概率
+RADAR_MAX_AGE_WITHOUT_UPDATE = 2.5  # 最大无更新时间(秒)
