@@ -2761,8 +2761,9 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        int gap_mazda = car_state.getPcmCruiseGap();
-        int rpm_mazda = (int)car_state.getEngineRpm();
+        auto carState = sm["carState"].getCarState();
+        int gap_mazda = carState.getPcmCruiseGap();
+        int rpm_mazda = (int)carState.getEngineRpm();
 
         // 添加调试信息到 carrot_man_debug
         sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d", rpm_mazda, gap_mazda);
