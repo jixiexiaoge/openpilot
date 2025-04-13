@@ -2761,7 +2761,9 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        sprintf(bottom_left, "%s RPM: %d", gitBranch.toStdString().c_str(), (int)carState.getEngineRpm());
+        const SubMaster& sm = *(s->sm);
+        auto car_state = sm["carState"].getCarState();
+        sprintf(bottom_left, "%s RPM: %d", gitBranch.toStdString().c_str(), (int)car_state.getEngineRpm());
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
