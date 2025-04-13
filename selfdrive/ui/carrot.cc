@@ -2762,7 +2762,12 @@ public:
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
         int gap_mazda = car_state.getPcmCruiseGap();
-        sprintf(bottom_left, "%s RPM: %d Gap: %d", gitBranch.toStdString().c_str(), (int)car_state.getEngineRpm(), gap_mazda);
+        int rpm_mazda = (int)car_state.getEngineRpm();
+
+        // 添加调试信息到 carrot_man_debug
+        sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d", rpm_mazda, gap_mazda);
+
+        sprintf(bottom_left, "%s RPM: %d Gap: %d", gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");

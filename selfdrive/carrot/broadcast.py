@@ -48,7 +48,7 @@ class CarStateBroadcast:
         # 初始化空的车辆状态数据
         self.car_state_data = {}
 
-        print(f"车辆状态广播服务已初始化. 广播地址: {self.broadcast_ip}:{self.broadcast_port}, 间隔: {self.broadcast_interval}秒")
+        #print(f"车辆状态广播服务已初始化. 广播地址: {self.broadcast_ip}:{self.broadcast_port}, 间隔: {self.broadcast_interval}秒")
 
     def get_broadcast_address(self):
         """获取广播地址"""
@@ -190,7 +190,7 @@ class CarStateBroadcast:
 
     def broadcast_thread(self):
         """广播线程函数"""
-        print("开始广播车辆状态数据...")
+        #print("开始广播车辆状态数据...")
 
         while self.is_running:
             try:
@@ -210,7 +210,7 @@ class CarStateBroadcast:
                     self.sock.sendto(json_data.encode('utf-8'), (self.broadcast_ip, self.broadcast_port))
 
                     # 打印调试信息
-                    if time.time() % 10 < 1:  # 每10秒只打印一次，减少日志输出
+                    if time.time() % 100 < 1:  # 每10秒只打印一次，减少日志输出
                         print(f"广播数据: {self.broadcast_ip}:{self.broadcast_port}, 数据大小: {len(json_data)}字节, 频率: {1/self.broadcast_interval:.2f}包/秒")
 
             except Exception as e:
@@ -273,7 +273,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("启动车辆状态UDP广播服务")
-    print(f"广播端口: {args.port}, 广播间隔: {args.interval}秒")
+    #print(f"广播端口: {args.port}, 广播间隔: {args.interval}秒")
 
     broadcaster = CarStateBroadcast(broadcast_port=args.port, broadcast_interval=args.interval)
     broadcaster.start()
