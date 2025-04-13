@@ -238,6 +238,32 @@ class CarStateBroadcast:
             self.sock.close()
             print("广播服务已关闭")
 
+def main():
+    """
+    模块主入口函数，供进程管理器调用
+    """
+    print("正在启动车辆状态UDP广播服务...")
+
+    # 解析命令行参数（如果通过命令行启动）
+    try:
+        parser = argparse.ArgumentParser(description='车辆状态UDP广播服务')
+        parser.add_argument('-p', '--port', type=int, default=8088, help='广播端口号 (默认: 8088)')
+        parser.add_argument('-i', '--interval', type=float, default=0.2, help='广播间隔(秒) (默认: 0.2)')
+        args, unknown = parser.parse_known_args()
+
+        port = args.port
+        interval = args.interval
+    except:
+        # 如果解析失败（例如通过进程管理器启动），使用默认值
+        port = 8088
+        interval = 0.2
+
+    print(f"初始化广播服务 - 端口: {port}, 广播间隔: {interval}秒")
+
+    # 创建并启动广播服务
+    broadcaster = CarStateBroadcast(broadcast_port=port, broadcast_interval=interval)
+    broadcaster.start()
+
 # 主函数
 if __name__ == "__main__":
     # 解析命令行参数
