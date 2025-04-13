@@ -58,7 +58,7 @@ class CarState(CarStateBase):
     # Match panda speed reading
     speed_kph = cp.vl["ENGINE_DATA"]["SPEED"]
     ret.standstill = speed_kph <= .1
-    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"] # for mazda RPM
+
     can_gear = int(cp.vl["GEAR"]["GEAR"])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"]
