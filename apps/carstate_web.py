@@ -225,6 +225,7 @@ def update_car_state_thread():
                         "方向盘角度": round(CS.steeringAngleDeg, 1),
                         "方向盘转矩": round(CS.steeringTorque, 1),
                         "方向盘速率": round(CS.steeringRateDeg, 1),
+                        "发动机转速": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 添加发动机转速
 
                         # 踏板状态
                         "油门踏板": round(CS.gas * 100, 1) if hasattr(CS, "gas") else 0,
@@ -235,7 +236,7 @@ def update_car_state_thread():
                         "巡航系统": "开启" if CS.cruiseState.enabled else "关闭",
                         "巡航速度": round(CS.cruiseState.speed * 3.6, 1) if CS.cruiseState.speed > 0 else 0,
                         "巡航状态": "可用" if CS.cruiseState.available else "不可用",
-                        "巡航跟车距离": CS.cruiseState.followDistance if hasattr(CS.cruiseState, "followDistance") else 0,
+                        "巡航跟车距离": CS.pcmCruiseGap if hasattr(CS, "pcmCruiseGap") else 0,  # 添加巡航跟车距离
 
                         # 变速箱
                         "档位": str(CS.gearShifter) if hasattr(CS, "gearShifter") else "未知",
@@ -570,7 +571,7 @@ def create_templates():
                 {key: '巡航系统', unit: ''},
                 {key: '巡航速度', unit: 'km/h'},
                 {key: '巡航状态', unit: ''},
-                {key: '巡航跟车距离', unit: '等级'}
+                {key: '巡航跟车距离', unit: '档位'}
             ],
             'safety-info': [
                 {key: '安全带状态', unit: ''},
