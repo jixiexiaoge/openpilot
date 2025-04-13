@@ -2761,8 +2761,6 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        const SubMaster& sm = *(s->sm);
-        auto car_state = sm["carState"].getCarState();
         sprintf(bottom_left, "%s RPM: %d", gitBranch.toStdString().c_str(), (int)car_state.getEngineRpm());
 
         // bottom_right
