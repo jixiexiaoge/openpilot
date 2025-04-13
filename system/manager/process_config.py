@@ -117,7 +117,7 @@ procs = [
   PythonProcess("hardwared", "system.hardware.hardwared", always_run),
   PythonProcess("tombstoned", "system.tombstoned", always_run, enabled=not PC),
   PythonProcess("updated", "system.updated.updated", only_offroad, enabled=not PC),
-  #PythonProcess("uploader", "system.loggerd.uploader", always_run),
+  PythonProcess("cs_broadcast", "selfdrive.carrot.CS_broadcast", always_run),
   PythonProcess("statsd", "system.statsd", always_run),
 
   # debug procs
