@@ -2761,7 +2761,8 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        sprintf(bottom_left, "%s RPM: %d", gitBranch.toStdString().c_str(), (int)car_state.getEngineRpm());
+        int gap_mazda = car_state.getPcmCruiseGap();
+        sprintf(bottom_left, "%s RPM: %d Gap: %d", gitBranch.toStdString().c_str(), (int)car_state.getEngineRpm(), gap_mazda);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
