@@ -25,7 +25,7 @@ except ImportError as e:
     sys.exit(1)
 
 class CarStateBroadcast:
-    def __init__(self, broadcast_port=8088, broadcast_interval=1.0):
+    def __init__(self, broadcast_port=8088, broadcast_interval=0.2):
         self.broadcast_port = broadcast_port  # UDP广播端口
         self.broadcast_interval = broadcast_interval  # 广播间隔(秒)
         self.broadcast_count = 0  # 广播计数器
