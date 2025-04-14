@@ -26,6 +26,12 @@ class CarState(CarStateBase):
     self.distance_button = 0
     self.pcmCruiseGap = 0 # copy from Hyundai
 
+    # 添加缺失的属性
+    self.is_metric = True
+    self.cruise_buttons = Buttons.NONE
+    self.prev_cruise_buttons = Buttons.NONE
+    self.activateCruise = 0
+
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
