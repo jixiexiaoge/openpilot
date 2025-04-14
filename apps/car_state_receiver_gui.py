@@ -123,6 +123,8 @@ class CarStateReceiverGUI:
         system_frame.pack(fill=tk.X, pady=5)
 
         self.create_info_field(system_frame, "设备 IP:", "device_ip")
+        self.create_info_field(system_frame, "设备 ID:", "dongle_id")
+        self.create_info_field(system_frame, "序列号:", "device_serial")
         self.create_info_field(system_frame, "车型:", "car_name")
         self.create_info_field(system_frame, "指纹:", "car_fingerprint")
         self.create_status_field(system_frame, "系统状态:", "openpilot_status")
@@ -407,6 +409,8 @@ class CarStateReceiverGUI:
 
         # 更新基本字段 (预设视图)
         self.device_ip_var.set(selected_ip)
+        self.dongle_id_var.set(data.get('dongle_id', '未知'))
+        self.device_serial_var.set(data.get('device_serial', '未知'))
         self.car_name_var.set(data.get('car_name', '未知'))
         self.car_fingerprint_var.set(data.get('car_fingerprint', '未知'))
 

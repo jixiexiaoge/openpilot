@@ -34,6 +34,10 @@ class CarStateBroadcast:
         self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams'])
         self.params = Params()
 
+        # 获取设备信息（只需获取一次）
+        self.dongle_id = self.params.get("DongleId", encoding='utf-8')
+        self.device_serial = self.params.get("HardwareSerial", encoding='utf-8')
+
         # 获取IP地址
         self.ip_address = self.get_local_ip()
         self.broadcast_ip = self.get_broadcast_address()
@@ -130,6 +134,10 @@ class CarStateBroadcast:
 
             # 创建状态数据
             self.car_state_data = {
+                # 设备信息（静态）
+                "dongle_id": self.dongle_id,
+                "device_serial": self.device_serial,
+
                 # 广播信息
                 "broadcast_count": self.broadcast_count,
                 "broadcast_interval": self.broadcast_interval,
