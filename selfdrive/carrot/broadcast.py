@@ -165,7 +165,7 @@ class CarStateBroadcast:
 
         if self.sm.valid['modelV2']:
             try:
-                model_v2 = self.sm['modelV2'].getModelV2()
+                model_v2 = self.sm['modelV2']
                 # 从视觉模型获取前车信息
                 if hasattr(model_v2, 'leads'):
                     leads = model_v2.leads
@@ -224,7 +224,7 @@ class CarStateBroadcast:
         # 获取模型和导航数据
         if self.sm.valid['modelV2']:
             try:
-                model_v2 = self.sm['modelV2'].getModelV2()
+                model_v2 = self.sm['modelV2']
                 # 获取模型预测的速度
                 if hasattr(model_v2, 'velocity') and len(model_v2.velocity.x) > 32:
                     model_kph = model_v2.velocity.x[32] * 3.6  # 转换为km/h
@@ -236,28 +236,24 @@ class CarStateBroadcast:
                         desire_log = meta.desireLog
 
                 # 获取carrot_man的信息
-                if self.sm.valid['carState']:
-                    cs = self.sm['carState']
-                    if hasattr(cs, 'carrotMan'):
-                        carrot_man = cs.carrotMan
-                        if hasattr(carrot_man, 'desiredSpeed'):
-                            desired_speed = carrot_man.desiredSpeed
-                        if hasattr(carrot_man, 'xTurnInfo'):
-                            turn_info = carrot_man.xTurnInfo
-                        if hasattr(carrot_man, 'xDistToTurn'):
-                            dist_to_turn = carrot_man.xDistToTurn
-                        if hasattr(carrot_man, 'xSpdType'):
-                            spd_type = carrot_man.xSpdType
-                        if hasattr(carrot_man, 'xSpdLimit'):
-                            spd_limit = carrot_man.xSpdLimit
-                        if hasattr(carrot_man, 'xSpdDist'):
-                            spd_dist = carrot_man.xSpdDist
-                        if hasattr(carrot_man, 'atcType'):
-                            atc_type = carrot_man.atcType
-                        if hasattr(carrot_man, 'trafficState'):
-                            traffic_state = carrot_man.trafficState
-                        if hasattr(carrot_man, 'vturnSpeed'):
-                            vturn_speed = carrot_man.vturnSpeed
+                if self.sm.valid['carState'] and hasattr(self.sm['carState'], 'carrotMan'):
+                    carrot_man = self.sm['carState'].carrotMan
+                    if hasattr(carrot_man, 'desiredSpeed'):
+                        desired_speed = carrot_man.desiredSpeed
+                    if hasattr(carrot_man, 'xTurnInfo'):
+                        turn_info = carrot_man.xTurnInfo
+                    if hasattr(carrot_man, 'xDistToTurn'):
+                        dist_to_turn = carrot_man.xDistToTurn
+                    if hasattr(carrot_man, 'xSpdType'):
+                        spd_type = carrot_man.xSpdType
+                    if hasattr(carrot_man, 'xSpdLimit'):
+                        spd_limit = carrot_man.xSpdLimit
+                    if hasattr(carrot_man, 'xSpdDist'):
+                        spd_dist = carrot_man.xSpdDist
+                    if hasattr(carrot_man, 'atcType'):
+                        atc_type = carrot_man.atcType
+                    if hasattr(carrot_man, 'trafficState'):
+                        traffic_state = carrot_man.trafficState
             except Exception as e:
                 print(f"获取模型和导航数据时出错: {e}")
 
