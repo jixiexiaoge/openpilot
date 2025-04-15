@@ -158,6 +158,14 @@ class CarStateReceiverGUI:
         self.create_info_field(nav_frame, "ATC类型:", "atc_type")
         self.create_info_field(nav_frame, "交通状态:", "traffic_state")
 
+        # 车道信息区域
+        lane_frame = ttk.LabelFrame(right_frame, text="车道和曲率信息", padding=10)
+        lane_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(lane_frame, "车道曲率:", "road_curvature", "1/m")
+        self.create_info_field(lane_frame, "车道宽度:", "lane_width", "m")
+        self.create_info_field(lane_frame, "转弯推荐速度:", "vturn_speed", "km/h")
+
         # 车辆基本信息区域
         basic_frame = ttk.LabelFrame(left_frame, text="基本信息", padding=10)
         basic_frame.pack(fill=tk.X, pady=5)
@@ -174,6 +182,14 @@ class CarStateReceiverGUI:
         self.create_info_field(cruise_frame, "巡航状态:", "cruise_enabled")
         self.create_info_field(cruise_frame, "设定速度:", "cruise_speed", "km/h")
         self.create_info_field(cruise_frame, "巡航可用:", "cruise_available")
+
+        # 前车信息区域（视觉模型）
+        lead_frame = ttk.LabelFrame(right_frame, text="前车信息(视觉)", padding=10)
+        lead_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(lead_frame, "前车状态:", "lead_status")
+        self.create_info_field(lead_frame, "前车距离:", "lead_distance", "m")
+        self.create_info_field(lead_frame, "相对速度:", "lead_velocity", "km/h")
 
         # 车辆状态区域
         vehicle_frame = ttk.LabelFrame(right_frame, text="车辆状态", padding=10)
@@ -462,6 +478,11 @@ class CarStateReceiverGUI:
         self.atc_type_var.set(data.get('atc_type', ''))
         self.traffic_state_var.set(str(data.get('traffic_state', 0)))
 
+        # 更新车道和曲率信息
+        self.road_curvature_var.set(str(data.get('road_curvature', 0)))
+        self.lane_width_var.set(str(data.get('lane_width', 0)))
+        self.vturn_speed_var.set(str(data.get('vturn_speed', 0)))
+
         # 计算最后更新时间
         seconds_ago = int(time.time() - self.last_received_time.get(selected_ip, 0))
         self.last_update_var.set(f"{seconds_ago}秒前")
@@ -488,6 +509,12 @@ class CarStateReceiverGUI:
         self.cruise_enabled_var.set("开启" if cruise_enabled else "关闭")
         self.cruise_speed_var.set(str(data.get('cruise_speed', 0)))
         self.cruise_available_var.set("可用" if data.get('cruise_available', False) else "不可用")
+
+        # 更新前车信息
+        lead_status = data.get('lead_status', False)
+        self.lead_status_var.set("已检测" if lead_status else "无车辆")
+        self.lead_distance_var.set(str(data.get('lead_distance', 0)))
+        self.lead_velocity_var.set(str(data.get('lead_velocity', 0)))
 
         # 更新车辆状态
         self.gas_var.set(str(data.get('gas', 0)))
