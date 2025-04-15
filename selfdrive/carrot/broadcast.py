@@ -31,7 +31,7 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'lateralPlan'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'lateralPlan', 'modelV2'])
         self.params = Params()
         self.params_memory = Params("/dev/shm/params")  # 用于获取NetworkAddress等共享内存参数
 
@@ -117,10 +117,59 @@ class CarStateBroadcast:
 
         # 设备状态
         started = False
+        # 初始化设备硬件信息
+        free_space = 0
+        memory_usage = 0
+        cpu_temp = 0
+        cpu_usage = 0
+
         if self.sm.valid['deviceState']:
             device_state = self.sm['deviceState']
             if hasattr(device_state, 'started'):
                 started = device_state.started
+
+            # 获取设备硬件状态信息
+            if hasattr(device_state, 'freeSpacePercent'):
+                free_space = device_state.freeSpacePercent
+            if hasattr(device_state, 'memoryUsagePercent'):
+                memory_usage = device_state.memoryUsagePercent
+
+            # 获取CPU温度
+            if hasattr(device_state, 'cpuTempC'):
+                cpu_temp_c = device_state.cpuTempC
+                if len(cpu_temp_c) > 0:
+                    cpu_temp = sum(cpu_temp_c) / len(cpu_temp_c)
+
+            # 获取CPU使用率
+            if hasattr(device_state, 'cpuUsagePercent'):
+                cpu_usage_percent = device_state.cpuUsagePercent
+                cpu_size = 0
+                total_usage = 0
+                for cpu_val in cpu_usage_percent:
+                    if cpu_val <= 0:
+                        break
+                    total_usage += cpu_val
+                    cpu_size += 1
+                if cpu_size > 0:
+                    cpu_usage = total_usage / cpu_size
+
+        # 获取前车信息（仅从视觉模型获取）
+        lead_distance = 0.0
+        lead_velocity = 0.0
+        lead_status = False
+
+        if self.sm.valid['modelV2']:
+            try:
+                model_v2 = self.sm['modelV2'].getModelV2()
+                # 从视觉模型获取前车信息
+                if hasattr(model_v2, 'leads'):
+                    leads = model_v2.leads
+                    if len(leads) > 0 and leads[0].prob > 0.5:  # 第一个前车且概率大于0.5
+                        lead_status = True
+                        lead_distance = leads[0].dRel
+                        lead_velocity = leads[0].vRel * 3.6  # 转换为km/h
+            except Exception as e:
+                print(f"获取前车数据时出错: {e}")
 
         # 获取车道线信息
         lane_info = ""
@@ -130,6 +179,53 @@ class CarStateBroadcast:
                 lane_info = lat_plan.latDebugText
             elif hasattr(lat_plan, 'laneWidth'):
                 lane_info = f"车道宽度: {lat_plan.laneWidth:.2f}m"
+
+        # 初始化路线和导航数据
+        model_kph = 0
+        desire_log = ""
+        desired_speed = 0
+        turn_info = 0
+        dist_to_turn = 0
+        spd_type = 0
+        spd_limit = 0
+        spd_dist = 0
+        atc_type = ""
+        traffic_state = 0
+
+        # 获取模型和导航数据
+        if self.sm.valid['modelV2']:
+            try:
+                model_v2 = self.sm['modelV2'].getModelV2()
+                # 获取模型预测的速度
+                if hasattr(model_v2, 'velocity') and len(model_v2.velocity.x) > 32:
+                    model_kph = model_v2.velocity.x[32] * 3.6  # 转换为km/h
+
+                # 获取meta信息
+                if hasattr(model_v2, 'meta'):
+                    meta = model_v2.meta
+                    if hasattr(meta, 'desireLog'):
+                        desire_log = meta.desireLog
+
+                # 获取carrot_man的信息
+                carrot_man = self.sm['carState'].getCarState().carrotMan
+                if hasattr(carrot_man, 'desiredSpeed'):
+                    desired_speed = carrot_man.desiredSpeed
+                if hasattr(carrot_man, 'xTurnInfo'):
+                    turn_info = carrot_man.xTurnInfo
+                if hasattr(carrot_man, 'xDistToTurn'):
+                    dist_to_turn = carrot_man.xDistToTurn
+                if hasattr(carrot_man, 'xSpdType'):
+                    spd_type = carrot_man.xSpdType
+                if hasattr(carrot_man, 'xSpdLimit'):
+                    spd_limit = carrot_man.xSpdLimit
+                if hasattr(carrot_man, 'xSpdDist'):
+                    spd_dist = carrot_man.xSpdDist
+                if hasattr(carrot_man, 'atcType'):
+                    atc_type = carrot_man.atcType
+                if hasattr(carrot_man, 'trafficState'):
+                    traffic_state = carrot_man.trafficState
+            except Exception as e:
+                print(f"获取模型和导航数据时出错: {e}")
 
         # 判断openpilot状态
         openpilot_status = "ONROAD" if (is_onroad or is_active or started) else "OFFROAD"
@@ -152,6 +248,29 @@ class CarStateBroadcast:
                 "dongle_id": self.dongle_id,
                 "device_serial": self.device_serial,
                 "network_ip": self.network_ip,
+
+                # 设备硬件状态
+                "free_space": round(free_space, 1),
+                "memory_usage": round(memory_usage, 1),
+                "cpu_temp": round(cpu_temp, 1),
+                "cpu_usage": round(cpu_usage, 1),
+
+                # 前车信息（仅视觉模型）
+                "lead_status": lead_status,
+                "lead_distance": round(lead_distance, 1),
+                "lead_velocity": round(lead_velocity, 1),
+
+                # 导航和模型信息
+                "model_kph": round(model_kph, 1),
+                "desire_log": desire_log,
+                "desired_speed": desired_speed,
+                "turn_info": turn_info,
+                "dist_to_turn": dist_to_turn,
+                "spd_type": spd_type,
+                "spd_limit": spd_limit,
+                "spd_dist": spd_dist,
+                "atc_type": atc_type,
+                "traffic_state": traffic_state,
 
                 # 广播信息
                 "broadcast_count": self.broadcast_count,

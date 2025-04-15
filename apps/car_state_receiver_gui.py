@@ -134,6 +134,30 @@ class CarStateReceiverGUI:
         self.create_info_field(system_frame, "最后更新:", "last_update")
         self.create_info_field(system_frame, "推送频率:", "push_frequency", "包/秒")
 
+        # 设备硬件状态区域
+        device_frame = ttk.LabelFrame(left_frame, text="设备硬件状态", padding=10)
+        device_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(device_frame, "剩余存储:", "free_space", "%")
+        self.create_info_field(device_frame, "内存使用:", "memory_usage", "%")
+        self.create_info_field(device_frame, "CPU温度:", "cpu_temp", "°C")
+        self.create_info_field(device_frame, "CPU使用率:", "cpu_usage", "%")
+
+        # 导航和模型信息区域
+        nav_frame = ttk.LabelFrame(right_frame, text="导航和路线信息", padding=10)
+        nav_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(nav_frame, "模型预测速度:", "model_kph", "km/h")
+        self.create_info_field(nav_frame, "变道意图:", "desire_log")
+        self.create_info_field(nav_frame, "期望速度:", "desired_speed", "km/h")
+        self.create_info_field(nav_frame, "转弯类型:", "turn_info")
+        self.create_info_field(nav_frame, "距离转弯点:", "dist_to_turn", "m")
+        self.create_info_field(nav_frame, "速度限制类型:", "spd_type")
+        self.create_info_field(nav_frame, "速度限制值:", "spd_limit", "km/h")
+        self.create_info_field(nav_frame, "速度限制距离:", "spd_dist", "m")
+        self.create_info_field(nav_frame, "ATC类型:", "atc_type")
+        self.create_info_field(nav_frame, "交通状态:", "traffic_state")
+
         # 车辆基本信息区域
         basic_frame = ttk.LabelFrame(left_frame, text="基本信息", padding=10)
         basic_frame.pack(fill=tk.X, pady=5)
@@ -419,6 +443,24 @@ class CarStateReceiverGUI:
         self.car_fingerprint_var.set(data.get('car_fingerprint', '未知'))
         self.lane_info_var.set(data.get('lane_info', '未知'))
         self.log_carrot_var.set(data.get('log_carrot', '未知'))
+
+        # 更新设备硬件状态
+        self.free_space_var.set(str(data.get('free_space', 0)))
+        self.memory_usage_var.set(str(data.get('memory_usage', 0)))
+        self.cpu_temp_var.set(str(data.get('cpu_temp', 0)))
+        self.cpu_usage_var.set(str(data.get('cpu_usage', 0)))
+
+        # 更新导航和模型信息
+        self.model_kph_var.set(str(data.get('model_kph', 0)))
+        self.desire_log_var.set(data.get('desire_log', ''))
+        self.desired_speed_var.set(str(data.get('desired_speed', 0)))
+        self.turn_info_var.set(str(data.get('turn_info', 0)))
+        self.dist_to_turn_var.set(str(data.get('dist_to_turn', 0)))
+        self.spd_type_var.set(str(data.get('spd_type', 0)))
+        self.spd_limit_var.set(str(data.get('spd_limit', 0)))
+        self.spd_dist_var.set(str(data.get('spd_dist', 0)))
+        self.atc_type_var.set(data.get('atc_type', ''))
+        self.traffic_state_var.set(str(data.get('traffic_state', 0)))
 
         # 计算最后更新时间
         seconds_ago = int(time.time() - self.last_received_time.get(selected_ip, 0))
