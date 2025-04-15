@@ -31,12 +31,14 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'lateralPlan'])
         self.params = Params()
+        self.params_memory = Params("/dev/shm/params")  # 用于获取NetworkAddress等共享内存参数
 
         # 获取设备信息（只需获取一次）
         self.dongle_id = self.params.get("DongleId", encoding='utf-8')
         self.device_serial = self.params.get("HardwareSerial", encoding='utf-8')
+        self.network_ip = self.params_memory.get("NetworkAddress", encoding='utf-8')
 
         # 获取IP地址
         self.ip_address = self.get_local_ip()
@@ -120,6 +122,15 @@ class CarStateBroadcast:
             if hasattr(device_state, 'started'):
                 started = device_state.started
 
+        # 获取车道线信息
+        lane_info = ""
+        if self.sm.valid['lateralPlan']:
+            lat_plan = self.sm['lateralPlan']
+            if hasattr(lat_plan, 'latDebugText'):
+                lane_info = lat_plan.latDebugText
+            elif hasattr(lat_plan, 'laneWidth'):
+                lane_info = f"车道宽度: {lat_plan.laneWidth:.2f}m"
+
         # 判断openpilot状态
         openpilot_status = "ONROAD" if (is_onroad or is_active or started) else "OFFROAD"
 
@@ -132,11 +143,15 @@ class CarStateBroadcast:
             car_name = self.params.get("CarName", encoding='utf8')
             car_fingerprint = self.sm['carParams'].carFingerprint if self.sm.valid['carParams'] else "未知"
 
+            # 获取LogCarrot信息
+            log_carrot = CS.logCarrot if hasattr(CS, "logCarrot") else ""
+
             # 创建状态数据
             self.car_state_data = {
                 # 设备信息（静态）
                 "dongle_id": self.dongle_id,
                 "device_serial": self.device_serial,
+                "network_ip": self.network_ip,
 
                 # 广播信息
                 "broadcast_count": self.broadcast_count,
@@ -151,6 +166,8 @@ class CarStateBroadcast:
                 "active": is_active,
                 "onroad": is_onroad,
                 "started": started,
+                "lane_info": lane_info,
+                "log_carrot": log_carrot,
 
                 # 车辆基本信息
                 "car_name": car_name,
