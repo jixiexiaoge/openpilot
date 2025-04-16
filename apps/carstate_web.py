@@ -6,6 +6,7 @@ import sys
 import json
 import time
 import threading
+import socket
 from flask import Flask, render_template, jsonify
 
 # 添加openpilot根目录到Python路径
@@ -31,307 +32,49 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.config['JSON_AS_ASCII'] = False
 
 # 全局变量保存最新的车辆状态数据
-car_state_data = {
-    # 系统状态
-    "openpilot状态": "OFFROAD",
-    "数据状态": "等待数据...",
-    "连接状态": "等待连接...",
-    "最后有效数据时间": "无数据",
-    "自动驾驶": "未激活",
-
-    # 基本车辆信息
-    "车速": 0,
-    "加速度": 0,
-    "方向盘角度": 0,
-    "方向盘转矩": 0,
-    "方向盘速率": 0,
-
-    # 踏板状态
-    "油门踏板": 0,
-    "刹车踏板": "未踩下",
-    "刹车压力": 0,
-
-    # 巡航控制
-    "巡航系统": "关闭",
-    "巡航速度": 0,
-    "巡航状态": "不可用",
-    "巡航跟车距离": 0,
-
-    # 变速箱
-    "档位": "未知",
-    "档位步数": 0,
-
-    # 车轮速度
-    "左前轮速度": 0,
-    "右前轮速度": 0,
-    "左后轮速度": 0,
-    "右后轮速度": 0,
-
-    # 安全系统
-    "安全带状态": "未知",
-    "车门状态": "未知",
-    "刹车灯": "未知",
-
-    # 其他状态
-    "转向灯": "关闭",
-    "远光灯": "关闭",
-    "左盲区监测": "未知",
-    "右盲区监测": "未知",
-
-    # 高级功能
-    "车型": "未知",
-    "车型指纹": "未知",
-    "发动机转速": 0,
-
-    # 可选信息
-    "车外温度": "未知",
-    "燃油续航": "未知",
-    "总里程": "未知",
-    "瞬时油耗": "未知",
-
-    # 安全系统状态
-    "ESP状态": "未知",
-    "ABS状态": "未知",
-    "牵引力控制": "未知",
-    "碰撞警告": "未知",
-
-    # 车辆规格
-    "车重": "未知",
-    "轴距": "未知",
-    "转向比": "未知",
-
-    # 时间戳
-    "更新时间": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-    "运行状态": "停止"
-}
-last_update_time = 0
+car_state_data = {}
 car_state_lock = threading.Lock()
-openpilot_status = "OFFROAD"  # 初始状态为OFFROAD
-can_data_available = False    # 标记是否成功获取到CAN数据
-last_valid_data_time = 0      # 上次成功获取数据的时间
 
-# 线程函数：定期更新车辆状态数据
-def update_car_state_thread():
-    global car_state_data, last_update_time, openpilot_status, can_data_available, last_valid_data_time
+# UDP监听线程，接收broadcast.py广播的车辆状态JSON
+def udp_listener_thread(broadcast_port=8088):
+    global car_state_data
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("", broadcast_port))
+    print(f"[UDP] 正在监听车辆状态广播端口: {broadcast_port}")
+    while True:
+        try:
+            data, addr = sock.recvfrom(65536)
+            json_data = json.loads(data.decode('utf-8'))
+            with car_state_lock:
+                car_state_data = json_data
+        except Exception as e:
+            print(f"[UDP] 接收或解析数据出错: {e}")
 
-    try:
-        # 初始化参数对象
-        params = Params()
+# 注释原有openpilot数据线程
+# def update_car_state_thread():
+#     ...
+# def start_background_thread():
+#     ...
 
-        # 初始化消息管理器，订阅carState、controlsState和deviceState
-        sm = messaging.SubMaster(['carState', 'carParams', 'controlsState', 'deviceState'])
-
-        # 获取车型信息
-        car_name = params.get("CarName", encoding='utf8')
-        if car_name in PLATFORMS:
-            platform = PLATFORMS[car_name]
-            car_fingerprint = platform.config.platform_str
-            car_specs = platform.config.specs
-        else:
-            car_name = "未知车型"
-            car_fingerprint = "未知指纹"
-            car_specs = None
-
-        print(f"已识别车辆: {car_name}, 指纹: {car_fingerprint}")
-
-        while True:
-            try:
-                # 更新消息
-                sm.update()
-
-                # 检查openpilot状态
-                # 1. 首先从params中读取IsOnroad参数
-                is_onroad = params.get_bool("IsOnroad")
-
-                # 2. 检查controlsState，但不尝试访问active字段
-                is_active = False
-                is_enabled = False
-                if sm.updated['controlsState'] and sm.valid['controlsState']:
-                    controls_state = sm['controlsState']
-                    # 使用available代替active作为判断依据
-                    # 或者检查enabled字段（如果存在）
-                    try:
-                        if hasattr(controls_state, 'enabled'):
-                            is_enabled = controls_state.enabled
-                        # 检查其他可能的状态字段
-                        if hasattr(controls_state, 'state'):
-                            is_active = controls_state.state > 0
-                        elif hasattr(controls_state, 'longActive') or hasattr(controls_state, 'latActive'):
-                            is_active = getattr(controls_state, 'longActive', False) or getattr(controls_state, 'latActive', False)
-                    except Exception as e:
-                        print(f"检查controlsState时出错: {e}")
-
-                # 3. 设备状态
-                started = False
-                if sm.updated['deviceState'] and sm.valid['deviceState']:
-                    device_state = sm['deviceState']
-                    if hasattr(device_state, 'started'):
-                        started = device_state.started
-
-                # 综合判断openpilot状态
-                if is_onroad or is_active or is_enabled or started:
-                    openpilot_status = "ONROAD"
-                    can_data_available = True
-                    last_valid_data_time = time.time()
-                else:
-                    openpilot_status = "OFFROAD"
-                    # 当处于OFFROAD状态时，也可能有CAN数据
-                    # 进一步检查车辆数据的有效性
-
-                    # 获取车辆状态
-                    if sm.updated['carState'] and sm.valid['carState']:
-                        CS = sm['carState']
-                        # 检查是否有基本的车辆数据
-                        data_valid = (CS.wheelSpeeds.fl > 0.01 or
-                                    CS.wheelSpeeds.fr > 0.01 or
-                                    CS.wheelSpeeds.rl > 0.01 or
-                                    CS.wheelSpeeds.rr > 0.01 or
-                                    abs(CS.steeringAngleDeg) > 0.1 or
-                                    CS.vEgo > 0.1 or
-                                    CS.gas > 0.01 or
-                                    CS.brakePressed)
-
-                        if data_valid:
-                            can_data_available = True
-                            last_valid_data_time = time.time()
-                    else:
-                        # 如果没有carState更新或数据无效，可能没连接CAN或系统未启动
-                        can_data_available = False
-
-                # 检查是否过期 - 如果10秒内没有有效数据，则认为连接断开
-                if time.time() - last_valid_data_time > 10:
-                    can_data_available = False
-
-                # 获取车辆状态
-                if sm.updated['carState'] and sm.valid['carState']:
-                    CS = sm['carState']
-
-                    # 基本状态判断
-                    is_car_started = CS.vEgo > 0.1
-                    is_car_engaged = CS.cruiseState.enabled
-
-                    # 准备数据
-                    data = {
-                        # 系统状态
-                        "openpilot状态": openpilot_status,
-                        "数据状态": "正常" if can_data_available else "未检测到车辆数据",
-                        "连接状态": "已连接" if can_data_available else "未连接",
-                        "最后有效数据时间": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_valid_data_time)) if last_valid_data_time > 0 else "无数据",
-                        "自动驾驶": "激活" if is_active else "未激活",
-
-                        # 基本车辆信息
-                        "车速": round(CS.vEgo * 3.6, 1),  # 转换为km/h并保留1位小数
-                        "加速度": round(CS.aEgo, 2),
-                        "方向盘角度": round(CS.steeringAngleDeg, 1),
-                        "方向盘转矩": round(CS.steeringTorque, 1),
-                        "方向盘速率": round(CS.steeringRateDeg, 1),
-                        "发动机转速": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 添加发动机转速
-
-                        # 踏板状态
-                        "油门踏板": round(CS.gas * 100, 1) if hasattr(CS, "gas") else 0,
-                        "刹车踏板": "已踩下" if CS.brakePressed else "未踩下",
-                        "刹车压力": CS.brake if hasattr(CS, "brake") else 0,  # 直接显示原始值，不做百分比转换
-
-                        # 巡航控制
-                        "巡航系统": "开启" if CS.cruiseState.enabled else "关闭",
-                        "巡航速度": round(CS.cruiseState.speed * 3.6, 1) if CS.cruiseState.speed > 0 else 0,
-                        "巡航状态": "可用" if CS.cruiseState.available else "不可用",
-                        "巡航跟车距离": CS.pcmCruiseGap if hasattr(CS, "pcmCruiseGap") else 0,  # 添加巡航跟车距离
-
-                        # 变速箱
-                        "档位": str(CS.gearShifter) if hasattr(CS, "gearShifter") else "未知",
-                        "档位步数": CS.gearStep if hasattr(CS, "gearStep") else 0,
-
-                        # 车轮速度
-                        "左前轮速度": round(CS.wheelSpeeds.fl * 3.6, 1),
-                        "右前轮速度": round(CS.wheelSpeeds.fr * 3.6, 1),
-                        "左后轮速度": round(CS.wheelSpeeds.rl * 3.6, 1),
-                        "右后轮速度": round(CS.wheelSpeeds.rr * 3.6, 1),
-
-                        # 安全系统
-                        "安全带状态": "未系" if CS.seatbeltUnlatched else "已系",
-                        "车门状态": "开启" if CS.doorOpen else "关闭",
-                        "刹车灯": "亮起" if hasattr(CS, "brakeLights") and CS.brakeLights else "熄灭",
-
-                        # 其他状态
-                        "转向灯": "左转" if CS.leftBlinker else ("右转" if CS.rightBlinker else "关闭"),
-                        "远光灯": "开启" if CS.genericToggle else "关闭",
-                        "左盲区监测": "有车" if CS.leftBlindspot else "无车",
-                        "右盲区监测": "有车" if CS.rightBlindspot else "无车",
-
-                        # 高级功能
-                        "车型": car_name,
-                        "车型指纹": car_fingerprint,
-                        "发动机转速": CS.engineRPM if hasattr(CS, "engineRPM") and CS.engineRPM > 0 else 0,
-
-                        # 可选信息
-                        "车外温度": f"{CS.outsideTemp:.1f}°C" if hasattr(CS, "outsideTemp") else "未知",
-                        "燃油续航": f"{CS.fuelGauge:.1f}km" if hasattr(CS, "fuelGauge") else "未知",
-                        "总里程": f"{CS.odometer:.1f}km" if hasattr(CS, "odometer") else "未知",
-                        "瞬时油耗": f"{CS.instantFuelConsumption:.1f}L/100km" if hasattr(CS, "instantFuelConsumption") else "未知",
-
-                        # 安全系统状态
-                        "ESP状态": "已禁用" if hasattr(CS, "espDisabled") and CS.espDisabled else "正常",
-                        "ABS状态": "激活" if hasattr(CS, "absActive") and CS.absActive else "正常",
-                        "牵引力控制": "激活" if hasattr(CS, "tcsActive") and CS.tcsActive else "正常",
-                        "碰撞警告": "警告" if hasattr(CS, "collisionWarning") and CS.collisionWarning else "正常",
-
-                        # 车辆规格(如果有)
-                        "车重": f"{car_specs.mass:.0f} kg" if car_specs and hasattr(car_specs, "mass") else "未知",
-                        "轴距": f"{car_specs.wheelbase:.3f} m" if car_specs and hasattr(car_specs, "wheelbase") else "未知",
-                        "转向比": f"{car_specs.steerRatio:.1f}" if car_specs and hasattr(car_specs, "steerRatio") else "未知",
-
-                        # 时间戳
-                        "更新时间": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                        "运行状态": "行驶中" if is_car_started else "停止"
-                    }
-
-                    # 更新全局数据
-                    with car_state_lock:
-                        car_state_data = data
-                        last_update_time = time.time()
-                else:
-                    # 如果没有车辆状态更新，仅更新系统状态
-                    with car_state_lock:
-                        # 只更新关键状态字段
-                        car_state_data["openpilot状态"] = openpilot_status
-                        car_state_data["数据状态"] = "正常" if can_data_available else "未检测到车辆数据"
-                        car_state_data["连接状态"] = "已连接" if can_data_available else "未连接"
-                        car_state_data["最后有效数据时间"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_valid_data_time)) if last_valid_data_time > 0 else "无数据"
-                        car_state_data["更新时间"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                        car_state_data["自动驾驶"] = "激活" if is_active else "未激活"
-
-            except Exception as e:
-                print(f"更新车辆状态时出错: {e}")
-                can_data_available = False
-
-            # 每秒更新一次
-            time.sleep(1)
-    except Exception as e:
-        print(f"初始化车辆状态监控时出错: {e}")
-        import traceback
-        traceback.print_exc()
-
-# 启动后台线程
-def start_background_thread():
-    thread = threading.Thread(target=update_car_state_thread, daemon=True)
+def start_udp_thread():
+    thread = threading.Thread(target=udp_listener_thread, daemon=True)
     thread.start()
-    print("后台数据更新线程已启动")
+    print("UDP广播监听线程已启动")
 
 # 主页路由
 @app.route('/')
 def index():
     # 在渲染初始模板时就传入基本数据
-    return render_template('index.html', initial_data=json.dumps(car_state_data))
+    with car_state_lock:
+        initial = json.dumps(car_state_data, ensure_ascii=False)
+    return render_template('index.html', initial_data=initial)
 
 # API路由获取最新车辆状态
 @app.route('/api/car_state')
 def get_car_state():
     with car_state_lock:
         data = car_state_data.copy()
-
-    # 确保返回成功，并打印日志以便调试
-    print(f"API请求: 返回{len(data)}个数据项")
     return jsonify(data)
 
 # 创建模板目录
@@ -533,6 +276,14 @@ def create_templates():
             <!-- 动态填充 -->
         </div>
 
+        <div class="section-title">全部原始数据</div>
+        <div style="overflow-x:auto;">
+            <table id="raw-data-table" style="width:100%;background:#fff;border-radius:8px;padding:10px;margin-top:10px;box-shadow:0 2px 4px rgba(0,0,0,0.05);font-size:14px;">
+                <thead><tr><th>字段</th><th>值</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
         <div class="update-time" id="update-time">最后更新时间: 加载中...</div>
     </div>
 
@@ -688,7 +439,21 @@ def create_templates():
             }
 
             // 更新时间
-            document.getElementById('update-time').textContent = `最后更新时间: ${data['更新时间'] || '未更新'}`;
+            document.getElementById('update-time').textContent = `最后更新时间: ${data['更新时间'] || data['broadcast_time'] || '未更新'}`;
+
+            // 更新原始数据表格
+            const rawTable = document.getElementById('raw-data-table').getElementsByTagName('tbody')[0];
+            rawTable.innerHTML = '';
+            Object.entries(data).forEach(([k, v]) => {
+                const row = document.createElement('tr');
+                const keyCell = document.createElement('td');
+                keyCell.textContent = k;
+                const valCell = document.createElement('td');
+                valCell.textContent = (typeof v === 'object') ? JSON.stringify(v) : v;
+                row.appendChild(keyCell);
+                row.appendChild(valCell);
+                rawTable.appendChild(row);
+            });
         }
 
         // 立即显示初始数据
@@ -765,7 +530,7 @@ if __name__ == '__main__':
     create_templates()
 
     # 启动后台线程 - 在Flask应用启动前手动启动线程
-    start_background_thread()
+    start_udp_thread()
 
     # 启动Flask应用
     host = '0.0.0.0'  # 监听所有网络接口
