@@ -168,7 +168,10 @@ void CuFuD::updateInput() {
         if (subMasterPtr_->updated("qcMazdaState")) {
             bool isCrzAvailable =
               (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsCruiseAvailable();
-            std::printf("%d\r\n", isCrzAvailable);
+            bool isCruiseActive =
+              (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsCruiseActive();
+            bool isAccActive = (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsAccActive();
+            std::printf("%d %d %d\r\n", isCrzAvailable, isCruiseActive, isAccActive);
         } else {
             std::printf("no signal\r\n");
         }

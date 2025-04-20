@@ -17,7 +17,12 @@ def update_mazda_state(cp):
   global stateUpdated
   stateUpdated = True
 
+  # CRZ = KD + KL
+  # KD = ACC
+  # True if ACC is ready, but not work. speed is three dots
   qcMazdaState.isCruiseAvailable = cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"] == 1
+  qcMazdaState.isCruiseActive = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
+  qcMazdaState.isAccActive = cp.vl["CRZ_CTRL"]["ACC_ACTIVE"] == 1
 
   print(f"publish message: {qcMazdaState.isCruiseAvailable}")
 
