@@ -32,6 +32,8 @@ class CuFuD {
     void loop();
 
   private:
+    using VehicleState = ::cereal::QcPilotCufuState::VehicleState;
+
     void step();
     void updateInput();
     void updateEvaluators();
@@ -45,16 +47,18 @@ class CuFuD {
     bool isCameraHealthy_ {false};
     bool isSensorHealthy_ {false};
     bool isMyselfNotLagging_ {false};
+    VehicleState vehicleState_ {VehicleState::ERROR};
 
     std::unique_ptr<Context> contextPtr_;
-    std::unique_ptr<SubSocket> carStateSockPtr_;
-    AlignedBuffer carStateBuf_;
+    std::unique_ptr<SubSocket> mazdaStateSockPtr_;
+    AlignedBuffer mazdaStateBuf_;
     std::unique_ptr<SubMaster> subMasterPtr_;
     std::unique_ptr<SubMaster> subMasterCameraPtr_;
     std::unique_ptr<SubMaster> subMasterSensorPtr_;
 
     PubMaster pubMaster_;
 
+    std::optional<cereal::QcMazdaState::Reader> mazdaStateReaderOpt_;
     std::optional<cereal::CarState::Reader> carStateReaderOpt_;
     std::optional<cereal::DeviceState::Reader> deviceStateReaderOpt_;
     std::optional<cereal::PeripheralState::Reader> peripheralStateReaderOpt_;

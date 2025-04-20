@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include "cereal/messaging/messaging.h"
 #include "openpilot/qcpilot/cufud/evaluators/calibrated_evaluator.h"
 #include "openpilot/qcpilot/cufud/evaluators/can_valid_evaluator.h"
@@ -36,13 +37,12 @@ const std::vector<const char *> kBasicSignals {"deviceState",
                                                "radarState",
                                                // "carParams",
                                                "driverMonitoringState",
-                                               "carState",
                                                "driverStateV2",
                                                "wideRoadCameraState",
                                                "managerState",
                                                "selfdriveState",
                                                "longitudinalPlan",
-                                               "qcMazdaState"};
+                                               "carState"};
 
 const std::vector<const char *> kCameraSingals {
   "roadCameraState", "driverCameraState", "wideRoadCameraState"};
@@ -57,8 +57,9 @@ CuFuD::CuFuD(const cereal::CarParams::Reader &carParams) :
     isCameraHealthy_ {false},
     isSensorHealthy_ {false},
     isMyselfNotLagging_ {false},
+    vehicleState_ {VehicleState::ERROR},
     contextPtr_ {Context::create()},
-    carStateSockPtr_ {SubSocket::create(contextPtr_.get(), "carState")},
+    mazdaStateSockPtr_ {SubSocket::create(contextPtr_.get(), "qcMazdaState")},
     subMasterPtr_ {std::make_unique<SubMaster>(kBasicSignals)},
     subMasterCameraPtr_ {std::make_unique<SubMaster>(kCameraSingals)},
     subMasterSensorPtr_ {std::make_unique<SubMaster>(kSensorSingals)},
@@ -97,11 +98,12 @@ CuFuD::CuFuD(const cereal::CarParams::Reader &carParams) :
                  &posenetEvaluator_,
                  &sensorHealthyEvaluator_,
                  &chassisEvaluator_} {
-    assert(carStateSockPtr_ != nullptr);
-    carStateSockPtr_->setTimeout(20);    // CarState runs at 100Hz
+    assert(mazdaStateSockPtr_ != nullptr);
+    mazdaStateSockPtr_->setTimeout(20);    // MazdaState runs at 100Hz
     assert(subMasterPtr_ != nullptr);
     assert(subMasterCameraPtr_ != nullptr);
     assert(subMasterSensorPtr_ != nullptr);
+    mazdaStateReaderOpt_.reset();
     carStateReaderOpt_.reset();
     deviceStateReaderOpt_.reset();
     peripheralStateReaderOpt_.reset();
@@ -129,6 +131,7 @@ void CuFuD::step() {
 
 void CuFuD::updateInput() {
     // Clear previous input
+    mazdaStateReaderOpt_.reset();
     carStateReaderOpt_.reset();
     deviceStateReaderOpt_.reset();
     peripheralStateReaderOpt_.reset();
@@ -138,15 +141,39 @@ void CuFuD::updateInput() {
     livePoseReaderOpt_.reset();
 
     // Wait/Block for carState
-    std::unique_ptr<Message> msg {carStateSockPtr_->receive(false)};
+    std::unique_ptr<Message> msg {mazdaStateSockPtr_->receive(false)};
     subMasterPtr_->update(0);
     subMasterCameraPtr_->update(0);
     subMasterSensorPtr_->update(0);
     if (msg) {
-        capnp::FlatArrayMessageReader msgReader(carStateBuf_.align(msg.get()));
+        capnp::FlatArrayMessageReader msgReader(mazdaStateBuf_.align(msg.get()));
         cereal::Event::Reader event = msgReader.getRoot<cereal::Event>();
-        carStateReaderOpt_ = event.getCarState();
+        mazdaStateReaderOpt_ = event.getQcMazdaState();
 
+        bool isCrzAvailable = mazdaStateReaderOpt_->getIsCruiseAvailable();
+        bool isCruiseActive = mazdaStateReaderOpt_->getIsCruiseActive();
+        bool isAccActive = mazdaStateReaderOpt_->getIsAccActive();
+
+        if (isCrzAvailable) {
+            if (isCruiseActive) {
+                if (isAccActive) {
+                    vehicleState_ = VehicleState::ACTIVE;
+                } else {
+                    vehicleState_ = VehicleState::HOLD;
+                }
+            } else {
+                vehicleState_ = VehicleState::AVAILABLE;
+            }
+        } else {
+            vehicleState_ = VehicleState::DISABLED;
+        }
+
+        std::printf("%hu\r\n", static_cast<std::uint16_t>(vehicleState_));
+
+
+        if (subMasterPtr_->updated("carState")) {
+            carStateReaderOpt_ = (*subMasterPtr_)["carState"].getCarState();
+        }
         if (subMasterPtr_->updated("deviceState")) {
             deviceStateReaderOpt_ = (*subMasterPtr_)["deviceState"].getDeviceState();
         }
@@ -164,16 +191,6 @@ void CuFuD::updateInput() {
         }
         if (subMasterPtr_->updated("livePose")) {
             livePoseReaderOpt_ = (*subMasterPtr_)["livePose"].getLivePose();
-        }
-        if (subMasterPtr_->updated("qcMazdaState")) {
-            bool isCrzAvailable =
-              (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsCruiseAvailable();
-            bool isCruiseActive =
-              (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsCruiseActive();
-            bool isAccActive = (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsAccActive();
-            std::printf("%d %d %d\r\n", isCrzAvailable, isCruiseActive, isAccActive);
-        } else {
-            std::printf("no signal\r\n");
         }
     }
 
@@ -215,11 +232,6 @@ void CuFuD::consolidateResult() {
     // }
     // std::printf("\r");
 
-    // if (!isConditionSatisfied) {
-    //     // std::printf("not all condition satisfied\r\n\r\n");
-    //     std::printf("\n");
-    // }
-
     isControllingEnabled_ = isConditionSatisfied;
 }
 
@@ -250,6 +262,7 @@ void CuFuD::publishResult() {
 
 
     qcPilotCufuStateBuilder.setIsControlSatisfied(isControllingEnabled_);
+    qcPilotCufuStateBuilder.setVehicleState(vehicleState_);
     pubMaster_.send("qcPilotCufuState", message);
 }
 

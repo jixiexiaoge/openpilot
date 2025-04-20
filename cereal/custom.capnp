@@ -11,8 +11,10 @@ $Cxx.namespace("cereal");
 # DON'T change the identifier (e.g. @0x81c2f05a394cf4af)
 
 struct QcPilotCufuState @0x81c2f05a394cf4af {
-  isControlSatisfied @0 :Bool;
-  evaluators @1 :StateEvaluators;
+  isControlSatisfied @0:Bool;
+  vehicleState @1 :VehicleState;
+  evaluators @2 :StateEvaluators;
+
   struct StateEvaluators {
     carRecognized @0 :Bool;
     onCar @1 :Bool;
@@ -31,6 +33,14 @@ struct QcPilotCufuState @0x81c2f05a394cf4af {
     posenet @14 :Bool;
     sensorHealthy @15 :Bool;
     chassis @16: Bool;
+  }
+
+  enum VehicleState {
+    error @0;
+    disabled @1;
+    available @2;
+    hold @3;
+    active @4;
   }
 }
 
