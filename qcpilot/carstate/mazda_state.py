@@ -1,5 +1,5 @@
 from opendbc.car.structs import QcMazdaStateT, QcMazdaState
-import cereal.messaging as messaging
+from opendbc.can.parser import CANParser
 
 qcMazdaState: QcMazdaStateT = QcMazdaState()
 stateUpdated: bool = False
@@ -12,7 +12,7 @@ def reset_mazda_state():
   stateUpdated = False
 
 
-def update_mazda_state(cp):
+def update_mazda_state(cp: CANParser):
   global qcMazdaState
   global stateUpdated
   stateUpdated = True
