@@ -80,7 +80,7 @@ CuFuD::CuFuD(const cereal::CarParams::Reader &carParams) :
     radarStateEvaluator_ {radarStateReaderOpt_},
     posenetEvaluator_ {livePoseReaderOpt_},
     sensorHealthyEvaluator_ {isSensorHealthy_},
-    chassisEvaluator_ {carStateReaderOpt_},
+    chassisEvaluator_ {mazdaStateReaderOpt_},
     evaluators_ {&carRecognizedEvaluator_,
                  &onCarEvaluator_,
                  &initTimeoutEvaluator_,
@@ -167,8 +167,6 @@ void CuFuD::updateInput() {
         } else {
             vehicleState_ = VehicleState::DISABLED;
         }
-
-        std::printf("%hu\r\n", static_cast<std::uint16_t>(vehicleState_));
 
 
         if (subMasterPtr_->updated("carState")) {
@@ -264,6 +262,8 @@ void CuFuD::publishResult() {
     qcPilotCufuStateBuilder.setIsControlSatisfied(isControllingEnabled_);
     qcPilotCufuStateBuilder.setVehicleState(vehicleState_);
     pubMaster_.send("qcPilotCufuState", message);
+
+    // std::printf("%hu %d\r\n", static_cast<std::uint16_t>(vehicleState_), isControllingEnabled_);
 }
 
 }    // namespace cufu

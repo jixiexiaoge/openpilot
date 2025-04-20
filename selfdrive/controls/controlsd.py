@@ -2,7 +2,7 @@
 import math
 from typing import SupportsFloat
 
-from cereal import car, log
+from cereal import car, log, custom
 import cereal.messaging as messaging
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
@@ -52,7 +52,7 @@ class Controls:
         'driverAssistance',
         'qcPilotCufuState',
       ],
-      poll='selfdriveState',
+      poll='qcPilotCufuState',
     )
     self.pm = messaging.PubMaster(['carControl', 'controlsState'])
 
@@ -101,16 +101,16 @@ class Controls:
     model_v2 = self.sm['modelV2']
 
     CC = car.CarControl.new_message()
-    CC.enabled = self.sm['selfdriveState'].enabled
 
-    latActive = self.sm['qcPilotCufuState'].isControlSatisfied if self.sm.updated['qcPilotCufuState'] else self.sm['selfdriveState'].active
-    # latActive = self.sm['qcPilotCufuState'].isControlSatisfied if self.sm.updated['qcPilotCufuState'] else self.sm['selfdriveState'].active
-    # print(latActive)
+    # CC.enabled = self.sm['selfdriveState'].enabled
+    # latActive = self.sm['selfdriveState'].active
 
-    latActive = self.prevLatActive
-    if self.sm.updated['qcPilotCufuState']:
-      latActive = self.sm['qcPilotCufuState'].isControlSatisfied
-      self.prevLatActive = latActive
+    isControlSatisfied = self.sm['qcPilotCufuState'].isControlSatisfied
+    longEnabled = self.sm['qcPilotCufuState'].vehicleState not in (custom.QcPilotCufuState.VehicleState.error, custom.QcPilotCufuState.VehicleState.disabled)
+
+    CC.enabled = isControlSatisfied and longEnabled
+    latActive = CC.enabled
+    # print("{} {}".format(CC.enabled, latActive))
 
     # Check which actuators can be enabled
     standstill = abs(CS.vEgo) <= max(self.CP.minSteerSpeed, MIN_LATERAL_CONTROL_SPEED) or CS.standstill

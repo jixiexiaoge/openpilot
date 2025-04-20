@@ -12,29 +12,18 @@ namespace evaluators {
 
 class ChassisEvaluator : public Evaluator {
   public:
-    ChassisEvaluator(const std::optional<cereal::CarState::Reader> &carStateReaderOpt) :
-        carStateReaderOpt_ {carStateReaderOpt} {}
+    ChassisEvaluator(const std::optional<cereal::QcMazdaState::Reader>& mazdaStateReaderOpt) :
+        mazdaStateReaderOpt_ {mazdaStateReaderOpt} {}
 
     inline virtual void update() override {
-        if (carStateReaderOpt_.has_value()) {
-            // bool isCruiseAvailable = false;
-            // if (carStateReaderOpt_->hasCruiseState()) {
-            //     // CRZ_AVAILABLE
-            //     auto reader = carStateReaderOpt_->getCruiseState();
-            //     std::printf("%lu\r\n", reader.totalSize().wordCount);
-
-            //     // isCruiseAvailable = (carStateReaderOpt_->getCruiseState()).getAvailable();
-            // }
-            // const bool isLkasBlocked = carStateReaderOpt_->getGenericToggle();
-            // isSatisfied_ = isCruiseAvailable && (!isLkasBlocked);
-
-            const bool isLkasBlocked = carStateReaderOpt_->getGenericToggle();
+        if (mazdaStateReaderOpt_.has_value()) {
+            const bool isLkasBlocked = mazdaStateReaderOpt_->getIsLkasBlocked();
             isSatisfied_ = !isLkasBlocked;
         }
     }
 
   private:
-    const std::optional<cereal::CarState::Reader> &carStateReaderOpt_;
+    const std::optional<cereal::QcMazdaState::Reader>& mazdaStateReaderOpt_;
 };
 }    // namespace evaluators
 }    // namespace cufu

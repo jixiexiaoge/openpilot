@@ -24,6 +24,8 @@ def update_mazda_state(cp: CANParser):
   qcMazdaState.isCruiseActive = cp.vl["CRZ_CTRL"]["CRZ_ACTIVE"] == 1
   qcMazdaState.isAccActive = cp.vl["CRZ_CTRL"]["ACC_ACTIVE"] == 1
 
+  qcMazdaState.isLkasBlocked = cp.vl["STEER_RATE"]["LKAS_BLOCK"] == 1
+
   # print(f"publish message: {qcMazdaState.isCruiseAvailable}")
 
 

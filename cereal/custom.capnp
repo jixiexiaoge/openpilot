@@ -48,6 +48,9 @@ struct QcMazdaState @0xaedffd8f31e7b55d {
   isCruiseAvailable @0 : Bool;
   isCruiseActive @1 : Bool;
   isAccActive @2: Bool;
+
+# temp added
+  isLkasBlocked @3: Bool;
 }
 
 struct CustomReserved2 @0xf35cc4560bbf6ec2 {

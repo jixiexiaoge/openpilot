@@ -117,7 +117,10 @@
     "numbers": "cpp",
     "semaphore": "cpp",
     "span": "cpp",
-    "can_declarations.h": "c"
+    "can_declarations.h": "c",
+    "condition_variable": "cpp",
+    "unordered_set": "cpp",
+    "cinttypes": "cpp"
   },
   "terminal.integrated.env.linux": {
     "PYTHONPATH": "${workspaceFolder}"
