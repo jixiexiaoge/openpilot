@@ -1,0 +1,11 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "controls_mismatch",
+  "steps": [
+    {
+      "file": "opendbc/safety/safety.h",
+      "description": "Already check, no lagging and no safety rx invalid",
+      "line": 341
+    }
+  ]
+}

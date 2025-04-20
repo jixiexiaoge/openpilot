@@ -1,0 +1,21 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "panda.safetyRxInvalid",
+  "steps": [
+    {
+      "file": "openpilot/selfdrive/pandad/pandad.cc",
+      "description": "1",
+      "line": 140
+    },
+    {
+      "file": "panda/board/main_comms.h",
+      "description": "2",
+      "line": 21
+    },
+    {
+      "file": "panda/board/drivers/fdcan.h",
+      "description": "safety_rx_invalid is a invalid counter",
+      "line": 223
+    }
+  ]
+}

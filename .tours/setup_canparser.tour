@@ -1,0 +1,31 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "setup_CanParser",
+  "steps": [
+    {
+      "file": "openpilot/selfdrive/car/card.py",
+      "description": "read can from message, and put into list",
+      "line": 171
+    },
+    {
+      "file": "openpilot/selfdrive/car/card.py",
+      "description": "can_list is canParser?\ncan_list is list of CanFrame, defined in openpilot/selfdrive/pandad/can_list_to_can_capnp.cc",
+      "line": 175
+    },
+    {
+      "file": "opendbc/car/interfaces.py",
+      "description": "setup can_parser\n",
+      "line": 115
+    },
+    {
+      "file": "opendbc/car/mazda/carstate.py",
+      "description": "Instance the CanParser(DBC[mazda_2022]['pt'], ['message', freq], 0)\n",
+      "line": 159
+    },
+    {
+      "file": "opendbc/car/mazda/carstate.py",
+      "description": "can_parser usage\n",
+      "line": 26
+    }
+  ]
+}
