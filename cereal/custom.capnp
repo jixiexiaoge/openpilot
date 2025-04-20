@@ -34,7 +34,8 @@ struct QcPilotCufuState @0x81c2f05a394cf4af {
   }
 }
 
-struct CustomReserved1 @0xaedffd8f31e7b55d {
+struct QcMazdaState @0xaedffd8f31e7b55d {
+  isCruiseAvailable @0 : Bool;
 }
 
 struct CustomReserved2 @0xf35cc4560bbf6ec2 {

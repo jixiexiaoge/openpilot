@@ -21,6 +21,7 @@ from opendbc.safety import ALTERNATIVE_EXPERIENCE
 from openpilot.selfdrive.pandad import can_capnp_to_list, can_list_to_can_capnp
 from openpilot.selfdrive.car.cruise import VCruiseHelper
 from openpilot.selfdrive.car.car_specific import MockCarState
+from openpilot.qcpilot.carstate.mazda_state import reset_mazda_state, get_mazda_state
 
 REPLAY = "REPLAY" in os.environ
 
@@ -38,6 +39,7 @@ def obd_callback(params: Params) -> ObdCallback:
       params.put_bool("ObdMultiplexingEnabled", obd_multiplexing)
       params.get_bool("ObdMultiplexingChanged", block=True)
       cloudlog.warning("OBD multiplexing set successfully")
+
   return set_obd_multiplexing
 
 
@@ -67,7 +69,7 @@ class Car:
   def __init__(self, CI=None, RI=None) -> None:
     self.can_sock = messaging.sub_sock('can', timeout=20)
     self.sm = messaging.SubMaster(['pandaStates', 'carControl', 'onroadEvents'])
-    self.pm = messaging.PubMaster(['sendcan', 'carState', 'carParams', 'carOutput', 'liveTracks'])
+    self.pm = messaging.PubMaster(['sendcan', 'carState', 'carParams', 'carOutput', 'liveTracks', 'qcMazdaState'])
 
     self.can_rcv_cum_timeout_counter = 0
 
@@ -205,7 +207,7 @@ class Car:
     """carState and carParams publish loop"""
 
     # carParams - logged every 50 seconds (> 1 per segment)
-    if self.sm.frame % int(50. / DT_CTRL) == 0:
+    if self.sm.frame % int(50.0 / DT_CTRL) == 0:
       cp_send = messaging.new_message('carParams')
       cp_send.valid = True
       cp_send.carParams = self.CP
@@ -222,8 +224,15 @@ class Car:
     cs_send.valid = CS.canValid
     cs_send.carState = CS
     cs_send.carState.canErrorCounter = self.can_rcv_cum_timeout_counter
-    cs_send.carState.cumLagMs = -self.rk.remaining * 1000.
+    cs_send.carState.cumLagMs = -self.rk.remaining * 1000.0
     self.pm.send('carState', cs_send)
+
+    qcMazdaState = get_mazda_state()
+    if qcMazdaState is not None:
+      qc_mazda_send = messaging.new_message('qcMazdaState')
+      qc_mazda_send.valid = True
+      qc_mazda_send.qcMazdaState = qcMazdaState
+      self.pm.send('qcMazdaState', qc_mazda_send)
 
     if RD is not None:
       tracks_msg = messaging.new_message('liveTracks')
@@ -250,12 +259,13 @@ class Car:
       self.CC_prev = CC
 
   def step(self):
+    reset_mazda_state()
+
     CS, RD = self.state_update()
 
     self.state_publish(CS, RD)
 
-    initialized = (not any(e.name == EventName.selfdriveInitializing for e in self.sm['onroadEvents']) and
-                   self.sm.seen['onroadEvents'])
+    initialized = not any(e.name == EventName.selfdriveInitializing for e in self.sm['onroadEvents']) and self.sm.seen['onroadEvents']
     if not self.CP.passive and initialized:
       self.controls_update(CS, self.sm['carControl'])
 
@@ -270,7 +280,7 @@ class Car:
 
   def card_thread(self):
     e = threading.Event()
-    t = threading.Thread(target=self.params_thread, args=(e, ))
+    t = threading.Thread(target=self.params_thread, args=(e,))
     try:
       t.start()
       while True:

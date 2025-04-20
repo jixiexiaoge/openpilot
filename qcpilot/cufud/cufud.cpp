@@ -25,25 +25,24 @@ namespace qcpilot {
 namespace cufu {
 
 
-const std::vector<const char *> kBasicSignals {
-  "deviceState",
-  "peripheralState",
-  "liveCalibration",
-  "pandaStates",
-  "livePose",
+const std::vector<const char *> kBasicSignals {"deviceState",
+                                               "peripheralState",
+                                               "liveCalibration",
+                                               "pandaStates",
+                                               "livePose",
 
-  "modelV2",
-  "controlsState",
-  "radarState",
-  // "carParams",
-  "driverMonitoringState",
-  "carState",
-  "driverStateV2",
-  "wideRoadCameraState",
-  "managerState",
-  "selfdriveState",
-  "longitudinalPlan",
-};
+                                               "modelV2",
+                                               "controlsState",
+                                               "radarState",
+                                               // "carParams",
+                                               "driverMonitoringState",
+                                               "carState",
+                                               "driverStateV2",
+                                               "wideRoadCameraState",
+                                               "managerState",
+                                               "selfdriveState",
+                                               "longitudinalPlan",
+                                               "qcMazdaState"};
 
 const std::vector<const char *> kCameraSingals {
   "roadCameraState", "driverCameraState", "wideRoadCameraState"};
@@ -115,7 +114,7 @@ CuFuD::CuFuD(const cereal::CarParams::Reader &carParams) :
 void CuFuD::loop() {
     while (true) {
         step();
-        // No need to keep time, just monitor time. Becuase read block by carState
+        // No need to keep time, just monitor time. Because read block by carState
         isMyselfNotLagging_ = !rateKeeper_.monitorTime();
     }
 }
@@ -165,6 +164,13 @@ void CuFuD::updateInput() {
         }
         if (subMasterPtr_->updated("livePose")) {
             livePoseReaderOpt_ = (*subMasterPtr_)["livePose"].getLivePose();
+        }
+        if (subMasterPtr_->updated("qcMazdaState")) {
+            bool isCrzAvailable =
+              (*subMasterPtr_)["qcMazdaState"].getQcMazdaState().getIsCruiseAvailable();
+            std::printf("%d\r\n", isCrzAvailable);
+        } else {
+            std::printf("no signal\r\n");
         }
     }
 

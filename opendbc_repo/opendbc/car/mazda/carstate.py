@@ -4,9 +4,9 @@ from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags
+from openpilot.qcpilot.carstate.mazda_state import update_mazda_state
 
 ButtonType = structs.CarState.ButtonEvent.Type
-
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -25,6 +25,8 @@ class CarState(CarStateBase):
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
+
+    update_mazda_state(cp)
 
     ret = structs.CarState()
 

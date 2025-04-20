@@ -94,6 +94,7 @@ _services: dict[str, tuple] = {
 
   # For QcPilot
   "qcPilotCufuState": (True, 100., 10),
+  "qcMazdaState": (True, 100., 10),
 }
 SERVICE_LIST = {name: Service(*vals) for
                 idx, (name, vals) in enumerate(_services.items())}
