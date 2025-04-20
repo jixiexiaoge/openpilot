@@ -36,8 +36,8 @@
       "justMyCode": true,
       "args": "${input:args}",
       "env": {
-        // "FINGERPRINT": "MOCK",
-        // "SKIP_FW_QUERY": "true",
+        "FINGERPRINT": "MOCK",
+        "SKIP_FW_QUERY": "True",
         "PYTHONPATH": "${workspaceFolder}"
       }
     },
