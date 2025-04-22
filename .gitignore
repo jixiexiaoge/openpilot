@@ -2,6 +2,7 @@ __pycache__
 .overlay_init
 .sconsign.dblite
 .vscode/browse.vc.db*
+.tours
 *_pyx.o
 *_pyx.cpp
 *_pyx.so
