@@ -2764,11 +2764,15 @@ public:
         auto carState = sm["carState"].getCarState();
         int gap_mazda = carState.getPcmCruiseGap();
         int rpm_mazda = (int)carState.getEngineRpm();
+        float lead_speed = carState.getLeadVel() * 3.6; // convert to km/h
+        float lead_dist = visionDist;  // using vision distance for lead car
 
         // 添加调试信息到 carrot_man_debug
-        sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d", rpm_mazda, gap_mazda);
+        sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d, Lead: %.1f km/h, Dist: %.1f m",
+                rpm_mazda, gap_mazda, lead_speed, lead_dist);
 
-        sprintf(bottom_left, "%s RPM: %d Gap: %d", gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda);
+        sprintf(bottom_left, "%s RPM: %d Gap: %d Lead: %.1f km/h %.1f m",
+                gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda, lead_speed, lead_dist);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
