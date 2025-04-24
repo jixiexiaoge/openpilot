@@ -2764,8 +2764,16 @@ public:
         auto carState = sm["carState"].getCarState();
         int gap_mazda = carState.getPcmCruiseGap();
         int rpm_mazda = (int)carState.getEngineRpm();
-        float lead_speed = carState.getLeadVel() * 3.6; // convert to km/h
-        float lead_dist = visionDist;  // using vision distance for lead car
+
+        // 获取前车信息 - 使用视觉数据
+        float lead_speed = 0;
+        float lead_dist = 0;
+        const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
+        auto leadsV3 = model.getLeadsV3()[0];
+        if (leadsV3.getProb() > 0.5) {
+            lead_speed = leadsV3.getVLeadK() * 3.6;  // 转换为km/h
+            lead_dist = leadsV3.getX()[0] - 1.52;    // 减去车头距离
+        }
 
         // 添加调试信息到 carrot_man_debug
         sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d, Lead: %.1f km/h, Dist: %.1f m",
