@@ -90,6 +90,8 @@ class CarState(CarStateBase):
     # TODO: this should be from 0 - 1.
     ret.brakePressed = cp.vl["PEDALS"]["BRAKE_ON"] == 1
     ret.brake = cp.vl["BRAKE"]["BRAKE_PRESSURE"]
+    # 添加刹车灯状态检测
+    ret.brakeLights = bool(cp.vl["TRACTION"]["BRAKE"] or ret.brakePressed)
 
     ret.seatbeltUnlatched = cp.vl["SEATBELT"]["DRIVER_SEATBELT"] == 0
     ret.doorOpen = any([cp.vl["DOORS"]["FL"], cp.vl["DOORS"]["FR"],
@@ -176,6 +178,7 @@ class CarState(CarStateBase):
         ("CRZ_BTNS", 10),
         ("PEDALS", 50),
         ("BRAKE", 50),
+        ("TRACTION", 50),  # 添加 TRACTION 消息
         ("SEATBELT", 10),
         ("DOORS", 10),
         ("GEAR", 20),
