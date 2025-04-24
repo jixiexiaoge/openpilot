@@ -2771,7 +2771,7 @@ public:
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         auto leadsV3 = model.getLeadsV3()[0];
         if (leadsV3.getProb() > 0.5) {
-            lead_speed = leadsV3.getVLeadK() * 3.6;  // 转换为km/h
+            lead_speed = leadsV3.getV() * 3.6;  // 转换为km/h
             lead_dist = leadsV3.getX()[0] - 1.52;    // 减去车头距离
         }
 
