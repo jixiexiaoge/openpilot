@@ -225,7 +225,12 @@ def update_car_state_thread():
                         "方向盘角度": round(CS.steeringAngleDeg, 1),
                         "方向盘转矩": round(CS.steeringTorque, 1),
                         "方向盘速率": round(CS.steeringRateDeg, 1),
-                        "发动机转速": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 添加发动机转速
+                        "发动机转速": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 发动机转速
+
+                        # 新增前车信息
+                        "跟车间距": CS.pcmCruiseGap if hasattr(CS, "pcmCruiseGap") else 0,  # 跟车间距
+                        "前车速度": round(CS.leadVel * 3.6, 1) if hasattr(CS, "leadVel") else 0,  # 前车速度
+                        "前车距离": round(CS.leadDist, 1) if hasattr(CS, "leadDist") else 0,  # 前车距离
 
                         # 踏板状态
                         "油门踏板": round(CS.gas * 100, 1) if hasattr(CS, "gas") else 0,
@@ -553,6 +558,9 @@ def create_templates():
                 {key: '车速', unit: 'km/h'},
                 {key: '加速度', unit: 'm/s²'},
                 {key: '发动机转速', unit: 'RPM'},
+                {key: '跟车间距', unit: '档位'},
+                {key: '前车速度', unit: 'km/h'},
+                {key: '前车距离', unit: 'm'},
                 {key: '总里程', unit: ''},
                 {key: '车型', unit: ''},
                 {key: '运行状态', unit: ''}

@@ -160,6 +160,12 @@ class CarStateBroadcast:
                 "steering_angle": round(CS.steeringAngleDeg, 1),  # 度
                 "steering_torque": round(CS.steeringTorque, 1),
 
+                # 新增信息
+                "engine_rpm": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 发动机转速
+                "pcm_cruise_gap": CS.pcmCruiseGap if hasattr(CS, "pcmCruiseGap") else 0,  # 跟车间距
+                "lead_speed": round(CS.leadVel * 3.6, 1) if hasattr(CS, "leadVel") else 0,  # 前车速度，转换为km/h
+                "lead_dist": round(CS.leadDist, 1) if hasattr(CS, "leadDist") else 0,  # 前车距离，米
+
                 # 巡航状态
                 "cruise_enabled": CS.cruiseState.enabled,
                 "cruise_speed": round(CS.cruiseState.speed * 3.6, 1) if CS.cruiseState.speed > 0 else 0,
