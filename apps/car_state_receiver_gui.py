@@ -159,6 +159,16 @@ class CarStateReceiverGUI:
         self.create_info_field(vehicle_frame, "转向灯:", "blinker")
         self.create_info_field(vehicle_frame, "运行状态:", "running_status")
 
+        # 前车信息区域
+        lead_frame = ttk.LabelFrame(right_frame, text="前车信息", padding=10)
+        lead_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(lead_frame, "前车检测:", "lead_detected")
+        self.create_info_field(lead_frame, "前车速度:", "lead_speed", "km/h")
+        self.create_info_field(lead_frame, "前车距离:", "lead_distance", "m")
+        self.create_info_field(lead_frame, "跟车间距:", "pcm_cruise_gap", "档")
+        self.create_info_field(lead_frame, "发动机转速:", "engine_rpm", "RPM")
+
         # 标签页2: 所有数据视图
         all_data_frame = ttk.Frame(self.notebook, padding=5)
         self.notebook.add(all_data_frame, text="所有数据")
@@ -454,6 +464,16 @@ class CarStateReceiverGUI:
 
         # 更新运行状态
         self.running_status_var.set(data.get('running_status', '未知'))
+
+        # 更新前车信息
+        lead_info = data.get('lead_info', {})
+        self.lead_detected_var.set("已检测" if lead_info.get('detected', False) else "未检测")
+        self.lead_speed_var.set(str(round(lead_info.get('speed', 0), 1)))
+        self.lead_distance_var.set(str(round(lead_info.get('distance', 0), 1)))
+
+        # 更新跟车间距和发动机转速
+        self.pcm_cruise_gap_var.set(str(data.get('pcm_cruise_gap', 0)))
+        self.engine_rpm_var.set(str(data.get('engine_rpm', 0)))
 
         # 更新树状视图（所有数据）
         self.filter_tree_view()  # 使用搜索过滤功能更新树视图

@@ -31,7 +31,7 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2'])
         self.params = Params()
 
         # 获取设备信息（只需获取一次）
@@ -163,8 +163,9 @@ class CarStateBroadcast:
                 # 新增信息
                 "engine_rpm": CS.engineRpm if hasattr(CS, "engineRpm") else 0,  # 发动机转速
                 "pcm_cruise_gap": CS.pcmCruiseGap if hasattr(CS, "pcmCruiseGap") else 0,  # 跟车间距
-                "lead_speed": round(CS.leadVel * 3.6, 1) if hasattr(CS, "leadVel") else 0,  # 前车速度，转换为km/h
-                "lead_dist": round(CS.leadDist, 1) if hasattr(CS, "leadDist") else 0,  # 前车距离，米
+
+                # 前车信息（从modelV2获取）
+                "lead_info": self.get_lead_info(),
 
                 # 巡航状态
                 "cruise_enabled": CS.cruiseState.enabled,
@@ -201,6 +202,27 @@ class CarStateBroadcast:
                             self.car_state_data[attr] = value.value
                     except:
                         pass  # 忽略无法转换的属性
+
+    def get_lead_info(self):
+        """获取前车信息"""
+        lead_info = {
+            "speed": 0,      # km/h
+            "distance": 0,   # meters
+            "detected": False
+        }
+
+        if self.sm.valid['modelV2']:
+            model = self.sm['modelV2']
+            leads = model.leadsV3
+            if len(leads) > 0 and leads[0].prob > 0.5:
+                lead = leads[0]
+                # 速度转换为km/h
+                lead_info["speed"] = float(lead.v[0] * 3.6)
+                # 距离减去车头距离(1.52m)
+                lead_info["distance"] = float(lead.x[0] - 1.52)
+                lead_info["detected"] = True
+
+        return lead_info
 
     def broadcast_thread(self):
         """广播线程函数"""
