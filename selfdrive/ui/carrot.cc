@@ -2761,7 +2761,7 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        auto carState = sm["carState"].getCarState();
+        // auto carState = sm["carState"].getCarState();
         // int gap_mazda = carState.getPcmCruiseGap();
         // int rpm_mazda = (int)carState.getEngineRpm();
 
