@@ -2770,7 +2770,7 @@ public:
 
         // 获取车辆控制器的曲率数据
         float actuator_curvature = 0.0;
-        if (sm.valid["carControl"]) {
+        if (sm.valid("carControl")) {  // 修正：valid是一个方法，需要用圆括号
             auto car_control = sm["carControl"].getCarControl();
             actuator_curvature = car_control.getActuators().getSteeringAngleDeg() * 0.1; // 使用方向盘角度近似曲率
         }
