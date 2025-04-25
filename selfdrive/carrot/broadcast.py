@@ -52,7 +52,7 @@ class CarStateBroadcast:
         # 初始化空的车辆状态数据
         self.car_state_data = {}
 
-        #print(f"车辆状态广播服务已初始化. 广播地址: {self.broadcast_ip}:{self.broadcast_port}, 间隔: {self.broadcast_interval}秒")
+        print(f"车辆状态广播服务已初始化. 广播地址: {self.broadcast_ip}:{self.broadcast_port}, 间隔: {self.broadcast_interval}秒")
 
     def get_broadcast_address(self):
         """获取广播地址"""
@@ -226,7 +226,7 @@ class CarStateBroadcast:
 
     def broadcast_thread(self):
         """广播线程函数"""
-        #print("开始广播车辆状态数据...")
+        print("开始广播车辆状态数据...")
 
         while self.is_running:
             try:
@@ -309,7 +309,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print("启动车辆状态UDP广播服务")
-    #print(f"广播端口: {args.port}, 广播间隔: {args.interval}秒")
+    print(f"广播端口: {args.port}, 广播间隔: {args.interval}秒")
 
     broadcaster = CarStateBroadcast(broadcast_port=args.port, broadcast_interval=args.interval)
     broadcaster.start()
