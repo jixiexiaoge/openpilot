@@ -38,6 +38,11 @@ class ConditionalSpeedControl:
       self.curvature_mac = MovingAverageCalculator()
       self.status_value = 0
       self.current_curvature = 0.0
+
+      # 初始化时设置默认值
+      self.params.put_int_nonblocking("SpeedFromPCM", 1)
+      self.params_memory.put_int("ConditionalStatus", 0)
+
       logger.info("ConditionalSpeedControl initialized successfully")
     except Exception as e:
       logger.error(f"Error initializing ConditionalSpeedControl: {e}")
@@ -81,23 +86,38 @@ class ConditionalSpeedControl:
       # 只有在值发生变化时才更新并记录日志
       if current_speed_from_pcm != target_speed_from_pcm:
         logger.info(f"SpeedFromPCM变化: {current_speed_from_pcm} -> {target_speed_from_pcm}, 原因: {reason}")
-        self.params.put_int_nonblocking("SpeedFromPCM", target_speed_from_pcm)
+        try:
+          self.params.put_int_nonblocking("SpeedFromPCM", target_speed_from_pcm)
+        except Exception as e:
+          logger.error(f"更新SpeedFromPCM失败: {e}")
 
       # 更新状态码
       if previous_status != target_status:
         logger.info(f"状态变化: {previous_status} -> {target_status}, 原因: {reason}")
-        self.params_memory.put_int("ConditionalStatus", target_status)
+        try:
+          self.params_memory.put_int("ConditionalStatus", target_status)
+        except Exception as e:
+          logger.error(f"更新状态码失败: {e}")
 
       # 保存当前曲率值到参数中，便于UI显示
-      self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
+      try:
+        self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
+      except Exception as e:
+        logger.error(f"更新曲率值失败: {e}")
 
       # 安全检查：如果车辆停止，确保重置状态
       if hasattr(carState, 'standstill') and carState.standstill:
         if current_speed_from_pcm != 1:
           logger.info("车辆停止，重置SpeedFromPCM为1")
-          self.params.put_int_nonblocking("SpeedFromPCM", 1)
+          try:
+            self.params.put_int_nonblocking("SpeedFromPCM", 1)
+          except Exception as e:
+            logger.error(f"重置SpeedFromPCM失败: {e}")
         if previous_status != 0:
-          self.params_memory.put_int("ConditionalStatus", 0)
+          try:
+            self.params_memory.put_int("ConditionalStatus", 0)
+          except Exception as e:
+            logger.error(f"重置状态码失败: {e}")
 
     except Exception as e:
       logger.error(f"Error in update: {e}")
@@ -112,13 +132,12 @@ class ConditionalSpeedControl:
   def update_curvature(self, modelData):
     try:
       # 从视觉模型获取路径预测点
-      if hasattr(modelData, 'getPosition') and hasattr(modelData.getPosition(), 'getX'):
-        position = modelData.getPosition()
-        if position.getX().size() > 10 and position.getY().size() > 10:
-          # 使用前方10米处的点来估算曲率
-          idx = 10
-          dx = position.getX()[idx]
-          dy = position.getY()[idx]
+      if hasattr(modelData, 'position') and modelData.position.x is not None and len(modelData.position.x) > 10:
+        position = modelData.position
+        idx = 10  # 使用前方10米处的点
+        if len(position.x) > idx and len(position.y) > idx:
+          dx = position.x[idx]
+          dy = position.y[idx]
           if dx > 0.1:  # 确保分母不为0
             self.current_curvature = abs(dy / (dx * dx))
             logger.debug(f"更新曲率: {self.current_curvature}")
@@ -149,35 +168,49 @@ class ConditionalSpeedControl:
 
 def conditional_speed_control_thread():
   try:
+    # 启动时等待系统稳定，避免消息冲突
+    logger.info("等待系统初始化完成...")
+    time.sleep(10)
+
     logger.info("Starting conditional speed control thread...")
 
     # 初始化消息订阅
     logger.info("Initializing message subscriber...")
     sm = None
     retry_count = 0
-    max_retries = 5
+    max_retries = 10  # 增加重试次数
 
     while sm is None and retry_count < max_retries:
       try:
-        sm = messaging.SubMaster(['carState', 'controlsState', 'modelV2'])
+        # 确保只订阅必要的消息
+        services = ['carState', 'controlsState', 'modelV2']
+        sm = messaging.SubMaster(services, poll=None, ignore_alive=True)
         logger.info("Successfully initialized message subscriber")
         break
       except Exception as e:
         retry_count += 1
         logger.error(f"Failed to initialize messaging (attempt {retry_count}/{max_retries}): {e}")
         logger.error(traceback.format_exc())
-        time.sleep(1)
+        time.sleep(2)  # 增加等待时间
 
     if sm is None:
       logger.error("Failed to initialize messaging after max retries")
       return
 
+    # 初始化控制器
     controller = ConditionalSpeedControl()
     logger.info("Entering main loop...")
 
+    update_count = 0
     while True:
       try:
-        sm.update()
+        sm.update(1000)  # 设置超时时间，避免无限等待
+        update_count += 1
+
+        # 每100次更新记录一次心跳
+        if update_count % 100 == 0:
+          logger.info(f"模块运行正常，更新计数：{update_count}")
+
         if sm.updated['carState']:
           car_state = sm['carState']
           controls_state = sm['controlsState']
@@ -187,10 +220,10 @@ def conditional_speed_control_thread():
             carState=car_state,
             enabled=controls_state.enabled,
             modelData=model,
-            road_curvature=1000.0 if not hasattr(model, 'getRoadCurvature') else model.getRoadCurvature(),
+            road_curvature=1000.0 if not hasattr(model, 'roadCurvature') else model.roadCurvature,
             v_ego=car_state.vEgo
           )
-        time.sleep(0.1)
+        time.sleep(0.1)  # 小的延迟，减少CPU使用
       except Exception as e:
         logger.error(f"Error in main loop: {e}")
         logger.error(traceback.format_exc())
@@ -199,7 +232,6 @@ def conditional_speed_control_thread():
   except Exception as e:
     logger.error(f"Fatal error in conditional_speed_control_thread: {e}")
     logger.error(traceback.format_exc())
-    sys.exit(1)
 
 def main():
   """
@@ -207,11 +239,33 @@ def main():
   """
   try:
     logger.info("Starting conditional speed control module...")
-    conditional_speed_control_thread()
+    # 创建一个子线程运行主要逻辑，这样即使出错也不会导致整个进程崩溃
+    import threading
+    t = threading.Thread(target=conditional_speed_control_thread, daemon=True)
+    t.start()
+
+    # 主线程保持运行，以防子线程崩溃
+    while True:
+      time.sleep(10)
+      if not t.is_alive():
+        logger.error("Main thread detected that worker thread died, restarting...")
+        t = threading.Thread(target=conditional_speed_control_thread, daemon=True)
+        t.start()
+
   except Exception as e:
     logger.error(f"Error in main: {e}")
     logger.error(traceback.format_exc())
-    sys.exit(1)
+  finally:
+    # 确保退出时清理参数
+    try:
+      params = Params()
+      params.put_int_nonblocking("SpeedFromPCM", 1)
+      params_memory = Params("/dev/shm/params")
+      params_memory.put_int("ConditionalStatus", 0)
+      logger.info("清理完成，模块正常退出")
+    except:
+      pass
+    sys.exit(0)
 
 if __name__ == "__main__":
   main()
