@@ -2762,8 +2762,11 @@ public:
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
         auto carState = sm["carState"].getCarState();
-        int gap_mazda = carState.getPcmCruiseGap();
-        int rpm_mazda = (int)carState.getEngineRpm();
+        // int gap_mazda = carState.getPcmCruiseGap();
+        // int rpm_mazda = (int)carState.getEngineRpm();
+
+        // 获取SpeedFromPCM参数
+        int speedFromPCM = params.getInt("SpeedFromPCM");
 
         // 获取视觉系统识别的前车信息
         float lead_speed = 0;
@@ -2776,11 +2779,15 @@ public:
         }
 
         // 添加调试信息到 carrot_man_debug
-        sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d, Lead: %.1f km/h, Dist: %.1f m",
-                rpm_mazda, gap_mazda, lead_speed, lead_dist);
+        // sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d, Lead: %.1f km/h, Dist: %.1f m",
+        //         rpm_mazda, gap_mazda, lead_speed, lead_dist);
+        sprintf(carrot_man_debug, "Debug - SpeedFromPCM: %d, Lead: %.1f km/h, Dist: %.1f m",
+                speedFromPCM, lead_speed, lead_dist);
 
-        sprintf(bottom_left, "%s RPM: %d Gap: %d Lead: %.1f km/h %.1f m",
-                gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda, lead_speed, lead_dist);
+        // sprintf(bottom_left, "%s RPM: %d Gap: %d Lead: %.1f km/h %.1f m",
+        //         gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda, lead_speed, lead_dist);
+        sprintf(bottom_left, "%s SpeedFromPCM: %d Lead: %.1f km/h %.1f m",
+                gitBranch.toStdString().c_str(), speedFromPCM, lead_speed, lead_dist);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
