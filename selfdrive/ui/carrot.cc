@@ -2768,26 +2768,48 @@ public:
         // 获取SpeedFromPCM参数
         int speedFromPCM = params.getInt("SpeedFromPCM");
 
-        // 获取视觉系统识别的前车信息
-        float lead_speed = 0;
-        float lead_dist = 0;
-        const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
-        auto leadsV3 = model.getLeadsV3()[0];
-        if (leadsV3.getProb() > 0.5) {
-            lead_speed = leadsV3.getV()[0] * 3.6;  // 转换为km/h
-            lead_dist = leadsV3.getX()[0] - 1.52;  // 减去车头距离
+        // 获取车辆控制器的曲率数据
+        float actuator_curvature = 0.0;
+        if (sm.updated["controlsState"]) {
+            auto controls = sm["controlsState"].getControlsState();
+            if (controls.hasActuators()) {
+                actuator_curvature = controls.getActuators().getCurvature() * 10000; // 放大10000倍以便显示
+            }
         }
 
-        // 添加调试信息到 carrot_man_debug
-        // sprintf(carrot_man_debug, "Debug - RPM: %d, Gap: %d, Lead: %.1f km/h, Dist: %.1f m",
-        //         rpm_mazda, gap_mazda, lead_speed, lead_dist);
-        sprintf(carrot_man_debug, "Debug - SpeedFromPCM: %d, Lead: %.1f km/h, Dist: %.1f m",
-                speedFromPCM, lead_speed, lead_dist);
+        // 获取视觉模型的曲率数据
+        float model_curvature = 0.0;
+        const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
+
+        // 计算模型车道线的平均曲率
+        auto lane_lines = model.getLaneLines();
+        auto lane_line_probs = model.getLaneLineProbs();
+        float total_curvature = 0.0;
+        int valid_lines = 0;
+
+        for (int i = 0; i < lane_lines.size() && i < lane_line_probs.size(); i++) {
+            if (lane_line_probs[i] > 0.5) {  // 只使用概率大于0.5的车道线
+                total_curvature += abs(lane_lines[i].getCurvature());
+                valid_lines++;
+            }
+        }
+
+        if (valid_lines > 0) {
+            model_curvature = (total_curvature / valid_lines) * 10000; // 放大10000倍以便显示
+        }
+
+        // 添加调试信息到 carrot_man_debug，显示两种曲率数据
+        sprintf(carrot_man_debug, "Debug - SpeedFromPCM: %d, ActCurv: %.2f, ModCurv: %.2f",
+                speedFromPCM, actuator_curvature, model_curvature);
+
+        // 在底部左侧显示曲率信息
+        sprintf(bottom_left, "%s SpeedFromPCM: %d Curv: %.2f/%.2f",
+                gitBranch.toStdString().c_str(), speedFromPCM, actuator_curvature, model_curvature);
 
         // sprintf(bottom_left, "%s RPM: %d Gap: %d Lead: %.1f km/h %.1f m",
         //         gitBranch.toStdString().c_str(), rpm_mazda, gap_mazda, lead_speed, lead_dist);
-        sprintf(bottom_left, "%s SpeedFromPCM: %d Lead: %.1f km/h %.1f m",
-                gitBranch.toStdString().c_str(), speedFromPCM, lead_speed, lead_dist);
+        // sprintf(bottom_left, "%s PCM: %d Lead: %.1f km/h %.1f m",
+        //         gitBranch.toStdString().c_str(), speedFromPCM, lead_speed, lead_dist);
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
