@@ -1,7 +1,7 @@
-from openpilot.common.conversions import Conversions as CV
-from openpilot.common.numpy_fast import interp
-from openpilot.common.params import Params
-from openpilot.selfdrive.modeld.constants import ModelConstants
+from common.conversions import Conversions as CV
+from common.numpy_fast import interp
+from common.params import Params
+from selfdrive.modeld.constants import ModelConstants
 from cereal import messaging
 
 # Define constants
