@@ -210,8 +210,27 @@ def conditional_speed_control_thread():
 
     while sm is None and retry_count < max_retries:
       try:
-        sm = messaging.SubMaster(['carState', 'modelData', 'liveNavigation', 'radarState', 'controlsState'])
-        logger.info("Successfully initialized messaging")
+        # Initialize with minimal required messages first
+        sm = messaging.SubMaster(['carState', 'controlsState'])
+        logger.info("Successfully initialized basic messaging")
+
+        # Wait for modelData to become available
+        wait_count = 0
+        while wait_count < 50:  # Wait up to 5 seconds
+          try:
+            sm = messaging.SubMaster(['carState', 'modelData', 'liveNavigation', 'radarState', 'controlsState'])
+            logger.info("Successfully initialized all messaging")
+            break
+          except Exception as e:
+            wait_count += 1
+            time.sleep(0.1)
+            if wait_count % 10 == 0:
+              logger.info(f"Waiting for modelData... ({wait_count/10}s)")
+
+        if wait_count >= 50:
+          logger.error("Timeout waiting for modelData")
+          return
+
       except Exception as e:
         retry_count += 1
         logger.error(f"Failed to initialize messaging (attempt {retry_count}/{max_retries}): {e}")
@@ -246,12 +265,20 @@ def conditional_speed_control_thread():
       try:
         sm.update()
 
-        if sm.updated['carState'] and sm.updated['modelData']:
+        if not sm.all_checks():
+          time.sleep(0.1)
+          continue
+
+        if sm.updated['carState']:  # Only require carState to be updated
           # Get required data from messages
           car_state = sm['carState']
-          model_data = sm['modelData']
-          radar_state = sm['radarState']
+          model_data = sm['modelData'] if 'modelData' in sm.data else None
+          radar_state = sm['radarState'] if 'radarState' in sm.data else None
           controls_state = sm['controlsState']
+
+          # Only proceed if we have all required data
+          if model_data is None or radar_state is None:
+            continue
 
           # Extract lead car information
           lead = radar_state.leadOne
@@ -259,13 +286,16 @@ def conditional_speed_control_thread():
           v_lead = lead.vRel + car_state.vEgo if lead.status else 0
 
           # Get road curvature from model
-          road_curvature = abs(model_data.position.y[1] - model_data.position.y[0]) / (abs(model_data.position.x[1] - model_data.position.x[0]) + 1e-6)
+          try:
+            road_curvature = abs(model_data.position.y[1] - model_data.position.y[0]) / (abs(model_data.position.x[1] - model_data.position.x[0]) + 1e-6)
+          except (IndexError, AttributeError):
+            road_curvature = 0.0
 
           # Update the controller
           controller.update(
             carState=car_state,
             enabled=controls_state.enabled,
-            frogpilotNavigation=sm['liveNavigation'],
+            frogpilotNavigation=sm['liveNavigation'] if 'liveNavigation' in sm.data else None,
             lead_distance=lead_distance,
             lead=lead,
             modelData=model_data,
