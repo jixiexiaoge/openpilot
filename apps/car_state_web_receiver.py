@@ -318,11 +318,15 @@ def create_templates():
                 {key: 'openpilot_status', label: 'openpilot状态', unit: ''},
                 {key: 'active', label: '自动驾驶', unit: ''},
                 {key: 'started', label: '系统状态', unit: ''},
-                {key: 'onroad', label: '行驶状态', unit: ''}
+                {key: 'onroad', label: '行驶状态', unit: ''},
+                {key: 'apply_speed', label: '建议车速', unit: 'km/h'},
+                {key: 'apply_source', label: '建议来源', unit: ''}
             ],
             'basicInfo': [
                 {key: 'v_ego', label: '车速', unit: 'km/h'},
                 {key: 'a_ego', label: '加速度', unit: 'm/s²'},
+                {key: 'apply_speed', label: '建议车速', unit: 'km/h'},
+                {key: 'apply_source', label: '建议来源', unit: ''},
                 {key: 'engine_rpm', label: '发动机转速', unit: 'RPM'},
                 {key: 'steering_angle', label: '方向盘角度', unit: '°'},
                 {key: 'steering_torque', label: '方向盘转矩', unit: 'Nm'}

@@ -137,6 +137,8 @@ class CarStateReceiverGUI:
 
         self.create_info_field(basic_frame, "速度:", "v_ego", "km/h")
         self.create_info_field(basic_frame, "加速度:", "a_ego", "m/s²")
+        self.create_info_field(basic_frame, "建议车速:", "apply_speed", "km/h")
+        self.create_info_field(basic_frame, "建议来源:", "apply_source", "")
         self.create_info_field(basic_frame, "方向盘角度:", "steering_angle", "°")
         self.create_info_field(basic_frame, "方向盘转矩:", "steering_torque", "")
 
@@ -478,6 +480,8 @@ class CarStateReceiverGUI:
         # 更新车辆数据
         self.v_ego_var.set(str(data.get('v_ego', 0)))
         self.a_ego_var.set(str(data.get('a_ego', 0)))
+        self.apply_speed_var.set(str(data.get('apply_speed', 0)))
+        self.apply_source_var.set(data.get('apply_source', '未知'))
         self.steering_angle_var.set(str(data.get('steering_angle', 0)))
         self.steering_torque_var.set(str(data.get('steering_torque', 0)))
 

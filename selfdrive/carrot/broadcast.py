@@ -31,7 +31,7 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan', 'longitudinalPlan', 'carControl'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan', 'longitudinalPlan', 'carControl', 'carrotMan'])
         self.params = Params()
         self.params_memory = Params("/dev/shm/params")
 
@@ -195,6 +195,21 @@ class CarStateBroadcast:
             car_name = self.params.get("CarName", encoding='utf8')
             car_fingerprint = self.sm['carParams'].carFingerprint if self.sm.valid['carParams'] else "未知"
 
+            # 获取建议车速信息
+            apply_speed = 0
+            apply_source = "--"
+            if self.sm.valid['carrotMan']:
+                carrot_man = self.sm['carrotMan'].getCarrotMan()
+                if hasattr(carrot_man, 'desiredSpeed'):
+                    apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
+                    # 根据不同来源设置建议来源
+                    if hasattr(carrot_man, 'source'):
+                        apply_source = carrot_man.source
+                    elif apply_speed >= CS.cruiseState.speed * 3.6:
+                        apply_source = "--"
+                    else:
+                        apply_source = "限速"
+
             # 创建状态数据
             self.car_state_data = {
                 # 设备信息（静态）
@@ -259,7 +274,11 @@ class CarStateBroadcast:
                 "seatbelt_unlatched": CS.seatbeltUnlatched if hasattr(CS, "seatbeltUnlatched") else False,
                 "left_blinker": CS.leftBlinker if hasattr(CS, "leftBlinker") else False,
                 "right_blinker": CS.rightBlinker if hasattr(CS, "rightBlinker") else False,
-                "running_status": "行驶中" if is_car_started else "停止"
+                "running_status": "行驶中" if is_car_started else "停止",
+
+                # 新增建议车速信息
+                "apply_speed": apply_speed,
+                "apply_source": apply_source,
             }
 
             # 添加所有可用的carState属性
