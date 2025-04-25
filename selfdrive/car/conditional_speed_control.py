@@ -1,8 +1,17 @@
-from common.conversions import Conversions as CV
-from common.numpy_fast import interp
-from common.params import Params
-from selfdrive.modeld.constants import ModelConstants
+import os
+import sys
+import time
+import numpy as np
+import logging
 from cereal import messaging
+from common.params import Params
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Constants for unit conversions
+class CV:
+  MS_TO_KPH = 3.6
 
 # Define constants
 SLOW_DOWN_BP = [0., 10., 20., 30., 40., 50., 55., 60.]
@@ -10,6 +19,10 @@ SLOW_DOWN_DISTANCE = [20, 30., 50., 70., 80., 90., 105., 120.]
 CITY_SPEED_LIMIT = 40.0  # km/h - defined speed for city driving
 CRUISING_SPEED = 70.0    # km/h - defined cruising speed
 PROBABILITY = 0.75       # threshold for condition detection
+IDX_N = 192  # from selfdrive.modeld.constants import ModelConstants
+
+def interp(x, xp, fp):
+  return float(np.interp(x, xp, fp))
 
 class MovingAverageCalculator:
   def __init__(self, window_size=5):
@@ -180,70 +193,104 @@ class ConditionalSpeedControl:
   def stop_sign_and_light(self, lead_distance, modelData, standstill, v_ego, v_lead, frogpilot_toggles):
     conditional_stop_lights_lead = getattr(frogpilot_toggles, 'conditional_stop_lights_lead', True)
     lead_check = conditional_stop_lights_lead or not self.lead_slowing_down(lead_distance, v_ego, v_lead) or standstill
-    model_stopping = modelData.position.x[ModelConstants.IDX_N - 1] < interp(v_ego * CV.MS_TO_KPH, SLOW_DOWN_BP, SLOW_DOWN_DISTANCE)
+    model_stopping = modelData.position.x[IDX_N - 1] < interp(v_ego * CV.MS_TO_KPH, SLOW_DOWN_BP, SLOW_DOWN_DISTANCE)
     model_filtered = not (self.curve_detected or self.slower_lead_detected)
 
     self.stop_light_mac.add_data(lead_check and model_stopping and model_filtered)
     self.red_light_detected = self.stop_light_mac.get_moving_average() >= PROBABILITY
 
 def conditional_speed_control_thread():
-  # Initialize sockets for messaging
-  sm = messaging.SubMaster(['carState', 'modelData', 'liveNavigation', 'radarState', 'controlsState'])
+  try:
+    logger.info("Starting conditional speed control thread")
 
-  # Initialize the controller
-  controller = ConditionalSpeedControl()
+    # Initialize sockets for messaging
+    sm = None
+    retry_count = 0
+    max_retries = 5
 
-  # Dummy frogpilot_toggles for testing - you may want to replace this with actual toggles
-  class DummyToggles:
-    def __init__(self):
-      self.conditional_curves = True
-      self.conditional_curves_lead = True
-      self.conditional_navigation = True
-      self.conditional_navigation_lead = True
-      self.conditional_signal = True
-      self.conditional_stop_lights = True
-      self.conditional_stop_lights_lead = True
-      self.conditional_slower_lead = True
-      self.conditional_limit = CITY_SPEED_LIMIT
-      self.conditional_limit_lead = CITY_SPEED_LIMIT
+    while sm is None and retry_count < max_retries:
+      try:
+        sm = messaging.SubMaster(['carState', 'modelData', 'liveNavigation', 'radarState', 'controlsState'])
+        logger.info("Successfully initialized messaging")
+      except Exception as e:
+        retry_count += 1
+        logger.error(f"Failed to initialize messaging (attempt {retry_count}/{max_retries}): {e}")
+        time.sleep(1)
 
-  frogpilot_toggles = DummyToggles()
+    if sm is None:
+      logger.error("Failed to initialize messaging after max retries")
+      return
 
-  while True:
-    sm.update()
+    # Initialize the controller
+    controller = ConditionalSpeedControl()
+    logger.info("Initialized ConditionalSpeedControl")
 
-    if sm.updated['carState'] and sm.updated['modelData']:
-      # Get required data from messages
-      car_state = sm['carState']
-      model_data = sm['modelData']
-      radar_state = sm['radarState']
-      controls_state = sm['controlsState']
+    # Dummy frogpilot_toggles for testing
+    class DummyToggles:
+      def __init__(self):
+        self.conditional_curves = True
+        self.conditional_curves_lead = True
+        self.conditional_navigation = True
+        self.conditional_navigation_lead = True
+        self.conditional_signal = True
+        self.conditional_stop_lights = True
+        self.conditional_stop_lights_lead = True
+        self.conditional_slower_lead = True
+        self.conditional_limit = CITY_SPEED_LIMIT
+        self.conditional_limit_lead = CITY_SPEED_LIMIT
 
-      # Extract lead car information
-      lead = radar_state.leadOne
-      lead_distance = lead.dRel if lead.status else 0
-      v_lead = lead.vRel + car_state.vEgo if lead.status else 0
+    frogpilot_toggles = DummyToggles()
 
-      # Get road curvature from model
-      road_curvature = abs(model_data.position.y[1] - model_data.position.y[0]) / (abs(model_data.position.x[1] - model_data.position.x[0]) + 1e-6)
+    logger.info("Entering main loop")
+    while True:
+      try:
+        sm.update()
 
-      # Update the controller
-      controller.update(
-        carState=car_state,
-        enabled=controls_state.enabled,
-        frogpilotNavigation=sm['liveNavigation'],
-        lead_distance=lead_distance,
-        lead=lead,
-        modelData=model_data,
-        road_curvature=road_curvature,
-        slower_lead=lead.status and v_lead < car_state.vEgo,
-        v_ego=car_state.vEgo,
-        v_lead=v_lead,
-        frogpilot_toggles=frogpilot_toggles
-      )
+        if sm.updated['carState'] and sm.updated['modelData']:
+          # Get required data from messages
+          car_state = sm['carState']
+          model_data = sm['modelData']
+          radar_state = sm['radarState']
+          controls_state = sm['controlsState']
+
+          # Extract lead car information
+          lead = radar_state.leadOne
+          lead_distance = lead.dRel if lead.status else 0
+          v_lead = lead.vRel + car_state.vEgo if lead.status else 0
+
+          # Get road curvature from model
+          road_curvature = abs(model_data.position.y[1] - model_data.position.y[0]) / (abs(model_data.position.x[1] - model_data.position.x[0]) + 1e-6)
+
+          # Update the controller
+          controller.update(
+            carState=car_state,
+            enabled=controls_state.enabled,
+            frogpilotNavigation=sm['liveNavigation'],
+            lead_distance=lead_distance,
+            lead=lead,
+            modelData=model_data,
+            road_curvature=road_curvature,
+            slower_lead=lead.status and v_lead < car_state.vEgo,
+            v_ego=car_state.vEgo,
+            v_lead=v_lead,
+            frogpilot_toggles=frogpilot_toggles
+          )
+      except Exception as e:
+        logger.error(f"Error in main loop: {e}")
+        time.sleep(0.1)  # Add small delay on error
+
+  except Exception as e:
+    logger.error(f"Fatal error in conditional_speed_control_thread: {e}")
+    raise
 
 def main():
-  conditional_speed_control_thread()
+  try:
+    conditional_speed_control_thread()
+  except KeyboardInterrupt:
+    logger.info("Shutting down conditional speed control")
+  except Exception as e:
+    logger.error(f"Error in main: {e}")
+    sys.exit(1)
 
 if __name__ == "__main__":
   main()

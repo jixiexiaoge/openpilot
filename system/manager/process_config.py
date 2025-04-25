@@ -121,7 +121,7 @@ procs = [
   PythonProcess("statsd", "system.statsd", always_run),
 
   # Add conditional speed control process
-  PythonProcess("conditional_speed_control", "selfdrive.car.conditional_speed_control", always_run),
+  PythonProcess("conditional_speed_control", "selfdrive.car.conditional_speed_control", only_onroad),
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
