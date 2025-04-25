@@ -118,5 +118,12 @@ def conditional_speed_control_thread():
     print(f"Error: {e}")
     sys.exit(1)
 
-if __name__ == "__main__":
+def main():
+  """
+  主入口函数，供进程管理器调用
+  """
+  print("Starting conditional speed control module...")
   conditional_speed_control_thread()
+
+if __name__ == "__main__":
+  main()
