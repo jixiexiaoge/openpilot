@@ -2770,32 +2770,28 @@ public:
 
         // 获取车辆控制器的曲率数据
         float actuator_curvature = 0.0;
-        if (sm.updated["controlsState"]) {
-            auto controls = sm["controlsState"].getControlsState();
-            if (controls.hasActuators()) {
-                actuator_curvature = controls.getActuators().getCurvature() * 10000; // 放大10000倍以便显示
-            }
+        if (sm.valid["carControl"]) {
+            auto car_control = sm["carControl"].getCarControl();
+            actuator_curvature = car_control.getActuators().getSteeringAngleDeg() * 0.1; // 使用方向盘角度近似曲率
         }
 
         // 获取视觉模型的曲率数据
         float model_curvature = 0.0;
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
 
-        // 计算模型车道线的平均曲率
-        auto lane_lines = model.getLaneLines();
-        auto lane_line_probs = model.getLaneLineProbs();
-        float total_curvature = 0.0;
-        int valid_lines = 0;
-
-        for (int i = 0; i < lane_lines.size() && i < lane_line_probs.size(); i++) {
-            if (lane_line_probs[i] > 0.5) {  // 只使用概率大于0.5的车道线
-                total_curvature += abs(lane_lines[i].getCurvature());
-                valid_lines++;
+        // 获取模型预测的路径曲率
+        if (model.getPosition().getX().size() > 10) {
+            // 使用路径点计算曲率
+            auto position = model.getPosition();
+            int idx = 10; // 使用前方10米的点
+            if (position.getX().size() > idx && position.getY().size() > idx) {
+                float dx = position.getX()[idx];
+                float dy = position.getY()[idx];
+                // 简单估算曲率：横向位移/纵向距离
+                if (dx > 0.1) {
+                    model_curvature = (dy / (dx * dx)) * 10000;
+                }
             }
-        }
-
-        if (valid_lines > 0) {
-            model_curvature = (total_curvature / valid_lines) * 10000; // 放大10000倍以便显示
         }
 
         // 添加调试信息到 carrot_man_debug，显示两种曲率数据
