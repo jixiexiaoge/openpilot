@@ -3,6 +3,8 @@ import numpy as np
 
 from cereal import car
 from openpilot.common.conversions import Conversions as CV
+from openpilot.common.numpy_fast import interp
+from openpilot.common.params import Params
 
 from opendbc.car import structs
 GearShifter = structs.CarState.GearShifter
@@ -30,6 +32,12 @@ CRUISE_INTERVAL_SIGN = {
   ButtonType.decelCruise: -1,
 }
 
+# 添加所需常量
+PROBABILITY = 0.8  # 概率阈值，这是从frogpilot移植过来的
+CITY_SPEED_LIMIT = 40.0  # 城市速度限制
+CRUISING_SPEED = 80.0  # 巡航速度阈值
+SLOW_DOWN_BP = [0., 10., 20., 30., 40., 50., 55., 60.]
+SLOW_DOWN_DISTANCE = [20, 30., 50., 70., 80., 90., 105., 120.]
 
 class VCruiseHelper:
   def __init__(self, CP):
@@ -200,7 +208,6 @@ class VCruiseCarrot:
     self.carrot_cmd = ""
     self.carrot_arg = ""
 
-
     self._cancel_timer = 0
     self.d_rel = 0
     self.v_rel = 0
@@ -217,21 +224,38 @@ class VCruiseCarrot:
     self.useLaneLineSpeed = self.params.get_int("UseLaneLineSpeed")
     self.params.put_int("UseLaneLineSpeedApply", self.useLaneLineSpeed)
 
+    # 添加条件性实验模式相关变量
+    self.curve_detected = False
+    self.lead_stopped = False
+    self.red_light_detected = False
+    self.lead_detected = False
+    self.slower_lead_detected = False
+    self.previous_v_ego = 0
+    self.previous_v_lead = 0
+    self.original_speed_from_pcm = self.params.get_int("SpeedFromPCM")
+    self.experimental_mode_active = False
+    self.status_value = 0
 
-  @property
-  def v_cruise_initialized(self):
-    return self.v_cruise_kph != V_CRUISE_UNSET
+    # 移动平均计算器
+    self.curvature_mac = MovingAverageCalculator()
+    self.lead_detection_mac = MovingAverageCalculator()
+    self.lead_slowing_down_mac = MovingAverageCalculator()
+    self.slow_lead_mac = MovingAverageCalculator()
+    self.slowing_down_mac = MovingAverageCalculator()
+    self.stop_light_mac = MovingAverageCalculator()
 
-  def _add_log(self, log):
-    if len(log) == 0:
-      self._log_timer = max(0, self._log_timer - 1)
-      if self._log_timer <= 0:
-        self.log = ""
-        #self.event = -1
-    else:
-      self.log = log
-      #self.event = event
-      self._log_timer = self._log_timeout
+    # 条件性实验模式参数
+    self.conditional_curves = self.params.get_bool("ConditionalCurves")
+    self.conditional_curves_lead = self.params.get_bool("ConditionalCurvesLead")
+    self.conditional_limit = self.params.get_float("ConditionalLimit")
+    self.conditional_limit_lead = self.params.get_float("ConditionalLimitLead")
+    self.conditional_navigation = self.params.get_bool("ConditionalNavigation")
+    self.conditional_navigation_lead = self.params.get_bool("ConditionalNavigationLead")
+    self.conditional_signal = self.params.get_bool("ConditionalSignal")
+    self.conditional_slower_lead = self.params.get_bool("ConditionalSlowerLead")
+    self.conditional_stop_lights = self.params.get_bool("ConditionalStopLights")
+    self.conditional_stop_lights_lead = self.params.get_bool("ConditionalStopLightsLead")
+    self.experimental_mode_via_press = self.params.get_bool("ExperimentalModeViaPress")
 
   def update_params(self):
     if self.frame % 10 == 0:
@@ -248,6 +272,23 @@ class VCruiseCarrot:
       self._cruise_speed_unit = self.params.get_int("CruiseSpeedUnit")
       self._cruise_button_mode = self.params.get_int("CruiseButtonMode")
       self.cruiseOnDist = self.params.get_float("CruiseOnDist") * 0.01
+
+      # 同时更新条件性实验模式参数
+      self.update_conditional_params()
+
+  def update_conditional_params(self):
+    """更新条件性实验模式参数"""
+    self.conditional_curves = self.params.get_bool("ConditionalCurves")
+    self.conditional_curves_lead = self.params.get_bool("ConditionalCurvesLead")
+    self.conditional_limit = self.params.get_float("ConditionalLimit")
+    self.conditional_limit_lead = self.params.get_float("ConditionalLimitLead")
+    self.conditional_navigation = self.params.get_bool("ConditionalNavigation")
+    self.conditional_navigation_lead = self.params.get_bool("ConditionalNavigationLead")
+    self.conditional_signal = self.params.get_bool("ConditionalSignal")
+    self.conditional_slower_lead = self.params.get_bool("ConditionalSlowerLead")
+    self.conditional_stop_lights = self.params.get_bool("ConditionalStopLights")
+    self.conditional_stop_lights_lead = self.params.get_bool("ConditionalStopLightsLead")
+    self.experimental_mode_via_press = self.params.get_bool("ExperimentalModeViaPress")
 
   def update_v_cruise(self, CS, sm, is_metric):
     self._add_log("")
@@ -292,6 +333,46 @@ class VCruiseCarrot:
     self._prepare_brake_gas(CS, CC)
     v_cruise_kph = self._update_cruise_buttons(CS, CC, self.v_cruise_kph)
 
+    # 获取和更新条件性实验模式所需的数据
+    lead_distance = self.d_rel
+    lead_status = 1.0 if self.d_rel > 0 else 0.0
+    road_curvature = 0.0001  # 假设的弯道曲率，在实际应用中应从车辆状态或地图数据获取
+
+    # 获取模型数据
+    modelData = sm['modelV2'] if sm.alive['modelV2'] else None
+
+    # 获取导航数据
+    approaching_intersection = False
+    approaching_turn = False
+    if sm.alive.get('navInstruction'):
+        nav = sm['navInstruction']
+        approaching_intersection = nav.maneuverDistance < 100 and nav.type in [5, 6]  # 假设5,6是交叉路口类型
+        approaching_turn = nav.maneuverDistance < 100 and nav.type in [1, 2, 3, 4]  # 假设1-4是转弯类型
+
+    # 更新各种条件状态
+    self.update_conditions(lead_distance, lead_status, modelData, road_curvature,
+                          self.v_lead_kph < self.v_cruise_kph, CS.standstill,
+                          CS.vEgo, self.v_lead_kph/CV.KPH_TO_MS if self.d_rel > 0 else 0)
+
+    # 检查是否满足切换实验模式的条件
+    if not CS.standstill:  # 如果不处于静止状态
+        condition_met = self.check_conditions(CS, approaching_intersection, approaching_turn,
+                                             modelData, CS.vEgo)
+    else:
+        condition_met = False
+        self.status_value = 0
+
+    # 根据条件调整SpeedFromPCM参数
+    if condition_met and not self.experimental_mode_active:
+        self.experimental_mode_active = True
+        self.original_speed_from_pcm = self.params.get_int("SpeedFromPCM")  # 保存原始值
+        self.params.put_int_nonblocking("SpeedFromPCM", 0)  # 切换为实验模式
+        self._add_log(f"切换到实验模式: 状态值={self.status_value}")
+    elif not condition_met and self.experimental_mode_active:
+        self.experimental_mode_active = False
+        self.params.put_int_nonblocking("SpeedFromPCM", self.original_speed_from_pcm)  # 恢复原始值
+        self._add_log("恢复正常模式")
+
     if self._activate_cruise > 0:
       #self.events.append(EventName.buttonEnable)
       self._cruise_ready = False
@@ -321,6 +402,158 @@ class VCruiseCarrot:
 
     self.cruise_state_available_last = CS.cruiseState.available
     self.enabled_last = CC.enabled
+
+  def update_conditions(self, lead_distance, lead_status, modelData, road_curvature, slower_lead, standstill, v_ego, v_lead):
+    """更新各种条件的状态"""
+    # 检测前车
+    self.lead_detection(lead_status)
+
+    # 检测道路弯曲度
+    self.road_curvature(road_curvature, v_ego)
+
+    # 检测慢行前车
+    self.slow_lead(slower_lead, v_lead)
+
+    # 检测红绿灯/停车标志
+    if modelData is not None:
+      self.stop_sign_and_light(lead_distance, modelData, standstill, v_ego, v_lead)
+
+  def lead_detection(self, lead_status):
+    """检测前车"""
+    self.lead_detection_mac.add_data(lead_status)
+    self.lead_detected = self.lead_detection_mac.get_moving_average() >= PROBABILITY
+
+  def lead_slowing_down(self, lead_distance, v_ego, v_lead):
+    """检测前车是否减速"""
+    if self.lead_detected:
+      lead_close = lead_distance < CITY_SPEED_LIMIT
+      lead_far = lead_distance >= CITY_SPEED_LIMIT and (v_lead >= self.previous_v_lead > 1 or v_lead > v_ego or self.red_light_detected)
+      lead_slowing_down = v_lead < self.previous_v_lead
+
+      self.previous_v_lead = v_lead
+
+      self.lead_slowing_down_mac.add_data((lead_close or lead_slowing_down or self.lead_stopped) and not lead_far)
+      return self.lead_slowing_down_mac.get_moving_average() >= PROBABILITY
+    else:
+      self.lead_slowing_down_mac.reset_data()
+      self.previous_v_lead = 0
+      return False
+
+  def road_curvature(self, road_curvature, v_ego):
+    """检测道路弯曲度"""
+    if road_curvature > 0.0001:  # 防止除以零
+      if self.conditional_curves_lead or not self.lead_detected:
+        curve_detected = (1 / road_curvature)**0.5 < v_ego
+        curve_active = (0.9 / road_curvature)**0.5 < v_ego and self.curve_detected
+
+        self.curvature_mac.add_data(curve_detected or curve_active)
+        self.curve_detected = self.curvature_mac.get_moving_average() >= PROBABILITY
+      else:
+        self.curvature_mac.reset_data()
+        self.curve_detected = False
+    else:
+      self.curve_detected = False
+
+  def slow_lead(self, slower_lead, v_lead):
+    """检测慢行前车"""
+    if self.lead_detected:
+      self.lead_stopped = v_lead < 1
+      self.slow_lead_mac.add_data(self.lead_stopped or slower_lead)
+      self.slower_lead_detected = self.slow_lead_mac.get_moving_average() >= PROBABILITY
+    else:
+      self.slow_lead_mac.reset_data()
+      self.lead_stopped = False
+      self.slower_lead_detected = False
+
+  def slowing_down(self, v_ego):
+    """检测车辆是否在减速"""
+    slowing_down = v_ego <= self.previous_v_ego
+    speed_check = v_ego < CRUISING_SPEED
+
+    self.previous_v_ego = v_ego
+
+    self.slowing_down_mac.add_data(slowing_down and speed_check)
+    return self.slowing_down_mac.get_moving_average() >= PROBABILITY
+
+  def stop_sign_and_light(self, lead_distance, modelData, standstill, v_ego, v_lead):
+    """检测停车标志和红绿灯"""
+    try:
+      # 适配carrotpilot的modelData结构
+      if hasattr(modelData, 'position') and hasattr(modelData.position, 'x'):
+        # 获取模型预测的路径
+        position_x = modelData.position.x
+        idx_n = len(position_x) - 1  # 使用数组的最后一个元素
+        model_stopping = position_x[idx_n] < interp(v_ego * CV.MS_TO_KPH, SLOW_DOWN_BP, SLOW_DOWN_DISTANCE)
+
+        lead_check = self.conditional_stop_lights_lead or not self.lead_slowing_down(lead_distance, v_ego, v_lead) or standstill
+        model_filtered = not (self.curve_detected or self.slower_lead_detected)
+
+        self.stop_light_mac.add_data(lead_check and model_stopping and model_filtered)
+        self.red_light_detected = self.stop_light_mac.get_moving_average() >= PROBABILITY
+      else:
+        self.red_light_detected = False
+    except Exception as e:
+      self._add_log(f"stop_sign_and_light exception: {e}")
+      self.red_light_detected = False
+
+  def check_conditions(self, carState, approaching_intersection, approaching_turn, modelData, v_ego):
+    """检查是否满足切换到实验模式的条件"""
+    if carState.standstill:
+      self.status_value = 0
+      return False
+
+    # 如果是红灯且正在减速，保持实验模式
+    if self.red_light_detected and self.slowing_down(v_ego):
+      self.status_value = 16
+      return True
+
+    # 导航相关条件
+    approaching_maneuver = (approaching_intersection or approaching_turn)
+    if self.conditional_navigation and approaching_maneuver and (self.conditional_navigation_lead or not self.lead_detected):
+      self.status_value = 7 if approaching_intersection else 8
+      return True
+
+    # 速度限制相关条件
+    if (not self.lead_detected and v_ego <= self.conditional_limit) or (self.lead_detected and v_ego <= self.conditional_limit_lead):
+      self.status_value = 11 if self.lead_detected else 12
+      return True
+
+    # 前车慢行相关条件
+    if self.conditional_slower_lead and self.slower_lead_detected:
+      self.status_value = 12 if self.lead_stopped else 13
+      return True
+
+    # 转向灯相关条件
+    if self.conditional_signal and v_ego <= CITY_SPEED_LIMIT and (carState.leftBlinker or carState.rightBlinker):
+      self.status_value = 14
+      return True
+
+    # 弯道相关条件
+    if self.conditional_curves and self.curve_detected:
+      self.status_value = 15
+      return True
+
+    # 红绿灯相关条件
+    if self.conditional_stop_lights and self.red_light_detected:
+      self.status_value = 16
+      return True
+
+    return False
+
+  def _add_log(self, log):
+    if len(log) == 0:
+      self._log_timer = max(0, self._log_timer - 1)
+      if self._log_timer <= 0:
+        self.log = ""
+        #self.event = -1
+    else:
+      self.log = log
+      #self.event = event
+      self._log_timer = self._log_timeout
+
+  @property
+  def v_cruise_initialized(self):
+    return self.v_cruise_kph != V_CRUISE_UNSET
 
   def initialize_v_cruise(self, CS, experimental_mode: bool) -> None:
     return
@@ -442,8 +675,8 @@ class VCruiseCarrot:
           speed_kph = int(self.carrot_arg)
           if 0 < speed_kph < 200:
             v_cruise_kph = speed_kph
-            self._add_log(f"Cruise speed set to {v_cruise_kph} (carrot command)")       
-    
+            self._add_log(f"Cruise speed set to {v_cruise_kph} (carrot command)")
+
     return v_cruise_kph, button_type, long_pressed
 
   def _update_cruise_buttons(self, CS, CC, v_cruise_kph):
@@ -705,3 +938,20 @@ class VCruiseCarrot:
     else:
       self._soft_hold_count = 0
       self._brake_pressed_count = min(-1, self._brake_pressed_count - 1)
+
+class MovingAverageCalculator:
+  """简单的移动平均计算器，用于平滑决策"""
+  def __init__(self, window_size=5):
+    self.window_size = window_size
+    self.data = []
+
+  def add_data(self, value):
+    self.data.append(float(value))
+    if len(self.data) > self.window_size:
+      self.data.pop(0)
+
+  def get_moving_average(self):
+    return sum(self.data) / max(1, len(self.data))
+
+  def reset_data(self):
+    self.data = []
