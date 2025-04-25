@@ -300,6 +300,9 @@ def create_templates():
 
             <div class="section-title">车辆状态</div>
             <div class="status-grid" id="vehicleStatus"></div>
+
+            <div class="section-title">其他数据</div>
+            <div class="status-grid" id="otherData"></div>
         </div>
 
         <div class="update-time" id="updateTime">最后更新: 等待数据...</div>
@@ -341,6 +344,16 @@ def create_templates():
                 {key: 'right_blinker', label: '右转向', unit: ''}
             ]
         };
+
+        const excludedKeys = [
+            'openpilot_status', 'active', 'started', 'onroad',
+            'v_ego', 'a_ego', 'engine_rpm', 'steering_angle', 'steering_torque',
+            'lead_info', 'pcm_cruise_gap',
+            'cruise_enabled', 'cruise_speed', 'cruise_available',
+            'gas', 'brake_pressed', 'door_open', 'seatbelt_unlatched',
+            'left_blinker', 'right_blinker',
+            'top_text', 'bottom_text', 'traffic_state', 'traffic_state_text'
+        ];
 
         function getNestedValue(obj, path) {
             return path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -439,6 +452,31 @@ def create_templates():
             // 更新各个部分
             Object.keys(dataConfig).forEach(section => {
                 updateStatusSection(section, deviceData);
+            });
+
+            // 更新其他所有数据
+            const otherDataSection = document.getElementById('otherData');
+            otherDataSection.innerHTML = '';
+
+            Object.entries(deviceData).forEach(([key, value]) => {
+                // 跳过已经在其他部分显示的数据
+                if (excludedKeys.includes(key) || key.includes('.')) return;
+
+                const card = document.createElement('div');
+                card.className = 'status-card';
+
+                const title = document.createElement('h3');
+                // 将下划线替换为空格，并将首字母大写
+                title.textContent = key.replace(/_/g, ' ')
+                    .replace(/\b\w/g, l => l.toUpperCase());
+                card.appendChild(title);
+
+                const valueSpan = document.createElement('span');
+                valueSpan.className = 'status-value';
+                valueSpan.textContent = formatValue(key, value);
+                card.appendChild(valueSpan);
+
+                otherDataSection.appendChild(card);
             });
 
             // 更新UI文本字段
