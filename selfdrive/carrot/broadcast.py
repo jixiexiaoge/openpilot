@@ -197,18 +197,32 @@ class CarStateBroadcast:
 
             # 获取建议车速信息
             apply_speed = 0
-            apply_source = "--"
+            apply_source = ""
+            x_target = 0
+            v_cruise = CS.cruiseState.speed * 3.6  # 转换为km/h
+
+            # 1. 从carrotMan获取建议车速
             if self.sm.valid['carrotMan']:
                 carrot_man = self.sm['carrotMan'].getCarrotMan()
-                if hasattr(carrot_man, 'desiredSpeed'):
-                    apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
-                    # 根据不同来源设置建议来源
-                    if hasattr(carrot_man, 'source'):
-                        apply_source = carrot_man.source
-                    elif apply_speed >= CS.cruiseState.speed * 3.6:
-                        apply_source = "--"
-                    else:
-                        apply_source = "限速"
+                if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
+                    if carrot_man.activeCarrot:
+                        apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
+                        if hasattr(carrot_man, 'desiredSource'):
+                            apply_source = carrot_man.desiredSource
+                        # 如果建议速度大于等于巡航速度，清空来源（不显示）
+                        if apply_speed >= v_cruise:
+                            apply_source = ""
+                            apply_speed = 0
+
+            # 2. 从longitudinalPlan获取生态目标速度
+            if not apply_source and self.sm.valid['longitudinalPlan']:
+                lp = self.sm['longitudinalPlan']
+                if hasattr(lp, 'xTarget'):
+                    x_target = round(lp.xTarget * 3.6, 1)  # 转换为km/h
+                    # 如果生态目标速度与巡航速度差值大于0.5，显示eco
+                    if abs(x_target - v_cruise) > 0.5:
+                        apply_speed = x_target
+                        apply_source = "eco"
 
             # 创建状态数据
             self.car_state_data = {
@@ -279,6 +293,8 @@ class CarStateBroadcast:
                 # 新增建议车速信息
                 "apply_speed": apply_speed,
                 "apply_source": apply_source,
+                "x_target": x_target,
+                "v_cruise": v_cruise
             }
 
             # 添加所有可用的carState属性

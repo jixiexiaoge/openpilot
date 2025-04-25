@@ -232,6 +232,12 @@ def create_templates():
         .traffic-green {
             background-color: #27ae60;
         }
+        .status-value.eco {
+            color: #27ae60 !important;  /* 绿色 */
+        }
+        .status-value.carrot {
+            color: #CD853F !important;  /* 琥珀色 */
+        }
         @media (max-width: 600px) {
             .status-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -383,7 +389,7 @@ def create_templates():
             return status[value] || "未知";
         }
 
-        function formatValue(key, value) {
+        function formatValue(key, value, data) {
             if (value === undefined || value === null) return '--';
             if (key === 'speed_from_pcm') {
                 return formatSpeedFromPCM(value);
@@ -444,7 +450,7 @@ def create_templates():
 
             dataConfig[sectionId].forEach(item => {
                 const value = getNestedValue(data, item.key);
-                const formattedValue = formatValue(item.key, value);
+                const formattedValue = formatValue(item.key, value, data);
 
                 const card = document.createElement('div');
                 card.className = 'status-card';
@@ -456,6 +462,16 @@ def create_templates():
                 const valueSpan = document.createElement('span');
                 valueSpan.className = 'status-value';
                 valueSpan.textContent = formattedValue;
+
+                // 为建议车速添加特殊样式
+                if (item.key === 'apply_speed' || item.key === 'apply_source') {
+                    const source = data.apply_source;
+                    if (source === 'eco') {
+                        valueSpan.classList.add('eco');
+                    } else if (source && source !== '--') {
+                        valueSpan.classList.add('carrot');
+                    }
+                }
 
                 if (item.unit) {
                     const unitSpan = document.createElement('span');
@@ -500,7 +516,7 @@ def create_templates():
 
                 const valueSpan = document.createElement('span');
                 valueSpan.className = 'status-value';
-                valueSpan.textContent = formatValue(key, value);
+                valueSpan.textContent = formatValue(key, value, deviceData);
                 card.appendChild(valueSpan);
 
                 otherDataSection.appendChild(card);

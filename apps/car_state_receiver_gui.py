@@ -289,11 +289,15 @@ class CarStateReceiverGUI:
 
         ttk.Label(frame, text=label_text, width=12).pack(side=tk.LEFT)
         var = tk.StringVar(value="--")
-        setattr(self, f"{key}_var", var)
-        ttk.Label(frame, textvariable=var).pack(side=tk.LEFT)
+        label = ttk.Label(frame, textvariable=var)
+        label.pack(side=tk.LEFT)
 
         if unit:
             ttk.Label(frame, text=unit).pack(side=tk.LEFT)
+
+        # 保存标签引用以便更新颜色
+        setattr(self, f"{key}_var", var)
+        setattr(self, f"{key}_label", label)
 
     def create_traffic_signal_field(self, parent, label_text, key):
         """创建交通信号灯字段（带颜色）"""
@@ -554,6 +558,24 @@ class CarStateReceiverGUI:
         formatted_json = json.dumps(data, indent=2, ensure_ascii=False)
         self.json_text.delete('1.0', tk.END)
         self.json_text.insert(tk.END, formatted_json)
+
+        # 更新建议车速显示（带颜色）
+        apply_speed = data.get('apply_speed', 0)
+        apply_source = data.get('apply_source', '--')
+
+        self.apply_speed_var.set(str(apply_speed) if apply_speed > 0 else '--')
+        self.apply_source_var.set(apply_source if apply_source else '--')
+
+        # 根据来源设置颜色
+        if apply_source == 'eco':
+            self.apply_speed_label.config(foreground='green')
+            self.apply_source_label.config(foreground='green')
+        elif apply_source and apply_source != '--':
+            self.apply_speed_label.config(foreground='#CD853F')  # 琥珀色
+            self.apply_source_label.config(foreground='#CD853F')  # 琥珀色
+        else:
+            self.apply_speed_label.config(foreground='black')
+            self.apply_source_label.config(foreground='black')
 
     def clear_car_info(self):
         """清除车辆信息显示"""
