@@ -120,6 +120,9 @@ procs = [
   PythonProcess("broadcast", "selfdrive.carrot.broadcast", always_run),#, enabled=not PC),
   PythonProcess("statsd", "system.statsd", always_run),
 
+  # Add conditional speed control process
+  PythonProcess("conditional_speed_control", "selfdrive.car.conditional_speed_control", always_run),
+
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
   PythonProcess("webrtcd", "system.webrtc.webrtcd", notcar),
