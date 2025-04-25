@@ -210,27 +210,10 @@ def conditional_speed_control_thread():
 
     while sm is None and retry_count < max_retries:
       try:
-        # Initialize with minimal required messages first
-        sm = messaging.SubMaster(['carState', 'controlsState'])
-        logger.info("Successfully initialized basic messaging")
-
-        # Wait for modelData to become available
-        wait_count = 0
-        while wait_count < 50:  # Wait up to 5 seconds
-          try:
-            sm = messaging.SubMaster(['carState', 'modelData', 'liveNavigation', 'radarState', 'controlsState'])
-            logger.info("Successfully initialized all messaging")
-            break
-          except Exception as e:
-            wait_count += 1
-            time.sleep(0.1)
-            if wait_count % 10 == 0:
-              logger.info(f"Waiting for modelData... ({wait_count/10}s)")
-
-        if wait_count >= 50:
-          logger.error("Timeout waiting for modelData")
-          return
-
+        # Initialize with only required messages
+        sm = messaging.SubMaster(['carState', 'controlsState', 'radarState'])
+        logger.info("Successfully initialized messaging")
+        break
       except Exception as e:
         retry_count += 1
         logger.error(f"Failed to initialize messaging (attempt {retry_count}/{max_retries}): {e}")
@@ -249,10 +232,10 @@ def conditional_speed_control_thread():
       def __init__(self):
         self.conditional_curves = True
         self.conditional_curves_lead = True
-        self.conditional_navigation = True
-        self.conditional_navigation_lead = True
+        self.conditional_navigation = False  # Disable navigation features
+        self.conditional_navigation_lead = False
         self.conditional_signal = True
-        self.conditional_stop_lights = True
+        self.conditional_stop_lights = False  # Disable stop light detection without modelData
         self.conditional_stop_lights_lead = True
         self.conditional_slower_lead = True
         self.conditional_limit = CITY_SPEED_LIMIT
@@ -265,41 +248,32 @@ def conditional_speed_control_thread():
       try:
         sm.update()
 
-        if not sm.all_checks():
-          time.sleep(0.1)
-          continue
-
         if sm.updated['carState']:  # Only require carState to be updated
           # Get required data from messages
           car_state = sm['carState']
-          model_data = sm['modelData'] if 'modelData' in sm.data else None
-          radar_state = sm['radarState'] if 'radarState' in sm.data else None
+          radar_state = sm['radarState']
           controls_state = sm['controlsState']
-
-          # Only proceed if we have all required data
-          if model_data is None or radar_state is None:
-            continue
 
           # Extract lead car information
           lead = radar_state.leadOne
           lead_distance = lead.dRel if lead.status else 0
           v_lead = lead.vRel + car_state.vEgo if lead.status else 0
 
-          # Get road curvature from model
-          try:
-            road_curvature = abs(model_data.position.y[1] - model_data.position.y[0]) / (abs(model_data.position.x[1] - model_data.position.x[0]) + 1e-6)
-          except (IndexError, AttributeError):
-            road_curvature = 0.0
+          # Create dummy modelData when not available
+          class DummyModelData:
+            def __init__(self):
+              self.position = type('Position', (), {'x': [0] * IDX_N, 'y': [0] * IDX_N})()
+              self.navEnabled = False
 
           # Update the controller
           controller.update(
             carState=car_state,
             enabled=controls_state.enabled,
-            frogpilotNavigation=sm['liveNavigation'] if 'liveNavigation' in sm.data else None,
+            frogpilotNavigation=None,  # Disable navigation features
             lead_distance=lead_distance,
             lead=lead,
-            modelData=model_data,
-            road_curvature=road_curvature,
+            modelData=DummyModelData(),
+            road_curvature=1000.0,  # Large value means straight road
             slower_lead=lead.status and v_lead < car_state.vEgo,
             v_ego=car_state.vEgo,
             v_lead=v_lead,
