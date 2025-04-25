@@ -60,10 +60,10 @@ def internal_error(exception):
 
 @app.route("/footage/full/<cameratype>/<route>")
 def full(cameratype, route):
-  chunk_size = 1024 * 512  
+  chunk_size = 1024 * 512
   file_name = cameratype + (".ts" if cameratype == "qcamera" else ".hevc")
   vidlist = "|".join(Paths.log_root() + "/" + segment + "/" + file_name for segment in fleet.segments_in_route(route))
-  
+
   def generate_buffered_stream():
     with fleet.ffmpeg_mp4_concat_wrap_process_builder(vidlist, cameratype, chunk_size) as process:
       for chunk in iter(lambda: process.stdout.read(chunk_size), b""):
@@ -93,13 +93,13 @@ def download_dcamera(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
   return send_from_directory(file_name, "dcamera.hevc", as_attachment=True)
-  
+
 @app.route("/footage/full/ecamera/<route>/<segment>")
 def download_ecamera(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
   return send_from_directory(file_name, "ecamera.hevc", as_attachment=True)
-        
+
 def upload_folder_to_ftp(local_folder, directory, remote_path):
     from tqdm import tqdm
     ftp_server = "shind0.synology.me"
@@ -142,14 +142,14 @@ def upload_folder_to_ftp(local_folder, directory, remote_path):
     except Exception as e:
         print(f"FTP Upload Error: {e}")
         return False
-        
+
 
 @app.route("/folder-info")
 def get_folder_info():
     path = request.args.get('path')
     if not path or not os.path.exists(path):
         return jsonify({'error': 'Folder not found'}), 404
-    
+
     try:
         folder_name = os.path.basename(path)
         seg_num = int(folder_name.split('--')[2])
@@ -159,7 +159,7 @@ def get_folder_info():
             try:
                 base_name = '--'.join(folder_name.split('--')[:2])
                 seg1_path = os.path.join(os.path.dirname(path), f"{base_name}--1")
-                
+
                 if os.path.exists(seg1_path):
                     seg1_stat = os.stat(seg1_path)
                     created_time = seg1_stat.st_ctime - 60
@@ -174,7 +174,7 @@ def get_folder_info():
                     total_size += os.path.getsize(fp)
                 except OSError:
                     continue
-        
+
         return jsonify({
             'created_date': formatted_date,
             'size': total_size,
@@ -182,24 +182,24 @@ def get_folder_info():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-        
+
 @app.route("/folder-date")
 def get_folder_date():
     path = request.args.get('path')
     subtract_minutes = int(request.args.get('subtract_minutes', 0))
-    
+
     if not path or not os.path.exists(path):
         return jsonify({'error': 'Folder not found'}), 404
-    
+
     try:
         stat_info = os.stat(path)
         created_time = stat_info.st_ctime
-        
+
         if subtract_minutes > 0:
             created_time -= subtract_minutes * 60
-        
+
         formatted_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_time))
-        
+
         return jsonify({
             'date': formatted_date,
             'status': 'success'
@@ -233,24 +233,24 @@ def upload_carrot(route, segment):
             return "Failed to upload files", 500
     else:
         return "Segment already uploaded", 200
-        
+
 @app.template_filter('datetimeformat')
 def datetimeformat_filter(filename):
     try:
         date_part = filename[:8]
         time_part = filename[9:15]
-        
+
         year = date_part[:4]
         month = date_part[4:6]
         day = date_part[6:8]
-        
+
         hour = time_part[:2]
         minute = time_part[2:4]
-        
+
         return f"{year}년 {month}월 {day}일 {hour}시 {minute}분"
     except:
         return filename
-        
+
 @app.route("/file-size")
 def get_file_size():
     path = request.args.get('path')
@@ -287,8 +287,8 @@ def route(route):
         seg_num = segment.split("--")[2]
         links.append(f'<a href="{route}?{seg_num},{query_type}">{segment}</a>')
         segments.append(f"'{segment}'")
-    
-    return render_template("route.html", 
+
+    return render_template("route.html",
                          route=route,
                          query_type=query_type,
                          links="<br>".join(links),
@@ -600,80 +600,94 @@ def carinfo():
                     "Running Status": "Moving" if is_car_started else "Stopped",
                     "Cruise System": "Enabled" if is_car_engaged else "Disabled",
                     "Current Speed": f"{CS.vEgo * 3.6:.1f} km/h",
-                    "Engine RPM": f"{CS.engineRPM:.0f} RPM" if hasattr(CS, 'engineRPM') and CS.engineRPM > 0 else "Unknown",
-                    "Gear Position": str(CS.gearShifter) if hasattr(CS, 'gearShifter') else "Unknown"
+                    "Engine RPM": f"{CS.engineRpm:.0f} RPM" if hasattr(CS, 'engineRpm') and CS.engineRpm > 0 else "N/A",
+                    "Gear Position": str(CS.gearShifter) if hasattr(CS, 'gearShifter') else "N/A"
                 },
                 "Basic Information": {
                     "Car Model": car_name,
                     "Fingerprint": str(car_fingerprint),
-                    "Weight": f"{car_specs.mass:.0f} kg" if car_specs and hasattr(car_specs, 'mass') else "Unknown",
-                    "Wheelbase": f"{car_specs.wheelbase:.3f} m" if car_specs and hasattr(car_specs, 'wheelbase') else "Unknown",
-                    "Steering Ratio": f"{car_specs.steerRatio:.1f}" if car_specs and hasattr(car_specs, 'steerRatio') else "Unknown"
+                    "Weight": f"{car_specs.mass:.0f} kg" if car_specs and hasattr(car_specs, 'mass') else "N/A",
+                    "Wheelbase": f"{car_specs.wheelbase:.3f} m" if car_specs and hasattr(car_specs, 'wheelbase') else "N/A",
+                    "Steering Ratio": f"{car_specs.steerRatio:.1f}" if car_specs and hasattr(car_specs, 'steerRatio') else "N/A"
                 }
             }
 
             # 详细信息
             if is_car_started or is_car_engaged:
-                car_info.update({
-                    "Cruise Information": {
-                        "Cruise Status": "On" if CS.cruiseState.enabled else "Off",
-                        "Adaptive Cruise": "On" if CS.cruiseState.available else "Off",
-                        "Set Speed": f"{CS.cruiseState.speed * 3.6:.1f} km/h" if CS.cruiseState.speed > 0 else "Not Set",
-                        "Following Distance": str(CS.cruiseState.followDistance) if hasattr(CS.cruiseState, 'followDistance') else "Unknown"
-                    },
-                    "Wheel Speeds": {
-                        "Front Left": f"{CS.wheelSpeeds.fl * 3.6:.1f} km/h",
-                        "Front Right": f"{CS.wheelSpeeds.fr * 3.6:.1f} km/h",
-                        "Rear Left": f"{CS.wheelSpeeds.rl * 3.6:.1f} km/h",
-                        "Rear Right": f"{CS.wheelSpeeds.rr * 3.6:.1f} km/h"
-                    },
-                    "Steering System": {
-                        "Steering Angle": f"{CS.steeringAngleDeg:.1f}°",
-                        "Steering Torque": f"{CS.steeringTorque:.1f} Nm",
-                        "Steering Rate": f"{CS.steeringRateDeg:.1f}°/s",
-                        "Lane Departure": "Yes" if CS.leftBlinker or CS.rightBlinker else "No"
-                    },
-                    "Pedal Status": {
-                        "Throttle Position": f"{CS.gas * 100:.1f}%",
-                        "Brake Pressure": f"{CS.brake * 100:.1f}%",
-                        "Gas Pedal": "Pressed" if CS.gasPressed else "Released",
-                        "Brake Pedal": "Pressed" if CS.brakePressed else "Released"
-                    },
-                    "Safety Systems": {
-                        "ESP Status": "Active" if CS.espDisabled else "Normal",
-                        "ABS Status": "Active" if hasattr(CS, 'absActive') and CS.absActive else "Normal",
-                        "Traction Control": "Active" if hasattr(CS, 'tcsActive') and CS.tcsActive else "Normal",
-                        "Collision Warning": "Warning" if hasattr(CS, 'collisionWarning') and CS.collisionWarning else "Normal"
-                    },
-                    "Door Status": {
-                        "Driver Door": "Open" if CS.doorOpen else "Closed",
-                        "Passenger Door": "Open" if hasattr(CS, 'passengerDoorOpen') and CS.passengerDoorOpen else "Closed",
-                        "Trunk": "Open" if hasattr(CS, 'trunkOpen') and CS.trunkOpen else "Closed",
-                        "Hood": "Open" if hasattr(CS, 'hoodOpen') and CS.hoodOpen else "Closed",
-                        "Seatbelt": "Unbuckled" if CS.seatbeltUnlatched else "Buckled"
-                    },
-                    "Light Status": {
-                        "Left Turn Signal": "On" if CS.leftBlinker else "Off",
-                        "Right Turn Signal": "On" if CS.rightBlinker else "Off",
-                        "High Beam": "On" if CS.genericToggle else "Off",
-                        "Low Beam": "On" if hasattr(CS, 'lowBeamOn') and CS.lowBeamOn else "Off"
-                    },
-                    "Blind Spot Monitor": {
+                # 巡航信息
+                cruise_info = {
+                    "Cruise Status": "On" if CS.cruiseState.enabled else "Off",
+                    "Adaptive Cruise": "On" if CS.cruiseState.available else "Off",
+                }
+                if CS.cruiseState.speed > 0:
+                    cruise_info["Set Speed"] = f"{CS.cruiseState.speed * 3.6:.1f} km/h"
+                if hasattr(CS, 'pcmCruiseGap'):
+                    cruise_info["Following Distance"] = f"Level {CS.pcmCruiseGap}"
+                car_info["Cruise Information"] = cruise_info
+
+                # 车轮速度
+                car_info["Wheel Speeds"] = {
+                    "Front Left": f"{CS.wheelSpeeds.fl * 3.6:.1f} km/h",
+                    "Front Right": f"{CS.wheelSpeeds.fr * 3.6:.1f} km/h",
+                    "Rear Left": f"{CS.wheelSpeeds.rl * 3.6:.1f} km/h",
+                    "Rear Right": f"{CS.wheelSpeeds.rr * 3.6:.1f} km/h"
+                }
+
+                # 转向系统
+                steering_info = {
+                    "Steering Angle": f"{CS.steeringAngleDeg:.1f}°",
+                    "Steering Rate": f"{CS.steeringRateDeg:.1f}°/s"
+                }
+                if hasattr(CS, 'steeringTorque'):
+                    steering_info["Steering Torque"] = f"{CS.steeringTorque:.1f} Nm"
+                if hasattr(CS, 'steeringTorqueEps'):
+                    steering_info["EPS Torque"] = f"{CS.steeringTorqueEps:.1f} Nm"
+                car_info["Steering System"] = steering_info
+
+                # 踏板状态
+                pedal_info = {
+                    "Gas Pedal": "Pressed" if CS.gasPressed else "Released",
+                    "Brake Pedal": "Pressed" if CS.brakePressed else "Released"
+                }
+                if hasattr(CS, 'gas'):
+                    pedal_info["Throttle Position"] = f"{CS.gas * 100:.1f}%"
+                if hasattr(CS, 'brake'):
+                    pedal_info["Brake Pressure"] = f"{CS.brake * 100:.1f}%"
+                car_info["Pedal Status"] = pedal_info
+
+                # 车门状态
+                door_info = {
+                    "Driver Door": "Open" if CS.doorOpen else "Closed",
+                    "Seatbelt": "Unbuckled" if CS.seatbeltUnlatched else "Buckled"
+                }
+                car_info["Door Status"] = door_info
+
+                # 灯光状态
+                light_info = {
+                    "Left Turn Signal": "On" if CS.leftBlinker else "Off",
+                    "Right Turn Signal": "On" if CS.rightBlinker else "Off",
+                    "High Beam": "On" if CS.genericToggle else "Off",
+                    "Brake Lights": "On" if CS.brakeLights else "Off"
+                }
+                car_info["Light Status"] = light_info
+
+                # 盲点监测
+                if hasattr(CS, 'leftBlindspot') or hasattr(CS, 'rightBlindspot'):
+                    car_info["Blind Spot Monitor"] = {
                         "Left Side": "Vehicle Detected" if CS.leftBlindspot else "Clear",
                         "Right Side": "Vehicle Detected" if CS.rightBlindspot else "Clear"
                     }
-                })
 
-                # 添加可选的其他信息
+                # 其他信息
                 other_info = {}
-                if hasattr(CS, 'outsideTemp'):
-                    other_info["Outside Temperature"] = f"{CS.outsideTemp:.1f}°C"
                 if hasattr(CS, 'fuelGauge'):
-                    other_info["Range"] = f"{CS.fuelGauge:.1f}km"
+                    other_info["Range"] = f"{CS.fuelGauge:.1f} km"
                 if hasattr(CS, 'odometer'):
-                    other_info["Odometer"] = f"{CS.odometer:.1f}km"
+                    other_info["Odometer"] = f"{CS.odometer:.1f} km"
                 if hasattr(CS, 'instantFuelConsumption'):
-                    other_info["Instant Fuel Consumption"] = f"{CS.instantFuelConsumption:.1f}L/100km"
+                    other_info["Instant Fuel Consumption"] = f"{CS.instantFuelConsumption:.1f} L/100km"
+                if hasattr(CS, 'gearStep'):
+                    other_info["Gear Step"] = str(CS.gearStep)
 
                 if other_info:
                     car_info["Other Information"] = other_info

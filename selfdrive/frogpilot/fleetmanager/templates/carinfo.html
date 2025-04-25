@@ -4,6 +4,9 @@
 
 <div class="container">
     <h1 class="text-center mb-4">Vehicle Information</h1>
+    <div id="lastUpdate" class="text-center text-muted mb-3">
+        Last updated: <span id="updateTime"></span>
+    </div>
 
     {% if car_info %}
         {% if car_info.get("error") %}
@@ -13,19 +16,31 @@
         {% else %}
             {% for section, data in car_info.items() %}
                 <div class="card mb-3">
-                    <div class="card-header">
+                    <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">{{ section }}</h5>
                     </div>
                     <div class="card-body">
                         {% if data is mapping %}
                             {% for key, value in data.items() %}
-                                <div class="row mb-2">
+                                <div class="row mb-2 align-items-center">
                                     <div class="col-6">
                                         <strong>{{ key }}</strong>
                                     </div>
                                     <div class="col-6">
-                                        {% if value is string and "km/h" in value %}
-                                            <span class="badge bg-primary">{{ value }}</span>
+                                        {% if value is string %}
+                                            {% if "km/h" in value %}
+                                                <span class="badge bg-primary">{{ value }}</span>
+                                            {% elif "RPM" in value %}
+                                                <span class="badge bg-info">{{ value }}</span>
+                                            {% elif value in ["On", "Active", "Enabled", "Pressed", "Open", "Warning"] %}
+                                                <span class="badge bg-success">{{ value }}</span>
+                                            {% elif value in ["Off", "Normal", "Disabled", "Released", "Closed"] %}
+                                                <span class="badge bg-secondary">{{ value }}</span>
+                                            {% elif "Vehicle Detected" in value %}
+                                                <span class="badge bg-warning">{{ value }}</span>
+                                            {% else %}
+                                                {{ value }}
+                                            {% endif %}
                                         {% else %}
                                             {{ value }}
                                         {% endif %}
@@ -45,5 +60,30 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateTime() {
+        document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+    }
+
+    function refreshPage() {
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                document.querySelector('.container').innerHTML = doc.querySelector('.container').innerHTML;
+                updateTime();
+            });
+    }
+
+    // Update time immediately
+    updateTime();
+
+    // Refresh every 500ms
+    setInterval(refreshPage, 500);
+});
+</script>
 
 {% endblock %}
