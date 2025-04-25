@@ -31,8 +31,9 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan', 'longitudinalPlan'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan', 'longitudinalPlan', 'carControl'])
         self.params = Params()
+        self.params_memory = Params("/dev/shm/params")
 
         # 获取设备信息（只需获取一次）
         self.dongle_id = self.params.get("DongleId", encoding='utf-8')
@@ -151,6 +152,40 @@ class CarStateBroadcast:
                 elif traffic_state == 2:
                     traffic_state_text = "绿灯"
 
+        # 获取曲率数据
+        actuator_curvature = 0.0
+        model_curvature = 0.0
+        current_curvature = 0.0
+        curvature_change = 0.0
+        speed_from_pcm = 1
+
+        # 获取车辆控制器的曲率数据
+        if self.sm.valid['carControl']:
+            car_control = self.sm['carControl']
+            actuator_curvature = car_control.actuators.steeringAngleDeg * 0.1  # 使用方向盘角度近似曲率
+
+        # 获取视觉模型的曲率数据
+        if self.sm.valid['modelV2']:
+            model = self.sm['modelV2']
+            if hasattr(model, 'position') and len(model.position.x) > 10:
+                # 使用路径点计算曲率
+                position = model.position
+                idx = 10  # 使用前方10米的点
+                if len(position.x) > idx and len(position.y) > idx:
+                    dx = position.x[idx]
+                    dy = position.y[idx]
+                    # 简单估算曲率：横向位移/纵向距离
+                    if dx > 0.1:
+                        model_curvature = (dy / (dx * dx)) * 10000
+
+        # 从共享内存读取conditional_speed_control的参数
+        try:
+            current_curvature = self.params_memory.get_float("CurrentCurvature")
+            curvature_change = self.params_memory.get_float("CurvatureChange")
+            speed_from_pcm = self.params.get_int("SpeedFromPCM")
+        except:
+            pass
+
         # 如果carState有效，提取详细数据
         if self.sm.valid['carState']:
             CS = self.sm['carState']
@@ -187,6 +222,13 @@ class CarStateBroadcast:
                 # 交通信号灯状态
                 "traffic_state": traffic_state,
                 "traffic_state_text": traffic_state_text,
+
+                # 新增：曲率数据
+                "actuator_curvature": round(actuator_curvature, 2),
+                "model_curvature": round(model_curvature, 2),
+                "current_curvature": round(current_curvature, 2),
+                "curvature_change": round(curvature_change, 2),
+                "speed_from_pcm": speed_from_pcm,
 
                 # 车辆基本信息
                 "car_name": car_name,

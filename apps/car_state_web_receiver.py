@@ -303,6 +303,9 @@ def create_templates():
 
             <div class="section-title">其他数据</div>
             <div class="status-grid" id="otherData"></div>
+
+            <div class="section-title">曲率数据</div>
+            <div class="status-grid" id="curvatureInfo"></div>
         </div>
 
         <div class="update-time" id="updateTime">最后更新: 等待数据...</div>
@@ -342,6 +345,13 @@ def create_templates():
                 {key: 'seatbelt_unlatched', label: '安全带', unit: ''},
                 {key: 'left_blinker', label: '左转向', unit: ''},
                 {key: 'right_blinker', label: '右转向', unit: ''}
+            ],
+            'curvatureInfo': [
+                {key: 'actuator_curvature', label: '控制器曲率', unit: ''},
+                {key: 'model_curvature', label: '模型曲率', unit: ''},
+                {key: 'current_curvature', label: '当前曲率', unit: ''},
+                {key: 'curvature_change', label: '曲率变化', unit: ''},
+                {key: 'speed_from_pcm', label: '速度控制', unit: ''}
             ]
         };
 
@@ -352,15 +362,28 @@ def create_templates():
             'cruise_enabled', 'cruise_speed', 'cruise_available',
             'gas', 'brake_pressed', 'door_open', 'seatbelt_unlatched',
             'left_blinker', 'right_blinker',
-            'top_text', 'bottom_text', 'traffic_state', 'traffic_state_text'
+            'top_text', 'bottom_text', 'traffic_state', 'traffic_state_text',
+            'actuator_curvature', 'model_curvature', 'current_curvature', 'curvature_change', 'speed_from_pcm'
         ];
 
         function getNestedValue(obj, path) {
             return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         }
 
+        function formatSpeedFromPCM(value) {
+            const status = {
+                0: "减速",
+                1: "正常",
+                2: "弯道"
+            };
+            return status[value] || "未知";
+        }
+
         function formatValue(key, value) {
             if (value === undefined || value === null) return '--';
+            if (key === 'speed_from_pcm') {
+                return formatSpeedFromPCM(value);
+            }
             if (typeof value === 'boolean') {
                 return value ? '是' : '否';
             }

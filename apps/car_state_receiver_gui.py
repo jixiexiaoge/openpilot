@@ -140,6 +140,16 @@ class CarStateReceiverGUI:
         self.create_info_field(basic_frame, "方向盘角度:", "steering_angle", "°")
         self.create_info_field(basic_frame, "方向盘转矩:", "steering_torque", "")
 
+        # 曲率数据区域
+        curvature_frame = ttk.LabelFrame(right_frame, text="曲率数据", padding=10)
+        curvature_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(curvature_frame, "控制器曲率:", "actuator_curvature")
+        self.create_info_field(curvature_frame, "模型曲率:", "model_curvature")
+        self.create_info_field(curvature_frame, "当前曲率:", "current_curvature")
+        self.create_info_field(curvature_frame, "曲率变化:", "curvature_change")
+        self.create_info_field(curvature_frame, "速度控制:", "speed_from_pcm")
+
         # UI文本信息区域
         ui_text_frame = ttk.LabelFrame(left_frame, text="UI显示文本", padding=10)
         ui_text_frame.pack(fill=tk.X, pady=5)
@@ -517,6 +527,21 @@ class CarStateReceiverGUI:
         # 更新跟车间距和发动机转速
         self.pcm_cruise_gap_var.set(str(data.get('pcm_cruise_gap', 0)))
         self.engine_rpm_var.set(str(data.get('engine_rpm', 0)))
+
+        # 更新曲率数据
+        self.actuator_curvature_var.set(str(data.get('actuator_curvature', 0)))
+        self.model_curvature_var.set(str(data.get('model_curvature', 0)))
+        self.current_curvature_var.set(str(data.get('current_curvature', 0)))
+        self.curvature_change_var.set(str(data.get('curvature_change', 0)))
+
+        # 更新速度控制状态
+        speed_from_pcm = data.get('speed_from_pcm', 1)
+        speed_status = {
+            0: "减速",
+            1: "正常",
+            2: "弯道"
+        }.get(speed_from_pcm, "未知")
+        self.speed_from_pcm_var.set(speed_status)
 
         # 更新树状视图（所有数据）
         self.filter_tree_view()  # 使用搜索过滤功能更新树视图
