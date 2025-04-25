@@ -58,22 +58,56 @@ class ConditionalSpeedControl:
       # 检查弯道状态
       self.check_curve(v_ego)
 
+      # 读取当前的SpeedFromPCM值，用于记录变化
+      current_speed_from_pcm = self.params.get_int("SpeedFromPCM")
+
+      # 记录变化前的状态
+      previous_status = self.params_memory.get_int("ConditionalStatus")
+
       # 根据不同条件设置SpeedFromPCM
       if traffic_state == 1:  # 红灯
-        logger.info(f"红灯状态，设置SpeedFromPCM=0")
-        self.params.put_int_nonblocking("SpeedFromPCM", 0)
-        self.params_memory.put_int("ConditionalStatus", 16)  # 红灯状态码
+        target_speed_from_pcm = 0
+        target_status = 16  # 红灯状态码
+        reason = "红灯状态"
       elif self.curve_detected:  # 弯道建议速度
-        logger.info(f"弯道状态，设置SpeedFromPCM=2，曲率={self.current_curvature}")
-        self.params.put_int_nonblocking("SpeedFromPCM", 2)
-        self.params_memory.put_int("ConditionalStatus", 15)  # 弯道状态码
+        target_speed_from_pcm = 2
+        target_status = 15  # 弯道状态码
+        reason = f"弯道状态，曲率={self.current_curvature:.6f}"
       else:  # 其他情况
-        logger.debug(f"普通状态，设置SpeedFromPCM=1")
-        self.params.put_int_nonblocking("SpeedFromPCM", 1)
-        self.params_memory.put_int("ConditionalStatus", 0)
+        target_speed_from_pcm = 1
+        target_status = 0
+        reason = "普通状态"
+
+      # 只有在值发生变化时才更新并记录日志
+      if current_speed_from_pcm != target_speed_from_pcm:
+        logger.info(f"SpeedFromPCM变化: {current_speed_from_pcm} -> {target_speed_from_pcm}, 原因: {reason}")
+        self.params.put_int_nonblocking("SpeedFromPCM", target_speed_from_pcm)
+
+      # 更新状态码
+      if previous_status != target_status:
+        logger.info(f"状态变化: {previous_status} -> {target_status}, 原因: {reason}")
+        self.params_memory.put_int("ConditionalStatus", target_status)
+
+      # 保存当前曲率值到参数中，便于UI显示
+      self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
+
+      # 安全检查：如果车辆停止，确保重置状态
+      if hasattr(carState, 'standstill') and carState.standstill:
+        if current_speed_from_pcm != 1:
+          logger.info("车辆停止，重置SpeedFromPCM为1")
+          self.params.put_int_nonblocking("SpeedFromPCM", 1)
+        if previous_status != 0:
+          self.params_memory.put_int("ConditionalStatus", 0)
+
     except Exception as e:
       logger.error(f"Error in update: {e}")
       logger.error(traceback.format_exc())
+      # 出错时恢复默认值
+      try:
+        self.params.put_int_nonblocking("SpeedFromPCM", 1)
+        self.params_memory.put_int("ConditionalStatus", 0)
+      except:
+        pass
 
   def update_curvature(self, modelData):
     try:
