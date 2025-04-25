@@ -2803,7 +2803,7 @@ public:
                 speedFromPCM, actuator_curvature, model_curvature);
 
         // 在底部左侧显示曲率信息
-        sprintf(bottom_left, "%s SpeedFromPCM: %d Curv: %.2f/%.2f",
+        sprintf(bottom_left, "%s PCM: %d Curv: %.2f/%.2f",
                 gitBranch.toStdString().c_str(), speedFromPCM, actuator_curvature, model_curvature);
 
         // sprintf(bottom_left, "%s RPM: %d Gap: %d Lead: %.1f km/h %.1f m",
