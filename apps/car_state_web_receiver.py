@@ -182,6 +182,27 @@ def create_templates():
             border-radius: 4px;
             margin: 20px 0;
         }
+        .ui-text-card {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .ui-text-title {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        .ui-text-content {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2980b9;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
         @media (max-width: 600px) {
             .status-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -220,6 +241,18 @@ def create_templates():
         <div id="deviceData" style="display: none;">
             <div class="section-title">系统状态</div>
             <div class="status-grid" id="systemStatus"></div>
+
+            <div class="section-title">UI显示文本</div>
+            <div id="uiTextInfo">
+                <div class="ui-text-card">
+                    <div class="ui-text-title">顶部文本:</div>
+                    <div class="ui-text-content" id="topText">识别信息</div>
+                </div>
+                <div class="ui-text-card">
+                    <div class="ui-text-title">底部文本:</div>
+                    <div class="ui-text-content" id="bottomText">车道信息</div>
+                </div>
+            </div>
 
             <div class="section-title">基本信息</div>
             <div class="status-grid" id="basicInfo"></div>
@@ -372,6 +405,10 @@ def create_templates():
             Object.keys(dataConfig).forEach(section => {
                 updateStatusSection(section, deviceData);
             });
+
+            // 更新UI文本字段
+            document.getElementById('topText').textContent = deviceData.top_text || '识别信息';
+            document.getElementById('bottomText').textContent = deviceData.bottom_text || '车道信息';
 
             // 更新时间戳
             document.getElementById('updateTime').textContent =

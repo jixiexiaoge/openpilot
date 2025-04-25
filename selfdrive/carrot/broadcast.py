@@ -31,7 +31,7 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan'])
         self.params = Params()
 
         # 获取设备信息（只需获取一次）
@@ -123,6 +123,22 @@ class CarStateBroadcast:
         # 判断openpilot状态
         openpilot_status = "ONROAD" if (is_onroad or is_active or started) else "OFFROAD"
 
+        # 获取UI顶部和底部显示的文本
+        top_text = "识别信息"  # 默认值
+        bottom_text = "车道信息"  # 默认值
+
+        # 获取顶部文本（来自car_state.getLogCarrot()）
+        if self.sm.valid['carState']:
+            CS = self.sm['carState']
+            if hasattr(CS, 'logCarrot'):
+                top_text = CS.logCarrot
+
+        # 获取底部文本（来自lateralPlan.latDebugText）
+        if self.sm.valid['lateralPlan']:
+            lat_plan = self.sm['lateralPlan']
+            if hasattr(lat_plan, 'latDebugText'):
+                bottom_text = lat_plan.latDebugText
+
         # 如果carState有效，提取详细数据
         if self.sm.valid['carState']:
             CS = self.sm['carState']
@@ -151,6 +167,10 @@ class CarStateBroadcast:
                 "active": is_active,
                 "onroad": is_onroad,
                 "started": started,
+
+                # UI顶部和底部显示的文本
+                "top_text": top_text,
+                "bottom_text": bottom_text,
 
                 # 车辆基本信息
                 "car_name": car_name,

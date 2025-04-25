@@ -140,6 +140,13 @@ class CarStateReceiverGUI:
         self.create_info_field(basic_frame, "方向盘角度:", "steering_angle", "°")
         self.create_info_field(basic_frame, "方向盘转矩:", "steering_torque", "")
 
+        # UI文本信息区域
+        ui_text_frame = ttk.LabelFrame(left_frame, text="UI显示文本", padding=10)
+        ui_text_frame.pack(fill=tk.X, pady=5)
+
+        self.create_info_field(ui_text_frame, "顶部文本:", "top_text")
+        self.create_info_field(ui_text_frame, "底部文本:", "bottom_text")
+
         # 巡航状态区域
         cruise_frame = ttk.LabelFrame(right_frame, text="巡航状态", padding=10)
         cruise_frame.pack(fill=tk.X, pady=5)
@@ -444,6 +451,10 @@ class CarStateReceiverGUI:
         self.a_ego_var.set(str(data.get('a_ego', 0)))
         self.steering_angle_var.set(str(data.get('steering_angle', 0)))
         self.steering_torque_var.set(str(data.get('steering_torque', 0)))
+
+        # 更新UI文本信息
+        self.top_text_var.set(data.get('top_text', '识别信息'))
+        self.bottom_text_var.set(data.get('bottom_text', '车道信息'))
 
         # 更新巡航状态
         cruise_enabled = data.get('cruise_enabled', False)
