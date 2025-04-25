@@ -38,6 +38,8 @@ class ConditionalSpeedControl:
       self.curvature_mac = MovingAverageCalculator()
       self.status_value = 0
       self.current_curvature = 0.0
+      self.previous_curvature = 0.0  # 添加上一次曲率值
+      self.curvature_change = 0.0    # 添加曲率变化值
 
       # 初始化时设置默认值
       self.params.put_int_nonblocking("SpeedFromPCM", 1)
@@ -74,6 +76,10 @@ class ConditionalSpeedControl:
         target_speed_from_pcm = 0
         target_status = 16  # 红灯状态码
         reason = "红灯状态"
+      elif abs(self.curvature_change) > 10:  # 检查曲率变化是否超出范围
+        target_speed_from_pcm = 0
+        target_status = 17  # 曲率变化过大状态码
+        reason = f"曲率变化过大，变化值={self.curvature_change:.6f}"
       elif self.curve_detected:  # 弯道建议速度
         target_speed_from_pcm = 2
         target_status = 15  # 弯道状态码
@@ -99,9 +105,10 @@ class ConditionalSpeedControl:
         except Exception as e:
           logger.error(f"更新状态码失败: {e}")
 
-      # 保存当前曲率值到参数中，便于UI显示
+      # 保存当前曲率值和变化值到参数中，便于UI显示
       try:
         self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
+        self.params_memory.put_float("CurvatureChange", float(self.curvature_change))
       except Exception as e:
         logger.error(f"更新曲率值失败: {e}")
 
@@ -131,6 +138,9 @@ class ConditionalSpeedControl:
 
   def update_curvature(self, modelData):
     try:
+      # 保存上一次的曲率值用于计算变化
+      self.previous_curvature = self.current_curvature
+
       # 从视觉模型获取路径预测点
       if hasattr(modelData, 'position') and modelData.position.x is not None and len(modelData.position.x) > 10:
         position = modelData.position
@@ -139,8 +149,13 @@ class ConditionalSpeedControl:
           dx = position.x[idx]
           dy = position.y[idx]
           if dx > 0.1:  # 确保分母不为0
-            self.current_curvature = abs(dy / (dx * dx))
-            logger.debug(f"更新曲率: {self.current_curvature}")
+            new_curvature = abs(dy / (dx * dx))
+            # 将曲率值转换为与carrot.cc中相似的表示方式（乘以10000）
+            scaled_curvature = new_curvature * 10000
+            self.current_curvature = scaled_curvature
+            # 计算曲率变化
+            self.curvature_change = self.current_curvature - self.previous_curvature
+            logger.debug(f"更新曲率: {self.current_curvature:.2f}, 变化量: {self.curvature_change:.2f}")
       else:
         logger.debug("无法从modelData获取路径点")
     except Exception as e:
@@ -150,8 +165,8 @@ class ConditionalSpeedControl:
 
   def check_curve(self, v_ego):
     try:
-      # 曲率阈值随速度变化
-      curvature_threshold = 0.001 * (1.0 + v_ego * 0.05)
+      # 曲率阈值随速度变化，注意这里使用的是缩放后的曲率值
+      curvature_threshold = 10.0 * (1.0 + v_ego * 0.05)  # 调整为与缩放后的曲率值匹配的阈值
 
       curve_detected = self.current_curvature > curvature_threshold
       curve_active = curve_detected and self.curve_detected
@@ -160,7 +175,7 @@ class ConditionalSpeedControl:
       self.curve_detected = self.curvature_mac.get_moving_average() >= 0.75  # 概率阈值
 
       if self.curve_detected:
-        logger.debug(f"检测到弯道，曲率={self.current_curvature}，阈值={curvature_threshold}")
+        logger.debug(f"检测到弯道，曲率={self.current_curvature:.2f}，阈值={curvature_threshold:.2f}")
     except Exception as e:
       logger.error(f"Error checking curve: {e}")
       logger.error(traceback.format_exc())
