@@ -31,7 +31,7 @@ class CarStateBroadcast:
         self.broadcast_count = 0  # 广播计数器
 
         # 初始化共享内存消息
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan'])
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'deviceState', 'carParams', 'modelV2', 'lateralPlan', 'longitudinalPlan'])
         self.params = Params()
 
         # 获取设备信息（只需获取一次）
@@ -139,6 +139,18 @@ class CarStateBroadcast:
             if hasattr(lat_plan, 'latDebugText'):
                 bottom_text = lat_plan.latDebugText
 
+        # 获取交通信号灯状态
+        traffic_state = 0  # 默认值: 无信号
+        traffic_state_text = "无信号"
+        if self.sm.valid['longitudinalPlan']:
+            long_plan = self.sm['longitudinalPlan']
+            if hasattr(long_plan, 'trafficState'):
+                traffic_state = long_plan.trafficState
+                if traffic_state == 1:
+                    traffic_state_text = "红灯"
+                elif traffic_state == 2:
+                    traffic_state_text = "绿灯"
+
         # 如果carState有效，提取详细数据
         if self.sm.valid['carState']:
             CS = self.sm['carState']
@@ -171,6 +183,10 @@ class CarStateBroadcast:
                 # UI顶部和底部显示的文本
                 "top_text": top_text,
                 "bottom_text": bottom_text,
+
+                # 交通信号灯状态
+                "traffic_state": traffic_state,
+                "traffic_state_text": traffic_state_text,
 
                 # 车辆基本信息
                 "car_name": car_name,

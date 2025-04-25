@@ -203,6 +203,35 @@ def create_templates():
             border-radius: 4px;
             border-left: 4px solid #3498db;
         }
+        .traffic-signal {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .traffic-text {
+            font-size: 18px;
+            font-weight: bold;
+            flex: 1;
+        }
+        .traffic-status {
+            font-size: 20px;
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 20px;
+            color: white;
+            text-align: center;
+            min-width: 80px;
+        }
+        .traffic-none {
+            background-color: #95a5a6;
+        }
+        .traffic-red {
+            background-color: #e74c3c;
+        }
+        .traffic-green {
+            background-color: #27ae60;
+        }
         @media (max-width: 600px) {
             .status-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -241,6 +270,12 @@ def create_templates():
         <div id="deviceData" style="display: none;">
             <div class="section-title">系统状态</div>
             <div class="status-grid" id="systemStatus"></div>
+
+            <div class="section-title">交通信号</div>
+            <div class="traffic-signal">
+                <span class="traffic-text">信号状态:</span>
+                <span class="traffic-status traffic-none" id="trafficSignal">无信号</span>
+            </div>
 
             <div class="section-title">UI显示文本</div>
             <div id="uiTextInfo">
@@ -409,6 +444,25 @@ def create_templates():
             // 更新UI文本字段
             document.getElementById('topText').textContent = deviceData.top_text || '识别信息';
             document.getElementById('bottomText').textContent = deviceData.bottom_text || '车道信息';
+
+            // 更新交通信号灯状态
+            const trafficSignal = document.getElementById('trafficSignal');
+            const trafficState = deviceData.traffic_state || 0;
+            const trafficText = deviceData.traffic_state_text || '无信号';
+
+            trafficSignal.textContent = trafficText;
+
+            // 移除旧的类
+            trafficSignal.classList.remove('traffic-none', 'traffic-red', 'traffic-green');
+
+            // 添加对应的类
+            if (trafficState === 1) {
+                trafficSignal.classList.add('traffic-red');
+            } else if (trafficState === 2) {
+                trafficSignal.classList.add('traffic-green');
+            } else {
+                trafficSignal.classList.add('traffic-none');
+            }
 
             // 更新时间戳
             document.getElementById('updateTime').textContent =

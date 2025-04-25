@@ -147,6 +147,12 @@ class CarStateReceiverGUI:
         self.create_info_field(ui_text_frame, "顶部文本:", "top_text")
         self.create_info_field(ui_text_frame, "底部文本:", "bottom_text")
 
+        # 交通信号灯区域
+        traffic_frame = ttk.LabelFrame(left_frame, text="交通信号", padding=10)
+        traffic_frame.pack(fill=tk.X, pady=5)
+
+        self.create_traffic_signal_field(traffic_frame, "信号状态:", "traffic_state_text")
+
         # 巡航状态区域
         cruise_frame = ttk.LabelFrame(right_frame, text="巡航状态", padding=10)
         cruise_frame.pack(fill=tk.X, pady=5)
@@ -276,6 +282,19 @@ class CarStateReceiverGUI:
 
         if unit:
             ttk.Label(frame, text=unit).pack(side=tk.LEFT)
+
+    def create_traffic_signal_field(self, parent, label_text, key):
+        """创建交通信号灯字段（带颜色）"""
+        frame = ttk.Frame(parent)
+        frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(frame, text=label_text, width=12).pack(side=tk.LEFT)
+        var = tk.StringVar(value="--")
+        label = ttk.Label(frame, textvariable=var, foreground="black")
+        label.pack(side=tk.LEFT)
+
+        setattr(self, f"{key}_var", var)
+        setattr(self, f"{key}_label", label)
 
     def create_status_field(self, parent, label_text, key):
         """创建状态字段（带颜色）"""
@@ -455,6 +474,19 @@ class CarStateReceiverGUI:
         # 更新UI文本信息
         self.top_text_var.set(data.get('top_text', '识别信息'))
         self.bottom_text_var.set(data.get('bottom_text', '车道信息'))
+
+        # 更新交通信号信息
+        traffic_state_text = data.get('traffic_state_text', '无信号')
+        self.traffic_state_text_var.set(traffic_state_text)
+
+        # 根据交通信号状态设置颜色
+        traffic_state = data.get('traffic_state', 0)
+        if traffic_state == 1:  # 红灯
+            self.traffic_state_text_label.config(foreground="red")
+        elif traffic_state == 2:  # 绿灯
+            self.traffic_state_text_label.config(foreground="green")
+        else:  # 无信号
+            self.traffic_state_text_label.config(foreground="black")
 
         # 更新巡航状态
         cruise_enabled = data.get('cruise_enabled', False)
