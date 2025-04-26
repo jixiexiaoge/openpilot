@@ -1,0 +1,15 @@
+Import('env', 'arch')
+
+# 确保工具目录存在
+Import('Dir')
+if Dir('#tools/replay').exists():
+  # 强制编译tools/replay，不依赖于extras选项
+  SConscript(['#tools/replay/SConscript'])
+
+env.Command(
+  target=['broadcast'],
+  source=['broadcast.py'],
+  action='touch $TARGET && cp $SOURCE $TARGET && chmod +x $TARGET'
+)
+
+Return()
