@@ -1,8 +1,9 @@
 Import('env', 'arch')
 
-# 确保工具目录存在
-Import('Dir')
-if Dir('#tools/replay').exists():
+# 确保工具目录存在并编译
+tools_replay_dir = Dir('#tools/replay').abspath
+import os
+if os.path.exists(os.path.dirname(tools_replay_dir)):
   # 强制编译tools/replay，不依赖于extras选项
   SConscript(['#tools/replay/SConscript'])
 
