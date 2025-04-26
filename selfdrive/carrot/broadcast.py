@@ -57,29 +57,8 @@ class CarStateBroadcast:
 
     def get_broadcast_address(self):
         """获取广播地址"""
-        try:
-            # 尝试使用wlan0接口
-            iface = b'wlan0'
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                try:
-                    ip = fcntl.ioctl(
-                        s.fileno(),
-                        0x8919,  # SIOCGIFADDR
-                        struct.pack('256s', iface)
-                    )[20:24]
-                    return socket.inet_ntoa(ip)
-                except:
-                    # 如果wlan0失败，尝试使用eth0
-                    iface = b'eth0'
-                    ip = fcntl.ioctl(
-                        s.fileno(),
-                        0x8919,  # SIOCGIFADDR
-                        struct.pack('256s', iface)
-                    )[20:24]
-                    return socket.inet_ntoa(ip)
-        except:
-            # 如果获取接口IP失败，使用通用广播地址
-            return '255.255.255.255'
+        # 直接使用全网广播地址以确保数据能被接收到
+        return '255.255.255.255'
 
     def get_local_ip(self):
         """获取本地IP地址"""
@@ -344,6 +323,7 @@ class CarStateBroadcast:
     def broadcast_thread(self):
         """广播线程函数"""
         print("开始广播车辆状态数据...")
+        print(f"广播目标地址: {self.broadcast_ip}:{self.broadcast_port}")
 
         while self.is_running:
             try:
@@ -363,8 +343,8 @@ class CarStateBroadcast:
                     self.sock.sendto(json_data.encode('utf-8'), (self.broadcast_ip, self.broadcast_port))
 
                     # 打印调试信息
-                    if time.time() % 100 < 1:  # 每10秒只打印一次，减少日志输出
-                        print(f"广播数据: {self.broadcast_ip}:{self.broadcast_port}, 数据大小: {len(json_data)}字节, 频率: {1/self.broadcast_interval:.2f}包/秒")
+                    if self.broadcast_count == 1 or self.broadcast_count % 10 == 0:  # 第一次和每10次打印一次
+                        print(f"已发送广播数据: {self.broadcast_ip}:{self.broadcast_port}, 数据大小: {len(json_data)}字节, 计数: {self.broadcast_count}")
 
             except Exception as e:
                 print(f"广播出错: {e}")
