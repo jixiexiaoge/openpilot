@@ -203,16 +203,20 @@ class CarStateBroadcast:
 
             # 1. 从carrotMan获取建议车速
             if self.sm.valid['carrotMan']:
-                carrot_man = self.sm['carrotMan'].getCarrotMan()
-                if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
-                    if carrot_man.activeCarrot:
-                        apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
-                        if hasattr(carrot_man, 'desiredSource'):
-                            apply_source = carrot_man.desiredSource
-                        # 如果建议速度大于等于巡航速度，清空来源（不显示）
-                        if apply_speed >= v_cruise:
-                            apply_source = ""
-                            apply_speed = 0
+                try:
+                    # 直接访问carrotMan消息，而不是调用getCarrotMan()方法
+                    carrot_man = self.sm['carrotMan']
+                    if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
+                        if carrot_man.activeCarrot:
+                            apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
+                            if hasattr(carrot_man, 'desiredSource'):
+                                apply_source = carrot_man.desiredSource
+                            # 如果建议速度大于等于巡航速度，清空来源（不显示）
+                            if apply_speed >= v_cruise:
+                                apply_source = ""
+                                apply_speed = 0
+                except Exception as e:
+                    print(f"处理carrotMan数据出错: {e}")
 
             # 2. 从longitudinalPlan获取生态目标速度
             if not apply_source and self.sm.valid['longitudinalPlan']:
