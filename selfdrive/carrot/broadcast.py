@@ -25,7 +25,7 @@ except ImportError as e:
     sys.exit(1)
 
 class CarStateBroadcast:
-    def __init__(self, broadcast_port=8088, broadcast_interval=0.2):
+    def __init__(self, broadcast_port=8088, broadcast_interval=0.25):
         self.broadcast_port = broadcast_port  # UDP广播端口
         self.broadcast_interval = broadcast_interval  # 广播间隔(秒)
         self.broadcast_count = 0  # 广播计数器
@@ -57,8 +57,29 @@ class CarStateBroadcast:
 
     def get_broadcast_address(self):
         """获取广播地址"""
-        # 直接使用全网广播地址以确保数据能被接收到
-        return '255.255.255.255'
+        try:
+            # 尝试使用wlan0接口
+            iface = b'wlan0'
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                try:
+                    ip = fcntl.ioctl(
+                        s.fileno(),
+                        0x8919,  # SIOCGIFADDR
+                        struct.pack('256s', iface)
+                    )[20:24]
+                    return socket.inet_ntoa(ip)
+                except:
+                    # 如果wlan0失败，尝试使用eth0
+                    iface = b'eth0'
+                    ip = fcntl.ioctl(
+                        s.fileno(),
+                        0x8919,  # SIOCGIFADDR
+                        struct.pack('256s', iface)
+                    )[20:24]
+                    return socket.inet_ntoa(ip)
+        except:
+            # 如果获取接口IP失败，使用通用广播地址
+            return '255.255.255.255'
 
     def get_local_ip(self):
         """获取本地IP地址"""
@@ -182,20 +203,16 @@ class CarStateBroadcast:
 
             # 1. 从carrotMan获取建议车速
             if self.sm.valid['carrotMan']:
-                try:
-                    # 直接访问carrotMan消息，而不是调用getCarrotMan()方法
-                    carrot_man = self.sm['carrotMan']
-                    if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
-                        if carrot_man.activeCarrot:
-                            apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
-                            if hasattr(carrot_man, 'desiredSource'):
-                                apply_source = carrot_man.desiredSource
-                            # 如果建议速度大于等于巡航速度，清空来源（不显示）
-                            if apply_speed >= v_cruise:
-                                apply_source = ""
-                                apply_speed = 0
-                except Exception as e:
-                    print(f"处理carrotMan数据出错: {e}")
+                carrot_man = self.sm['carrotMan'].getCarrotMan()
+                if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
+                    if carrot_man.activeCarrot:
+                        apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
+                        if hasattr(carrot_man, 'desiredSource'):
+                            apply_source = carrot_man.desiredSource
+                        # 如果建议速度大于等于巡航速度，清空来源（不显示）
+                        if apply_speed >= v_cruise:
+                            apply_source = ""
+                            apply_speed = 0
 
             # 2. 从longitudinalPlan获取生态目标速度
             if not apply_source and self.sm.valid['longitudinalPlan']:
@@ -262,8 +279,8 @@ class CarStateBroadcast:
                 "cruise_speed": round(CS.cruiseState.speed * 3.6, 1) if CS.cruiseState.speed > 0 else 0,
                 "cruise_available": CS.cruiseState.available,
 
-                # 踏板状态
-                "gas": round(CS.gas * 100, 1) if hasattr(CS, "gas") else 0,
+                # 踏板状态 - 修正油门数据计算
+                "gas": round(CS.gas / 10000 * 100, 1) if hasattr(CS, "gas") else 0,
                 "brake_pressed": CS.brakePressed,
 
                 # 车辆状态
@@ -323,7 +340,6 @@ class CarStateBroadcast:
     def broadcast_thread(self):
         """广播线程函数"""
         print("开始广播车辆状态数据...")
-        print(f"广播目标地址: {self.broadcast_ip}:{self.broadcast_port}")
 
         while self.is_running:
             try:
@@ -343,8 +359,8 @@ class CarStateBroadcast:
                     self.sock.sendto(json_data.encode('utf-8'), (self.broadcast_ip, self.broadcast_port))
 
                     # 打印调试信息
-                    if self.broadcast_count == 1 or self.broadcast_count % 10 == 0:  # 第一次和每10次打印一次
-                        print(f"已发送广播数据: {self.broadcast_ip}:{self.broadcast_port}, 数据大小: {len(json_data)}字节, 计数: {self.broadcast_count}")
+                    if time.time() % 100 < 1:  # 每10秒只打印一次，减少日志输出
+                        print(f"广播数据: {self.broadcast_ip}:{self.broadcast_port}, 数据大小: {len(json_data)}字节, 频率: {1/self.broadcast_interval:.2f}包/秒")
 
             except Exception as e:
                 print(f"广播出错: {e}")
@@ -381,7 +397,7 @@ def main():
     try:
         parser = argparse.ArgumentParser(description='车辆状态UDP广播服务')
         parser.add_argument('-p', '--port', type=int, default=8088, help='广播端口号 (默认: 8088)')
-        parser.add_argument('-i', '--interval', type=float, default=0.2, help='广播间隔(秒) (默认: 0.2)')
+        parser.add_argument('-i', '--interval', type=float, default=0.25, help='广播间隔(秒) (默认: 0.25)')
         args, unknown = parser.parse_known_args()
 
         port = args.port
@@ -389,7 +405,7 @@ def main():
     except:
         # 如果解析失败（例如通过进程管理器启动），使用默认值
         port = 8088
-        interval = 0.2
+        interval = 0.25
 
     print(f"初始化广播服务 - 端口: {port}, 广播间隔: {interval}秒")
 
@@ -402,7 +418,7 @@ if __name__ == "__main__":
     # 解析命令行参数
     parser = argparse.ArgumentParser(description='车辆状态UDP广播服务')
     parser.add_argument('-p', '--port', type=int, default=8088, help='广播端口号 (默认: 8088)')
-    parser.add_argument('-i', '--interval', type=float, default=1.0, help='广播间隔(秒) (默认: 1.0)')
+    parser.add_argument('-i', '--interval', type=float, default=0.25, help='广播间隔(秒) (默认: 0.25)')
     args = parser.parse_args()
 
     print("启动车辆状态UDP广播服务")
