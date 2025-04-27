@@ -201,18 +201,38 @@ class CarStateBroadcast:
             x_target = 0
             v_cruise = CS.cruiseState.speed * 3.6  # 转换为km/h
 
-            # 1. 从carrotMan获取建议车速
+            # 1. 从carrotMan获取建议车速 - 修复此部分代码，添加错误处理
             if self.sm.valid['carrotMan']:
-                carrot_man = self.sm['carrotMan'].getCarrotMan()
-                if hasattr(carrot_man, 'desiredSpeed') and hasattr(carrot_man, 'activeCarrot'):
-                    if carrot_man.activeCarrot:
-                        apply_speed = round(carrot_man.desiredSpeed * 3.6, 1)  # 转换为km/h
-                        if hasattr(carrot_man, 'desiredSource'):
-                            apply_source = carrot_man.desiredSource
-                        # 如果建议速度大于等于巡航速度，清空来源（不显示）
-                        if apply_speed >= v_cruise:
-                            apply_source = ""
-                            apply_speed = 0
+                try:
+                    # 适配不同版本的carrotMan消息结构
+                    carrot_man_msg = self.sm['carrotMan']
+
+                    # 尝试使用直接访问方式
+                    if hasattr(carrot_man_msg, 'desiredSpeed') and hasattr(carrot_man_msg, 'activeCarrot'):
+                        if carrot_man_msg.activeCarrot:
+                            apply_speed = round(carrot_man_msg.desiredSpeed * 3.6, 1)  # 转换为km/h
+                            if hasattr(carrot_man_msg, 'desiredSource'):
+                                apply_source = carrot_man_msg.desiredSource
+                    # 尝试使用旧版本的getCarrotMan()方法
+                    elif hasattr(carrot_man_msg, 'getCarrotMan'):
+                        try:
+                            carrot_data = carrot_man_msg.getCarrotMan()
+                            if hasattr(carrot_data, 'desiredSpeed') and hasattr(carrot_data, 'activeCarrot'):
+                                if carrot_data.activeCarrot:
+                                    apply_speed = round(carrot_data.desiredSpeed * 3.6, 1)  # 转换为km/h
+                                    if hasattr(carrot_data, 'desiredSource'):
+                                        apply_source = carrot_data.desiredSource
+                        except Exception as e:
+                            # 忽略getCarrotMan方法的错误
+                            pass
+
+                    # 如果建议速度大于等于巡航速度，清空来源（不显示）
+                    if apply_speed >= v_cruise:
+                        apply_source = ""
+                        apply_speed = 0
+                except Exception as e:
+                    # 捕获所有carrotMan相关的异常，防止程序崩溃
+                    print(f"处理carrotMan数据出错: {e}")
 
             # 2. 从longitudinalPlan获取生态目标速度
             if not apply_source and self.sm.valid['longitudinalPlan']:
