@@ -40,6 +40,8 @@ class ConditionalSpeedControl:
       self.current_curvature = 0.0
       self.previous_curvature = 0.0  # 添加上一次曲率值
       self.curvature_change = 0.0    # 添加曲率变化值
+      self.lead_speed = 0.0          # 添加前车速度变量
+      self.blinker_on = False        # 添加转向灯状态变量
 
       # 初始化时设置默认值
       self.params.put_int_nonblocking("SpeedFromPCM", 1)
@@ -62,8 +64,11 @@ class ConditionalSpeedControl:
       # 获取曲率数据
       self.update_curvature(modelData)
 
-      # 检查弯道状态
-      self.check_curve(v_ego)
+      # 获取前车速度
+      self.update_lead_vehicle_info(carState)
+
+      # 检查转向灯状态
+      self.check_blinker_status(carState)
 
       # 读取当前的SpeedFromPCM值，用于记录变化
       current_speed_from_pcm = self.params.get_int("SpeedFromPCM")
@@ -71,23 +76,42 @@ class ConditionalSpeedControl:
       # 记录变化前的状态
       previous_status = self.params_memory.get_int("ConditionalStatus")
 
-      # 根据不同条件设置SpeedFromPCM
-      if traffic_state == 1:  # 红灯
+      # 根据条件判断是否需要设置SpeedFromPCM为0或2
+
+      # 条件1：红灯检测
+      red_light_detected = traffic_state == 1
+
+      # 条件2：曲率超出范围 (-50, 50)
+      high_curvature_detected = abs(self.current_curvature) > 50
+
+      # 条件3：前车速度低于15km/h
+      slow_lead_detected = self.lead_speed < 15.0 / 3.6  # 转换为m/s
+
+      # 条件4：转向灯开启
+      blinker_on = self.blinker_on
+
+      # 确定目标速度值和状态码
+      target_speed_from_pcm = 1  # 默认为1
+      target_status = 0
+      reason = "普通状态"
+
+      # 优先级判断：转向灯 > 红灯 > 高曲率 > 前车低速
+      if blinker_on:
+        target_speed_from_pcm = 2  # 转向灯开启时设置为2
+        target_status = 18  # 转向灯状态码
+        reason = "转向灯开启"
+      elif red_light_detected:
         target_speed_from_pcm = 0
         target_status = 16  # 红灯状态码
         reason = "红灯状态"
-      elif abs(self.curvature_change) > 10:  # 检查曲率变化是否超出范围
+      elif high_curvature_detected:
         target_speed_from_pcm = 0
-        target_status = 17  # 曲率变化过大状态码
-        reason = f"曲率变化过大，变化值={self.curvature_change:.6f}"
-      elif self.curve_detected:  # 弯道建议速度
-        target_speed_from_pcm = 2
-        target_status = 15  # 弯道状态码
-        reason = f"弯道状态，曲率={self.current_curvature:.6f}"
-      else:  # 其他情况
-        target_speed_from_pcm = 1
-        target_status = 0
-        reason = "普通状态"
+        target_status = 15  # 曲率状态码
+        reason = f"曲率超出范围，当前曲率={self.current_curvature:.2f}"
+      elif slow_lead_detected:
+        target_speed_from_pcm = 0
+        target_status = 17  # 前车慢速状态码
+        reason = f"前车低速，速度={self.lead_speed*3.6:.2f}km/h"
 
       # 只有在值发生变化时才更新并记录日志
       if current_speed_from_pcm != target_speed_from_pcm:
@@ -109,8 +133,10 @@ class ConditionalSpeedControl:
       try:
         self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
         self.params_memory.put_float("CurvatureChange", float(self.curvature_change))
+        self.params_memory.put_float("LeadSpeed", float(self.lead_speed * 3.6))  # 保存为km/h
+        self.params_memory.put_int("BlinkerStatus", 1 if self.blinker_on else 0)  # 保存转向灯状态
       except Exception as e:
-        logger.error(f"更新曲率值失败: {e}")
+        logger.error(f"更新参数值失败: {e}")
 
       # 安全检查：如果车辆停止，确保重置状态
       if hasattr(carState, 'standstill') and carState.standstill:
@@ -136,6 +162,47 @@ class ConditionalSpeedControl:
       except:
         pass
 
+  def check_blinker_status(self, carState):
+    try:
+      # 检查左右转向灯状态
+      left_blinker = False
+      right_blinker = False
+
+      if hasattr(carState, 'leftBlinker'):
+        left_blinker = carState.leftBlinker
+
+      if hasattr(carState, 'rightBlinker'):
+        right_blinker = carState.rightBlinker
+
+      # 更新转向灯状态 - 任一转向灯开启即视为开启
+      self.blinker_on = left_blinker or right_blinker
+
+      if self.blinker_on:
+        logger.debug("检测到转向灯开启")
+    except Exception as e:
+      logger.error(f"Error checking blinker status: {e}")
+      logger.error(traceback.format_exc())
+      self.blinker_on = False
+
+  def update_lead_vehicle_info(self, carState):
+    try:
+      # 从carState中获取前车信息
+      if hasattr(carState, 'leadOne') and hasattr(carState.leadOne, 'status') and carState.leadOne.status:
+        # 前车存在且有效
+        if hasattr(carState.leadOne, 'vRel'):
+          # vRel是相对速度，需要加上自车速度得到绝对速度
+          self.lead_speed = max(0.0, carState.vEgo + carState.leadOne.vRel)
+          logger.debug(f"前车速度: {self.lead_speed*3.6:.2f} km/h")
+        else:
+          self.lead_speed = 100.0  # 设置一个大值，表示前车速度不低
+      else:
+        # 没有检测到前车
+        self.lead_speed = 100.0  # 设置一个大值，表示前车速度不低
+    except Exception as e:
+      logger.error(f"Error updating lead vehicle info: {e}")
+      logger.error(traceback.format_exc())
+      self.lead_speed = 100.0  # 出错时设为一个大值
+
   def update_curvature(self, modelData):
     try:
       # 保存上一次的曲率值用于计算变化
@@ -149,10 +216,8 @@ class ConditionalSpeedControl:
           dx = position.x[idx]
           dy = position.y[idx]
           if dx > 0.1:  # 确保分母不为0
-            new_curvature = abs(dy / (dx * dx))
-            # 将曲率值转换为与carrot.cc中相似的表示方式（乘以10000）
-            scaled_curvature = new_curvature * 10000
-            self.current_curvature = scaled_curvature
+            new_curvature = dy / (dx * dx) * 10000  # 直接计算为我们需要的范围
+            self.current_curvature = new_curvature
             # 计算曲率变化
             self.curvature_change = self.current_curvature - self.previous_curvature
             logger.debug(f"更新曲率: {self.current_curvature:.2f}, 变化量: {self.curvature_change:.2f}")
@@ -165,17 +230,10 @@ class ConditionalSpeedControl:
 
   def check_curve(self, v_ego):
     try:
-      # 曲率阈值随速度变化，注意这里使用的是缩放后的曲率值
-      curvature_threshold = 10.0 * (1.0 + v_ego * 0.05)  # 调整为与缩放后的曲率值匹配的阈值
-
-      curve_detected = self.current_curvature > curvature_threshold
-      curve_active = curve_detected and self.curve_detected
-
-      self.curvature_mac.add_data(curve_detected or curve_active)
-      self.curve_detected = self.curvature_mac.get_moving_average() >= 0.75  # 概率阈值
-
+      # 简化曲率检测，只检查是否超出±50的范围
+      self.curve_detected = abs(self.current_curvature) > 50
       if self.curve_detected:
-        logger.debug(f"检测到弯道，曲率={self.current_curvature:.2f}，阈值={curvature_threshold:.2f}")
+        logger.debug(f"检测到弯道，曲率={self.current_curvature:.2f}")
     except Exception as e:
       logger.error(f"Error checking curve: {e}")
       logger.error(traceback.format_exc())
