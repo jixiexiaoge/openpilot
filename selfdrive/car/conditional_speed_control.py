@@ -32,7 +32,6 @@ class ConditionalSpeedControl:
     try:
       logger.info("Initializing ConditionalSpeedControl")
       self.params = Params()
-      self.params_memory = Params("/dev/shm/params")
       self.curve_detected = False
       self.condition_active = False
       self.curvature_mac = MovingAverageCalculator()
@@ -42,10 +41,10 @@ class ConditionalSpeedControl:
       self.curvature_change = 0.0    # 添加曲率变化值
       self.lead_speed = 0.0          # 添加前车速度变量
       self.blinker_on = False        # 添加转向灯状态变量
+      self.current_status = 0        # 当前状态码，不再使用内存参数
 
       # 初始化时设置默认值
-      self.params.put_int_nonblocking("SpeedFromPCM", 1)
-      self.params_memory.put_int("ConditionalStatus", 0)
+      self.params.put_int("SpeedFromPCM", 1)  # 使用非阻塞型方法可能在某些系统上不可用
 
       logger.info("ConditionalSpeedControl initialized successfully")
     except Exception as e:
@@ -71,10 +70,15 @@ class ConditionalSpeedControl:
       self.check_blinker_status(carState)
 
       # 读取当前的SpeedFromPCM值，用于记录变化
-      current_speed_from_pcm = self.params.get_int("SpeedFromPCM")
+      try:
+        current_speed_from_pcm = self.params.get_int("SpeedFromPCM")
+      except:
+        # 如果读取失败，假设为默认值1
+        current_speed_from_pcm = 1
+        logger.warning("无法读取SpeedFromPCM，使用默认值1")
 
       # 记录变化前的状态
-      previous_status = self.params_memory.get_int("ConditionalStatus")
+      previous_status = self.current_status
 
       # 根据条件判断是否需要设置SpeedFromPCM为0或2
 
@@ -117,48 +121,32 @@ class ConditionalSpeedControl:
       if current_speed_from_pcm != target_speed_from_pcm:
         logger.info(f"SpeedFromPCM变化: {current_speed_from_pcm} -> {target_speed_from_pcm}, 原因: {reason}")
         try:
-          self.params.put_int_nonblocking("SpeedFromPCM", target_speed_from_pcm)
+          self.params.put_int("SpeedFromPCM", target_speed_from_pcm)
         except Exception as e:
           logger.error(f"更新SpeedFromPCM失败: {e}")
 
       # 更新状态码
       if previous_status != target_status:
         logger.info(f"状态变化: {previous_status} -> {target_status}, 原因: {reason}")
-        try:
-          self.params_memory.put_int("ConditionalStatus", target_status)
-        except Exception as e:
-          logger.error(f"更新状态码失败: {e}")
-
-      # 保存当前曲率值和变化值到参数中，便于UI显示
-      try:
-        self.params_memory.put_float("CurrentCurvature", float(self.current_curvature))
-        self.params_memory.put_float("CurvatureChange", float(self.curvature_change))
-        self.params_memory.put_float("LeadSpeed", float(self.lead_speed * 3.6))  # 保存为km/h
-        self.params_memory.put_int("BlinkerStatus", 1 if self.blinker_on else 0)  # 保存转向灯状态
-      except Exception as e:
-        logger.error(f"更新参数值失败: {e}")
+        self.current_status = target_status
 
       # 安全检查：如果车辆停止，确保重置状态
       if hasattr(carState, 'standstill') and carState.standstill:
         if current_speed_from_pcm != 1:
           logger.info("车辆停止，重置SpeedFromPCM为1")
           try:
-            self.params.put_int_nonblocking("SpeedFromPCM", 1)
+            self.params.put_int("SpeedFromPCM", 1)
           except Exception as e:
             logger.error(f"重置SpeedFromPCM失败: {e}")
         if previous_status != 0:
-          try:
-            self.params_memory.put_int("ConditionalStatus", 0)
-          except Exception as e:
-            logger.error(f"重置状态码失败: {e}")
+          self.current_status = 0
 
     except Exception as e:
       logger.error(f"Error in update: {e}")
       logger.error(traceback.format_exc())
       # 出错时恢复默认值
       try:
-        self.params.put_int_nonblocking("SpeedFromPCM", 1)
-        self.params_memory.put_int("ConditionalStatus", 0)
+        self.params.put_int("SpeedFromPCM", 1)
       except:
         pass
 
@@ -332,9 +320,7 @@ def main():
     # 确保退出时清理参数
     try:
       params = Params()
-      params.put_int_nonblocking("SpeedFromPCM", 1)
-      params_memory = Params("/dev/shm/params")
-      params_memory.put_int("ConditionalStatus", 0)
+      params.put_int("SpeedFromPCM", 1)
       logger.info("清理完成，模块正常退出")
     except:
       pass
