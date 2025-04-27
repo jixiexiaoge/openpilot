@@ -43,8 +43,15 @@ class ConditionalSpeedControl:
       self.blinker_on = False        # 添加转向灯状态变量
       self.current_status = 0        # 当前状态码，不再使用内存参数
 
+      # 记录最近的交通灯状态
+      self.last_traffic_state = 0
+
       # 初始化时设置默认值
-      self.params.put_int("SpeedFromPCM", 1)  # 使用非阻塞型方法可能在某些系统上不可用
+      try:
+        self.params.put_int("SpeedFromPCM", 1)  # 使用非阻塞型方法可能在某些系统上不可用
+        logger.info("成功初始化SpeedFromPCM参数为1")
+      except Exception as e:
+        logger.error(f"初始化SpeedFromPCM参数失败: {e}")
 
       logger.info("ConditionalSpeedControl initialized successfully")
     except Exception as e:
@@ -54,11 +61,28 @@ class ConditionalSpeedControl:
 
   def update(self, carState, enabled, modelData, road_curvature, v_ego):
     try:
+      # 每次更新打印基本状态信息
+      logger.debug(f"车速: {v_ego*3.6:.1f} km/h, 启用状态: {enabled}")
+
       # 检查交通信号灯状态
       traffic_state = 0
+
+      # 尝试多种可能的数据结构路径来获取交通灯状态
       if hasattr(modelData, 'longitudinalPlan') and hasattr(modelData.longitudinalPlan, 'trafficState'):
         traffic_state = modelData.longitudinalPlan.trafficState
-        logger.debug(f"Traffic state: {traffic_state}")
+        logger.debug(f"从longitudinalPlan获取到交通灯状态: {traffic_state}")
+      elif hasattr(modelData, 'trafficState'):
+        traffic_state = modelData.trafficState
+        logger.debug(f"直接从modelData获取到交通灯状态: {traffic_state}")
+
+      # 如果交通灯状态变化，记录详细日志
+      if traffic_state != self.last_traffic_state:
+        logger.info(f"交通灯状态变化: {self.last_traffic_state} -> {traffic_state}")
+        self.last_traffic_state = traffic_state
+
+      # 打印整个modelData结构以便调试
+      if hasattr(modelData, '__dict__'):
+        logger.debug(f"ModelData结构: {modelData.__dict__}")
 
       # 获取曲率数据
       self.update_curvature(modelData)
@@ -72,10 +96,11 @@ class ConditionalSpeedControl:
       # 读取当前的SpeedFromPCM值，用于记录变化
       try:
         current_speed_from_pcm = self.params.get_int("SpeedFromPCM")
-      except:
+        logger.debug(f"当前SpeedFromPCM值: {current_speed_from_pcm}")
+      except Exception as e:
         # 如果读取失败，假设为默认值1
         current_speed_from_pcm = 1
-        logger.warning("无法读取SpeedFromPCM，使用默认值1")
+        logger.warning(f"无法读取SpeedFromPCM，使用默认值1: {e}")
 
       # 记录变化前的状态
       previous_status = self.current_status
@@ -84,15 +109,19 @@ class ConditionalSpeedControl:
 
       # 条件1：红灯检测
       red_light_detected = traffic_state == 1
+      logger.debug(f"红灯检测状态: {red_light_detected}")
 
       # 条件2：曲率超出范围 (-50, 50)
       high_curvature_detected = abs(self.current_curvature) > 50
+      logger.debug(f"高曲率检测状态: {high_curvature_detected}, 当前曲率: {self.current_curvature:.2f}")
 
       # 条件3：前车速度低于15km/h
       slow_lead_detected = self.lead_speed < 15.0 / 3.6  # 转换为m/s
+      logger.debug(f"前车低速检测状态: {slow_lead_detected}, 前车速度: {self.lead_speed*3.6:.2f} km/h")
 
       # 条件4：转向灯开启
       blinker_on = self.blinker_on
+      logger.debug(f"转向灯状态: {blinker_on}")
 
       # 确定目标速度值和状态码
       target_speed_from_pcm = 1  # 默认为1
@@ -122,8 +151,12 @@ class ConditionalSpeedControl:
         logger.info(f"SpeedFromPCM变化: {current_speed_from_pcm} -> {target_speed_from_pcm}, 原因: {reason}")
         try:
           self.params.put_int("SpeedFromPCM", target_speed_from_pcm)
+          logger.info(f"成功更新SpeedFromPCM为{target_speed_from_pcm}")
         except Exception as e:
           logger.error(f"更新SpeedFromPCM失败: {e}")
+          logger.error(traceback.format_exc())
+      else:
+        logger.debug(f"保持SpeedFromPCM值不变: {current_speed_from_pcm}")
 
       # 更新状态码
       if previous_status != target_status:
@@ -136,8 +169,10 @@ class ConditionalSpeedControl:
           logger.info("车辆停止，重置SpeedFromPCM为1")
           try:
             self.params.put_int("SpeedFromPCM", 1)
+            logger.info("成功重置SpeedFromPCM为1")
           except Exception as e:
             logger.error(f"重置SpeedFromPCM失败: {e}")
+            logger.error(traceback.format_exc())
         if previous_status != 0:
           self.current_status = 0
 
@@ -147,8 +182,9 @@ class ConditionalSpeedControl:
       # 出错时恢复默认值
       try:
         self.params.put_int("SpeedFromPCM", 1)
-      except:
-        pass
+      except Exception as e:
+        logger.error(f"恢复默认值失败: {e}")
+        logger.error(traceback.format_exc())
 
   def check_blinker_status(self, carState):
     try:
@@ -163,10 +199,14 @@ class ConditionalSpeedControl:
         right_blinker = carState.rightBlinker
 
       # 更新转向灯状态 - 任一转向灯开启即视为开启
+      previous_state = self.blinker_on
       self.blinker_on = left_blinker or right_blinker
 
-      if self.blinker_on:
-        logger.debug("检测到转向灯开启")
+      if self.blinker_on != previous_state:
+        if self.blinker_on:
+          logger.info("转向灯开启")
+        else:
+          logger.info("转向灯关闭")
     except Exception as e:
       logger.error(f"Error checking blinker status: {e}")
       logger.error(traceback.format_exc())
@@ -174,17 +214,27 @@ class ConditionalSpeedControl:
 
   def update_lead_vehicle_info(self, carState):
     try:
+      previous_lead_speed = self.lead_speed
+
       # 从carState中获取前车信息
       if hasattr(carState, 'leadOne') and hasattr(carState.leadOne, 'status') and carState.leadOne.status:
         # 前车存在且有效
         if hasattr(carState.leadOne, 'vRel'):
           # vRel是相对速度，需要加上自车速度得到绝对速度
           self.lead_speed = max(0.0, carState.vEgo + carState.leadOne.vRel)
-          logger.debug(f"前车速度: {self.lead_speed*3.6:.2f} km/h")
+
+          # 当前车速度变化超过5km/h时记录日志
+          if abs(self.lead_speed - previous_lead_speed) * 3.6 > 5.0:
+            logger.info(f"前车速度变化显著: {previous_lead_speed*3.6:.2f} -> {self.lead_speed*3.6:.2f} km/h")
+          else:
+            logger.debug(f"前车速度: {self.lead_speed*3.6:.2f} km/h")
         else:
           self.lead_speed = 100.0  # 设置一个大值，表示前车速度不低
+          logger.debug("无法获取前车相对速度，假设前车速度不低")
       else:
         # 没有检测到前车
+        if self.lead_speed < 50.0:  # 如果之前检测到前车且速度较低
+          logger.info("前车不再被检测到")
         self.lead_speed = 100.0  # 设置一个大值，表示前车速度不低
     except Exception as e:
       logger.error(f"Error updating lead vehicle info: {e}")
@@ -208,9 +258,17 @@ class ConditionalSpeedControl:
             self.current_curvature = new_curvature
             # 计算曲率变化
             self.curvature_change = self.current_curvature - self.previous_curvature
-            logger.debug(f"更新曲率: {self.current_curvature:.2f}, 变化量: {self.curvature_change:.2f}")
+
+            # 当曲率变化显著时记录日志
+            if abs(self.curvature_change) > 20:
+              logger.info(f"曲率变化显著: {self.previous_curvature:.2f} -> {self.current_curvature:.2f}")
+            else:
+              logger.debug(f"更新曲率: {self.current_curvature:.2f}, 变化量: {self.curvature_change:.2f}")
       else:
-        logger.debug("无法从modelData获取路径点")
+        if hasattr(modelData, 'position'):
+          logger.debug(f"路径点信息不完整: x存在={modelData.position.x is not None}, 长度={len(modelData.position.x) if modelData.position.x is not None else 0}")
+        else:
+          logger.debug("modelData中不包含position属性")
     except Exception as e:
       logger.error(f"Error updating curvature: {e}")
       logger.error(traceback.format_exc())
@@ -219,9 +277,14 @@ class ConditionalSpeedControl:
   def check_curve(self, v_ego):
     try:
       # 简化曲率检测，只检查是否超出±50的范围
+      previous_curve_detected = self.curve_detected
       self.curve_detected = abs(self.current_curvature) > 50
-      if self.curve_detected:
-        logger.debug(f"检测到弯道，曲率={self.current_curvature:.2f}")
+
+      if self.curve_detected != previous_curve_detected:
+        if self.curve_detected:
+          logger.info(f"检测到高曲率弯道，曲率={self.current_curvature:.2f}")
+        else:
+          logger.info(f"退出高曲率弯道")
     except Exception as e:
       logger.error(f"Error checking curve: {e}")
       logger.error(traceback.format_exc())
@@ -272,7 +335,7 @@ def conditional_speed_control_thread():
         if update_count % 100 == 0:
           logger.info(f"模块运行正常，更新计数：{update_count}")
 
-        if sm.updated['carState']:
+        if sm.updated['carState'] or sm.updated['modelV2']:
           car_state = sm['carState']
           controls_state = sm['controlsState']
           model = sm['modelV2']
