@@ -117,7 +117,7 @@ procs = [
   PythonProcess("hardwared", "system.hardware.hardwared", always_run),
   PythonProcess("tombstoned", "system.tombstoned", always_run, enabled=not PC),
   PythonProcess("updated", "system.updated.updated", only_offroad, enabled=not PC),
-  PythonProcess("broadcast", "selfdrive.carrot.broadcast", always_run),#, enabled=not PC),
+  PythonProcess("broadcast", "selfdrive.carrot.broadcast", only_onroad),#, enabled=not PC),
   PythonProcess("statsd", "system.statsd", always_run),
 
   # Add conditional speed control process
