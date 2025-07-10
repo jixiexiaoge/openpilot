@@ -63,7 +63,8 @@ class CarState(CarStateBase):
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"]
 
-    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"]  # for mazda RPM
+    # Apply DBC scaling factor for RPM (0.25 factor from mazda_2017.dbc)
+    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"] * 0.25  # for mazda RPM
 
     # 将CAN总线上的DISTANCE_SETTING值转换为与车辆显示一致的值
     can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
@@ -93,7 +94,8 @@ class CarState(CarStateBase):
 
     # TODO: this should be from 0 - 1.
     ret.gas = cp.vl["ENGINE_DATA"]["PEDAL_GAS"]
-    ret.gasPressed = ret.gas > 0
+    # Use a reasonable threshold for gas pedal detection (>= 5%)
+    ret.gasPressed = ret.gas >= 5
 
     # Either due to low speed or hands off
     lkas_blocked = cp.vl["STEER_RATE"]["LKAS_BLOCK"] == 1

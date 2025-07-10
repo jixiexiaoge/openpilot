@@ -171,8 +171,8 @@ class VehicleDataBroadcaster:
 
                 # 踏板状态
                 vehicle_data["Pedal Status"] = {
-                    "Gas Position": f"{getattr(CS, 'gas', 0) * 100:.1f}%",
-                    "Brake Pressure": f"{getattr(CS, 'brake', 0) * 100:.1f}%",
+                    "Gas Position": f"{getattr(CS, 'gas', 0):.1f}%",
+                    "Brake Pressure": f"{getattr(CS, 'brake', 0):.1f}",  # Raw brake pressure value (0-255)
                     "Gas Pedal": "Pressed" if getattr(CS, 'gasPressed', False) else "Released",
                     "Brake Pedal": "Pressed" if getattr(CS, 'brakePressed', False) else "Released"
                 }

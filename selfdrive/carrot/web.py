@@ -530,6 +530,19 @@ HTML_TEMPLATE = """
                 return `<span class="status-value status-normal">${value}档</span>`;
             }
 
+            // 刹车压力特殊格式化 (原始值 0-255)
+            if (fieldKey === 'Brake Pressure') {
+                if (value === 'Unknown' || !value || value === '0' || value === '0.0') {
+                    return '无压力';
+                }
+                const numValue = parseFloat(value);
+                if (!isNaN(numValue)) {
+                    const percentage = ((numValue / 255) * 100).toFixed(1);
+                    return `${numValue} <span style="color: #666; font-size: 0.9em;">(${percentage}%)</span>`;
+                }
+                return value;
+            }
+
             // 状态值格式化
             if (fieldKey.includes('Status') || fieldKey.includes('System')) {
                 let className = 'status-normal';
