@@ -21,9 +21,10 @@ class CarState(CarStateBase):
     self.low_speed_alert = False
     self.lkas_allowed_speed = False
     self.lkas_disabled = False
-    
+
     self.prev_distance_button = 0
     self.distance_button = 0
+    self.pcmCruiseGap = 0  # copy from Hyundai
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -33,7 +34,7 @@ class CarState(CarStateBase):
 
     self.prev_distance_button = self.distance_button
     self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
-    
+
     self.prev_cruise_buttons = self.cruise_buttons
 
     if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
@@ -44,7 +45,7 @@ class CarState(CarStateBase):
       self.cruise_buttons = Buttons.RESUME
     else:
       self.cruise_buttons = Buttons.NONE
-      
+
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
       cp.vl["WHEEL_SPEEDS"]["FR"],
@@ -61,6 +62,13 @@ class CarState(CarStateBase):
     can_gear = int(cp.vl["GEAR"]["GEAR"])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"]
+
+    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"]  # for mazda RPM
+
+    # 将CAN总线上的DISTANCE_SETTING值转换为与车辆显示一致的值
+    can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
+    # 假设最大值为4，使用5减去CAN值来获取正确的显示值
+    ret.pcmCruiseGap = 5 - can_distance_setting if 1 <= can_distance_setting <= 4 else can_distance_setting
 
     ret.genericToggle = bool(cp.vl["BLINK_INFO"]["HIGH_BEAMS"])
     ret.leftBlindspot = cp.vl["BSM"]["LEFT_BS_STATUS"] != 0
@@ -135,7 +143,7 @@ class CarState(CarStateBase):
 
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = not self.lkas_disabled
-    
+
     # TODO: add button types for inc and dec
     #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
     ret.buttonEvents = [
