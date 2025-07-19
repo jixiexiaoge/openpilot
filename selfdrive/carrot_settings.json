@@ -1140,9 +1140,9 @@
       "descr": "(+10:띠)0:빨,1:주,2:노,3:초,4:파,5:남,6:보,7:고,8:흰,9:검",
       "egroup": "DISP",
       "etitle": "Show Path Color:LaneLess(12)",
-      "edescr": "(+10:stroke)0(R),1(O),2(Y),3(B),5(N),6(V),7(K),8(W),9(B),20:Auto",
+      "edescr": "(+10:stroke)0(R),1(O),2(Y),3(B),5(N),6(V),7(K),8(W),9(B)",
       "min": 0,
-      "max": 20,
+      "max": 19,
       "default": 12,
       "unit": 1
     },
@@ -1192,9 +1192,9 @@
       "descr": "(+10:띠)0:빨,1:주,2:노,3:초,4:파,5:남,6:보,7:고,8:흰,9:검",
       "egroup": "DISP",
       "etitle": "Show Path Color:LaneMode(3)",
-      "edescr": "(+10:stroke)0(R),1(O),2(Y),3(B),5(N),6(V),7(K),8(W),9(B),20:Auto",
+      "edescr": "(+10:stroke)0(R),1(O),2(Y),3(B),5(N),6(V),7(K),8(W),9(B)",
       "min": 0,
-      "max": 20,
+      "max": 19,
       "default": 3,
       "unit": 1
     },

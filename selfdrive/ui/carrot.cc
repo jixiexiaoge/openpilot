@@ -1564,7 +1564,6 @@ protected:
 protected:
     bool make_data(const UIState* s) {
 		SubMaster& sm = *(s->sm);
-    bool longActive = false;
 		if (!sm.alive("modelV2") || !sm.alive("carState")) return false;
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         active_lane_line = sm["controlsState"].getControlsState().getActiveLaneLine();
@@ -1577,20 +1576,20 @@ protected:
         int max_idx = 32;// show path test...  get_path_length_idx(model_position, max_distance);
 
         auto selfdrive_state = sm["selfdriveState"].getSelfdriveState();
-        longActive = selfdrive_state.getEnabled();
+        bool longActive = selfdrive_state.getEnabled();
         if (longActive == false) {
             show_path_mode = show_path_mode_cruise_off;
             show_path_color = show_path_color_cruise_off;
         }
         else {
-			    if (active_lane_line) {
-				    show_path_mode = show_path_mode_lane;
-				    show_path_color = show_path_color_lane;
-			    }
-          else {
-              show_path_mode = show_path_mode_normal;
-              show_path_color = show_path_color_normal;
-          }
+			if (active_lane_line) {
+				show_path_mode = show_path_mode_lane;
+				show_path_color = show_path_color_lane;
+			}
+            else {
+                show_path_mode = show_path_mode_normal;
+                show_path_color = show_path_color_normal;
+            }
         }
 
         if (show_path_mode == 0) {
@@ -1635,24 +1634,6 @@ public:
         };
 
         bool brake_valid = car_state.getBrakeLights();
-        const auto radar_state = sm["radarState"].getRadarState();
-        auto lead_one = radar_state.getLeadOne();
-
-        if (show_path_color >= 20) {
-          if (longActive) {
-            show_path_color = 13;// green
-            if (lead_one.getStatus()) {
-              float v_rel = lead_one.getVRel();
-              float v_lead = lead_one.getVLead();
-              if (v_lead < 0.5) show_path_color = 10;// red
-              elif(v_rel > -0.5) show_path_color = 11;// amber
-              else show_path_color = 12; // yellow
-            }
-          }
-          else {
-            show_path_color = 19; // black
-          }
-        }
 
         if (show_path_mode == 0) {
             ui_draw_line(s, track_vertices, &colors[show_path_color % 10], nullptr,
