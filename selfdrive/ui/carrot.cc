@@ -1644,7 +1644,7 @@ public:
             if (lead_one.getStatus()) {
               float v_rel = lead_one.getVRel();
               float v_lead = lead_one.getVLead();
-              if (v_lead < 0.5) show_path_color = 10;// red
+              if (v_lead < 2.0) show_path_color = 10;// red
               else if(v_rel > -0.5) show_path_color = 11;// amber
               else show_path_color = 12; // yellow
             }
