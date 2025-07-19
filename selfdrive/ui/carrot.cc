@@ -1562,10 +1562,10 @@ protected:
         *pvd = left_points + right_points;
     }
 protected:
-    bool make_data(const UIState* s) {
-		SubMaster& sm = *(s->sm);
     bool longActive = false;
-		if (!sm.alive("modelV2") || !sm.alive("carState")) return false;
+    bool make_data(const UIState* s) {
+		  SubMaster& sm = *(s->sm);
+		  if (!sm.alive("modelV2") || !sm.alive("carState")) return false;
         const cereal::ModelDataV2::Reader& model = sm["modelV2"].getModelV2();
         active_lane_line = sm["controlsState"].getControlsState().getActiveLaneLine();
         auto model_position = model.getPosition();
@@ -1645,7 +1645,7 @@ public:
               float v_rel = lead_one.getVRel();
               float v_lead = lead_one.getVLead();
               if (v_lead < 0.5) show_path_color = 10;// red
-              elif(v_rel > -0.5) show_path_color = 11;// amber
+              else if(v_rel > -0.5) show_path_color = 11;// amber
               else show_path_color = 12; // yellow
             }
           }
