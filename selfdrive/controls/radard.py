@@ -522,10 +522,10 @@ class RadarD:
       lat_dist = CS.leftLatDist
       long_dist = CS.leftLongDist
     if 0 < CS.rightLatDist < 2.5 and CS.rightLongDist < long_dist:
-      lat_dist = CS.rightLatDist
+      lat_dist = -CS.rightLatDist
       long_dist = CS.rightLongDist
 
-    if lat_dist == 0.0 or lat_dist >= 2.5 or long_dist == 1e6:
+    if lat_dist == 0.0 or abs(lat_dist) >= 2.5 or long_dist == 1e6:
       return lead_dict
     
     if lead_dict['status']:
