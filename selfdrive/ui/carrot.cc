@@ -1637,16 +1637,17 @@ public:
         bool brake_valid = car_state.getBrakeLights();
         const auto radar_state = sm["radarState"].getRadarState();
         auto lead_one = radar_state.getLeadOne();
+        auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+        //float desired_distance = lp.getDesiredDistance();
+        float accel = lp.getAccels()[0];
 
         if (show_path_color >= 20) {
           if (longActive) {
             show_path_color = 13;// green
             if (lead_one.getStatus()) {
-              float v_rel = lead_one.getVRel();
-              float v_lead = lead_one.getVLead();
-              if (v_lead < 2.0) show_path_color = 10;// red
-              else if(v_rel > -0.5) show_path_color = 11;// amber
-              else show_path_color = 12; // yellow
+              if (abs(accel) < 0.5f) show_path_color = 12; // yellow
+              else if (accel >= 0.5f) show_path_color = 11; // amber
+              else show_path_color = 10; // red
             }
           }
           else {
