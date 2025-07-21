@@ -1574,7 +1574,7 @@ protected:
         }
         float max_distance = s->max_distance;
         max_distance -= 2.0;
-        int max_idx = 32;// show path test...  get_path_length_idx(model_position, max_distance);
+        int max_idx = get_path_length_idx(model_position, max_distance);
 
         auto selfdrive_state = sm["selfdriveState"].getSelfdriveState();
         longActive = selfdrive_state.getEnabled();
