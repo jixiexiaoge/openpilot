@@ -371,8 +371,8 @@ class VCruiseCarrot:
     button_type = 0
     buttonEvents = CS.buttonEvents
 
-    SPEED_UP_UNIT = 1
-    SPEED_DOWN_UNIT = self._cruise_speed_unit if self._cruise_button_mode in [1, 2, 3] else 1
+    SPEED_UP_UNIT = self._cruise_speed_unit
+    SPEED_DOWN_UNIT = self._cruise_speed_unit # if self._cruise_button_mode in [1, 2, 3] else 1
     V_CRUISE_DELTA = 10
     is_metric = self.is_metric
 
