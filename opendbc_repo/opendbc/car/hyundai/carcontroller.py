@@ -167,6 +167,11 @@ class CarController(CarControllerBase):
     apply_angle = apply_std_steer_angle_limits(actuators.steeringAngleDeg, self.apply_angle_last, CS.out.vEgoRaw, 
                                                CS.out.steeringAngleDeg, CC.latActive, self.params.ANGLE_LIMITS)
 
+    if abs(apply_angle - self.apply_angle_last) > 0.1:
+      alpha = min(0.05 + 0.95 * CS.out.vEgoRaw / (20.0 * CV.KPH_TO_MS), 1.0)
+      apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
+
+    apply_angle = self.carrot_angle(apply_angle, self.apply_angle_last, CS.out.vEgoRaw)
     if angle_control:
       apply_steer_req = CC.latActive
 
