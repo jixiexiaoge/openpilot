@@ -171,7 +171,6 @@ class CarController(CarControllerBase):
       alpha = min(0.05 + 0.95 * CS.out.vEgoRaw / (20.0 * CV.KPH_TO_MS), 1.0)
       apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 
-    apply_angle = self.carrot_angle(apply_angle, self.apply_angle_last, CS.out.vEgoRaw)
     if angle_control:
       apply_steer_req = CC.latActive
 
