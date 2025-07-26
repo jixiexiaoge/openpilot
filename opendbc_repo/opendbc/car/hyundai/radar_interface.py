@@ -86,7 +86,7 @@ class RadarInterface(RadarInterfaceBase):
     if not self.rcp.can_valid:
       ret.errors.canError = True
 
-    for addr in range(self.radar_start_addr, self.radar_start_addr + self.radar_msg_count
+    for addr in range(self.radar_start_addr, self.radar_start_addr + self.radar_msg_count)
       msg = self.rcp.vl[f"RADAR_TRACK_{addr:x}"]
 
       if addr not in self.pts:
