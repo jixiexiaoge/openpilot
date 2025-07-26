@@ -9,6 +9,7 @@ from opendbc.car.hyundai.hyundaicanfd import CanBus
 from openpilot.common.filter_simple import MyMovingAverage
 
 RADAR_START_ADDR = 0x500
+RADAR_START_ADDR_CANFD = 0x3A5 # Group 2, Group 1: 0x210 2개씩있어서 일단 보류.
 RADAR_MSG_COUNT = 32
 
 # POC for parsing corner radars: https://github.com/commaai/openpilot/pull/24221/
@@ -41,7 +42,10 @@ class RadarInterface(RadarInterfaceBase):
   def __init__(self, CP):
     super().__init__(CP)
     self.updated_messages = set()
-    self.trigger_msg = RADAR_START_ADDR + RADAR_MSG_COUNT - 1
+    self.canfd = True if CP.flags & HyundaiFlags.CANFD else False
+    self.radar_start_addr = RADAR_START_ADDR_CANFD if self.canfd else RADAR_START_ADDR
+    self.radar_msg_count = RADAR_MSG_COUNT
+    self.trigger_msg = self.radar_start_addr + self.radar_msg_count - 1
     self.track_id = 0
 
     self.radar_off_can = CP.radarUnavailable
@@ -49,7 +53,6 @@ class RadarInterface(RadarInterfaceBase):
     self.radar_tracks = Params().get_int("EnableRadarTracks") >= 1
     self.rcp = get_radar_can_parser(CP, self.radar_tracks)
 
-    self.canfd = True if CP.flags & HyundaiFlags.CANFD else False
     if not self.radar_tracks:
       self.rcp = get_radar_can_parser_scc(CP)
       self.trigger_msg = 416 if self.canfd else 0x420
@@ -83,7 +86,7 @@ class RadarInterface(RadarInterfaceBase):
     if not self.rcp.can_valid:
       ret.errors.canError = True
 
-    for addr in range(RADAR_START_ADDR, RADAR_START_ADDR + RADAR_MSG_COUNT):
+    for addr in range(self.radar_start_addr, self.radar_start_addr + self.radar_msg_count
       msg = self.rcp.vl[f"RADAR_TRACK_{addr:x}"]
 
       if addr not in self.pts:
@@ -91,7 +94,10 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[addr].trackId = self.track_id
         self.track_id += 1
 
-      valid = msg['STATE'] in (3, 4)
+      if self.canfd:
+        valid = msg['VALID'] > 0
+      else:
+        valid = msg['STATE'] in (3, 4)
       if valid:
         azimuth = math.radians(msg['AZIMUTH'])
         self.pts[addr].measured = True
