@@ -20,7 +20,10 @@ def get_radar_can_parser(CP, radar_tracks):
   #if Bus.radar not in DBC[CP.carFingerprint]:
   #  return None
 
-  messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(RADAR_START_ADDR, RADAR_START_ADDR + RADAR_MSG_COUNT)]
+  if CP.flags & HyundaiFlags.CANFD:
+    messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(RADAR_START_ADDR_CANFD, RADAR_START_ADDR_CANFD + RADAR_MSG_COUNT)]
+  else:
+    messages = [(f"RADAR_TRACK_{addr:x}", 20) for addr in range(RADAR_START_ADDR, RADAR_START_ADDR + RADAR_MSG_COUNT)]
   #return CANParser(DBC[CP.carFingerprint][Bus.radar], messages, 1)
   print("RadarInterface: RadarTracks...")
   return CANParser('hyundai_kia_mando_front_radar_generated', messages, 1)
