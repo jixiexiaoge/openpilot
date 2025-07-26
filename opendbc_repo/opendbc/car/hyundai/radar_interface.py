@@ -107,7 +107,7 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[addr].measured = True
         self.pts[addr].dRel = math.cos(azimuth) * msg['LONG_DIST']
         self.pts[addr].yRel = 0.5 * -math.sin(azimuth) * msg['LONG_DIST']
-        self.pts[addr].vRel = msg['REL_SPEED']
+        self.pts[addr].vRel = math.cos(azimuth) * msg['REL_SPEED']
         self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
         self.pts[addr].aRel = msg['REL_ACCEL']
         self.pts[addr].yvRel = float('nan')
