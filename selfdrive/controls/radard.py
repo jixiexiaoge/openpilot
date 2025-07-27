@@ -94,13 +94,17 @@ def laplacian_pdf(x: float, mu: float, b: float):
 
 def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks: dict[int, Track]):
   offset_vision_dist = lead.x[0] - RADAR_TO_CAMERA
-  vel_tolerance = 25.0 if lead.prob > 0.99 else 10.0
-  max_offset_vision_dist = max(offset_vision_dist * 0.35, 5.0)    
+  #vel_tolerance = 25.0 if lead.prob > 0.99 else 10.0
+  max_offset_vision_dist = max(offset_vision_dist * 0.35, 5.0)
+  max_offset_vision_vel = max(lead.v[0] * 0.35, 5.0)
 
   def prob(c):
-    if abs(c.dRel - offset_vision_dist) > max_offset_vision_dist:
+    #if abs(c.dRel - offset_vision_dist) > max_offset_vision_dist:
+    if offset_vision_dist - c.dRel > max_offset_vision_dist: # vision 측정한것보다 레이더 거리나 너무 낮으면 버림
       return -1e6
-    if not ((abs(c.vLead - lead.v[0]) < vel_tolerance) or (c.vLead > 3)):
+    
+    #if not ((abs(c.vLead - lead.v[0]) < vel_tolerance) or (c.vLead > 3)):  # vel tol보다 작거나, vLead가 3보다 크면 계산함.
+    if (lead.v[0] - c.vLead) > max_offset_vision_vel and c.vLead < 3:   # vision 측정속도보다 너무 느리고 속도가 3보다 작으면 버림.
       return -1e6
     prob_d = laplacian_pdf(c.dRel, offset_vision_dist, lead.xStd[0])
     prob_y = laplacian_pdf(c.yRel, -lead.y[0], lead.yStd[0])
