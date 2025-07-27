@@ -2044,7 +2044,8 @@ public:
                         sprintf(str, "%.1f", ry_rel);
                         ui_draw_text(s, rx, ry - 40, str, 30, COLOR_WHITE, BOLD);
                         //sprintf(str, "%.2f", v_lat);
-                        //ui_draw_text(s, rx, ry + 30, str, 30, COLOR_WHITE, BOLD);
+                        sprintf(str, "%.2f", rd);
+                        ui_draw_text(s, rx, ry + 30, str, 30, COLOR_WHITE, BOLD);
                     }
                 }
 #if 0

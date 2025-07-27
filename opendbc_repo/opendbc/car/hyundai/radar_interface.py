@@ -104,14 +104,23 @@ class RadarInterface(RadarInterfaceBase):
       else:
         valid = msg['STATE'] in (3, 4)
       if valid:
-        azimuth = math.radians(msg['AZIMUTH'])
-        self.pts[addr].measured = True
-        self.pts[addr].dRel = math.cos(azimuth) * msg['LONG_DIST']
-        self.pts[addr].yRel = self.y_rel_adjust * -math.sin(azimuth) * msg['LONG_DIST']
-        self.pts[addr].vRel = math.cos(azimuth) * msg['REL_SPEED']
-        self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
-        self.pts[addr].aRel = msg['REL_ACCEL']
-        self.pts[addr].yvRel = float('nan')
+        if self.canfd:
+          self.pts[addr].measured = True
+          self.pts[addr].dRel = msg['LONG_DIST']
+          self.pts[addr].yRel = msg['LAT_DIST']
+          self.pts[addr].vRel = msg['REL_SPEED']
+          self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
+          self.pts[addr].aRel = msg['REL_ACCEL']
+          self.pts[addr].yvRel = msg['LAT_SPEED']
+        else:
+          azimuth = math.radians(msg['AZIMUTH'])
+          self.pts[addr].measured = True
+          self.pts[addr].dRel = math.cos(azimuth) * msg['LONG_DIST']
+          self.pts[addr].yRel = self.y_rel_adjust * -math.sin(azimuth) * msg['LONG_DIST']
+          self.pts[addr].vRel = math.cos(azimuth) * msg['REL_SPEED']
+          self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
+          self.pts[addr].aRel = msg['REL_ACCEL']
+          self.pts[addr].yvRel = float('nan')
 
       else:
         del self.pts[addr]
