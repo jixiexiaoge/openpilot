@@ -61,6 +61,15 @@ class CarInterface(CarInterfaceBase):
         print("##### Anglecontrol detected (LFA_ALT)")
         ret.flags |= HyundaiFlags.ANGLE_CONTROL.value
 
+      print(fingerprint[CAN.ACAN])
+      if 0x362 in fingerprint[CAN.ACAN]:
+        print("##### Lane info detected (0x362 in ACAN)")
+        ret.extFlags |= HyundaiExtFlags.HAS_ACAN.value
+
+      if 0x210 in fingerprint[CAN.ACAN]:
+        print("##### Radar Group 1 detected (0x210)")
+        ret.extFlags |= HyundaiExtFlags.RADAR_GROUP1.value
+
       # detect HDA2 with ADAS Driving ECU
       if hda2:
         print("$$$CANFD HDA2")
