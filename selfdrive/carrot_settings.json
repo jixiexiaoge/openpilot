@@ -1382,6 +1382,19 @@
     },
     {
       "group": "시작",
+      "name": "RadarLatFactor",
+      "title": "레이더트랙,끼어들기 감도(0)",
+      "descr": "올리면 끼어들거나 나가는 차량에 대한 감도가 증가함",
+      "egroup": "START",
+      "etitle": "RadarTrack Cutin Factor(0)",
+      "edescr": "",
+      "min": 0,
+      "max": 200,
+      "default": 0,
+      "unit": 10
+    },
+    {
+      "group": "시작",
       "name": "EnableCornerRadar",
       "title": "코너레이더 사용(0)",
       "descr": "끼어드는 차량 검출(ccnc차량)",

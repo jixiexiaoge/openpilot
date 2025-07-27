@@ -222,6 +222,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"VEgoStopping", PERSISTENT },
     {"RadarReactionFactor", PERSISTENT},
     {"EnableRadarTracks", PERSISTENT},
+    {"RadarLatFactor", PERSISTENT},
     {"EnableCornerRadar", PERSISTENT},
     {"EnableRadarTracksResult", PERSISTENT | CLEAR_ON_MANAGER_START},
     {"CanParserResult", CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION },
