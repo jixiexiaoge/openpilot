@@ -839,6 +839,7 @@ private:
     float lane_line_probs[4];
     float road_edge_stds[2];
     QPolygonF lane_line_vertices[4];
+    QPolygonF lane_line_vertices_for_double;
     QPolygonF road_edge_vertices[2];
     int  left_lane_line = 0;
     int  right_lane_line = 0;
@@ -855,6 +856,9 @@ protected:
         for (int i = 0; i < std::size(lane_line_vertices); i++) {
             lane_line_probs[i] = model_lane_line_probs[i];
             update_line_data(s, model_lane_lines[i], 0.025 * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices[i], max_idx);
+            if(i == 1) {
+              update_line_data(s, model_lane_lines[i], 0.025 * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
+            }
         }
 
         // roadedges
@@ -889,6 +893,9 @@ public:
           else if (i == 2) color = (right_lane_line >= 20) ? COLOR_YELLOW_ALPHA(alpha) : COLOR_WHITE_ALPHA(alpha);
           else color = COLOR_WHITE_ALPHA(alpha);
           ui_draw_line(s, lane_line_vertices[i], &color, nullptr);
+          if ((i == 1) && (left_lane_line%10 == 4)) {
+            ui_draw_line(s, lane_line_vertices_for_double, &color, nullptr);
+          }
         }
         if(show_lane_info > 1) drawRoadEdge(s);
     }
