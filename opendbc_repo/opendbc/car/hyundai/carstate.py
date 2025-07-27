@@ -487,7 +487,7 @@ class CarState(CarStateBase):
       if "CAM_0x362" in cp_alt.vl:
         left_lane_prob = cp_alt.vl["CAM_0x362"]["LEFT_LANE_PROB"]
         right_lane_prob = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_PROB"]
-        left_lane_type = cp_alt.vl["CAM_0x362"]["LEFT_LANE_TYPE"]
+        left_lane_type = cp_alt.vl["CAM_0x362"]["LEFT_LANE_TYPE"] # 0: dashed, 1: solid, 4: double solid, solid+dashed, 5:dashed + solid
         right_lane_type = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_TYPE"]
         left_lane_color = cp_alt.vl["CAM_0x362"]["LEFT_LANE_COLOR"]
         right_lane_color = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_COLOR"]

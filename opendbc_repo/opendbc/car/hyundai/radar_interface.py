@@ -52,7 +52,7 @@ class RadarInterface(RadarInterfaceBase):
     self.canfd = True if CP.flags & HyundaiFlags.CANFD else False
     self.radar_group1 = False
     if self.canfd:
-      if CP.extFlags & HyundaiExtFlags.RADAR_GROUP1:
+      if CP.extFlags & HyundaiExtFlags.RADAR_GROUP1.value:
         self.radar_start_addr = RADAR_START_ADDR_CANFD1
         self.radar_msg_count = RADAR_MSG_COUNT1
         self.radar_group1 = True

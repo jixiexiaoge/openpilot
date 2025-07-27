@@ -257,6 +257,8 @@ class DesireHelper:
 
     desire_enabled = driver_desire_enabled or atc_desire_enabled
     blinker_state = driver_blinker_state if driver_desire_enabled else atc_blinker_state
+
+    lane_line_info = carstate.leftLaneLine if blinker_state == BLINKER_LEFT else carstate.rightLaneLine
     
     if desire_enabled:
       lane_exist_counter = self.lane_exist_left_count.counter if blinker_state == BLINKER_LEFT else self.lane_exist_right_count.counter
@@ -277,7 +279,7 @@ class DesireHelper:
       self.object_detected_count = 0
 
     #lane_available_trigger = not self.lane_available_last and lane_available
-    lane_change_available = lane_available or edge_available  
+    lane_change_available = (lane_available or edge_available) and lane_line_info < 20 # lane_line_info가 20보다 작으면 흰색라인임.
     lane_available_trigger = False
     lane_width_diff = self.lane_width_left_diff if atc_blinker_state == BLINKER_LEFT else self.lane_width_right_diff
     distance_to_road_edge = self.distance_to_road_edge_left if atc_blinker_state == BLINKER_LEFT else self.distance_to_road_edge_right
