@@ -48,7 +48,6 @@ class RadarInterface(RadarInterfaceBase):
     self.updated_messages = set()
     self.canfd = True if CP.flags & HyundaiFlags.CANFD else False
     self.radar_start_addr = RADAR_START_ADDR_CANFD if self.canfd else RADAR_START_ADDR
-    self.y_rel_adjust = 1.0 if self.canfd else 0.5
     self.radar_msg_count = RADAR_MSG_COUNT
     self.trigger_msg = self.radar_start_addr + self.radar_msg_count - 1
     self.track_id = 0
@@ -107,7 +106,7 @@ class RadarInterface(RadarInterfaceBase):
         azimuth = math.radians(msg['AZIMUTH'])
         self.pts[addr].measured = True
         self.pts[addr].dRel = math.cos(azimuth) * msg['LONG_DIST']
-        self.pts[addr].yRel = self.y_rel_adjust * -math.sin(azimuth) * msg['LONG_DIST']
+        self.pts[addr].yRel = 0.5 * -math.sin(azimuth) * msg['LONG_DIST']
         self.pts[addr].vRel = math.cos(azimuth) * msg['REL_SPEED']
         self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
         self.pts[addr].aRel = msg['REL_ACCEL']
