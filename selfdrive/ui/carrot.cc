@@ -2034,11 +2034,11 @@ public:
             int wStr = 40;
             for (auto const& vrd : lead_vertices_side) {
                 auto [rx, ry, rd, rv, ry_rel, v_lat, radar] = vrd;
-
-                if (rv < -1.0 || rv > 1.0) {
-                    sprintf(str, "%.0f", (s->scene.is_metric)? rv * MS_TO_KPH : rv * MS_TO_MPH);
+                v_sum = rv + yv_rel;
+                if (v_sum < -1.0 || v_sum > 1.0) {
+                    sprintf(str, "%.0f", (s->scene.is_metric)? v_sum * MS_TO_KPH : v_sum * MS_TO_MPH);
                     wStr = 35 * (strlen(str) + 0);
-                    ui_fill_rect(s->vg, { (int)(rx - wStr / 2), (int)(ry - 35), wStr, 42 }, (!radar) ? COLOR_BLUE : (rv > 0.) ? COLOR_GREEN : COLOR_RED, 15);
+                    ui_fill_rect(s->vg, { (int)(rx - wStr / 2), (int)(ry - 35), wStr, 42 }, (!radar) ? COLOR_BLUE : (v_sum > 0.) ? COLOR_GREEN : COLOR_RED, 15);
                     ui_draw_text(s, rx, ry, str, 40, COLOR_WHITE, BOLD);
                     if (show_radar_info >= 2) {
                         sprintf(str, "%.1f", ry_rel);
