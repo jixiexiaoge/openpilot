@@ -237,13 +237,32 @@ class Controls:
     hudControl.leadDistanceBars = self.sm['selfdriveState'].personality.raw + 1
     hudControl.visualAlert = self.sm['selfdriveState'].alertHudVisual
 
-    leadOne = self.sm['radarState'].leadOne
+    radarState = self.sm['radarState']
+    leadOne = radarState.leadOne
     hudControl.leadDistance = leadOne.dRel if leadOne.status else 0
     hudControl.leadRelSpeed = leadOne.vRel if leadOne.status else 0
     hudControl.leadRadar = 1 if leadOne.radar else 0
     hudControl.leadDPath = leadOne.dPath
 
     hudControl.modelDesire = 1 if self.sm['modelV2'].meta.desire == log.Desire.turnLeft else 2 if self.sm['modelV2'].meta.desire == log.Desire.turnRight else 0
+
+    def _find_closest_lead(leads):
+        valid_leads = [
+            lead for lead in leads
+            if lead.status and abs(lead.dPath) < 3.5 and abs(lead.vRel) >= 2.0
+        ]
+        return min(valid_leads, key=lambda l: l.dRel) if valid_leads else None
+
+    lead_left = _find_closest_lead(radarState.leadsLeft)
+    lead_right = _find_closest_lead(radarState.leadsRight)
+    if lead_left is not None:
+      hudControl.leadLeftDist = lead_left.dRel
+      hudControl.leadLeftLat = abs(lead_left.dPath)
+      #print(f"Lead left: {lead_left.dRel:.2f}m, {lead_left.dPath:.2f}m, {lead_left.vRel:.2f}m/s")
+    if lead_right is not None:
+      hudControl.leadRightDist = lead_right.dRel
+      hudControl.leadRightLat = abs(lead_right.dPath)
+
 
     hudControl.rightLaneVisible = True
     hudControl.leftLaneVisible = True

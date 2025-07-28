@@ -567,17 +567,27 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           values["FF_DETECT"] = ff_type if hud_control.leadRelSpeed > -0.1 else ff_type + 1
           #values["FF_DETECT_LAT"] = - hud_control.leadDPath
 
-        sensors = [
-          ('lf', 'LF_DETECT'),
-          ('rf', 'RF_DETECT'),
-          ('lr', 'LR_DETECT'),
-          ('rr', 'RR_DETECT')
-        ]
+        if True:
+          if hud_control.leadLeftDist > 0:
+            values['LF_DETECT'] = 3 if hud_control.leadLeftDist > 30 else 4
+            values['LF_DETECT_DISTANCE'] = hud_control.leadLeftDist
+            values['LF_DETECT_LATERAL'] = hud_control.leadLeftLat
+          if hud_control.leadRightDist > 0:
+            values['RF_DETECT'] = 3 if hud_control.leadRightDist > 30 else 4
+            values['RF_DETECT_DISTANCE'] = hud_control.leadRightDist
+            values['RF_DETECT_LATERAL'] = hud_control.leadRightLat
+        else:
+          sensors = [
+            ('lf', 'LF_DETECT'),
+            ('rf', 'RF_DETECT'),
+            ('lr', 'LR_DETECT'),
+            ('rr', 'RR_DETECT')
+          ]
 
-        for sensor_key, detect_key in sensors:
-          distance = getattr(CS, f"{sensor_key}_distance")
-          if distance > 0:
-            values[detect_key] = 3 if distance > 30 else 4
+          for sensor_key, detect_key in sensors:
+            distance = getattr(CS, f"{sensor_key}_distance")
+            if distance > 0:
+              values[detect_key] = 3 if distance > 30 else 4
 
         """
         values["FAULT_FCA"] = 0
