@@ -179,9 +179,11 @@ def get_lead_side(v_ego, tracks, md, lane_width, model_v_ego):
       ld = c.get_RadarState(md, 0, 0)
       leads_left[c.dRel] = ld
 
-  if lead_msg.prob > 0.5:
+  if False: #lead_msg.prob > 0.5: # center에 비젼데이터 안넣음..
     ld = get_RadarState_from_vision(md, lead_msg, v_ego, model_v_ego)
     leads_center[ld['dRel']] = ld
+
+
   #ll,lr = [[l[k] for k in sorted(list(l.keys()))] for l in [leads_left,leads_right]]
   #lc = sorted(leads_center.values(), key=lambda c:c["dRel"])
   ll = list(leads_left.values())
