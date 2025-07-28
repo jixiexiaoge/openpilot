@@ -92,7 +92,7 @@ def laplacian_pdf(x: float, mu: float, b: float):
   diff = abs(x - mu) / max(b, 1e-4)
   return 0.0 if diff > 50.0 else math.exp(-diff)
 
-def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks: dict[int, Track]):
+def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks: dict[int, Track], radar_lat_factor = 0.0):
   offset_vision_dist = lead.x[0] - RADAR_TO_CAMERA
   #vel_tolerance = 25.0 if lead.prob > 0.99 else 10.0
   max_offset_vision_dist = max(offset_vision_dist * 0.35, 5.0)
@@ -107,7 +107,7 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
     if (lead.v[0] - c.vLead) > max_offset_vision_vel and c.vLead < 3:   # vision 측정속도보다 너무 느리고 속도가 3보다 작으면 버림.
       return -1e6
     prob_d = laplacian_pdf(c.dRel, offset_vision_dist, lead.xStd[0])
-    prob_y = laplacian_pdf(c.yRel, -lead.y[0], lead.yStd[0])
+    prob_y = laplacian_pdf(c.yRel + c.yvLead * radar_lat_factor, -lead.y[0], lead.yStd[0])
     prob_v = laplacian_pdf(c.vLead, lead.v[0], lead.vStd[0])
 
     weight_v = np.interp(c.vLead, [0, 10], [0.3, 1])
@@ -376,6 +376,7 @@ class RadarD:
     self.params = Params()
     self.enable_radar_tracks = self.params.get_int("EnableRadarTracks")
     self.enable_corner_radar = self.params.get_int("EnableCornerRadar")
+    self.radar_lat_factor = 0.0
 
     self.radar_detected = False
 
@@ -386,6 +387,7 @@ class RadarD:
 
     self.enable_radar_tracks = self.params.get_int("EnableRadarTracks")
     self.enable_corner_radar = self.params.get_int("EnableCornerRadar")
+    self.radar_lat_factor = self.params.get_float("RadarLatFactor") * 0.01
 
 
     leads_v3 = sm['modelV2'].leadsV3
@@ -487,7 +489,7 @@ class RadarD:
 
     # Determine leads, this is where the essential logic happens
     if len(tracks) > 0 and ready and lead_msg.prob > .5:
-      track = match_vision_to_track(v_ego, lead_msg, tracks)
+      track = match_vision_to_track(v_ego, lead_msg, tracks, self.radar_lat_factor)
     else:
       track = None
 

@@ -71,7 +71,6 @@ class RadarInterface(RadarInterfaceBase):
     self.params = Params()
     self.radar_tracks = self.params.get_int("EnableRadarTracks") >= 1
     self.rcp = get_radar_can_parser(CP, self.radar_tracks, self.radar_start_addr, self.radar_msg_count)
-    self.radar_lat_factor = self.params.get_float("RadarLatFactor") * 0.01
 
     if not self.radar_tracks:
       self.rcp = get_radar_can_parser_scc(CP)
@@ -105,8 +104,6 @@ class RadarInterface(RadarInterfaceBase):
 
     if not self.rcp.can_valid:
       ret.errors.canError = True
-
-    self.radar_lat_factor = self.params.get_float("RadarLatFactor") * 0.01
 
     for addr in range(self.radar_start_addr, self.radar_start_addr + self.radar_msg_count):
       msg = self.rcp.vl[f"RADAR_TRACK_{addr:x}"]
@@ -149,8 +146,6 @@ class RadarInterface(RadarInterfaceBase):
           self.pts[addr].aRel = msg['REL_ACCEL']
           self.pts[addr].yvRel = 0.0
 
-        self.pts[addr].vRel += self.pts[addr].yvRel * self.radar_lat_factor
-
       else:
         del self.pts[addr]
 
@@ -174,7 +169,6 @@ class RadarInterface(RadarInterfaceBase):
           self.pts[addr].vLead = self.pts[addr].vRel + self.v_ego
           self.pts[addr].aRel = msg['REL_ACCEL2']
           self.pts[addr].yvRel = msg['LAT_SPEED2']
-          self.pts[addr].vRel += self.pts[addr].yvRel * self.radar_lat_factor
         else:
           del self.pts[addr]
       
