@@ -313,7 +313,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   #values["OBJ_STATUS"] =  2
   values["SET_ME_2"] = 0x4
   #values["SET_ME_3"] = 0x3  # objRelsped와 충돌
-  values["SET_ME_TMP_64"] = 0x64
+  values["ACC_ObjLatPos"] = 0
 
   hud_lead_info = 0
   if hud_control.leadVisible:
@@ -334,7 +334,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
 
   values["NEW_SIGNAL_2"] = 0    # 이것이 켜지면 가속을 안하는듯함.
   values["NEW_SIGNAL_4"] = 9 if hud_control.leadVisible else 0
-  values["NEW_SIGNAL_1"] = 0    # 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
+  values["SysFailState"] = 0    # 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
@@ -366,7 +366,7 @@ def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_ov
     #"OBJ_STATUS": 2,
     "SET_ME_2": 0x4,
     #"SET_ME_3": 0x3,
-    "SET_ME_TMP_64": 0x64,
+    "ACC_ObjLatPos": 0x64,
     "DISTANCE_SETTING": hud_control.leadDistanceBars, # + 5,
     "CRUISE_STANDSTILL": 1 if stopping and CS.out.cruiseState.standstill else 0,
   }
