@@ -458,7 +458,7 @@ class RadarD:
       #                                                                                               sm['lateralPlan'].laneWidth, model_v_ego)
       ll, lc, lr, leadCenter, self.radar_state.leadLeft, self.radar_state.leadRight = get_lead_side(self.v_ego, self.tracks, sm['modelV2'], 3.2, model_v_ego)
 
-      if leadCenter is not None:
+      if leadCenter is not None and leadCenter["status"]:
         if self.radar_detected:
           if leadCenter["dRel"] < self.radar_state.leadOne.dRel:
             self.radar_state.leadOne = leadCenter
