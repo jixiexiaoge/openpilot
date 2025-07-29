@@ -460,7 +460,7 @@ class RadarD:
 
       if leadCenter is not None:
         if self.radar_detected:
-          if leadCenter['dRel'] < self.radar_state.leadOne['dRel']:
+          if leadCenter.dRel < self.radar_state.leadOne.dRel:
             self.radar_state.leadOne = leadCenter
         else:
           self.radar_detected = True
