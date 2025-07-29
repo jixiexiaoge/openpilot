@@ -385,9 +385,9 @@ BO_ 416 SCC_CONTROL: 32 ADRV
  SG_ COUNTER : 16|8@1+ (1,0) [0|255] "" XXX
  SG_ ACC_ObjDist : 24|11@1+ (0.1,0) [0|204.7] "m" XXX
  SG_ ACC_ObjRelSpd : 35|12@1+ (0.1,-170) [-16.4|34.7] "m/s" XXX
- SG_ SET_ME_TMP_64 : 55|8@0+ (1,0) [0|63] "" XXX
+ SG_ ACC_ObjLatPos : 47|9@1- (0.1,-20) [0|511] "" XXX
  SG_ ZEROS_7 : 63|8@0+ (1,0) [0|255] "" XXX
- SG_ NEW_SIGNAL_1 : 64|2@1+ (1,0) [0|3] "" XXX
+ SG_ SysFailState : 64|2@1+ (1,0) [0|3] "" XXX
  SG_ MainMode_ACC : 66|1@1+ (1,0) [0|1] "" XXX
  SG_ ACCMode : 68|3@1+ (1,0) [0|7] "" XXX
  SG_ ZEROS_9 : 71|5@1+ (1,0) [0|15] "" XXX
