@@ -96,15 +96,15 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
   offset_vision_dist = lead.x[0] - RADAR_TO_CAMERA
   #vel_tolerance = 25.0 if lead.prob > 0.99 else 10.0
   max_offset_vision_dist = max(offset_vision_dist * 0.35, 5.0)
-  max_offset_vision_vel = max(lead.v[0] * 0.35, 5.0)
+  max_offset_vision_vel = lead.v[0] * 0.5
 
   def prob(c):
     #if abs(c.dRel - offset_vision_dist) > max_offset_vision_dist:
     if abs(offset_vision_dist - c.dRel) > max_offset_vision_dist: # vision 측정한것보다 레이더 거리나 너무 낮으면 버림
       return -1e6
 
-    if lead.prob < 0.95:
-      if abs(lead.v[0] - c.vLead) > max_offset_vision_vel or c.vLead < 3:
+    if False: #lead.prob < 0.95:
+      if abs(lead.v[0] - c.vLead) > max_offset_vision_vel # or c.vLead < 3:
         return -1e6
       
     prob_d = laplacian_pdf(c.dRel, offset_vision_dist, lead.xStd[0])
