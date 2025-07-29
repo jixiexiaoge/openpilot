@@ -313,7 +313,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   #values["OBJ_STATUS"] =  2
   values["SET_ME_2"] = 0x4
   #values["SET_ME_3"] = 0x3  # objRelsped와 충돌
-  values["ACC_ObjLatPos"] = 0
+  values["ACC_ObjLatPos"] = - hud_control.leadDPath
 
   hud_lead_info = 0
   if hud_control.leadVisible:
