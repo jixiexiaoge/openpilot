@@ -248,7 +248,7 @@ class Controls:
     def _find_closest_lead(leads):
         valid_leads = [
             lead for lead in leads
-            if lead.status and abs(lead.dPath) < 3.5 and abs(lead.vLead) >= 2.0 and 0 < lead.dRel < 100
+            if lead.status and abs(lead.dPath) < 3.5 and lead.vLead > 2.0 and 5 < lead.dRel < 100
         ]
         return min(valid_leads, key=lambda l: l.dRel) if valid_leads else None
 
