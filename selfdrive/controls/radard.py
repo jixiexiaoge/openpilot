@@ -104,7 +104,7 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
       return -1e6
 
     if lead.prob < 0.98:
-      if (lead.v[0] - c.vLead) > max_offset_vision_dist and c.vLead < 3:
+      if abs(lead.v[0] - c.vLead) > max_offset_vision_vel or c.vLead < 3:
         return -1e6
       
     prob_d = laplacian_pdf(c.dRel, offset_vision_dist, lead.xStd[0])
