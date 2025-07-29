@@ -103,7 +103,7 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
     if offset_vision_dist - c.dRel > max_offset_vision_dist: # vision 측정한것보다 레이더 거리나 너무 낮으면 버림
       return -1e6
 
-    if lead.prob < 0.98:
+    if lead.prob < 0.95:
       if abs(lead.v[0] - c.vLead) > max_offset_vision_vel or c.vLead < 3:
         return -1e6
       
