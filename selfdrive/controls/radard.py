@@ -96,7 +96,7 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
   offset_vision_dist = lead.x[0] - RADAR_TO_CAMERA
   #vel_tolerance = 25.0 if lead.prob > 0.99 else 10.0
   max_offset_vision_dist = max(offset_vision_dist * 0.35, 5.0)
-  max_offset_vision_vel = lead.v[0] * np.interp(lead.prob, [0.8, 0.98], [0.3, 0.6])
+  max_offset_vision_vel = max(lead.v[0] * np.interp(lead.prob, [0.8, 0.98], [0.3, 0.6]), 5.0) # 확률이 낮으면 속도오차를 줄임.
 
   def prob(c):
     #if abs(c.dRel - offset_vision_dist) > max_offset_vision_dist:
@@ -114,9 +114,16 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
 
     return prob_d * prob_y * prob_v * weight_v
 
-  track = max(tracks.values(), key=prob, default=None)
-  return track if track and prob(track) > -1e6 else None
-
+  #track = max(tracks.values(), key=prob, default=None)
+  #return track if track and prob(track) > -1e6 else None
+  best_track = None
+  best_score = -1e6
+  for c in tracks.values():
+    score = prob(c)
+    if score > best_score:
+      best_score = score
+      best_track = c
+  return best_track if best_score > -1e6 else None  
 
 def get_RadarState_from_vision(md, lead_msg: capnp._DynamicStructReader, v_ego: float, model_v_ego: float):
   lead_v_rel_pred = lead_msg.v[0] - model_v_ego
