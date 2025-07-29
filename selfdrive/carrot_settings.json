@@ -185,19 +185,6 @@
     },
     {
       "group": "조향튜닝",
-      "name": "LatMpcOutputOffset",
-      "title": "*LATMPC.OutputOffset(0)",
-      "descr": "LaneMode Mpc지연보상, 값이 크면??",
-      "egroup": "LAT",
-      "etitle": "*LATMPC.OutputOffset(0)",
-      "edescr": "",
-      "min": 0,
-      "max": 20,
-      "default": 0,
-      "unit": 1
-    },
-    {
-      "group": "조향튜닝",
       "name": "CustomSteerMax",
       "title": "_CustomSteerMax(0)",
       "descr": "최대조향토크: 270,384,409",
