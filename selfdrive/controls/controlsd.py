@@ -243,17 +243,23 @@ class Controls:
     hudControl.leadRadar = 1 if leadOne.radar else 0
     hudControl.leadDPath = leadOne.dPath
 
-    hudControl.modelDesire = 1 if self.sm['modelV2'].meta.desire == log.Desire.turnLeft else 2 if self.sm['modelV2'].meta.desire == log.Desire.turnRight else 0
+    meta = self.sm['modelV2'].meta
+    hudControl.modelDesire = 1 if meta.desire == log.Desire.turnLeft else 2 if meta.desire == log.Desire.turnRight else 0
 
-    def _find_closest_lead(leads):
+    road_edge_left = meta.distanceToRoeadEdgeLeft
+    road_edge_right = meta.distanceToRoeadEdgeRight
+    def _find_closest_lead(leads, road_edge):
+        if road_edge < 2.0:
+          return None
         valid_leads = [
             lead for lead in leads
-            if lead.status and abs(lead.dPath) < 3.5 and lead.vLead > 2.0 and 5 < lead.dRel < 100
+            #if lead.status and abs(lead.dPath) < 3.5 and lead.vLead > 2.0 and 5 < lead.dRel < 100
+            if lead.status and abs(lead.dPath) < 3.5 and 5 < lead.dRel < 100
         ]
         return min(valid_leads, key=lambda l: l.dRel) if valid_leads else None
 
-    lead_left = _find_closest_lead(radarState.leadsLeft)
-    lead_right = _find_closest_lead(radarState.leadsRight)
+    lead_left = _find_closest_lead(radarState.leadsLeft, road_edge_left)
+    lead_right = _find_closest_lead(radarState.leadsRight, road_edge_right)
     if lead_left is not None:
       hudControl.leadLeftDist = lead_left.dRel
       hudControl.leadLeftLat = abs(lead_left.dPath)
