@@ -297,7 +297,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   values = CS.cruise_info
   values["ACCMode"] = acc_mode
   values["MainMode_ACC"] = 1
-  values["StopReq"] = 1 if stopping or CS.softHoldActive > 0 else 0
+  values["StopReq"] = 1 if stopping or CS.softHoldActive > 0 else 0  # 1: Stop control is required, 2: Not used, 3: Error Indicator
   values["aReqValue"] = a_val
   values["aReqRaw"] = a_raw
   values["VSetDis"] = set_speed
@@ -311,30 +311,30 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   #values["ACC_ObjDist"] = 1
   #values["ObjValid"] = 0
   #values["OBJ_STATUS"] =  2
-  values["SET_ME_2"] = 0x4
+  values["NSCCOper"] = 0
+  values["NSCCOnOff"] = 2
   #values["SET_ME_3"] = 0x3  # objRelsped와 충돌
   values["ACC_ObjLatPos"] = - hud_control.leadDPath
+  values["DriveMode"] = 0 # 0: Default, 1: Comfort Mode, 2:Normal mode, 3:Dynamic mode, reserved
 
   hud_lead_info = 0
   if hud_control.leadVisible:
     hud_lead_info = 1 if values["ACC_ObjRelSpd"] > 0 else 2
-  values["HUD_LEAD_INFO"] = hud_lead_info
+  values["HUD_LEAD_INFO"] = hud_lead_info  #1: in-path object detected(uncontrollable), 2: controllable long, 3: controllable long & lat, ... reserved
 
-  #values["NEW_SIGNAL_4"] = 2
-
-  values["ZEROS_5"] = 0
-  values["ZEROS_9"] = 0   # 전방주의(24)... 포함. 여러가지 알람이 있을듯..
+  values["DriverAlert"] = 0   # 1: SCC Disengaged, 2: No SCC Engage condition, 3: SCC Disenganed when the vehicle stops
 
   values["TARGET_DISTANCE"] = CS.out.vEgo * 1.0 + 4.0
 
   soft_hold_info = 1 if CS.softHoldActive > 1 and enabled else 0
 
-  #values["CRUISE_STANDSTILL"] = soft_hold_info # 이건 button 누르라는 display message로 보임.. # 1 if stopping and CS.out.aEgo > -0.1 else 0
-  values["CRUISE_STANDSTILL"] = 1 if stopping and CS.out.aEgo > -0.3 else 0 # 이거안하면 정지중 뒤로 밀리는 현상 발생하는듯.. (신호정지중에 뒤로 밀리는 경험함.. 시험해봐야)
+  # 이거안하면 정지중 뒤로 밀리는 현상 발생하는듯.. (신호정지중에 뒤로 밀리는 경험함.. 시험해봐야)
+  values["InfoDisplay"] = 4 if stopping and CS.out.aEgo > -0.3 else 0  # 1: SCC Mode, 2: Convention Cruise Mode, 3: Object disappered at low speed, 4: Available to resume acceleration control, 5: Front vehicle departure notice, 6: Reserved, 7: Invalid
 
-  values["NEW_SIGNAL_2"] = 0    # 이것이 켜지면 가속을 안하는듯함.
-  values["NEW_SIGNAL_4"] = 9 if hud_control.leadVisible else 0
-  values["SysFailState"] = 0    # 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
+  values["TakeOverReq"] = 0    # 1: Takeover request, 2: Not used, 3: Error indicator , 이것이 켜지면 가속을 안하는듯함.
+  #values["NEW_SIGNAL_4"] = 9 if hud_control.leadVisible else 0
+  # AccelLimitBandUpper, Lower
+  values["SysFailState"] = 0    # 1: Performance degredation, 2: system temporairy unavailble, 3: SCC Service required , 눈이 묻어 레이더오류시... 2가 됨. 이때 가속을 안함...
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
@@ -368,7 +368,7 @@ def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_ov
     #"SET_ME_3": 0x3,
     "ACC_ObjLatPos": 0x64,
     "DISTANCE_SETTING": hud_control.leadDistanceBars, # + 5,
-    "CRUISE_STANDSTILL": 1 if stopping and CS.out.cruiseState.standstill else 0,
+    "InfoDisplay": 4 if stopping and CS.out.cruiseState.standstill else 0,
   }
 
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
