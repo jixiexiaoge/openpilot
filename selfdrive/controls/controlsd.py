@@ -254,7 +254,7 @@ class Controls:
         valid_leads = [
             lead for lead in leads
             #if lead.status and abs(lead.dPath) < 3.5 and lead.vLead > 2.0 and 5 < lead.dRel < 100
-            if lead.status and abs(lead.dPath) < 3.5 and ((lead.vLead >= 2.0 and 5 < lead.dRel < 100) or (lead.vLead < 2.0 and 3 < lead.dRel < 30))
+            if lead.status and abs(lead.dPath) < 4.2 and ((lead.vLead >= 2.0 and 5 < lead.dRel < 100) or (lead.vLead < 2.0 and 3 < lead.dRel < 30))
         ]
         return min(valid_leads, key=lambda l: l.dRel) if valid_leads else None
 
