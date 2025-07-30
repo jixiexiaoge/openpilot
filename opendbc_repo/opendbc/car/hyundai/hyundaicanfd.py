@@ -329,7 +329,8 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   soft_hold_info = 1 if CS.softHoldActive > 1 and enabled else 0
 
   # 이거안하면 정지중 뒤로 밀리는 현상 발생하는듯.. (신호정지중에 뒤로 밀리는 경험함.. 시험해봐야)
-  values["InfoDisplay"] = 4 if stopping and CS.out.aEgo > -0.3 else 0  # 1: SCC Mode, 2: Convention Cruise Mode, 3: Object disappered at low speed, 4: Available to resume acceleration control, 5: Front vehicle departure notice, 6: Reserved, 7: Invalid
+  if values["InfoDisplay"] != 5: #5: Front Car Departure Notice
+    values["InfoDisplay"] = 4 if stopping and CS.out.aEgo > -0.3 else 0  # 1: SCC Mode, 2: Convention Cruise Mode, 3: Object disappered at low speed, 4: Available to resume acceleration control, 5: Front vehicle departure notice, 6: Reserved, 7: Invalid
 
   values["TakeOverReq"] = 0    # 1: Takeover request, 2: Not used, 3: Error indicator , 이것이 켜지면 가속을 안하는듯함.
   #values["NEW_SIGNAL_4"] = 9 if hud_control.leadVisible else 0
