@@ -246,8 +246,8 @@ class Controls:
     meta = self.sm['modelV2'].meta
     hudControl.modelDesire = 1 if meta.desire == log.Desire.turnLeft else 2 if meta.desire == log.Desire.turnRight else 0
 
-    road_edge_left = meta.distanceToRoeadEdgeLeft
-    road_edge_right = meta.distanceToRoeadEdgeRight
+    road_edge_left = meta.distanceToRoadEdgeLeft
+    road_edge_right = meta.distanceToRoadEdgeRight
     def _find_closest_lead(leads, road_edge):
         if road_edge < 2.0:
           return None
