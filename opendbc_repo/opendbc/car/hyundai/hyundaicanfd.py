@@ -153,9 +153,9 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
     values["HAS_LANE_SAFETY"] = 0
     values["LKA_ACTIVE"] = 0 # NEW_SIGNAL_1
 
+    values["DampingGain"] = 50
     #values["VALUE63"] = 0
 
-    #values["VALUE104"] = 3 if lat_active else 100
     #values["VALUE82_SET256"] = 0
 
   ret.append(packer.make_can_msg("LFA", CAN.ECAN, values))
@@ -181,7 +181,7 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
 
       # test for EV6PE
       "NEW_SIGNAL_1": 10, #2,
-      "VALUE104": 9,
+      "DampingGain": 9,
       "VALUE231": 146,
       "VALUE239": 1,
       "VALUE247": 255,
@@ -192,7 +192,7 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
       "LKA_MODE": 2,
       "LKA_ICON": 2 if enabled else 1,
       "TORQUE_REQUEST": apply_steer,
-      "VALUE104": 3 if enabled else 100,
+      "DampingGain": 3 if enabled else 100,
       "STEER_REQ": 1 if lat_active else 0,
       #"STEER_MODE": 0,
       "HAS_LANE_SAFETY": 0,  # hide LKAS settings
