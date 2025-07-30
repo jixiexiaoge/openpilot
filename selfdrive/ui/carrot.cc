@@ -2048,7 +2048,9 @@ public:
             int wStr = 40;
             for (auto const& vrd : lead_vertices_side) {
                 auto [rx, ry, rd, rv, ry_rel, v_lat, radar] = vrd;
-                float v_abs = sqrtf(rv * rv + v_lat * v_lat);
+                float v_abs = 0.0;
+                if (v_ego > 1.0) v_abs = rv;
+                else v_abs = sqrtf(rv * rv + v_lat * v_lat);
                 float v_sum = (rv >= 0)? v_abs : -v_abs;
 
                 if (v_sum < -1.0 || v_sum > 1.0) {
