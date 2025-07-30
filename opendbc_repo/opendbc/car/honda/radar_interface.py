@@ -62,7 +62,7 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[ii].vRel = cpt['REL_SPEED']
         self.pts[ii].vLead = self.pts[ii].vRel + self.v_ego
         self.pts[ii].aRel = float('nan')
-        self.pts[ii].yvRel = float('nan')
+        self.pts[ii].yvRel = 0# float('nan')
         self.pts[ii].measured = True
       else:
         if ii in self.pts:

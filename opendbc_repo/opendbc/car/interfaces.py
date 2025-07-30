@@ -209,6 +209,7 @@ class MyTrack:
     self.dRel = radar_point.dRel
     self.vRel = radar_point.vRel
     self.yRel = radar_point.yRel
+    self.yvRel = radar_point.yvRel
     self.vLead = radar_point.vLead
     self.v_lead_filtered_last = self.vLead
     self.aLead = 0.0
@@ -217,6 +218,8 @@ class MyTrack:
     self.vLead_avg = FirstOrderFilter(self.vLead, 0.1, self.dt)
     self.aLead_avg = FirstOrderFilter(self.aLead, 0.15, self.dt)
     self.jLead_avg = FirstOrderFilter(self.jLead, 0.4, self.dt)
+    self.yRel_avg = FirstOrderFilter(self.yRel, 0.1, self.dt)
+    self.yvRel_avg = FirstOrderFilter(self.yvRel, 0.1, self.dt)
         
   def update(self, radar_point):
     self.vLead = radar_point.vLead
@@ -231,7 +234,8 @@ class MyTrack:
       self.v_lead_filtered_last = self.vLead
     """
 
-    self.yRel = radar_point.yRel
+    self.yRel = self.yRel_avg.update(radar_point.yRel)
+    self.yvRel = self.yvRel_avg.update(radar_point.yvRel)
 
     v_lead_filtered = self.vLead_avg.update(self.vLead)
     pseudo_stop = abs(v_lead_filtered) < 0.3 and abs(self.vLead - v_lead_filtered) < 0.05
@@ -301,6 +305,8 @@ class RadarInterfaceBase(ABC):
 
         radar_point.aLead = float(new_tracks[track_id].aLead)
         radar_point.jLead = float(new_tracks[track_id].jLead)
+        radar_point.yRel = float(new_tracks[track_id].yRel)
+        radar_point.yvRel = float(new_tracks[track_id].yvRel)
                 
       self.tracks = new_tracks
       """

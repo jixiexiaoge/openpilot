@@ -88,7 +88,7 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[targetId].vRel = cpt['TrkRangeRate']
         self.pts[targetId].vLead = self.pts[targetId].vRel + self.v_ego
         self.pts[targetId].aRel = float('nan')
-        self.pts[targetId].yvRel = float('nan')
+        self.pts[targetId].yvRel = 0# float('nan')
 
     for oldTarget in list(self.pts.keys()):
       if oldTarget not in currentTargets:
