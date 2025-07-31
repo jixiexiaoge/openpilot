@@ -215,7 +215,8 @@ def create_suppress_lfa(packer, CAN, lfa_block_msg, lka_steering_alt):
   suppress_msg = "CAM_0x362" if lka_steering_alt else "CAM_0x2a4"
   msg_bytes = 32 if lka_steering_alt else 24
 
-  values = {f"BYTE{i}": lfa_block_msg[f"BYTE{i}"] for i in range(3, msg_bytes) if i != 7}
+  #values = {f"BYTE{i}": lfa_block_msg[f"BYTE{i}"] for i in range(3, msg_bytes) if i != 7}
+  values = lfa_block_msg
   values["COUNTER"] = lfa_block_msg["COUNTER"]
   values["SET_ME_0"] = 0
   values["SET_ME_0_2"] = 0
