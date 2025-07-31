@@ -149,7 +149,7 @@ def get_RadarState_from_vision(md, lead_msg: capnp._DynamicStructReader, v_ego: 
     "radarTrackId": -1,
   }
 
-def get_lead_side(v_ego, tracks, md, lane_width, model_v_ego):
+def get_lead_side(v_ego, tracks, md, lane_width, model_v_ego, radar_lat_factor = 0.0):
   lead_msg = md.leadsV3[0]
   leadCenter = {'status': False}
   leadLeft = {'status': False}
@@ -175,7 +175,7 @@ def get_lead_side(v_ego, tracks, md, lane_width, model_v_ego):
   for c in tracks.values():
     # d_y :  path_y - traks_y 의 diff값
     # yRel값은 왼쪽이 +값, lead.y[0]값은 왼쪽이 -값
-    d_y = c.yRel + np.interp(c.dRel, md_x, md_y)
+    d_y = c.yRel + np.interp(c.dRel, md_x, md_y) + c.yvLead * radar_lat_factor
     if abs(d_y) < lane_width / 2 * 0.7:
       ld = c.get_RadarState(md, lead_msg.prob, float(-lead_msg.y[0]))
       leads_center[c.dRel] = ld
@@ -463,7 +463,7 @@ class RadarD:
 
       # ll, lc, lr, leadCenter, self.radar_state.leadLeft, self.radar_state.leadRight = get_lead_side(self.v_ego, self.tracks, sm['modelV2'],
       #                                                                                               sm['lateralPlan'].laneWidth, model_v_ego)
-      ll, lc, lr, leadCenter, self.radar_state.leadLeft, self.radar_state.leadRight = get_lead_side(self.v_ego, self.tracks, sm['modelV2'], 3.2, model_v_ego)
+      ll, lc, lr, leadCenter, self.radar_state.leadLeft, self.radar_state.leadRight = get_lead_side(self.v_ego, self.tracks, sm['modelV2'], 3.2, model_v_ego, self.radar_lat_factor)
 
       if leadCenter is not None and leadCenter["status"]:
         if self.radar_detected:
