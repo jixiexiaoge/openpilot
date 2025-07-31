@@ -484,13 +484,14 @@ class CarState(CarStateBase):
       ret.gearStep = cp.vl["GEAR_ALT"]["GEAR_STEP"]
 
     if self.CP.extFlags & HyundaiExtFlags.HAS_ACAN.value and cp_alt:
-      if "CAM_0x362" in cp_alt.vl:
-        left_lane_prob = cp_alt.vl["CAM_0x362"]["LEFT_LANE_PROB"]
-        right_lane_prob = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_PROB"]
-        left_lane_type = cp_alt.vl["CAM_0x362"]["LEFT_LANE_TYPE"] # 0: dashed, 1: solid, 4: double solid, solid+dashed, 5:dashed + solid
-        right_lane_type = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_TYPE"]
-        left_lane_color = cp_alt.vl["CAM_0x362"]["LEFT_LANE_COLOR"]
-        right_lane_color = cp_alt.vl["CAM_0x362"]["RIGHT_LANE_COLOR"]
+      lane_info = cp_alt.vl["CAM_0x362"] if "CAM_0x362" in cp_alt.vl else cp_alt.vl["CAM_0x2a4"] if "CAM_0x2a4" in cp_alt.vl else None
+      if lane_info is not None:
+        left_lane_prob = lane_info["LEFT_LANE_PROB"]
+        right_lane_prob = lane_info["RIGHT_LANE_PROB"]
+        left_lane_type = lane_info["LEFT_LANE_TYPE"] # 0: dashed, 1: solid, 4: double solid, solid+dashed, 5:dashed + solid
+        right_lane_type = lane_info["RIGHT_LANE_TYPE"]
+        left_lane_color = lane_info["LEFT_LANE_COLOR"]
+        right_lane_color = lane_info["RIGHT_LANE_COLOR"]
         left_lane_info = left_lane_color * 10 + left_lane_type
         right_lane_info = right_lane_color * 10 + right_lane_type
         ret.leftLaneLine = left_lane_info

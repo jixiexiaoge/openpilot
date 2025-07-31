@@ -62,8 +62,8 @@ class CarInterface(CarInterfaceBase):
         ret.flags |= HyundaiFlags.ANGLE_CONTROL.value
 
       print(fingerprint[CAN.ACAN])
-      if 0x362 in fingerprint[CAN.ACAN]:
-        print("##### Lane info detected (0x362 in ACAN)")
+      if 0x362 in fingerprint[CAN.ACAN] or 0x2a4 in fingerprint[CAN.ACAN]:
+        print("##### Lane info detected (0x362, 0x2a4 in ACAN)")
         ret.extFlags |= HyundaiExtFlags.HAS_ACAN.value
 
       if 0x210 in fingerprint[CAN.ACAN]:
