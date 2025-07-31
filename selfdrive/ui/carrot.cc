@@ -853,12 +853,20 @@ protected:
         const auto model_lane_lines = model.getLaneLines();
         const auto model_lane_line_probs = model.getLaneLineProbs();
         int max_idx = get_path_length_idx(model_lane_lines[0], s->max_distance);
+        left_lane_line = sm["carState"].getCarState().getLeftLaneLine();
+        right_lane_line = sm["carState"].getCarState().getRightLaneLine();
         for (int i = 0; i < std::size(lane_line_vertices); i++) {
             lane_line_probs[i] = model_lane_line_probs[i];
-            update_line_data(s, model_lane_lines[i], 0.025 * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices[i], max_idx);
-            if(i == 1) {
-              update_line_data(s, model_lane_lines[i], 0.025 * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
+            float line_width = 0.025;
+            if (i == 1 && left_lane_line >= 20) line_width = 0.05;
+            update_line_data(s, model_lane_lines[i], line_width, 0.0, 0.0, &lane_line_vertices[i], max_idx);
+            if (i == 1) {
+              update_line_data(s, model_lane_lines[i], line_width, 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
             }
+            //update_line_data(s, model_lane_lines[i], line_width * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices[i], max_idx);
+            //if (i == 1) {
+            //  update_line_data(s, model_lane_lines[i], line_width * lane_line_probs[i], 0.0, 0.0, &lane_line_vertices_for_double, max_idx, true, -0.3);
+            //}
         }
 
         // roadedges
@@ -869,8 +877,6 @@ protected:
             road_edge_stds[i] = model_road_edge_stds[i];
             update_line_data(s, model_road_edges[i], 0.025, 0.0, 0.0, &road_edge_vertices[i], max_idx_road_edge);
         }
-        left_lane_line = sm["carState"].getCarState().getLeftLaneLine();
-        right_lane_line = sm["carState"].getCarState().getRightLaneLine();
         return true;
     }
     void drawRoadEdge(const UIState* s) {
@@ -889,12 +895,16 @@ public:
         NVGcolor color;
         for (int i = 0; i < std::size(lane_line_vertices); ++i) {
           int alpha = (lane_line_probs[i] > 0.3) ? 220 : 0;
-          if (i == 1) color = (left_lane_line >= 20) ? COLOR_YELLOW_ALPHA(alpha) : COLOR_WHITE_ALPHA(alpha);
+          int stroke = 0.0;
+          if (i == 1) {
+            color = (left_lane_line >= 20) ? COLOR_YELLOW_ALPHA(alpha) : COLOR_WHITE_ALPHA(alpha);
+            stroke = (left_lane_line >= 20) ? 1.0 : 0.0;
+          }
           else if (i == 2) color = (right_lane_line >= 20) ? COLOR_YELLOW_ALPHA(alpha) : COLOR_WHITE_ALPHA(alpha);
           else color = COLOR_WHITE_ALPHA(alpha);
-          ui_draw_line(s, lane_line_vertices[i], &color, nullptr);
+          ui_draw_line(s, lane_line_vertices[i], &color, nullptr, stroke);
           if ((i == 1) && (left_lane_line%10 == 4)) {
-            ui_draw_line(s, lane_line_vertices_for_double, &color, nullptr);
+            ui_draw_line(s, lane_line_vertices_for_double, &color, nullptr, stroke);
           }
         }
         if(show_lane_info > 1) drawRoadEdge(s);
