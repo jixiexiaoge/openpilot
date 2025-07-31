@@ -483,8 +483,13 @@ class CarState(CarStateBase):
     elif "GEAR_ALT" in cp.vl:
       ret.gearStep = cp.vl["GEAR_ALT"]["GEAR_STEP"]
 
-    if self.CP.extFlags & HyundaiExtFlags.HAS_ACAN.value and cp_alt:
-      lane_info = cp_alt.vl["CAM_0x362"] if "CAM_0x362" in cp_alt.vl else cp_alt.vl["CAM_0x2a4"] if "CAM_0x2a4" in cp_alt.vl else None
+    if cp_alt:
+      lane_info = None
+      if self.CP.extFlags & HyundaiExtFlags.HAS_362.value:
+        lane_info = cp_alt.vl["CAM_0x362"] if "CAM_0x362" in cp_alt.vl else None
+      elif self.CP.extFlags & HyundaiExtFlags.HAS_2A4.value:
+        lane_info = cp_alt.vl["CAM_0x2a4"] if "CAM_0x2a4" in cp_alt.vl else None
+
       if lane_info is not None:
         left_lane_prob = lane_info["LEFT_LANE_PROB"]
         right_lane_prob = lane_info["RIGHT_LANE_PROB"]
@@ -669,9 +674,13 @@ class CarState(CarStateBase):
         ]
 
     alt_message = []
-    if CP.extFlags & HyundaiExtFlags.HAS_ACAN.value:
+    if CP.extFlags & HyundaiExtFlags.HAS_362.value:
       alt_message += [
           ("CAM_0x362", 20),
+        ]
+    elif CP.extFlags & HyundaiExtFlags.HAS_2A4.value:
+      alt_message += [
+          ("CAM_0x2a4", 20),
         ]
 
     return {

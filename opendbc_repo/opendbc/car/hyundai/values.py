@@ -145,7 +145,7 @@ class HyundaiExtFlags(IntFlag):
   HAS_SCC14 = 2
   NAVI_CLUSTER = 2 ** 2
   #SCC_BUS2 = 2 ** 3
-  HAS_ACAN = 2 ** 3
+  HAS_362 = 2 ** 3
   HAS_LFAHDA = 2 ** 4
   HAS_LFA_BUTTON = 2 ** 5
   CANFD_GEARS_NONE = 2 ** 6
@@ -157,7 +157,8 @@ class HyundaiExtFlags(IntFlag):
   CANFD_161 = 2 ** 11
   CRUISE_BUTTON_ALT = 2 ** 12     # for CASPER_EV
   STEER_TOUCH = 2 ** 13
-  CANFD_4A3 = 2 ** 14 
+  CANFD_4A3 = 2 ** 14
+  HAS_2A4 = 2 ** 15  # for 5W
 
 class Footnote(Enum):
   CANFD = CarFootnote(
