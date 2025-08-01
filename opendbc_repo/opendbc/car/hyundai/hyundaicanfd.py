@@ -153,7 +153,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
     values["HAS_LANE_SAFETY"] = 0
     values["LKA_ACTIVE"] = 0 # NEW_SIGNAL_1
 
-    #values["DampingGain"] = 3 if lat_active else 100  
+    values["DampingGain"] = 0 if lat_active else 100  
     #values["VALUE63"] = 0
 
     #values["VALUE82_SET256"] = 0
