@@ -18,10 +18,13 @@ cd /data && mv openpilot openpilot.bak && git clone https://gitcode.com/jixiexia
 CarrotAmap 已停止维护（仍可正常使用）。全新应用「CP搭子」正在重构并承接 CarrotAmap 的功能。感谢一路陪伴与支持。（开发者 2025-10-22）
 
 
-![](/wechat.jpg "欢迎赞助！")
 如果您愿意支持本项目，并想加入 CarrotPilot 爱好者群，欢迎添加微信管理员：senisizui 或 cyf19800208，我们会尽快邀请您入群。感谢您的支持与关注。
 
-# 🚗 CarrotAmap - 辅助CarrotPilot的导航外挂小程序
+
+
+![](/wechat.jpg "欢迎赞助！")
+
+# 🚗 CarrotAmap - 辅助CarrotPilot的导航外挂小程序- 现阶段唯一利用高德地图导航的openpilot外挂
 
 ---
 
