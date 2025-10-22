@@ -22,7 +22,6 @@ class Column(Enum):
   AUTO_RESUME = "Resume from stop"
   HARDWARE = "Hardware Needed"
   VIDEO = "Video"
-  SETUP_VIDEO = "Setup Video"
 
 
 class ExtraCarsColumn(Enum):
@@ -89,11 +88,6 @@ class Accessory(EnumBase):
   comma_power = BasePart("comma power v3")
 
 
-class Tool(EnumBase):
-  socket_8mm_deep = BasePart("Socket Wrench 8mm or 5/16\" (deep)")
-  pry_tool = BasePart("Pry Tool")
-
-
 @dataclass
 class BaseCarHarness(BasePart):
   parts: list[Enum] = field(default_factory=lambda: [Accessory.harness_box, Accessory.comma_power])
@@ -107,13 +101,14 @@ class CarHarness(EnumBase):
   bosch_c = BaseCarHarness("Honda Bosch C connector")
   toyota_a = BaseCarHarness("Toyota A connector")
   toyota_b = BaseCarHarness("Toyota B connector")
-  subaru_a = BaseCarHarness("Subaru A connector", parts=[Accessory.harness_box, Accessory.comma_power, Tool.socket_8mm_deep, Tool.pry_tool])
-  subaru_b = BaseCarHarness("Subaru B connector", parts=[Accessory.harness_box, Accessory.comma_power, Tool.socket_8mm_deep, Tool.pry_tool])
-  subaru_c = BaseCarHarness("Subaru C connector", parts=[Accessory.harness_box, Accessory.comma_power, Tool.socket_8mm_deep, Tool.pry_tool])
-  subaru_d = BaseCarHarness("Subaru D connector", parts=[Accessory.harness_box, Accessory.comma_power, Tool.socket_8mm_deep, Tool.pry_tool])
+  subaru_a = BaseCarHarness("Subaru A connector")
+  subaru_b = BaseCarHarness("Subaru B connector")
+  subaru_c = BaseCarHarness("Subaru C connector")
+  subaru_d = BaseCarHarness("Subaru D connector")
   fca = BaseCarHarness("FCA connector")
   ram = BaseCarHarness("Ram connector")
   vw_a = BaseCarHarness("VW A connector")
+  vw_c = BaseCarHarness("VW C connector")
   vw_j533 = BaseCarHarness("VW J533 connector", parts=[Accessory.harness_box, Cable.long_obdc_cable, Cable.usbc_coupler])
   hyundai_a = BaseCarHarness("Hyundai A connector")
   hyundai_b = BaseCarHarness("Hyundai B connector")
@@ -159,6 +154,11 @@ class Kit(EnumBase):
                                                       Cable.usb_a_2_a_cable, Cable.usbc_otg_cable, Cable.obd_c_cable_1_5ft])
 
 
+class Tool(EnumBase):
+  socket_8mm_deep = BasePart("Socket Wrench 8mm or 5/16\" (deep)")
+  pry_tool = BasePart("Pry Tool")
+
+
 class PartType(Enum):
   accessory = Accessory
   cable = Cable
@@ -191,7 +191,7 @@ class CarParts:
     return self.parts + parts
 
 
-CarFootnote = namedtuple("CarFootnote", ["text", "column", "docs_only", "setup_note"], defaults=(False, False))
+CarFootnote = namedtuple("CarFootnote", ["text", "column", "docs_only", "shop_footnote"], defaults=(False, False))
 
 
 class CommonFootnote(Enum):
@@ -244,11 +244,18 @@ class CarDocs:
   # make + model + model years
   name: str
 
+  # Example for Toyota Corolla MY20
+  # requirements: Lane Tracing Assist (LTA) and Dynamic Radar Cruise Control (DRCC)
+  # US Market reference: "All", since all Corolla in the US come standard with LTA and DRCC
+
   # the simplest description of the requirements for the US market
   package: str
 
-  video: str | None = None
-  setup_video: str | None = None
+  # the minimum compatibility requirements for this model, regardless
+  # of market. can be a package, trim, or list of features
+  requirements: str | None = None
+
+  video_link: str | None = None
   footnotes: list[Enum] = field(default_factory=list)
   min_steer_speed: float | None = None
   min_enable_speed: float | None = None
@@ -278,7 +285,7 @@ class CarDocs:
 
     # longitudinal column
     op_long = "Stock"
-    if CP.alphaLongitudinalAvailable or CP.enableDsu:
+    if CP.experimentalLongitudinalAvailable or CP.enableDsu:
       op_long = "openpilot available"
       if CP.enableDsu:
         self.footnotes.append(CommonFootnote.EXP_LONG_DSU)
@@ -304,7 +311,8 @@ class CarDocs:
     # hardware column
     hardware_col = "None"
     if self.car_parts.parts:
-      buy_link = f'<a href="https://comma.ai/shop/comma-3x?harness={self.name}">Buy Here</a>'
+      model_years = self.model + (' ' + self.years if self.years else '')
+      buy_link = f'<a href="https://comma.ai/shop/comma-3x.html?make={self.make}&model={model_years}">Buy Here</a>'
 
       tools_docs = [part for part in self.car_parts.all_parts() if isinstance(part, Tool)]
       parts_docs = [part for part in self.car_parts.all_parts() if not isinstance(part, Tool)]
@@ -326,8 +334,7 @@ class CarDocs:
       Column.STEERING_TORQUE: Star.EMPTY,
       Column.AUTO_RESUME: Star.FULL if self.auto_resume else Star.EMPTY,
       Column.HARDWARE: hardware_col,
-      Column.VIDEO: self.video or "",  # replaced with an image and link from template in get_column
-      Column.SETUP_VIDEO: self.setup_video or "",  # replaced with an image and link from template in get_column
+      Column.VIDEO: self.video_link if self.video_link is not None else "",  # replaced with an image and link from template in get_column
     }
 
     if self.support_link is not None:
@@ -376,7 +383,7 @@ class CarDocs:
 
       # experimental mode
       exp_link = "<a href='https://blog.comma.ai/090release/#experimental-mode' target='_blank' class='highlight'>Experimental mode</a>"
-      if CP.openpilotLongitudinalControl and not CP.alphaLongitudinalAvailable:
+      if CP.openpilotLongitudinalControl and not CP.experimentalLongitudinalAvailable:
         sentence_builder += f" Traffic light and stop sign handling is also available in {exp_link}."
 
       return sentence_builder.format(car_model=f"{self.make} {self.model}", alc=alc, acc=acc)
@@ -393,7 +400,7 @@ class CarDocs:
       item = star_icon.format(item.value)
     elif column == Column.MODEL and len(self.years):
       item += f" {self.years}"
-    elif column in (Column.VIDEO, Column.SETUP_VIDEO) and len(item) > 0:
+    elif column == Column.VIDEO and len(item) > 0:
       item = video_icon.format(item)
 
     footnotes = get_footnotes(self.footnotes, column)

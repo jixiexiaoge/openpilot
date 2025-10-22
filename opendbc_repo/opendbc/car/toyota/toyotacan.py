@@ -50,7 +50,7 @@ def create_accel_command(packer, accel, pcm_cancel, permit_braking, standstill_r
     "PERMIT_BRAKING": permit_braking,
     "RELEASE_STANDSTILL": not standstill_req,
     "CANCEL_REQ": pcm_cancel,
-    "ALLOW_LONG_PRESS": 2, # 1,
+    "ALLOW_LONG_PRESS": 1,
     "ACC_CUT_IN": fcw_alert,  # only shown when ACC enabled
   }
   return packer.make_can_msg("ACC_CONTROL", 0, values)
@@ -146,14 +146,3 @@ def create_ui_command(packer, steer, chime, left_line, right_line, left_lane_dep
     ]})
 
   return packer.make_can_msg("LKAS_HUD", 0, values)
-
-
-def toyota_checksum(address: int, sig, d: bytearray) -> int:
-  s = len(d)
-  addr = address
-  while addr:
-    s += addr & 0xFF
-    addr >>= 8
-  for i in range(len(d) - 1):
-    s += d[i]
-  return s & 0xFF

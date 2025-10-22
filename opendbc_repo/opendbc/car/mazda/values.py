@@ -67,7 +67,7 @@ class CAR(Platforms):
     MazdaCarSpecs(mass=3443 * CV.LB_TO_KG, wheelbase=2.83, steerRatio=15.5)
   )
   MAZDA_CX9_2021 = MazdaPlatformConfig(
-    [MazdaCarDocs("Mazda CX-9 2021-23", video="https://youtu.be/dA3duO4a0O4")],
+    [MazdaCarDocs("Mazda CX-9 2021-23", video_link="https://youtu.be/dA3duO4a0O4")],
     MAZDA_CX9.specs
   )
   MAZDA_CX5_2022 = MazdaPlatformConfig(
@@ -102,12 +102,3 @@ FW_QUERY_CONFIG = FwQueryConfig(
 )
 
 DBC = CAR.create_dbc_map()
-
-if __name__ == "__main__":
-  cars = []
-  for platform in CAR:
-    for doc in platform.config.car_docs:
-      cars.append(doc.name)
-  cars.sort()
-  for c in cars:
-    print(c)

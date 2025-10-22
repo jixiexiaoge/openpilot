@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from opendbc.can import CANParser
+from opendbc.can.parser import CANParser
 from opendbc.car import Bus, structs
 from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.chrysler.values import DBC
@@ -46,7 +46,7 @@ class RadarInterface(RadarInterfaceBase):
     if self.rcp is None or self.CP.radarUnavailable:
       return super().update(None)
 
-    vls = self.rcp.update(can_strings)
+    vls = self.rcp.update_strings(can_strings)
     self.updated_messages.update(vls)
 
     if self.trigger_msg not in self.updated_messages:
@@ -64,7 +64,7 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[trackId] = structs.RadarData.RadarPoint()
         self.pts[trackId].trackId = trackId
         self.pts[trackId].aRel = float('nan')
-        self.pts[trackId].yvRel = 0 #float('nan')
+        self.pts[trackId].yvRel = float('nan')
         self.pts[trackId].measured = True
 
       if 'LONG_DIST' in cpt:  # c_* message
@@ -74,7 +74,6 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[trackId].yRel = cpt['LAT_DIST']  # in car frame's y axis, left is positive
       else:  # d_* message
         self.pts[trackId].vRel = cpt['REL_SPEED']
-        self.pts[trackId].vLead = self.pts[trackId].vRel + self.v_ego
 
     # We want a list, not a dictionary. Filter out LONG_DIST==0 because that means it's not valid.
     ret.points = [x for x in self.pts.values() if x.dRel != 0]

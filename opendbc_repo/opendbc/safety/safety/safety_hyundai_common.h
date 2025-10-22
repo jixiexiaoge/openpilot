@@ -30,8 +30,8 @@ bool hyundai_longitudinal = false;
 extern bool hyundai_camera_scc;
 bool hyundai_camera_scc = false;
 
-extern bool hyundai_canfd_hda2;
-bool hyundai_canfd_hda2 = false;
+extern bool hyundai_canfd_lka_steering;
+bool hyundai_canfd_lka_steering = false;
 
 extern bool hyundai_alt_limits;
 bool hyundai_alt_limits = false;
@@ -48,7 +48,7 @@ void hyundai_common_init(uint16_t param) {
   const int HYUNDAI_PARAM_EV_GAS = 1;
   const int HYUNDAI_PARAM_HYBRID_GAS = 2;
   const int HYUNDAI_PARAM_CAMERA_SCC = 8;
-  const int HYUNDAI_PARAM_CANFD_HDA2 = 16;
+  const int HYUNDAI_PARAM_CANFD_LKA_STEERING = 16;
   const int HYUNDAI_PARAM_ALT_LIMITS = 64; // TODO: shift this down with the rest of the common flags
   const int HYUNDAI_PARAM_FCEV_GAS = 256;
   const int HYUNDAI_PARAM_ALT_LIMITS_2 = 512;
@@ -56,7 +56,7 @@ void hyundai_common_init(uint16_t param) {
   hyundai_ev_gas_signal = GET_FLAG(param, HYUNDAI_PARAM_EV_GAS);
   hyundai_hybrid_gas_signal = !hyundai_ev_gas_signal && GET_FLAG(param, HYUNDAI_PARAM_HYBRID_GAS);
   hyundai_camera_scc = GET_FLAG(param, HYUNDAI_PARAM_CAMERA_SCC);
-  hyundai_canfd_hda2 = GET_FLAG(param, HYUNDAI_PARAM_CANFD_HDA2);
+  hyundai_canfd_lka_steering = GET_FLAG(param, HYUNDAI_PARAM_CANFD_LKA_STEERING);
   hyundai_alt_limits = GET_FLAG(param, HYUNDAI_PARAM_ALT_LIMITS);
   hyundai_fcev_gas_signal = GET_FLAG(param, HYUNDAI_PARAM_FCEV_GAS);
   hyundai_alt_limits_2 = GET_FLAG(param, HYUNDAI_PARAM_ALT_LIMITS_2);
@@ -77,28 +77,19 @@ void hyundai_common_cruise_state_check(const bool cruise_engaged) {
 
   // enter controls on rising edge of ACC and recent user button press, exit controls when ACC off
   if (!hyundai_longitudinal) {
-      hyundai_last_button_interaction = 0U; // carrot
-    //if (cruise_engaged && !cruise_engaged_prev && (hyundai_last_button_interaction < HYUNDAI_PREV_BUTTON_SAMPLES)) {
-    if (cruise_engaged) {
+    if (cruise_engaged && !cruise_engaged_prev && (hyundai_last_button_interaction < HYUNDAI_PREV_BUTTON_SAMPLES)) {
       controls_allowed = true;
     }
 
     if (!cruise_engaged) {
-      if(controls_allowed) print("controls_allowed1 = false\n");
       controls_allowed = false;
-      
     }
     cruise_engaged_prev = cruise_engaged;
   }
 }
 
 void hyundai_common_cruise_buttons_check(const int cruise_button, const bool main_button) {
-  if(main_button && main_button != cruise_main_prev) {
-    acc_main_on = !acc_main_on;
-  }
-  cruise_main_prev = main_button;
-  if ((cruise_button == HYUNDAI_BTN_RESUME) || (cruise_button == HYUNDAI_BTN_SET) || (cruise_button == HYUNDAI_BTN_CANCEL) ||
-      (main_button)) {
+  if ((cruise_button == HYUNDAI_BTN_RESUME) || (cruise_button == HYUNDAI_BTN_SET) || (cruise_button == HYUNDAI_BTN_CANCEL) || main_button) {
     hyundai_last_button_interaction = 0U;
   } else {
     hyundai_last_button_interaction = MIN(hyundai_last_button_interaction + 1U, HYUNDAI_PREV_BUTTON_SAMPLES);
@@ -115,7 +106,6 @@ void hyundai_common_cruise_buttons_check(const int cruise_button, const bool mai
     // exit controls on cancel press
     if (cruise_button == HYUNDAI_BTN_CANCEL) {
       controls_allowed = false;
-      print("controls_allowed2 = false\n");
     }
 
     cruise_button_prev = cruise_button;

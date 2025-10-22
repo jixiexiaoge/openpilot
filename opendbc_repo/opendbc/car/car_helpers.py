@@ -11,9 +11,6 @@ from opendbc.car.mock.values import CAR as MOCK
 from opendbc.car.values import BRANDS
 from opendbc.car.vin import get_vin, is_valid_vin, VIN_UNKNOWN
 
-from common.params import Params
-
-
 FRAME_FINGERPRINT = 100  # 1s
 
 
@@ -151,54 +148,20 @@ def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_mu
   return car_fingerprint, finger, vin, car_fw, source, exact_match
 
 
-def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, alpha_long_allowed: bool,
-            is_release: bool, num_pandas: int = 1, cached_params: CarParamsT | None = None):
+def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, experimental_long_allowed: bool,
+            num_pandas: int = 1, cached_params: CarParamsT | None = None):
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
 
   if candidate is None:
     carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
     candidate = "MOCK"
 
-  selected_car = Params().get("CarSelected3")
-  if selected_car:
-    def find_car(name: str):
-      from opendbc.car.hyundai.values import CAR as HYUNDAI
-      from opendbc.car.gm.values import CAR as GM
-      from opendbc.car.toyota.values import CAR as TOYOTA
-      from opendbc.car.mazda.values import CAR as MAZDA
-      for platform in GM:
-        for doc in platform.config.car_docs:
-          if name == doc.name:
-            return platform
-      for platform in TOYOTA:
-        for doc in platform.config.car_docs:
-          if name == doc.name:
-            return platform
-      for platform in HYUNDAI:
-        for doc in platform.config.car_docs:
-          if name == doc.name:
-            return platform
-      for platform in MAZDA:
-        for doc in platform.config.car_docs:
-          if name == doc.name:
-            return platform
-      return None
-    found_car = find_car(selected_car.decode("utf-8"))
-    if found_car is not None:
-      candidate = found_car
-
-  print(f"SelectedCar = {candidate}")
-  Params().put("CarName", candidate)
-
-  Params().put("FingerPrints", str(fingerprints))
   CarInterface = interfaces[candidate]
-  CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False)
+  CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, experimental_long_allowed, docs=False)
   CP.carVin = vin
   CP.carFw = car_fw
   CP.fingerprintSource = source
   CP.fuzzyFingerprint = not exact_match
-
-  print("Carrot GitBranch = {}, {}".format(Params().get("GitBranch"), Params().get("GitCommitDate")))
 
   return interfaces[CP.carFingerprint](CP)
 

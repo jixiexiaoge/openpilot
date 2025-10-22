@@ -1,4 +1,5 @@
 from opendbc.car.common.conversions import Conversions as CV
+from opendbc.car.interfaces import V_CRUISE_MAX
 from opendbc.car.tesla.values import CANBUS, CarControllerParams
 
 
@@ -25,7 +26,6 @@ class TeslaCAN:
     return self.packer.make_can_msg("DAS_steeringControl", CANBUS.party, values)
 
   def create_longitudinal_command(self, acc_state, accel, cntr, v_ego, active):
-    from opendbc.car.interfaces import V_CRUISE_MAX
     set_speed = max(v_ego * CV.MS_TO_KPH, 0)
     if active:
       # TODO: this causes jerking after gas override when above set speed
@@ -55,12 +55,3 @@ class TeslaCAN:
     data = self.packer.make_can_msg("APS_eacMonitor", CANBUS.party, values)[1]
     values["APS_eacMonitorChecksum"] = self.checksum(0x27d, data[:2])
     return self.packer.make_can_msg("APS_eacMonitor", CANBUS.party, values)
-
-
-def tesla_checksum(address: int, sig, d: bytearray) -> int:
-  checksum = (address & 0xFF) + ((address >> 8) & 0xFF)
-  checksum_byte = sig.start_bit // 8
-  for i in range(len(d)):
-    if i != checksum_byte:
-      checksum += d[i]
-  return checksum & 0xFF

@@ -236,33 +236,6 @@ struct CarState {
   # process meta
   cumLagMs @50 :Float32;
 
-  vCluRatio @58 :Float32;
-  logCarrot @59 :Text;
-  softHoldActive @60 :Int16;    #0: not active, 1: active ready, 2: activated
-  activateCruise @61 :Int16;
-  latEnabled @62 :Bool;
-  pcmCruiseGap @63 :Int16;      #0: can't read, 1,2,3,4: gap setting
-  speedLimit @64 :Float32;
-  speedLimitDistance @65 :Float32;
-  gearStep @66 :Int16;          
-  tpms @67 : Tpms;
-  useLaneLineSpeed @68 : Float32;
-  leftLatDist @69 : Float32;  # distance to left lane line
-  rightLatDist @70 : Float32; # distance to right lane line
-  leftLongDist @71 : Float32; # distance to left lane line in the direction of travel
-  rightLongDist @72 : Float32; # distance to right lane line in the direction of travel
-  carrotCruise @73 : Int16;
-  leftLaneLine @74 : Int16; # -1: no lane, 0: dashed, 1: solid, +10: white, +20: yellow, ex) 21: solid yellow
-  rightLaneLine @75 : Int16; # -1: no lane, 0: dashed, 1: solid, +10: white, +20: yellow, ex) 21: solid yellow
-  datetime @76 :UInt64; # timestamp in milliseconds since epoch
-
-  struct Tpms {
-    fl @0 :Float32;
-    fr @1 :Float32;
-    rl @2 :Float32;
-    rr @3 :Float32;
-  }
-
   struct WheelSpeeds {
     # optional wheel speeds
     fl @0 :Float32;
@@ -312,16 +285,12 @@ struct CarState {
       setCruise @9;
       resumeCruise @10;
       gapAdjustCruise @11;
-
-      lfaButton @12;
-      paddleLeft @13;
-      paddleRight @14;
     }
   }
 
   # deprecated
   errorsDEPRECATED @0 :List(OnroadEventDEPRECATED.EventName);
-  brakeLights @19 :Bool;
+  brakeLightsDEPRECATED @19 :Bool;
   steeringRateLimitedDEPRECATED @29 :Bool;
   canMonoTimesDEPRECATED @12: List(UInt64);
   canRcvTimeoutDEPRECATED @49 :Bool;
@@ -357,10 +326,6 @@ struct RadarData @0x888ad6581cf0aacb {
 
     # some radars flag measurements VS estimates
     measured @6 :Bool;
-
-    vLead @7 :Float32; # m/s
-    aLead @8 :Float32; # m/s^2
-    jLead @9 :Float32; # m/s^3
   }
 
   enum ErrorDEPRECATED {
@@ -412,10 +377,6 @@ struct CarControl {
     torqueOutputCan @8: Float32;   # value sent over can to the car
     speed @6: Float32;  # m/s
 
-    jerk @9: Float32;  # m/s^3
-    aTarget @10: Float32;  # m/s^2
-    yStd @11: Float32;  
-
     enum LongControlState @0xe40f3a917d908282{
       off @0;
       pid @1;
@@ -443,23 +404,6 @@ struct CarControl {
     rightLaneDepart @8: Bool;
     leftLaneDepart @9: Bool;
     leadDistanceBars @10: Int8;  # 1-3: 1 is closest, 3 is farthest. some ports may utilize 2-4 bars instead
-
-    activeCarrot @11: Int16;
-    leadDistance @12: Float32;
-    leadRelSpeed @13: Float32;
-    leadDPath @14: Float32;
-    leadRadar @15: Int16;
-    modelDesire @16: Int16;
-    atcDistance @17: Float32;
-
-    leadLeftDist @18: Float32;
-    leadRightDist @19: Float32;
-    leadLeftLat @20: Float32;
-    leadRightLat @21: Float32;
-    leadLeftDist2 @22: Float32;
-    leadRightDist2 @23: Float32;
-    leadLeftLat2 @24: Float32;
-    leadRightLat2 @25: Float32;
 
     # not used with the dash, TODO: separate structs for dash UI and device UI
     audibleAlert @5: AudibleAlert;
@@ -490,34 +434,6 @@ struct CarControl {
       prompt @6;
       promptRepeat @7;
       promptDistracted @8;
-
-      longEngaged @10;
-      longDisengaged @11;
-      trafficSignGreen @12;
-      trafficSignChanged @13;
-      laneChange @14;
-      stopping @15;
-      autoHold @16;
-      engage2 @17;
-      disengage2 @18;
-      trafficError @19;
-      bsdWarning @20;
-      speedDown @21;
-      stopStop @22;
-      audioTurn @9;
-      reverseGear @23;
-      audio1 @24;
-      audio2 @25;
-      audio3 @26;
-      audio4 @27;
-      audio5 @28;
-      audio6 @29;
-      audio7 @30;
-      audio8 @31;
-      audio9 @32;
-      audio10 @33;
-
-      nnff @34;
     }
   }
 
@@ -550,8 +466,7 @@ struct CarParams {
   enableDsu @5 :Bool;        # driving support unit
   enableBsm @56 :Bool;       # blind spot monitoring
   flags @64 :UInt32;         # flags for car specific quirks
-  alphaLongitudinalAvailable @71 :Bool;
-  extFlags @78 :UInt32;     # carrot ext car flags
+  experimentalLongitudinalAvailable @71 :Bool;
 
   minEnableSpeed @7 :Float32;
   minSteerSpeed @8 :Float32;
@@ -818,5 +733,5 @@ struct CarParams {
   maxSteeringAngleDegDEPRECATED @54 :Float32;
   longitudinalActuatorDelayLowerBoundDEPRECATED @61 :Float32;
   stoppingControlDEPRECATED @31 :Bool; # Does the car allow full control even at lows speeds when stopping
-  radarTimeStep @45: Float32;  # time delta between radar updates, 20Hz is very standard
+  radarTimeStepDEPRECATED @45: Float32 = 0.05;  # time delta between radar updates, 20Hz is very standard
 }

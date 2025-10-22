@@ -1,14 +1,11 @@
 import numpy as np
 from collections import namedtuple
 
-from opendbc.can import CANPacker
+from opendbc.can.packer import CANPacker
 from opendbc.car import Bus, DT_CTRL, rate_limit, make_tester_present_msg, structs
 from opendbc.car.honda import hondacan
 from opendbc.car.honda.values import CruiseButtons, VISUAL_HUD, HONDA_BOSCH, HONDA_BOSCH_RADARLESS, HONDA_NIDEC_ALT_PCM_ACCEL, CarControllerParams
 from opendbc.car.interfaces import CarControllerBase
-
-from openpilot.common.params import Params
-
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
@@ -120,21 +117,6 @@ class CarController(CarControllerBase):
     self.last_torque = 0.0
 
   def update(self, CC, CS, now_nanos):
-
-    if self.frame % 50 == 0:
-      params = Params()
-      steerMax = params.get_int("CustomSteerMax")
-      steerDeltaUp = params.get_int("CustomSteerDeltaUp")
-      steerDeltaDown = params.get_int("CustomSteerDeltaDown")
-      if steerMax > 0:
-        self.params.STEER_MAX = steerMax
-        self.params.STEER_LOOKUP_BP = [0, steerMax]
-        self.params.STEER_LOOKUP_V = [0, steerMax]
-      if steerDeltaUp > 0:
-        self.params.STEER_DELTA_UP = steerDeltaUp
-      if steerDeltaDown > 0:
-        self.params.STEER_DELTA_DOWN = steerDeltaDown
-
     actuators = CC.actuators
     hud_control = CC.hudControl
     conversion = hondacan.get_cruise_speed_conversion(self.CP.carFingerprint, CS.is_metric)

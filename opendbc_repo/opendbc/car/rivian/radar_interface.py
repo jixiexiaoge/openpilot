@@ -1,6 +1,6 @@
 import math
 
-from opendbc.can import CANParser
+from opendbc.can.parser import CANParser
 from opendbc.car import Bus, structs
 from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.rivian.values import DBC
@@ -27,7 +27,7 @@ class RadarInterface(RadarInterfaceBase):
     if self.radar_off_can or (self.rcp is None):
       return super().update(None)
 
-    vls = self.rcp.update(can_strings)
+    vls = self.rcp.update_strings(can_strings)
     self.updated_messages.update(vls)
 
     if self.trigger_msg not in self.updated_messages:
@@ -62,7 +62,7 @@ class RadarInterface(RadarInterfaceBase):
         self.pts[addr].yRel = 0.5 * -math.sin(azimuth) * msg['LONG_DIST']
         self.pts[addr].vRel = msg['REL_SPEED']
         self.pts[addr].aRel = float('nan')
-        self.pts[addr].yvRel = 0 #float('nan')
+        self.pts[addr].yvRel = float('nan')
 
       else:
         del self.pts[addr]
