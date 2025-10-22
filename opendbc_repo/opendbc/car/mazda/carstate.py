@@ -23,6 +23,7 @@ class CarState(CarStateBase):
 
     self.prev_distance_button = 0
     self.distance_button = 0
+    self.pcmCruiseGap = 0 # copy from Hyundai
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -60,6 +61,43 @@ class CarState(CarStateBase):
     can_gear = int(cp.vl["GEAR"]["GEAR"])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.gearStep = cp.vl["GEAR"]["GEAR_BOX"]
+    ret.engineRpm = cp.vl["ENGINE_DATA"]["RPM"] # for mazda RPM
+    can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"] # 1 - 4, 1 is closest
+    ret.pcmCruiseGap = 5 - can_distance_setting if 1 <= can_distance_setting <= 4 else can_distance_setting # get right gap value
+
+    # Read lane line status from camera CAN bus
+    lane_info = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"]
+    left_lane_info = 0
+    right_lane_info = 0
+    # Mazda LANE_LINES meanings (from DBC comment):
+    # 0 = LKAS disabled, 1 = no lines, 2 = both lines, 3 = left line only, 4 = right line only
+    if lane_info == 0:
+      left_lane_info = 0
+      right_lane_info = 0
+    elif lane_info == 1:
+      # No lane lines detected
+      left_lane_info = 0
+      right_lane_info = 0
+    elif lane_info == 2:
+      # Both left and right lane lines detected
+      # Assume color=1 (white), type=1 (solid) -> encoded as 11
+      left_lane_info = 11
+      right_lane_info = 11
+    elif lane_info == 3:
+      # Only left lane line detected
+      left_lane_info = 11
+      right_lane_info = 0
+    elif lane_info == 4:
+      # Only right lane line detected
+      left_lane_info = 0
+      right_lane_info = 11
+    else:
+      # Unknown value, default to no lines
+      left_lane_info = 0
+      right_lane_info = 0
+
+    ret.leftLaneLine = left_lane_info
+    ret.rightLaneLine = right_lane_info
 
     ret.genericToggle = bool(cp.vl["BLINK_INFO"]["HIGH_BEAMS"])
     ret.leftBlindspot = cp.vl["BSM"]["LEFT_BS_STATUS"] != 0
