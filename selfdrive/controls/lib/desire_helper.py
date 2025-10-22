@@ -163,14 +163,14 @@ class DesireHelper:
                                                                                                     modeldata.laneLines[2], modeldata.roadEdges[1])
     self.lane_exist_left_count.update(lane_prob_left)
     self.lane_exist_right_count.update(lane_prob_right)
-    
+
     self.lane_width_left_queue.append(lane_width_left)
     self.lane_width_right_queue.append(lane_width_right)
     self.lane_width_left = np.mean(self.lane_width_left_queue)
     self.lane_width_right = np.mean(self.lane_width_right_queue)
     self.lane_width_left_diff = self.lane_width_left_queue[-1] - self.lane_width_left_queue[0]
     self.lane_width_right_diff = self.lane_width_right_queue[-1] - self.lane_width_right_queue[0]
-    
+
     min_lane_width = 2.5
     self.lane_width_left_count.update(self.lane_width_left > min_lane_width)
     self.lane_width_right_count.update(self.lane_width_right > min_lane_width)
@@ -202,7 +202,7 @@ class DesireHelper:
       self.model_turn_speed = self.model_turn_speed * 0.9 + model_turn_speed * 0.1
     else:
       self.model_turn_speed = 200.0
-    
+
   def update(self, carstate, modeldata, lateral_active, lane_change_prob, carrotMan, radarState):
 
     if self.frame % 100 == 0:
@@ -258,7 +258,7 @@ class DesireHelper:
     elif atc_type in ["fork left", "fork right", "atc left", "atc right"]:
       if self.atc_active != 2:
         below_lane_change_speed = False
-        atc_blinker_state = BLINKER_LEFT if atc_type in ["fork left", "atc left"] else BLINKER_RIGHT        
+        atc_blinker_state = BLINKER_LEFT if atc_type in ["fork left", "atc left"] else BLINKER_RIGHT
         self.atc_active = 1
     else:
       self.atc_active = 0
@@ -362,7 +362,7 @@ class DesireHelper:
         #self.auto_lane_change_enable = False if lane_exist_counter > 0 else True
         self.auto_lane_change_enable = False if lane_exist_counter > 0 or lane_change_available else True
         self.next_lane_change = False
-         
+
 
       # LaneChangeState.preLaneChange
       elif self.lane_change_state == LaneChangeState.preLaneChange:
@@ -401,7 +401,7 @@ class DesireHelper:
               self.lane_change_state = LaneChangeState.laneChangeStarting
             # ATC작동인경우 차선이 나타나거나 차선이 생기면 차선변경 시작
             # lane_appeared: 차선이 생기는건 안함.. 위험.
-            elif torque_applied or auto_lane_change_trigger or lane_line_info_edge_detect:
+            elif not blindspot_detected:
               self.lane_change_state = LaneChangeState.laneChangeStarting
 
       # LaneChangeState.laneChangeStarting
