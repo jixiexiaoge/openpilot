@@ -2,7 +2,7 @@ from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, Buttons
+from opendbc.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, Buttons, CAR
 
 ButtonType = structs.CarState.ButtonEvent.Type
 BUTTONS_DICT = {Buttons.SET_PLUS: ButtonType.accelCruise, Buttons.SET_MINUS: ButtonType.decelCruise,
@@ -20,7 +20,7 @@ class CarState(CarStateBase):
     self.low_speed_alert = False
     self.lkas_allowed_speed = False
     self.lkas_disabled = False
-    
+
     self.prev_distance_button = 0
     self.distance_button = 0
 
@@ -32,7 +32,7 @@ class CarState(CarStateBase):
 
     self.prev_distance_button = self.distance_button
     self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
-    
+
     self.prev_cruise_buttons = self.cruise_buttons
 
     if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
@@ -43,7 +43,7 @@ class CarState(CarStateBase):
       self.cruise_buttons = Buttons.RESUME
     else:
       self.cruise_buttons = Buttons.NONE
-      
+
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
       cp.vl["WHEEL_SPEEDS"]["FR"],
@@ -120,7 +120,12 @@ class CarState(CarStateBase):
     # Check if LKAS is disabled due to lack of driver torque when all other states indicate
     # it should be enabled (steer lockout). Don't warn until we actually get lkas active
     # and lose it again, i.e, after initial lkas activation
-    ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked
+    #ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked 借鉴中
+    if self.CP.carFingerprint in [CAR.MAZDA_CX9_2021, CAR.MAZDA_CX5_2022]: #借鉴中
+      ret.steerFaultTemporary = False
+    else:
+      # On if no driver torque the last 5 seconds
+      ret.steerFaultTemporary = cp.vl["STEER_RATE"]["HANDS_OFF_5_SECONDS"] == 1 #借鉴中
 
     self.acc_active_last = ret.cruiseState.enabled
 
@@ -134,7 +139,7 @@ class CarState(CarStateBase):
 
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = not self.lkas_disabled
-    
+
     # TODO: add button types for inc and dec
     #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
     ret.buttonEvents = [
