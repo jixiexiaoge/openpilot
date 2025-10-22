@@ -17,40 +17,48 @@ jobs:
           fetch-depth: 0  # 完整克隆仓库
           token: ${{ secrets.GH_TOKEN }}
 
-      # 2. Add upstream repositories and fetch branches
+      # 2. Add upstream repositories and fetch branches (带容错)
       - name: Add upstream repositories and fetch branches
         run: |
+          set -e
+          echo "Fetching branches from upstream repositories..."
+
           # ajouatom carrot2-v9
           git remote add ajouatom https://github.com/ajouatom/openpilot.git
-          git fetch ajouatom carrot2-v9 --no-tags
-          
+          git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom fetch failed"
+
           # sunnypilot dev-c3-new
           git remote add sunnypilot https://github.com/sunnypilot/sunnypilot.git
-          git fetch sunnypilot dev-c3-new --no-tags
-          
+          git fetch sunnypilot dev-c3-new --no-tags || echo "⚠️ sunnypilot fetch failed"
+
           # dragonpilot pre-build
           git remote add dragonpilot https://github.com/dragonpilot-community/dragonpilot.git
-          git fetch dragonpilot pre-build --no-tags
-          
+          git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot fetch failed"
+
           # FrogPilot FrogPilot
           git remote add frogpilot https://github.com/FrogAi/FrogPilot.git
-          git fetch frogpilot FrogPilot --no-tags
+          git fetch frogpilot FrogPilot --no-tags || echo "⚠️ frogpilot fetch failed"
 
-      # 3. Push branches to your repository
+          # mr-one (GitLab) vw-meb
+          git remote add mrone https://jihulab.com/mr-one/openpilot.git
+          git fetch mrone vw-meb --no-tags || echo "⚠️ mr-one fetch failed"
+
+      # 3. Push branches to your repository（即使某些分支不存在也继续执行）
       - name: Push branches to your repository
         run: |
+          set +e
+
           # carrot2-v9
-          git checkout -B carrot2-v9 ajouatom/carrot2-v9
-          git push origin carrot2-v9 --force
+          git checkout -B carrot2-v9 ajouatom/carrot2-v9 && git push origin carrot2-v9 --force || echo "⚠️ carrot2-v9 push skipped"
 
           # sunnypilot dev-c3-new
-          git checkout -B dev-c3-new sunnypilot/dev-c3-new
-          git push origin dev-c3-new --force
+          git checkout -B dev-c3-new sunnypilot/dev-c3-new && git push origin dev-c3-new --force || echo "⚠️ dev-c3-new push skipped"
 
           # dragonpilot pre-build
-          git checkout -B dragonpilot-pre-build dragonpilot/pre-build
-          git push origin dragonpilot-pre-build --force
+          git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
 
           # frogpilot FrogPilot
-          git checkout -B frogpilot frogpilot/FrogPilot
-          git push origin frogpilot --force
+          git checkout -B frogpilot frogpilot/FrogPilot && git push origin frogpilot --force || echo "⚠️ frogpilot push skipped"
+
+          # mr-one vw-meb
+          git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
