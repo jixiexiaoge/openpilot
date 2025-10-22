@@ -1,3 +1,26 @@
+## 快速开始（C3）
+
+SSH 到 C3 后执行：
+
+```bash
+cd /data && mv openpilot openpilot.bak && git clone https://gitcode.com/jixiexiaoge/openpilot.git openpilot -b carrot2-v9 && sudo reboot
+```
+
+小提示：
+- 先备份现有 /data/openpilot 为 openpilot.bak；
+- 克隆指定仓库分支 carrot2-v9 到 /data/openpilot；
+- 重启后自动生效，无需额外操作。
+
+完成后，您可以在设备上自由切换最新版本的 Frogpilot、SunnyPilot、CarrotPilot 和 DragonPilot。
+
+
+## 温馨提示
+CarrotAmap 已停止维护（仍可正常使用）。全新应用「CP搭子」正在重构并承接 CarrotAmap 的功能。感谢一路陪伴与支持。（开发者 2025-10-22）
+
+
+![](/wechat.jpg "欢迎赞助！")
+如果您愿意支持本项目，并想加入 CarrotPilot 爱好者群，欢迎添加微信管理员：senisizui 或 cyf19800208，我们会尽快邀请您入群。感谢您的支持与关注。
+
 # 🚗 CarrotAmap - 辅助CarrotPilot的导航外挂小程序
 
 ---
@@ -22,8 +45,8 @@
 
 ### 第二步：安装 CarrotPilot 分支 https://github.com/ajouatom/openpilot
 1. 在 C3 设备进入设置 → 开发者选项 → 自定义软件
-2. 输入安装 URL：`mr-one.cn/carrot`
-3. 点击"检查更新"并安装
+2. 输入安装 URL：`mr-one.cn/dp`
+3. 用SSH切换分支
 4. 设备将自动重启完成安装
 
 ### 第三步：安装高德地图车机版
