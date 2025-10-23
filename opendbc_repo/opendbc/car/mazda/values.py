@@ -73,6 +73,8 @@ class CAR(Platforms):
   MAZDA_CX5_2022 = MazdaPlatformConfig(
     [MazdaCarDocs("Mazda CX-5 2022-25")],
     MAZDA_CX5.specs,
+    dbc_dict={Bus.pt: 'mazda_2017', Bus.radar: 'mazda_2017'},
+    flags=MazdaFlags.GEN1,
   )
 
 

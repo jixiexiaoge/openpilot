@@ -224,8 +224,8 @@ static inline void fill_rect(NVGcontext* vg, const Rect1& r, const NVGcolor* col
     if (stroke_width > 0) {
         nvgStrokeWidth(vg, stroke_width);
         if (stroke_color) nvgStrokeColor(vg, *stroke_color);
-		else nvgStrokeColor(vg, nvgRGB(0, 0, 0));   
-        nvgStroke(vg);                         
+		else nvgStrokeColor(vg, nvgRGB(0, 0, 0));
+        nvgStroke(vg);
     }
 }
 
@@ -817,7 +817,7 @@ public:
             ui_draw_line2(s, px, py, 7, &pcolor, nullptr, 3.0f);
         }
         if (isLeadDetected()) {
-            NVGcolor radar_stroke = COLOR_BLUE;            
+            NVGcolor radar_stroke = COLOR_BLUE;
             if (lead_two_status > 0) {
               radar_stroke = COLOR_OCHRE;
               int path_width2 = lead_two_xr - lead_two_xl;
@@ -1214,7 +1214,7 @@ public:
             return -1;
         }
         const auto carrot_man = sm["carrotMan"].getCarrotMan();
-          
+
         active_carrot = carrot_man.getActiveCarrot();
 
         if (active_carrot > 1) {
@@ -1238,7 +1238,7 @@ public:
           szSdiDescr = QString::fromStdString(carrot_man.getSzSdiDescr());
           szPosRoadName = QString::fromStdString(carrot_man.getSzPosRoadName());
           szTBTMainText = QString::fromStdString(carrot_man.getSzTBTMainText());
-          
+
         }
         else {
           //xTurnInfo = -1;
@@ -2028,7 +2028,7 @@ public:
               int max_z = lane_lines[2].getZ().size();
               float z_offset = 0.0;
               foreach(const QString & pair, pairs) {
-                QStringList xy = pair.split(",");  // ","로 x와 y 구분                
+                QStringList xy = pair.split(",");  // ","로 x와 y 구분
                 if (xy.size() == 3) {
                   //printf("coords = x: %.1f, y: %.1f, d:%.1f\n", xy[0].toFloat(), xy[1].toFloat(), xy[2].toFloat());
                   float x = xy[0].toFloat();
@@ -2301,7 +2301,7 @@ public:
     void drawHud(UIState* s) {
         int show_device_state = params.getInt("ShowDeviceState");
         blink_timer = (blink_timer + 1) % 16;
-        disp_timer = (disp_timer + 1) % 64; 
+        disp_timer = (disp_timer + 1) % 64;
         nvgTextAlign(s->vg, NVG_ALIGN_CENTER | NVG_ALIGN_BOTTOM);
 
         int x = 140;// 120;
@@ -2850,7 +2850,7 @@ void ui_draw(UIState *s, ModelRenderer* model_renderer, int w, int h) {
   int path_x = drawPathEnd.getPathX();
   int path_y = drawPathEnd.getPathY();
   drawDesire.draw(s, path_x, path_y - 135);
-  
+
 
   drawPlot.draw(s);
 
@@ -3004,7 +3004,29 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        sprintf(bottom_left, "%s", gitBranch.toStdString().c_str());
+        int left_lane_line = car_state.getLeftLaneLine();
+        int right_lane_line = car_state.getRightLaneLine();
+
+        // Get radar data for lead vehicle
+        auto lead_one = sm["radarState"].getRadarState().getLeadOne();
+        float lead_dist = 0.0;
+        float lead_speed = 0.0;
+        bool has_radar_lead = false;
+
+        if (lead_one.getStatus() && lead_one.getRadar()) {
+            has_radar_lead = true;
+            lead_dist = lead_one.getDRel();  // Distance in meters
+            lead_speed = lead_one.getVLead() * 3.6;  // Convert m/s to kph
+        }
+
+        if (has_radar_lead) {
+            sprintf(bottom_left, "%s  L:%d R:%d  [D:%.1fm V:%.1fkph]",
+                    gitBranch.toStdString().c_str(), left_lane_line, right_lane_line,
+                    lead_dist, lead_speed);
+        } else {
+            sprintf(bottom_left, "%s  L:%d R:%d  [No Lead]",
+                    gitBranch.toStdString().c_str(), left_lane_line, right_lane_line);
+        }
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");
