@@ -103,7 +103,7 @@
     </message>
     <message>
         <source>Tuning</source>
-        <translation>调参</translation>
+        <translation>参数</translation>
     </message>
     <message>
         <source>Disp</source>
@@ -111,7 +111,7 @@
     </message>
     <message>
         <source>Path</source>
-        <translation>轨迹</translation>
+        <translation>路径</translation>
     </message>
     <message>
         <source>SELECT YOUR CAR</source>
@@ -251,7 +251,7 @@
     </message>
     <message>
         <source>LONG: VEgoStopping(50)</source>
-        <translation>纵向：自车停止因子(50)</translation>
+        <translation type="vanished">纵向：自车停止因子(50)</translation>
     </message>
     <message>
         <source>Stopping factor</source>
@@ -271,7 +271,7 @@
     </message>
     <message>
         <source>x0.01</source>
-        <translation>x0.01</translation>
+        <translation type="vanished">x0.01</translation>
     </message>
     <message>
         <source>MaxAngleFrames(89)</source>
@@ -431,7 +431,7 @@
     </message>
     <message>
         <source>Toyota must set to 1, Honda 3</source>
-        <translation>丰田需设为1，本田设为3</translation>
+        <translation type="vanished">丰田需设为1，本田设为3</translation>
     </message>
     <message>
         <source>Sound Volume(100%)</source>
@@ -804,6 +804,22 @@
     <message>
         <source>Byd Traffic Sign Recognition</source>
         <translation>使用比亚迪限速标志识别</translation>
+    </message>
+    <message>
+        <source>Byd 0-30km/h Long Control</source>
+        <translation>开启5-30km/h低速纵向控制</translation>
+    </message>
+    <message>
+        <source>LONG: VEgoStopping(0.50)</source>
+        <translation>纵向：自车停止因子(0.50)</translation>
+    </message>
+    <message>
+        <source>Enable Always-On Lkas</source>
+        <translation>开启全时横向</translation>
+    </message>
+    <message>
+        <source>Toyota, Byd must set to 1, Honda 3</source>
+        <translation>丰田，比亚迪设置1, 本田设置3</translation>
     </message>
 </context>
 <context>

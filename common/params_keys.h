@@ -133,6 +133,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"SteerRateLimHiSpd", PERSISTENT},
     {"KeepLkasPassive", PERSISTENT},
     {"BydMpcTsr", PERSISTENT},
+    {"BydLowSpdLong", PERSISTENT},
     {"SpeedCorrect30", PERSISTENT},
     {"SpeedCorrect60", PERSISTENT},
     {"SpeedCorrect90", PERSISTENT},

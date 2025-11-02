@@ -195,6 +195,7 @@ def get_default_params():
     ("SteerRateLimLoSpd", "132"),
     ("SteerRateLimHiSpd", "64"),
     ("BydMpcTsr", "0"),
+    ("BydLowSpdLong", "1"),
     ("SpeedCorrect30", "0"),
     ("SpeedCorrect60", "0"),
     ("SpeedCorrect90", "0"),

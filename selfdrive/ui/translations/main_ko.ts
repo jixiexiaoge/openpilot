@@ -254,10 +254,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>LONG: VEgoStopping(50)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Stopping factor</source>
         <translation type="unfinished"></translation>
     </message>
@@ -271,10 +267,6 @@
     </message>
     <message>
         <source>LONG: Jerk Lead Factor (0)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>x0.01</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -463,10 +455,6 @@
     </message>
     <message>
         <source>Read Cruise Speed from PCM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Toyota must set to 1, Honda 3</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -799,6 +787,22 @@
     </message>
     <message>
         <source>Byd Traffic Sign Recognition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Byd 0-30km/h Long Control</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>LONG: VEgoStopping(0.50)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable Always-On Lkas</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toyota, Byd must set to 1, Honda 3</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

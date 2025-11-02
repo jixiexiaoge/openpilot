@@ -102,8 +102,6 @@ class CarInterface(CarInterfaceBase):
 
     ret.openpilotLongitudinalControl = candidate in EXP_LONG_CAR
 
-    ret.pcmCruise = Params().get_bool("BydModifiedStockLong")
-
     ret.longitudinalTuning.kpBP, ret.longitudinalTuning.kiBP = [[0.],  [0.]]
     ret.longitudinalTuning.kpV, ret.longitudinalTuning.kiV   = [[1.],  [0.]]
     ret.longitudinalTuning.kf = 1.0
