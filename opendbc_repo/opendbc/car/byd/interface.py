@@ -73,7 +73,6 @@ class CarInterface(CarInterfaceBase):
 
     elif candidate in PLATFORM_HAN_DMI:
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.HAN_DMI.value
-      ret.flags |= BydFlags.CANFD.value
 
     elif candidate in PLATFORM_SONG_PLUS_DMI:
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.SONG_PLUS_DMI.value
@@ -86,7 +85,6 @@ class CarInterface(CarInterfaceBase):
 
     elif candidate in PLATFORM_SEAL:
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.SEAL.value
-      ret.flags |= BydFlags.CANFD.value
 
     else: #汉dm，唐dm，宋Pro
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.HAN_TANG_DMEV.value
