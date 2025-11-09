@@ -22,7 +22,6 @@ jobs:
         run: |
           set -e
           echo "Fetching branches from upstream repositories..."
-
           # ajouatom carrot2-v9
           git remote add ajouatom https://github.com/ajouatom/openpilot.git
           git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom fetch failed"
@@ -43,22 +42,23 @@ jobs:
           git remote add mrone https://jihulab.com/mr-one/openpilot.git
           git fetch mrone vw-meb --no-tags || echo "⚠️ mr-one fetch failed"
 
+          # fishop (GitLab) escc-cpv9
+          git remote add fishop https://jihulab.com/fishop/openpilot.git
+          git fetch fishop escc-cpv9 --no-tags || echo "⚠️ fishop fetch failed"
+
       # 3. Push branches to your repository（即使某些分支不存在也继续执行）
       - name: Push branches to your repository
         run: |
           set +e
-
           # carrot2-v9
           git checkout -B carrot2-v9 ajouatom/carrot2-v9 && git push origin carrot2-v9 --force || echo "⚠️ carrot2-v9 push skipped"
-
           # sunnypilot dev-c3-new
           git checkout -B dev-c3-new sunnypilot/dev-c3-new && git push origin dev-c3-new --force || echo "⚠️ dev-c3-new push skipped"
-
           # dragonpilot pre-build
           git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
-
           # frogpilot FrogPilot
           git checkout -B frogpilot frogpilot/FrogPilot && git push origin frogpilot --force || echo "⚠️ frogpilot push skipped"
-
           # mr-one vw-meb
           git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
+          # fishop escc-cpv9
+          git checkout -B escc-cpv9 fishop/escc-cpv9 && git push origin escc-cpv9 --force || echo "⚠️ escc-cpv9 push skipped"
