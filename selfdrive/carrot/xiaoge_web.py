@@ -1,600 +1,857 @@
 #!/usr/bin/env python3
 """
-小鸽数据接收Web界面
-接收7701端口的UDP广播数据并通过Web页面实时显示
+Xiaoge哨兵模式 - Web服务器
+Flask Web服务器，提供哨兵事件查看和管理界面
 """
+import os
+import logging
+from datetime import timedelta
+from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for, session
+from functools import wraps
+from openpilot.system.hardware import PC
+from xiaoge_sentryd import SentryDB, MEDIA_DIR
 
-import json
-import socket
-import struct
-import time
-import threading
-import zlib
-from datetime import datetime
-from typing import Optional, Dict, Any
-from flask import Flask, Response, render_template_string
+# ============ 日志配置 ============
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
+# ============ Flask应用初始化 ============
 app = Flask(__name__)
+app.secret_key = 'xiaoge_sentry_secret_key_change_this_in_production'
 
-# 全局数据存储
-data_cache: Dict[str, Any] = {}
-stats = {
-    'packet_count': 0,
-    'lost_packets': 0,
-    'last_sequence': -1,
-    'last_update_time': time.time(),
-}
+# 会话配置：设置会话超时时间为24小时
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+app.config['SESSION_COOKIE_SECURE'] = False  # 在comma3设备上通常不使用HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # 防止XSS攻击
 
-# 全局接收器实例（避免重复创建）
-# 注意：这个实例会在类定义后初始化，所以先声明为None
-global_receiver = None
+# CSRF保护（可选，如果安装了flask-wtf）
+try:
+    from flask_wtf.csrf import CSRFProtect
+    csrf = CSRFProtect(app)
+    logger.info("CSRF protection enabled")
+except ImportError:
+    logger.warning("flask-wtf not installed, CSRF protection disabled")
+    csrf = None
 
-# HTML模板
-HTML_TEMPLATE = '''
+db = SentryDB()
+
+# ============ HTML模板 ============
+LOGIN_HTML = """
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Xiaoge Data Receiver</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哨兵模式登录</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            font-family: monospace;
-            margin: 10px;
-            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
         }
-        h1 { color: #333; }
-        .section {
-            background: white;
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #ddd;
+        .login-container {
+            background: rgba(42, 42, 42, 0.95);
+            padding: 40px 30px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
         }
-        .section h2 {
-            margin-top: 0;
-            color: #555;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        .data-row {
-            padding: 3px 0;
+        .logo-icon {
+            font-size: 60px;
+            margin-bottom: 10px;
         }
-        .label { font-weight: bold; }
-        .value { color: #0066cc; }
-        .status { color: #666; }
+        h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #3a3a3a;
+            border-radius: 10px;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #007bff;
+            background: #333;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 123, 255, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .error {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body>
-    <h1>Xiaoge Data Receiver - Real-time Display</h1>
-
-    <div class="section">
-        <h2>Packet Info</h2>
-        <div id="packet-info">Waiting for data...</div>
+    <div class="login-container">
+        <div class="logo">
+            <div class="logo-icon">🚨</div>
+            <h2>哨兵模式</h2>
+        </div>
+        <form method="POST">
+            <div class="input-group">
+                <input type="password" name="password" placeholder="请输入密码" required autofocus>
+            </div>
+            <button type="submit">登录</button>
+        </form>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
     </div>
+</body>
+</html>
+"""
 
-    <div class="section">
-        <h2>Statistics</h2>
-        <div id="statistics">-</div>
+INDEX_HTML = """
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>哨兵模式</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-tertiary: #3a3a3a;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --accent-color: #007bff;
+            --danger-color: #ff4444;
+            --success-color: #28a745;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            padding-bottom: 80px;
+        }
+
+        .navbar {
+            background: var(--bg-secondary) !important;
+            padding: 15px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 800px;
+            padding: 20px 15px;
+        }
+
+        .config-section {
+            background: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .config-section h5 {
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 10px 0;
+            background: var(--bg-tertiary);
+            border: 1px solid #4a4a4a;
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: #444;
+        }
+
+        .event-card {
+            background: var(--bg-secondary);
+            border-radius: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s;
+        }
+
+        .event-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .delta-badge {
+            background: var(--danger-color);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .webhook-badge {
+            background: var(--success-color);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .media-container {
+            margin: 15px 0;
+        }
+
+        .media-container img,
+        .media-container video {
+            width: 100%;
+            border-radius: 12px;
+            margin: 10px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .media-label {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        .btn-group-custom {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-custom {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #cc0000;
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            color: white;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 576px) {
+            .btn-group-custom {
+                flex-direction: column;
+            }
+
+            .btn-custom {
+                width: 100%;
+            }
+
+            .event-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand">
+                <i class="fas fa-shield-alt me-2"></i>哨兵模式
+            </span>
+            <div>
+                <button class="btn btn-sm btn-outline-light me-2" onclick="toggleConfig()">
+                    <i class="fas fa-cog"></i> 设置
+                </button>
+                <a href="/logout" class="btn btn-sm btn-outline-danger">
+                    <i class="fas fa-sign-out-alt"></i> 退出
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 配置区域 -->
+        <div id="configSection" class="config-section" style="display: none;">
+            <h5><i class="fas fa-cog me-2"></i>配置参数</h5>
+            <input type="number" id="sensitivity" class="config-input"
+                   placeholder="灵敏度阈值 (默认: 0.08)" step="0.01" min="0.01" max="1.0">
+            <input type="text" id="webhook" class="config-input"
+                   placeholder="Discord Webhook URL (可选)">
+            <input type="text" id="webserver" class="config-input"
+                   placeholder="Web服务器URL (可选)">
+
+            <label style="color: var(--text-primary); margin-top: 15px; display: block; font-weight: 600;">通知方式:</label>
+            <select id="notification_type" class="config-input" onchange="toggleNotificationConfig()">
+                <option value="api">API推送</option>
+                <option value="mail">邮件发送</option>
+            </select>
+
+            <div id="api_config">
+                <input type="text" id="push_url" class="config-input"
+                       placeholder="推送API URL (例如: https://push.showdoc.com.cn/server/api/push/xxx)">
+            </div>
+
+            <div id="mail_config" style="display: none;">
+                <input type="email" id="email_from" class="config-input"
+                       placeholder="发件邮箱 (例如: user@example.com)">
+                <input type="email" id="email_to" class="config-input"
+                       placeholder="收件邮箱 (例如: user@example.com)">
+                <input type="password" id="email_password" class="config-input"
+                       placeholder="邮箱授权码 (不是登录密码)">
+                <input type="text" id="smtp_server" class="config-input"
+                       placeholder="SMTP服务器 (留空自动检测，例如: smtp.qq.com)">
+                <input type="number" id="smtp_port" class="config-input"
+                       placeholder="SMTP端口 (留空自动检测，例如: 587)">
+                <small style="color: var(--text-secondary); font-size: 12px; display: block; margin-top: 5px;">
+                    支持常见邮箱自动检测：QQ、163、126、Gmail、Outlook等
+                </small>
+            </div>
+
+            <input type="password" id="password" class="config-input"
+                   placeholder="修改密码 (留空则不修改)">
+            <button class="btn btn-primary w-100" onclick="saveConfig()">
+                <i class="fas fa-save me-2"></i>保存配置
+            </button>
+        </div>
+
+        <!-- 事件列表 -->
+        <div id="eventsList">
+            {% if events %}
+                {% for event in events %}
+                <div class="event-card" id="event-{{ event.id }}">
+                    <div class="event-header">
+                        <div>
+                            <span class="delta-badge">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                加速度: {{ "%.3f"|format(event.delta_accel) }}
+                            </span>
+                            {% if event.webhook_sent %}
+                            <span class="webhook-badge">
+                                <i class="fas fa-check"></i> 已通知
+                            </span>
+                            {% endif %}
+                        </div>
+                        <span class="timestamp">
+                            <i class="far fa-clock me-1"></i>{{ event.timestamp }}
+                        </span>
+                    </div>
+
+                    <div class="media-container">
+                        {% if event.image_path %}
+                        <img src="/media/{{ event.image_path.split('/')[-1] }}"
+                             alt="360度全景图" loading="lazy">
+                        {% endif %}
+
+                        {% if event.front_image_path and event.back_image_path %}
+                        <div class="media-grid">
+                            <div>
+                                <img src="/media/{{ event.front_image_path.split('/')[-1] }}"
+                                     alt="前摄像头" loading="lazy">
+                                <div class="media-label">前摄像头</div>
+                            </div>
+                            <div>
+                                <img src="/media/{{ event.back_image_path.split('/')[-1] }}"
+                                     alt="后摄像头" loading="lazy">
+                                <div class="media-label">后摄像头</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if event.video_path %}
+                        <video controls preload="metadata">
+                            <source src="/media/{{ event.video_path.split('/')[-1] }}" type="video/mp4">
+                            您的浏览器不支持视频播放
+                        </video>
+                        {% endif %}
+                    </div>
+
+                    <div class="btn-group-custom">
+                        {% if event.image_path %}
+                        <a href="/media/{{ event.image_path.split('/')[-1] }}" download
+                           class="btn-custom btn-primary">
+                            <i class="fas fa-download"></i> 下载图片
+                        </a>
+                        {% endif %}
+                        {% if event.video_path %}
+                        <a href="/media/{{ event.video_path.split('/')[-1] }}" download
+                           class="btn-custom btn-info">
+                            <i class="fas fa-video"></i> 下载视频
+                        </a>
+                        {% endif %}
+                        <button class="btn-custom btn-danger" onclick="deleteEvent({{ event.id }})">
+                            <i class="fas fa-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h4>暂无哨兵事件</h4>
+                    <p>当检测到车辆震动时，事件将显示在这里</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
-
-    <div class="section">
-        <h2>Vehicle State</h2>
-        <div id="car-state">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Lead Vehicles (Fused)</h2>
-        <div id="lead-vehicles">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Lane Information</h2>
-        <div id="lane-info">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Meta Information</h2>
-        <div id="meta-info">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Curvature Information</h2>
-        <div id="curvature">-</div>
-    </div>
-
-    <div class="section">
-        <h2>System State</h2>
-        <div id="system-state">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Longitudinal Plan</h2>
-        <div id="longitudinal-plan">-</div>
-    </div>
-
-    <div class="section">
-        <h2>Carrot Navigation & Speed Limit</h2>
-        <div id="carrot-man">-</div>
-    </div>
-
-    <!-- 盲区数据已包含在Vehicle State中，无需单独显示 -->
 
     <script>
-        const eventSource = new EventSource('/stream');
-
-        eventSource.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            updateDisplay(data);
-        };
-
-        eventSource.onerror = function(event) {
-            console.error('SSE error:', event);
-        };
-
-        function updateDisplay(data) {
-            // Packet Info
-            const packetInfo = data.packet_info || {};
-            document.getElementById('packet-info').innerHTML =
-                `<div class="data-row"><span class="label">Sequence:</span> <span class="value">${packetInfo.sequence || '-'}</span></div>
-                 <div class="data-row"><span class="label">Timestamp:</span> <span class="value">${packetInfo.timestamp || '-'}</span></div>
-                 <div class="data-row"><span class="label">Version:</span> <span class="value">${packetInfo.version || '-'}</span></div>`;
-
-            // Statistics
-            const stats = data.statistics || {};
-            document.getElementById('statistics').innerHTML =
-                `<div class="data-row"><span class="label">Packets Received:</span> <span class="value">${stats.packet_count || 0}</span></div>
-                 <div class="data-row"><span class="label">Lost Packets:</span> <span class="value">${stats.lost_packets || 0}</span></div>
-                 <div class="data-row"><span class="label">Loss Rate:</span> <span class="value">${(stats.loss_rate || 0).toFixed(1)}%</span></div>
-                 <div class="data-row"><span class="label">Receive Rate:</span> <span class="value">${(stats.receive_rate || 0).toFixed(1)} Hz</span></div>`;
-
-            // Vehicle State
-            const carState = data.car_state || {};
-            document.getElementById('car-state').innerHTML = formatObject(carState);
-
-            // Lead Vehicles (merged from ModelV2 and RadarState)
-            const leadVehicles = data.lead_vehicles || {};
-            document.getElementById('lead-vehicles').innerHTML = formatObject(leadVehicles);
-
-            // Lane Info (merged with lane line types)
-            const laneInfo = data.lane_info || {};
-            document.getElementById('lane-info').innerHTML = formatObject(laneInfo);
-
-            // Meta Info
-            const metaInfo = data.meta_info || {};
-            document.getElementById('meta-info').innerHTML = formatObject(metaInfo);
-
-            // Curvature
-            const curvature = data.curvature || {};
-            document.getElementById('curvature').innerHTML = formatObject(curvature);
-
-            // System State
-            const systemState = data.system_state || {};
-            document.getElementById('system-state').innerHTML = formatObject(systemState);
-
-            // Longitudinal Plan
-            const longPlan = data.longitudinal_plan || {};
-            document.getElementById('longitudinal-plan').innerHTML = formatObject(longPlan);
-
-            // Carrot Man
-            const carrotMan = data.carrot_man || {};
-            document.getElementById('carrot-man').innerHTML = formatObject(carrotMan);
-
-            // 盲区数据已包含在car_state中，无需单独显示
-        }
-
-        function formatObject(obj, indent = 0) {
-            if (obj === null || obj === undefined) return '-';
-            if (typeof obj !== 'object') return String(obj);
-
-            let html = '';
-            for (const [key, value] of Object.entries(obj)) {
-                if (value === null || value === undefined) continue;
-                const indentStyle = 'padding-left: ' + (indent * 20) + 'px';
-                if (typeof value === 'object' && !Array.isArray(value)) {
-                    html += `<div class="data-row" style="${indentStyle}"><span class="label">${key}:</span></div>`;
-                    html += formatObject(value, indent + 1);
-                } else {
-                    const displayValue = Array.isArray(value) ? `[${value.length} items]` : value;
-                    html += `<div class="data-row" style="${indentStyle}"><span class="label">${key}:</span> <span class="value">${displayValue}</span></div>`;
-                }
+        function toggleConfig() {
+            const section = document.getElementById('configSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            if (section.style.display === 'block') {
+                loadConfig();
             }
-            return html || '-';
         }
+
+        function toggleNotificationConfig() {
+            const notificationType = document.getElementById('notification_type').value;
+            const apiConfig = document.getElementById('api_config');
+            const mailConfig = document.getElementById('mail_config');
+
+            if (notificationType === 'mail') {
+                apiConfig.style.display = 'none';
+                mailConfig.style.display = 'block';
+            } else {
+                apiConfig.style.display = 'block';
+                mailConfig.style.display = 'none';
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                document.getElementById('sensitivity').value = config.sensitivity_threshold || 0.08;
+                document.getElementById('webhook').value = config.webhook_url || '';
+                document.getElementById('webserver').value = config.webserver_url || '';
+                document.getElementById('notification_type').value = config.notification_type || 'api';
+                document.getElementById('push_url').value = config.push_url || '';
+                document.getElementById('email_from').value = config.email_from || '';
+                document.getElementById('email_to').value = config.email_to || '';
+                // 安全：不回显密码，用户需要重新输入
+                document.getElementById('email_password').value = '';
+                document.getElementById('smtp_server').value = config.smtp_server || '';
+                document.getElementById('smtp_port').value = config.smtp_port || '';
+                toggleNotificationConfig();
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            }
+        }
+
+        async function saveConfig() {
+            // 输入验证
+            const sensitivity = parseFloat(document.getElementById('sensitivity').value);
+            if (isNaN(sensitivity) || sensitivity < 0.01 || sensitivity > 1.0) {
+                alert('❌ 灵敏度阈值必须在0.01-1.0之间');
+                return;
+            }
+
+            const data = {
+                sensitivity_threshold: sensitivity,
+                webhook_url: document.getElementById('webhook').value,
+                webserver_url: document.getElementById('webserver').value,
+                notification_type: document.getElementById('notification_type').value
+            };
+
+            // 根据通知类型添加相应配置，并清理不需要的配置
+            if (data.notification_type === 'mail') {
+                // 邮件模式：设置邮件配置
+                data.email_from = document.getElementById('email_from').value.trim();
+                data.email_to = document.getElementById('email_to').value.trim();
+                const emailPassword = document.getElementById('email_password').value;
+                if (emailPassword) {
+                    data.email_password = emailPassword;
+                }
+
+                const smtpServer = document.getElementById('smtp_server').value.trim();
+                const smtpPortStr = document.getElementById('smtp_port').value.trim();
+                if (smtpServer) {
+                    data.smtp_server = smtpServer;
+                }
+                if (smtpPortStr) {
+                    const smtpPort = parseInt(smtpPortStr);
+                    if (isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+                        alert('❌ SMTP端口必须在1-65535之间');
+                        return;
+                    }
+                    data.smtp_port = smtpPort;
+                }
+
+                // 清理API配置（设置为空字符串，后端会清空）
+                data.push_url = '';
+            } else {
+                // API模式：设置API配置
+                data.push_url = document.getElementById('push_url').value.trim();
+
+                // 清理邮件配置（设置为空字符串，后端会清空）
+                data.email_from = '';
+                data.email_to = '';
+                data.email_password = '';
+                data.smtp_server = '';
+                data.smtp_port = '';
+            }
+
+            const password = document.getElementById('password').value;
+            if (password) {
+                data.web_password = password;
+            }
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert('✅ 配置已保存!');
+                    document.getElementById('password').value = '';
+                    document.getElementById('email_password').value = '';
+                    toggleConfig();
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    alert(`❌ 保存失败: ${errorData.message || '请重试'}`);
+                }
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                alert('❌ 网络错误，请检查连接');
+            }
+        }
+
+        async function deleteEvent(eventId) {
+            if (!confirm('确定要删除这个事件吗?\\n相关的图片和视频也会被删除。')) return;
+
+            try {
+                const response = await fetch(`/api/delete/${eventId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    const element = document.getElementById(`event-${eventId}`);
+                    element.style.transition = 'opacity 0.3s';
+                    element.style.opacity = '0';
+                    setTimeout(() => element.remove(), 300);
+                } else {
+                    alert('❌ 删除失败，请重试');
+                }
+            } catch (error) {
+                console.error('删除事件失败:', error);
+                alert('❌ 网络错误，请检查连接');
+            }
+        }
+
+        // 自动刷新事件列表
+        let autoRefreshInterval = null;
+
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/events');
+                    const events = await response.json();
+
+                    // 检查是否有新事件
+                    const currentCount = document.querySelectorAll('.event-card').length;
+                    if (events.length > currentCount) {
+                        location.reload(); // 有新事件时刷新页面
+                    }
+                } catch (error) {
+                    console.error('自动刷新失败:', error);
+                }
+            }, 30000); // 每30秒检查一次
+        }
+
+        // 页面加载时启动自动刷新
+        window.addEventListener('load', startAutoRefresh);
+
+        // 页面卸载时停止自动刷新
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        });
     </script>
 </body>
 </html>
-'''
+"""
 
+# ============ 路由装饰器 ============
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
-# 初始化全局接收器实例
-def init_global_receiver():
-    """初始化全局接收器实例"""
-    global global_receiver
-    if global_receiver is None:
-        global_receiver = XiaogeDataReceiver()
+# ============ 路由定义 ============
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        config = db.get_config()
+        if password == config.get('web_password', '8899'):
+            session['logged_in'] = True
+            session.permanent = True  # 启用永久会话
+            logger.info(f"User logged in from {request.remote_addr}")
+            return redirect(url_for('index'))
+        logger.warning(f"Failed login attempt from {request.remote_addr}")
+        return render_template_string(LOGIN_HTML, error='密码错误')
+    return render_template_string(LOGIN_HTML)
 
+@app.route('/logout')
+def logout():
+    if 'logged_in' in session:
+        logger.info(f"User logged out from {request.remote_addr}")
+    session.pop('logged_in', None)
+    session.permanent = False
+    return redirect(url_for('login'))
 
-class XiaogeDataReceiver:
-    def __init__(self, udp_port=7701):
-        self.udp_port = udp_port
-        self.udp_socket = None
-        self.running = False
-
-    def setup_socket(self):
-        """设置UDP接收socket"""
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.udp_socket.bind(('0.0.0.0', self.udp_port))
-        self.udp_socket.settimeout(0.1)
-        print(f"Listening on UDP port {self.udp_port}...")
-
-    def parse_packet(self, packet: bytes) -> Optional[Dict[str, Any]]:
-        """解析数据包"""
-        try:
-            if len(packet) < 8:
-                return None
-
-            checksum, data_len = struct.unpack('!II', packet[:8])
-            if len(packet) < 8 + data_len:
-                return None
-
-            data_bytes = packet[8:8+data_len]
-            calculated_checksum = zlib.crc32(data_bytes) & 0xffffffff
-            if calculated_checksum != checksum:
-                return None
-
-            data = json.loads(data_bytes.decode('utf-8'))
-            return data
-        except Exception:
-            return None
-
-    def format_data_for_web(self, packet_data: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化数据用于Web显示"""
-        data = packet_data.get('data', packet_data)
-
-        # 计算统计信息
-        current_time = time.time()
-        elapsed = current_time - stats['last_update_time'] if stats['last_update_time'] > 0 else 0
-        rate = stats['packet_count'] / elapsed if elapsed > 0 else 0
-
-        result = {
-            'packet_info': {
-                'sequence': packet_data.get('sequence', -1),
-                'timestamp': datetime.fromtimestamp(packet_data.get('timestamp', 0)).strftime('%H:%M:%S.%f')[:-3] if packet_data.get('timestamp', 0) > 0 else 'N/A',
-                'version': packet_data.get('version', 'N/A'),
-            },
-            'statistics': {
-                'packet_count': stats['packet_count'],
-                'lost_packets': stats['lost_packets'],
-                'loss_rate': (stats['lost_packets'] / max(stats['packet_count'], 1)) * 100,
-                'receive_rate': rate,
-            },
-            'car_state': self.format_car_state(data.get('carState', {})),
-            'lead_vehicles': self.format_lead_vehicles(
-                data.get('modelV2', {}),
-                data.get('radarState', {})
-            ),
-            'lane_info': self.format_lane_info(
-                data.get('modelV2', {}),
-                data.get('carState', {})
-            ),
-            'meta_info': self.format_meta_info(data.get('modelV2', {}).get('meta', {})),
-            'curvature': self.format_curvature(data.get('modelV2', {}).get('curvature', {})),
-            'system_state': self.format_system_state(data.get('systemState', {})),
-            'longitudinal_plan': self.format_longitudinal_plan(data.get('longitudinalPlan', {})),
-            'carrot_man': self.format_carrot_man(data.get('carrotMan', {})),
-            # 盲区数据已包含在car_state中，无需单独显示
-        }
-        return result
-
-    def format_car_state(self, carState: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化本车状态"""
-        if not carState:
-            return {}
-        return {
-            'Speed (vEgo)': f"{(carState.get('vEgo', 0) * 3.6):.1f} km/h",
-            'Acceleration': f"{carState.get('aEgo', 0):.2f} m/s²",
-            'Steering Angle': f"{carState.get('steeringAngleDeg', 0):.1f}°",
-            'Left Blinker': 'ON' if carState.get('leftBlinker') else 'OFF',
-            'Right Blinker': 'ON' if carState.get('rightBlinker') else 'OFF',
-            'Brake': 'PRESSED' if carState.get('brakePressed') else 'Released',
-            'Standstill': 'YES' if carState.get('standstill') else 'NO',
-            'Left Lane Distance': f"{carState.get('leftLatDist', 0):.2f} m",
-            'Right Lane Distance': f"{carState.get('rightLatDist', 0):.2f} m",
-            'Left Blindspot': 'YES' if carState.get('leftBlindspot') else 'NO',  # 左盲区
-            'Right Blindspot': 'YES' if carState.get('rightBlindspot') else 'NO',  # 右盲区
-            # 移除 Cruise Speed - 使用 Longitudinal Plan 中的 Cruise Target 代替
-            # 移除 Lane Line Type - 合并到 Lane Information 中显示
-        }
-
-    def format_lead_vehicles(self, modelV2: Dict[str, Any], radarState: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化前车信息（合并 ModelV2 和 RadarState，避免重复）"""
-        result = {}
-
-        # 主前车（融合后的最终结果，优先显示 RadarState）
-        if 'leadOne' in radarState:
-            lead = radarState['leadOne']
-            if lead.get('status'):
-                lead_info = {
-                    'Distance': f"{lead.get('dRel', 0):.1f} m",
-                    'Relative Speed': f"{(lead.get('vRel', 0) * 3.6):.1f} km/h",
-                    'Lead Speed': f"{(lead.get('vLead', 0) * 3.6):.1f} km/h",
-                }
-                # 添加 ModelV2 的加速度和置信度（作为补充信息）
-                if 'lead0' in modelV2:
-                    lead0 = modelV2['lead0']
-                    if lead0.get('prob', 0) >= 0.1:
-                        lead_info['Acceleration'] = f"{lead0.get('a', 0):.2f} m/s²"
-                        lead_info['Vision Confidence'] = f"{(lead0.get('prob', 0) * 100):.1f}%"
-                result['Lead One (Front)'] = lead_info
-
-        # 第二前车
-        if 'leadTwo' in radarState:
-            lead = radarState['leadTwo']
-            if lead.get('status'):
-                lead_info = {
-                    'Distance': f"{lead.get('dRel', 0):.1f} m",
-                }
-                # 添加 ModelV2 的速度和置信度（作为补充信息）
-                if 'lead1' in modelV2:
-                    lead1 = modelV2['lead1']
-                    if lead1.get('prob', 0) >= 0.1:
-                        lead_info['Speed'] = f"{(lead1.get('v', 0) * 3.6):.1f} km/h"
-                        lead_info['Vision Confidence'] = f"{(lead1.get('prob', 0) * 100):.1f}%"
-                result['Lead Two (Second Front)'] = lead_info
-
-        # 左侧车道前车
-        if 'leadLeft' in radarState:
-            lead = radarState['leadLeft']
-            if lead.get('status'):
-                result['Lead Left'] = {
-                    'Distance': f"{lead.get('dRel', 0):.1f} m",
-                    'Relative Speed': f"{(lead.get('vRel', 0) * 3.6):.1f} km/h",
-                }
-
-        # 右侧车道前车
-        if 'leadRight' in radarState:
-            lead = radarState['leadRight']
-            if lead.get('status'):
-                result['Lead Right'] = {
-                    'Distance': f"{lead.get('dRel', 0):.1f} m",
-                    'Relative Speed': f"{(lead.get('vRel', 0) * 3.6):.1f} km/h",
-                }
-
-        return result
-
-    def format_lane_info(self, modelV2: Dict[str, Any], carState: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化车道线信息（合并车道线类型和置信度）"""
-        result = {}
-        probs = modelV2.get('laneLineProbs', [0, 0])
-
-        # 车道线类型映射
-        lane_line_types = {
-            0: "DASHED",  # 虚线
-            1: "SOLID",   # 实线
-            2: "UNKNOWN",
-        }
-
-        left_type = carState.get('leftLaneLine', -1)
-        right_type = carState.get('rightLaneLine', -1)
-
-        # 合并显示车道线类型和置信度
-        result['Left Lane'] = {
-            'Type': lane_line_types.get(left_type, f'UNKNOWN({left_type})'),
-            'Confidence': f"{(probs[0] * 100):.1f}%" if len(probs) > 0 else "0%",
-        }
-        result['Right Lane'] = {
-            'Type': lane_line_types.get(right_type, f'UNKNOWN({right_type})'),
-            'Confidence': f"{(probs[1] * 100):.1f}%" if len(probs) > 1 else "0%",
-        }
-
-        # 移除以下字段（已优化移除）:
-        # - laneLineLeft/Right 坐标数组
-        # - velocity (模型速度估计)
-        # - position (路径规划轨迹)
-        # - roadEdges (路边线)
-
-        return result
-
-    def format_meta_info(self, meta: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化元数据（包含车道宽度和到路边缘距离）"""
-        if not meta:
-            return {}
-
-        lane_change_states = {0: "OFF", 1: "PRE", 2: "STARTING", 3: "FINISHING"}
-        lane_change_directions = {0: "NONE", 1: "LEFT", 2: "RIGHT"}
-
-        return {
-            'Lane Width Left': f"{meta.get('laneWidthLeft', 0):.2f} m",
-            'Lane Width Right': f"{meta.get('laneWidthRight', 0):.2f} m",
-            'Distance to Road Edge Left': f"{meta.get('distanceToRoadEdgeLeft', 0):.2f} m",
-            'Distance to Road Edge Right': f"{meta.get('distanceToRoadEdgeRight', 0):.2f} m",
-            'Lane Change State': lane_change_states.get(meta.get('laneChangeState', 0), "UNKNOWN"),
-            'Lane Change Direction': lane_change_directions.get(meta.get('laneChangeDirection', 0), "UNKNOWN"),
-        }
-
-    def format_curvature(self, curvature: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化曲率信息"""
-        if not curvature:
-            return {}
-
-        direction_map = {-1: "RIGHT", 0: "STRAIGHT", 1: "LEFT"}
-        direction = direction_map.get(curvature.get('direction', 0), "UNKNOWN")
-        max_rate = curvature.get('maxOrientationRate', 0.0)
-
-        return {
-            'Max Orientation Rate': f"{max_rate:.4f} rad/s",
-            'Direction': direction,
-            'Curvature Level': self._get_curvature_level(abs(max_rate)),
-        }
-
-    def _get_curvature_level(self, abs_rate: float) -> str:
-        """根据方向变化率判断弯道程度
-
-        Args:
-            abs_rate: 方向变化率的绝对值 (rad/s)
-
-        Returns:
-            弯道程度描述: STRAIGHT, GENTLE_CURVE, MODERATE_CURVE, SHARP_CURVE
-        """
-        if abs_rate < 0.02:  # 优化：阈值从0.01提高到0.02，更准确地判断直路
-            return "STRAIGHT"
-        elif abs_rate < 0.05:
-            return "GENTLE_CURVE"
-        elif abs_rate < 0.1:
-            return "MODERATE_CURVE"
-        else:
-            return "SHARP_CURVE"
-
-    def format_system_state(self, systemState: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化系统状态"""
-        if not systemState:
-            return {}
-
-        long_control_states = {0: "OFF", 1: "PID", 2: "STOPPING", 3: "STARTING"}
-        long_control_state = systemState.get('longControlState', 0)
-
-        return {
-            'System Enabled': 'YES' if systemState.get('enabled') else 'NO',
-            'System Active': 'YES' if systemState.get('active') else 'NO',
-            'Long Control State': long_control_states.get(long_control_state, f'UNKNOWN({long_control_state})'),
-        }
-
-    def format_longitudinal_plan(self, lp: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化纵向规划"""
-        if not lp:
-            return {}
-
-        x_states = {0: "OFF", 1: "CRUISE", 2: "FOLLOWING", 3: "STOPPING"}
-        traffic_states = {0: "NONE", 1: "SLOWING", 2: "STOPPED"}
-
-        x_state_val = lp.get('xState', 0)
-        traffic_state_val = lp.get('trafficState', 0)
-
-        return {
-            'X State': x_states.get(x_state_val, f'UNKNOWN({x_state_val})'),
-            'Traffic State': traffic_states.get(traffic_state_val, f'UNKNOWN({traffic_state_val})'),
-            'Cruise Target': f"{(lp.get('cruiseTarget', 0) * 3.6):.1f} km/h",
-            'Has Lead': 'YES' if lp.get('hasLead', False) else 'NO',
-        }
-
-    def format_carrot_man(self, cm: Dict[str, Any]) -> Dict[str, Any]:
-        """格式化Carrot数据"""
-        if not cm:
-            return {}
-
-        speed_limit_types = {0: "NONE", 1: "STATIC", 2: "DYNAMIC"}
-        speed_limit_type_val = cm.get('xSpdType', 0)
-
-        # 道路类型映射
-        roadcate_map = {
-            0: "UNKNOWN",
-            1: "HIGHWAY",  # 高速
-            2: "EXPRESSWAY",  # 快速路
-            3: "CITY",  # 城市道路
-        }
-        roadcate_val = cm.get('roadcate', 0)
-        roadcate_str = roadcate_map.get(roadcate_val, f'UNKNOWN({roadcate_val})')
-
-        return {
-            'Road Limit Speed': f"{cm.get('nRoadLimitSpeed', 0)} km/h",
-            'Desired Speed': f"{cm.get('desiredSpeed', 0)} km/h",
-            'Speed Limit Distance': f"{cm.get('xSpdDist', 0)} m",
-            'Speed Limit': f"{cm.get('xSpdLimit', 0)} km/h",
-            'Speed Limit Type': speed_limit_types.get(speed_limit_type_val, f'UNKNOWN({speed_limit_type_val})'),
-            'Road Category': roadcate_str,  # 添加道路类型显示
-        }
-
-    # 移除 format_blindspot() - 盲区数据已包含在car_state中
-
-    def udp_listener_thread(self):
-        """UDP监听线程"""
-        self.setup_socket()
-        self.running = True
-
-        while self.running:
-            try:
-                packet, addr = self.udp_socket.recvfrom(4096)
-                packet_data = self.parse_packet(packet)
-
-                if packet_data is None:
-                    continue
-
-                # 更新统计信息
-                stats['packet_count'] += 1
-                sequence = packet_data.get('sequence', -1)
-
-                if stats['last_sequence'] >= 0:
-                    lost = sequence - stats['last_sequence'] - 1
-                    if lost > 0:
-                        stats['lost_packets'] += lost
-
-                stats['last_sequence'] = sequence
-                stats['last_update_time'] = time.time()
-
-                # 更新数据缓存
-                global data_cache
-                data_cache = packet_data
-
-            except socket.timeout:
-                continue
-            except Exception as e:
-                print(f"UDP listener error: {e}")
-                time.sleep(0.1)
-
-        if self.udp_socket:
-            self.udp_socket.close()
-
-
-# Flask路由
 @app.route('/')
+@login_required
 def index():
-    """主页"""
-    return render_template_string(HTML_TEMPLATE)
+    events = db.get_events(limit=50)
+    return render_template_string(INDEX_HTML, events=events)
 
+@app.route('/api/events')
+@login_required
+def get_events():
+    events = db.get_events(limit=100)
+    return jsonify(events)
 
-@app.route('/stream')
-def stream():
-    """SSE流"""
-    def generate():
-        last_data = None
-        global global_receiver
-        while True:
-            global data_cache
-            if data_cache and data_cache != last_data:
-                # 使用全局接收器实例，避免重复创建
-                formatted_data = global_receiver.format_data_for_web(data_cache)
-                yield f"data: {json.dumps(formatted_data)}\n\n"
-                last_data = data_cache
-            time.sleep(0.05)  # 20Hz更新频率
+@app.route('/api/config', methods=['GET', 'POST'])
+@login_required
+def config():
+    if request.method == 'POST':
+        data = request.json
 
-    return Response(generate(), mimetype='text/event-stream')
+        # 输入验证
+        if 'sensitivity_threshold' in data:
+            threshold = data['sensitivity_threshold']
+            if not isinstance(threshold, (int, float)) or threshold < 0.01 or threshold > 1.0:
+                logger.warning(f"Invalid sensitivity_threshold: {threshold} from {request.remote_addr}")
+                return jsonify({'status': 'error', 'message': '灵敏度阈值必须在0.01-1.0之间'}), 400
 
+        if 'smtp_port' in data and data['smtp_port'] is not None:
+            port = data['smtp_port']
+            if not isinstance(port, int) or port < 1 or port > 65535:
+                logger.warning(f"Invalid smtp_port: {port} from {request.remote_addr}")
+                return jsonify({'status': 'error', 'message': 'SMTP端口必须在1-65535之间'}), 400
 
+        # 处理空字符串：如果配置项为空字符串，设置为None以清空数据库中的值
+        cleaned_data = {}
+        for k, v in data.items():
+            if v == '':
+                cleaned_data[k] = None  # 清空配置
+            elif v is not None:
+                cleaned_data[k] = v
+
+        db.update_config(**cleaned_data)
+        logger.info(f"Config updated from {request.remote_addr}")
+        return jsonify({'status': 'success'})
+
+    # GET请求时不返回敏感信息
+    config = db.get_config()
+    # 移除密码字段，保护敏感信息
+    config.pop('email_password', None)
+    return jsonify(config)
+
+@app.route('/media/<path:filename>')
+@login_required
+def serve_media(filename):
+    """提供媒体文件服务，带安全检查"""
+    # 安全检查：防止路径遍历攻击
+    filename = os.path.basename(filename)
+    file_path = os.path.join(MEDIA_DIR, filename)
+
+    # 确保文件在MEDIA_DIR目录内
+    if not os.path.abspath(file_path).startswith(os.path.abspath(MEDIA_DIR)):
+        return jsonify({'status': 'error', 'message': 'Invalid file path'}), 403
+
+    if not os.path.exists(file_path):
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
+
+    try:
+        return send_file(file_path)
+    except Exception as e:
+        logger.error(f"Error serving media file {filename} from {request.remote_addr}: {e}")
+        return jsonify({'status': 'error', 'message': 'Failed to serve file'}), 500
+
+@app.route('/api/delete/<int:event_id>', methods=['DELETE'])
+@login_required
+def delete_event(event_id):
+    events = db.get_events()
+    event = next((e for e in events if e['id'] == event_id), None)
+
+    if event:
+        # 删除关联的媒体文件
+        deleted_files = []
+        for path_key in ['image_path', 'video_path', 'front_image_path', 'back_image_path']:
+            path = event.get(path_key)
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                    deleted_files.append(path)
+                except Exception as e:
+                    logger.error(f"Error deleting {path}: {e}")
+
+        db.delete_event(event_id)
+        logger.info(f"Event {event_id} deleted from {request.remote_addr}, files: {deleted_files}")
+        return jsonify({'status': 'success'})
+
+    logger.warning(f"Event {event_id} not found, requested from {request.remote_addr}")
+    return jsonify({'status': 'error', 'message': 'Event not found'}), 404
+
+# ============ 主程序入口 ============
 def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Xiaoge Data Receiver Web Tool')
-    parser.add_argument('--udp-port', type=int, default=7701, help='UDP port to listen on (default: 7701)')
-    parser.add_argument('--web-port', type=int, default=8080, help='Web server port (default: 8080)')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='Web server host (default: 0.0.0.0)')
-    args = parser.parse_args()
-
-    # 初始化全局接收器实例
-    init_global_receiver()
-
-    # 启动UDP监听线程（使用全局接收器实例）
-    global global_receiver
-    global_receiver.udp_port = args.udp_port
-    udp_thread = threading.Thread(target=global_receiver.udp_listener_thread, daemon=True)
-    udp_thread.start()
-
-    print(f"Web server starting on http://{args.host}:{args.web_port}")
-    print(f"UDP listener started on port {args.udp_port}")
-    print("Press Ctrl+C to exit")
-
-    # 启动Flask服务器
-    app.run(host=args.host, port=args.web_port, threaded=True, debug=False)
-
+    """启动Web服务器"""
+    logger.info("Starting Xiaoge Sentry Web Server on port 8899...")
+    logger.info(f"Session timeout: {app.config['PERMANENT_SESSION_LIFETIME']}")
+    logger.info(f"CSRF protection: {'enabled' if csrf else 'disabled'}")
+    # 在comma3设备上使用threaded模式，避免阻塞主进程
+    # PC环境可以使用debug模式，设备环境禁用
+    app.run(host='0.0.0.0', port=8899, debug=False, threaded=True, use_reloader=False)
 
 if __name__ == "__main__":
     main()
+
