@@ -9,7 +9,7 @@ from datetime import timedelta
 from flask import Flask, render_template_string, request, jsonify, send_file, redirect, url_for, session
 from functools import wraps
 from openpilot.system.hardware import PC
-from xiaoge_sentryd import SentryDB, MEDIA_DIR
+from selfdrive.carrot.xiaoge_sentryd import SentryDB, MEDIA_DIR
 
 # ============ 日志配置 ============
 logging.basicConfig(
@@ -416,37 +416,41 @@ INDEX_HTML = """
             <h5><i class="fas fa-cog me-2"></i>配置参数</h5>
             <input type="number" id="sensitivity" class="config-input"
                    placeholder="灵敏度阈值 (默认: 0.08)" step="0.01" min="0.01" max="1.0">
-            <input type="text" id="webhook" class="config-input"
-                   placeholder="Discord Webhook URL (可选)">
             <input type="text" id="webserver" class="config-input"
                    placeholder="Web服务器URL (可选)">
 
-            <label style="color: var(--text-primary); margin-top: 15px; display: block; font-weight: 600;">通知方式:</label>
-            <select id="notification_type" class="config-input" onchange="toggleNotificationConfig()">
-                <option value="api">API推送</option>
-                <option value="mail">邮件发送</option>
-            </select>
+            <!-- 邮件配置（必须） -->
+            <h5 style="color: var(--text-primary); margin-top: 25px; margin-bottom: 15px; font-weight: 600;">
+                <i class="fas fa-envelope me-2"></i>邮件通知配置 <span style="color: var(--danger-color);">*必填</span>
+            </h5>
+            <input type="email" id="email_from" class="config-input" required
+                   placeholder="发件邮箱 * (推荐: QQ邮箱，例如: yourname@qq.com)">
+            <input type="email" id="email_to" class="config-input" required
+                   placeholder="收件邮箱 * (推荐: QQ邮箱，例如: yourname@qq.com)">
+            <input type="password" id="email_password" class="config-input" required
+                   placeholder="邮箱授权码 * (不是登录密码，QQ邮箱在设置->账户->开启SMTP服务后获取)">
+            <input type="text" id="smtp_server" class="config-input"
+                   placeholder="SMTP服务器 (留空自动检测，QQ邮箱: smtp.qq.com)">
+            <input type="number" id="smtp_port" class="config-input"
+                   placeholder="SMTP端口 (留空自动检测，QQ邮箱: 587)">
+            <small style="color: var(--text-secondary); font-size: 12px; display: block; margin-top: 5px; line-height: 1.6;">
+                <strong>推荐使用QQ邮箱：</strong><br>
+                1. 登录QQ邮箱网页版 (mail.qq.com)<br>
+                2. 设置 -> 账户 -> 开启SMTP服务<br>
+                3. 生成授权码（16位字符）<br>
+                4. 将授权码填入"邮箱授权码"字段<br>
+                支持自动检测：QQ、163、126、Gmail、Outlook等
+            </small>
 
-            <div id="api_config">
-                <input type="text" id="push_url" class="config-input"
-                       placeholder="推送API URL (例如: https://push.showdoc.com.cn/server/api/push/xxx)">
-            </div>
-
-            <div id="mail_config" style="display: none;">
-                <input type="email" id="email_from" class="config-input"
-                       placeholder="发件邮箱 (例如: user@example.com)">
-                <input type="email" id="email_to" class="config-input"
-                       placeholder="收件邮箱 (例如: user@example.com)">
-                <input type="password" id="email_password" class="config-input"
-                       placeholder="邮箱授权码 (不是登录密码)">
-                <input type="text" id="smtp_server" class="config-input"
-                       placeholder="SMTP服务器 (留空自动检测，例如: smtp.qq.com)">
-                <input type="number" id="smtp_port" class="config-input"
-                       placeholder="SMTP端口 (留空自动检测，例如: 587)">
-                <small style="color: var(--text-secondary); font-size: 12px; display: block; margin-top: 5px;">
-                    支持常见邮箱自动检测：QQ、163、126、Gmail、Outlook等
-                </small>
-            </div>
+            <!-- Discord Webhook配置（可选） -->
+            <h5 style="color: var(--text-primary); margin-top: 25px; margin-bottom: 15px; font-weight: 600;">
+                <i class="fab fa-discord me-2"></i>Discord Webhook配置 <span style="color: var(--text-secondary);">(可选)</span>
+            </h5>
+            <input type="text" id="webhook" class="config-input"
+                   placeholder="Discord Webhook URL (可选，例如: https://discord.com/api/webhooks/xxx)">
+            <small style="color: var(--text-secondary); font-size: 12px; display: block; margin-top: 5px;">
+                如需Discord通知，请填写Discord Webhook URL。不填写则不会发送Discord通知。
+            </small>
 
             <input type="password" id="password" class="config-input"
                    placeholder="修改密码 (留空则不修改)">
@@ -499,10 +503,15 @@ INDEX_HTML = """
                         {% endif %}
 
                         {% if event.video_path %}
+                        {% set media_file = event.video_path.split('/')[-1] %}
+                        {% if media_file.endswith('.gif') %}
+                        <img src="/media/{{ media_file }}" alt="GIF动画" style="max-width: 100%; border-radius: 12px; margin: 10px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);">
+                        {% else %}
                         <video controls preload="metadata">
-                            <source src="/media/{{ event.video_path.split('/')[-1] }}" type="video/mp4">
+                            <source src="/media/{{ media_file }}" type="video/mp4">
                             您的浏览器不支持视频播放
                         </video>
+                        {% endif %}
                         {% endif %}
                     </div>
 
@@ -514,10 +523,18 @@ INDEX_HTML = """
                         </a>
                         {% endif %}
                         {% if event.video_path %}
-                        <a href="/media/{{ event.video_path.split('/')[-1] }}" download
+                        {% set media_file = event.video_path.split('/')[-1] %}
+                        {% if media_file.endswith('.gif') %}
+                        <a href="/media/{{ media_file }}" download
+                           class="btn-custom btn-info">
+                            <i class="fas fa-file-image"></i> 下载GIF
+                        </a>
+                        {% else %}
+                        <a href="/media/{{ media_file }}" download
                            class="btn-custom btn-info">
                             <i class="fas fa-video"></i> 下载视频
                         </a>
+                        {% endif %}
                         {% endif %}
                         <button class="btn-custom btn-danger" onclick="deleteEvent({{ event.id }})">
                             <i class="fas fa-trash"></i> 删除
@@ -544,19 +561,6 @@ INDEX_HTML = """
             }
         }
 
-        function toggleNotificationConfig() {
-            const notificationType = document.getElementById('notification_type').value;
-            const apiConfig = document.getElementById('api_config');
-            const mailConfig = document.getElementById('mail_config');
-
-            if (notificationType === 'mail') {
-                apiConfig.style.display = 'none';
-                mailConfig.style.display = 'block';
-            } else {
-                apiConfig.style.display = 'block';
-                mailConfig.style.display = 'none';
-            }
-        }
 
         async function loadConfig() {
             try {
@@ -565,15 +569,12 @@ INDEX_HTML = """
                 document.getElementById('sensitivity').value = config.sensitivity_threshold || 0.08;
                 document.getElementById('webhook').value = config.webhook_url || '';
                 document.getElementById('webserver').value = config.webserver_url || '';
-                document.getElementById('notification_type').value = config.notification_type || 'api';
-                document.getElementById('push_url').value = config.push_url || '';
                 document.getElementById('email_from').value = config.email_from || '';
                 document.getElementById('email_to').value = config.email_to || '';
                 // 安全：不回显密码，用户需要重新输入
                 document.getElementById('email_password').value = '';
                 document.getElementById('smtp_server').value = config.smtp_server || '';
                 document.getElementById('smtp_port').value = config.smtp_port || '';
-                toggleNotificationConfig();
             } catch (error) {
                 console.error('加载配置失败:', error);
             }
@@ -587,51 +588,53 @@ INDEX_HTML = """
                 return;
             }
 
-            const data = {
-                sensitivity_threshold: sensitivity,
-                webhook_url: document.getElementById('webhook').value,
-                webserver_url: document.getElementById('webserver').value,
-                notification_type: document.getElementById('notification_type').value
-            };
+            // 邮件配置验证（必填）
+            const emailFrom = document.getElementById('email_from').value.trim();
+            const emailTo = document.getElementById('email_to').value.trim();
+            const emailPassword = document.getElementById('email_password').value;
 
-            // 根据通知类型添加相应配置，并清理不需要的配置
-            if (data.notification_type === 'mail') {
-                // 邮件模式：设置邮件配置
-                data.email_from = document.getElementById('email_from').value.trim();
-                data.email_to = document.getElementById('email_to').value.trim();
-                const emailPassword = document.getElementById('email_password').value;
-                if (emailPassword) {
-                    data.email_password = emailPassword;
-                }
-
-                const smtpServer = document.getElementById('smtp_server').value.trim();
-                const smtpPortStr = document.getElementById('smtp_port').value.trim();
-                if (smtpServer) {
-                    data.smtp_server = smtpServer;
-                }
-                if (smtpPortStr) {
-                    const smtpPort = parseInt(smtpPortStr);
-                    if (isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
-                        alert('❌ SMTP端口必须在1-65535之间');
-                        return;
-                    }
-                    data.smtp_port = smtpPort;
-                }
-
-                // 清理API配置（设置为空字符串，后端会清空）
-                data.push_url = '';
-            } else {
-                // API模式：设置API配置
-                data.push_url = document.getElementById('push_url').value.trim();
-
-                // 清理邮件配置（设置为空字符串，后端会清空）
-                data.email_from = '';
-                data.email_to = '';
-                data.email_password = '';
-                data.smtp_server = '';
-                data.smtp_port = '';
+            if (!emailFrom || !emailTo || !emailPassword) {
+                alert('❌ 邮件配置不完整！\n\n请填写：\n- 发件邮箱\n- 收件邮箱\n- 邮箱授权码\n\n邮件通知是必须配置的。');
+                return;
             }
 
+            // 验证邮箱格式
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailFrom)) {
+                alert('❌ 发件邮箱格式不正确');
+                return;
+            }
+            if (!emailRegex.test(emailTo)) {
+                alert('❌ 收件邮箱格式不正确');
+                return;
+            }
+
+            const data = {
+                sensitivity_threshold: sensitivity,
+                webhook_url: document.getElementById('webhook').value.trim(),  // Discord Webhook（可选）
+                webserver_url: document.getElementById('webserver').value.trim(),
+                // 邮件配置（必须）
+                email_from: emailFrom,
+                email_to: emailTo,
+                email_password: emailPassword
+            };
+
+            // SMTP服务器和端口（可选，留空自动检测）
+            const smtpServer = document.getElementById('smtp_server').value.trim();
+            const smtpPortStr = document.getElementById('smtp_port').value.trim();
+            if (smtpServer) {
+                data.smtp_server = smtpServer;
+            }
+            if (smtpPortStr) {
+                const smtpPort = parseInt(smtpPortStr);
+                if (isNaN(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+                    alert('❌ SMTP端口必须在1-65535之间');
+                    return;
+                }
+                data.smtp_port = smtpPort;
+            }
+
+            // Web密码（可选）
             const password = document.getElementById('password').value;
             if (password) {
                 data.web_password = password;
@@ -645,7 +648,7 @@ INDEX_HTML = """
                 });
 
                 if (response.ok) {
-                    alert('✅ 配置已保存!');
+                    alert('✅ 配置已保存!\n\n邮件通知已配置，Discord Webhook为可选。');
                     document.getElementById('password').value = '';
                     document.getElementById('email_password').value = '';
                     toggleConfig();
@@ -772,6 +775,35 @@ def config():
                 logger.warning(f"Invalid sensitivity_threshold: {threshold} from {request.remote_addr}")
                 return jsonify({'status': 'error', 'message': '灵敏度阈值必须在0.01-1.0之间'}), 400
 
+        # 邮件配置验证（必填）
+        if 'email_from' in data and data['email_from']:
+            email_from = data['email_from'].strip()
+            if '@' not in email_from or '.' not in email_from.split('@')[1]:
+                logger.warning(f"Invalid email_from format from {request.remote_addr}")
+                return jsonify({'status': 'error', 'message': '发件邮箱格式不正确'}), 400
+
+        if 'email_to' in data and data['email_to']:
+            email_to = data['email_to'].strip()
+            if '@' not in email_to or '.' not in email_to.split('@')[1]:
+                logger.warning(f"Invalid email_to format from {request.remote_addr}")
+                return jsonify({'status': 'error', 'message': '收件邮箱格式不正确'}), 400
+
+        # 邮件配置必须完整（如果提供了部分配置）
+        if 'email_from' in data or 'email_to' in data or 'email_password' in data:
+            email_from = data.get('email_from', '').strip() if data.get('email_from') else ''
+            email_to = data.get('email_to', '').strip() if data.get('email_to') else ''
+            email_password = data.get('email_password', '').strip() if data.get('email_password') else ''
+
+            # 检查现有配置
+            current_config = db.get_config()
+            email_from = email_from or current_config.get('email_from', '')
+            email_to = email_to or current_config.get('email_to', '')
+            email_password = email_password or current_config.get('email_password', '')
+
+            if not all([email_from, email_to, email_password]):
+                logger.warning(f"Incomplete email configuration from {request.remote_addr}")
+                return jsonify({'status': 'error', 'message': '邮件配置不完整，请填写发件邮箱、收件邮箱和授权码'}), 400
+
         if 'smtp_port' in data and data['smtp_port'] is not None:
             port = data['smtp_port']
             if not isinstance(port, int) or port < 1 or port > 65535:
@@ -779,10 +811,16 @@ def config():
                 return jsonify({'status': 'error', 'message': 'SMTP端口必须在1-65535之间'}), 400
 
         # 处理空字符串：如果配置项为空字符串，设置为None以清空数据库中的值
+        # 但邮件配置不能为空（如果提供了空值，保持现有值）
         cleaned_data = {}
         for k, v in data.items():
-            if v == '':
-                cleaned_data[k] = None  # 清空配置
+            # 邮件配置不能为空（如果提供了空值，不更新，保持现有值）
+            if k in ['email_from', 'email_to', 'email_password']:
+                if v and v.strip():
+                    cleaned_data[k] = v.strip()
+                # 如果为空字符串，不更新（保持现有值）
+            elif v == '':
+                cleaned_data[k] = None  # 清空配置（如webhook_url等可选配置）
             elif v is not None:
                 cleaned_data[k] = v
 
@@ -845,11 +883,21 @@ def delete_event(event_id):
 # ============ 主程序入口 ============
 def main():
     """启动Web服务器"""
+    # 抑制Flask开发服务器的警告信息
+    import warnings
+    warnings.filterwarnings("ignore", category=UserWarning, module="werkzeug")
+
+    # 设置werkzeug日志级别，抑制开发服务器警告
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
     logger.info("Starting Xiaoge Sentry Web Server on port 8899...")
     logger.info(f"Session timeout: {app.config['PERMANENT_SESSION_LIFETIME']}")
     logger.info(f"CSRF protection: {'enabled' if csrf else 'disabled'}")
+    logger.info("Web server is ready, listening on http://0.0.0.0:8899")
+
     # 在comma3设备上使用threaded模式，避免阻塞主进程
     # PC环境可以使用debug模式，设备环境禁用
+    # 设置use_reloader=False避免在comma3设备上出现问题
     app.run(host='0.0.0.0', port=8899, debug=False, threaded=True, use_reloader=False)
 
 if __name__ == "__main__":

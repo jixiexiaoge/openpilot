@@ -100,7 +100,8 @@ procs = [
   #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], only_onroad),
   #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], always_run),
   #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
-  NativeProcess("sensord", "system/sensord", ["./sensord"], always_run, enabled=not PC),
+  # sensord需要在offroad时也运行，以支持哨兵模式（xiaoge_sentryd需要加速度计数据）
+  NativeProcess("sensord", "system/sensord", ["./sensord"], always_run),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
   NativeProcess("locationd2", "selfdrive/locationd", ["./locationd"], only_onroad),
