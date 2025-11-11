@@ -1,0 +1,48 @@
+name: Update Sponsor Rank
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 每天 UTC 10 点运行（北京时间 18 点）
+  workflow_dispatch:       # 允许手动触发
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout 仓库
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      # 2️⃣ 安装 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 3️⃣ 安装依赖
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4
+
+      # 4️⃣ 执行更新脚本（带容错）
+      - name: Run update script
+        run: |
+          set -e
+          echo "🕷️ Running sponsor update script..."
+          python update_readme.py || echo "⚠️ Script failed, skip commit."
+
+      # 5️⃣ 提交 README 更新（如有变化）
+      - name: Commit and push changes
+        run: |
+          set +e
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git diff --quiet && echo "✅ No changes detected." || (
+            git commit -m "🤖 Auto update sponsor rank [skip ci]" &&
+            git push origin HEAD:main
+          )
