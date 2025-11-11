@@ -1,0 +1,64 @@
+name: Update Sponsor List
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm i playwright
+
+      - name: Run Playwright script
+        run: |
+          node <<'JS'
+const { chromium } = require('playwright');
+const fs = require('fs');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto('http://31.97.51.107:8500/', { waitUntil: 'networkidle' });
+
+  // 假设排行榜在 .sponsor-item 元素中
+  const sponsors = await page.$$eval('.sponsor-item', items => 
+    items.map(i => ({
+      username: i.querySelector('.username')?.innerText || 'unknown',
+      amount: parseFloat((i.querySelector('.amount')?.innerText || '0').replace(/[^\d.]/g,''))
+    })).filter(x => x.amount > 60)
+  );
+
+  await browser.close();
+
+  // 更新 README
+  let readme = fs.readFileSync('README.md', 'utf-8').split('\n');
+  let prefix = readme.slice(0,87).join('\n');
+  let content = sponsors.map(s => `- **${s.username}** — 💰 ${s.amount}`).join('\n');
+  let ts = new Date().toISOString().replace('T',' ').split('.')[0] + ' UTC';
+  let md = `${prefix}\n\n### 🏆 赞助排行榜（自动更新）\n> 更新时间：${ts}\n${content}\n`;
+  fs.writeFileSync('README.md', md);
+
+  console.log(JSON.stringify(sponsors, null, 2));
+})();
+JS
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "🔄 Update sponsor list" || echo "No changes"
+          git push
