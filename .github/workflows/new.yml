@@ -1,9 +1,9 @@
-name: Update Sponsor List
+name: 🕷️ Update Sponsor List
 
 on:
   schedule:
-    - cron: '0 10 * * *'
-  workflow_dispatch:
+    - cron: '0 10 * * *'   # 每天 UTC 10 点
+  workflow_dispatch:        # 允许手动触发
 
 jobs:
   update:
@@ -23,18 +23,19 @@ jobs:
           npm init -y
           npm i playwright
 
-      - name: Run Playwright script
+      - name: Run Playwright script and update README
         run: |
           node <<'JS'
 const { chromium } = require('playwright');
 const fs = require('fs');
+
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.goto('http://31.97.51.107:8500/', { waitUntil: 'networkidle' });
 
-  // 假设排行榜在 .sponsor-item 元素中
-  const sponsors = await page.$$eval('.sponsor-item', items => 
+  // 提取排行榜
+  const sponsors = await page.$$eval('.sponsor-item', items =>
     items.map(i => ({
       username: i.querySelector('.username')?.innerText || 'unknown',
       amount: parseFloat((i.querySelector('.amount')?.innerText || '0').replace(/[^\d.]/g,''))
@@ -43,22 +44,49 @@ const fs = require('fs');
 
   await browser.close();
 
-  // 更新 README
-  let readme = fs.readFileSync('README.md', 'utf-8').split('\n');
-  let prefix = readme.slice(0,87).join('\n');
-  let content = sponsors.map(s => `- **${s.username}** — 💰 ${s.amount}`).join('\n');
-  let ts = new Date().toISOString().replace('T',' ').split('.')[0] + ' UTC';
-  let md = `${prefix}\n\n### 🏆 赞助排行榜（自动更新）\n> 更新时间：${ts}\n${content}\n`;
-  fs.writeFileSync('README.md', md);
+  console.log("抓取结果:", JSON.stringify(sponsors, null, 2));
 
-  console.log(JSON.stringify(sponsors, null, 2));
+  // 更新 README.md
+  const README_FILE = 'README.md';
+  if (!fs.existsSync(README_FILE)) return;
+
+  const readmeLines = fs.readFileSync(README_FILE, 'utf-8').split('\n');
+
+  // 保留前 87 行
+  while (readmeLines.length < 87) readmeLines.push('');
+  const prefix = readmeLines.slice(0,87).join('\n');
+
+  const ts = new Date().toISOString().replace('T',' ').split('.')[0] + ' UTC';
+  let content = sponsors.map(s => `- **${s.username}** — 💰 ${s.amount}`).join('\n');
+  if (!content) content = "_暂无数据_";
+
+  const newMarkdown = `${prefix}
+
+---
+
+### 🏆 赞助排行榜（自动更新）
+
+> 数据来源：[http://31.97.51.107:8500/](http://31.97.51.107:8500/)  
+> 更新时间：${ts}
+
+${content}
+
+（本段内容由 GitHub Actions 自动更新）
+`;
+
+  fs.writeFileSync(README_FILE, newMarkdown);
 })();
 JS
 
-      - name: Commit and push
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git commit -m "🔄 Update sponsor list" || echo "No changes"
-          git push
+          if git diff --cached --quiet; then
+            echo "✅ No changes detected."
+          else
+            git commit -m "🔄 Update sponsor list"
+            git push
+            echo "✅ Changes pushed."
+          fi
