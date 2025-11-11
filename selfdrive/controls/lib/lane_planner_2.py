@@ -3,7 +3,7 @@ import numpy as np
 from cereal import log
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
-# from openpilot.common.swaglog import cloudlog
+from openpilot.common.swaglog import cloudlog
 # from openpilot.common.logger import sLogger
 from openpilot.common.params import Params
 
@@ -72,6 +72,11 @@ class LanePlanner:
     self.lanefull_mode = False
     self.d_prob_count = 0
 
+    # 马自达车道线融合相关变量
+    self.mazda_left_lane_line = -1
+    self.mazda_right_lane_line = -1
+    self.mazda_fusion_enabled = False
+
     self.params = Params()
 
   def parse_model(self, md):
@@ -98,16 +103,125 @@ class LanePlanner:
       self.re_y = self.rll_y
 
     desire_state = md.meta.desireState
-    if len(desire_state):
-      self.l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]
-      self.r_lane_change_prob = desire_state[log.Desire.laneChangeRight]
+    if len(desire_state) > 2:  # 确保有足够的元素
+      self.l_lane_change_prob = desire_state[1]  # 左变道概率
+      self.r_lane_change_prob = desire_state[2]  # 右变道概率
+    else:
+      self.l_lane_change_prob = 0.0
+      self.r_lane_change_prob = 0.0
 
-  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed):
+  def update_lane_line_type(self, CS, md):
+    """
+    融合马自达原车车道线识别结果与openpilot视觉识别结果
+    CS: CarState, md: modelV2
+    """
+    try:
+      # 检查是否为马自达车型且有所需数据
+      if (not hasattr(CS, 'cam_laneinfo') or
+          not hasattr(md, 'laneLineProbs') or
+          len(md.laneLineProbs) < 3):
+        self.mazda_fusion_enabled = False
+        return -1, -1
+
+      # 获取马自达原车识别结果
+      mazda_lane_status = CS.cam_laneinfo["LANE_LINES"]
+
+      # 获取openpilot视觉概率
+      left_prob = md.laneLineProbs[1]  # 左车道线概率
+      right_prob = md.laneLineProbs[2]  # 右车道线概率
+
+      # 融合逻辑
+      left_lane_line = -1
+      right_lane_line = -1
+
+      # 左车道线
+      if mazda_lane_status in [2, 3]:  # 马自达识别到左车道线
+        # 马自达识别置信度高时，优先使用马自达结果
+        if left_prob > 0.45:  # 提高阈值，需要openpilot有较高置信度
+          left_lane_line = 11  # 实线白色（高置信度融合结果）
+        elif left_prob > 0.2:  # 中等置信度
+          left_lane_line = 10  # 虚线白色（中等置信度融合结果）
+        else:
+          left_lane_line = 10  # 虚线白色（马自达单独识别）
+      elif left_prob > 0.6:  # 只有openpilot识别到，需要更高阈值
+        left_lane_line = 10  # 虚线白色
+
+      # 右车道线
+      if mazda_lane_status in [2, 4]:  # 马自达识别到右车道线
+        # 马自达识别置信度高时，优先使用马自达结果
+        if right_prob > 0.45:  # 提高阈值，需要openpilot有较高置信度
+          right_lane_line = 11  # 实线白色（高置信度融合结果）
+        elif right_prob > 0.2:  # 中等置信度
+          right_lane_line = 10  # 虚线白色（中等置信度融合结果）
+        else:
+          right_lane_line = 10  # 虚线白色（马自达单独识别）
+      elif right_prob > 0.6:  # 只有openpilot识别到，需要更高阈值
+        right_lane_line = 10  # 虚线白色
+
+      # 保存融合结果
+      self.mazda_left_lane_line = left_lane_line
+      self.mazda_right_lane_line = right_lane_line
+      self.mazda_fusion_enabled = True
+
+      # 记录融合日志
+      cloudlog.info(f"MazdaLaneFusion: status={mazda_lane_status}, "
+                   f"left_lane={left_lane_line}(prob={left_prob:.2f}), "
+                   f"right_lane={right_lane_line}(prob={right_prob:.2f})")
+
+      return left_lane_line, right_lane_line
+
+    except Exception as e:
+      # 异常情况下禁用融合
+      self.mazda_fusion_enabled = False
+      self.mazda_left_lane_line = -1
+      self.mazda_right_lane_line = -1
+      cloudlog.error(f"MazdaLaneFusion error: {str(e)}")
+      return -1, -1
+
+  def get_fused_lane_probs(self):
+    """
+    获取融合后的车道线概率
+    返回: (left_prob, right_prob)
+    """
+    if not self.mazda_fusion_enabled:
+      return self.lll_prob, self.rll_prob
+
+    # 基于融合结果调整概率
+    left_prob = self.lll_prob
+    right_prob = self.rll_prob
+
+    # 如果马自达融合识别到车道线，提升概率
+    if self.mazda_left_lane_line >= 0:
+      left_prob = min(left_prob * 1.2, 1.0)
+    if self.mazda_right_lane_line >= 0:
+      right_prob = min(right_prob * 1.2, 1.0)
+
+    # 如果马自达识别为实线，进一步提升概率
+    if self.mazda_left_lane_line == 11:
+      left_prob = min(left_prob * 1.1, 1.0)
+    if self.mazda_right_lane_line == 11:
+      right_prob = min(right_prob * 1.1, 1.0)
+
+    return left_prob, right_prob
+
+  def get_d_path(self, CS, v_ego, path_t, path_xyz, curve_speed, md=None):
     #if v_ego > 0.1:
     #  self.lane_width_updated_count = max(0, self.lane_width_updated_count - 1)
-    # Reduce reliance on lanelines that are too far apart or
-    # will be in a few seconds
-    l_prob, r_prob = self.lll_prob, self.rll_prob
+
+    # 如果提供了模型数据，执行马自达车道线融合
+    if md is not None:
+      left_type, right_type = self.update_lane_line_type(CS, md)
+
+      # 尝试将融合结果设置回CarState（如果是马自达车型且有set_lane_fusion_result方法）
+      try:
+        if hasattr(CS, 'set_lane_fusion_result') and self.mazda_fusion_enabled:
+          CS.set_lane_fusion_result(left_type, right_type, True)
+      except Exception as e:
+        # 静默忽略设置失败，可能是其他车型或方法不存在
+        pass
+
+    # 使用融合后的概率
+    l_prob, r_prob = self.get_fused_lane_probs()
     width_pts = self.rll_y - self.lll_y
     prob_mods = []
     for t_check in (0.0, 1.5, 3.0):
@@ -250,7 +364,35 @@ class LanePlanner:
 
     self.offset_total = self.lane_offset_filtered.x
 
+    # 添加马自达融合调试信息
+    if self.mazda_fusion_enabled:
+      fusion_info = f"MAZDA_FUSION: L={self.mazda_left_lane_line},R={self.mazda_right_lane_line},LP={l_prob:.2f},RP={r_prob:.2f}"
+      # 可以选择性地将调试信息添加到现有的debugText
+      if hasattr(self, 'debugText') and self.debugText:
+        self.debugText += f" | {fusion_info}"
+      else:
+        self.debugText = fusion_info
+
     return path_xyz, laneline_active
+
+  def get_mazda_fusion_status(self):
+    """
+    获取马自达融合状态信息
+    返回: {
+      'enabled': bool,
+      'left_lane_line': int,
+      'right_lane_line': int,
+      'left_prob': float,
+      'right_prob': float
+    }
+    """
+    return {
+      'enabled': self.mazda_fusion_enabled,
+      'left_lane_line': self.mazda_left_lane_line,
+      'right_lane_line': self.mazda_right_lane_line,
+      'left_prob': self.lll_prob,
+      'right_prob': self.rll_prob
+    }
 
   def calculate_plan_yaw_and_yaw_rate(self, path_xyz):
     if path_xyz.shape[0] < 3:

@@ -20,9 +20,14 @@ class CarState(CarStateBase):
     self.low_speed_alert = False
     self.lkas_allowed_speed = False
     self.lkas_disabled = False
-    
+
     self.prev_distance_button = 0
     self.distance_button = 0
+
+    # 马自达车道线融合相关变量
+    self.external_fusion_left_lane = -1
+    self.external_fusion_right_lane = -1
+    self.fusion_enabled = False
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -32,7 +37,7 @@ class CarState(CarStateBase):
 
     self.prev_distance_button = self.distance_button
     self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
-    
+
     self.prev_cruise_buttons = self.cruise_buttons
 
     if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
@@ -43,7 +48,7 @@ class CarState(CarStateBase):
       self.cruise_buttons = Buttons.RESUME
     else:
       self.cruise_buttons = Buttons.NONE
-      
+
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
       cp.vl["WHEEL_SPEEDS"]["FR"],
@@ -110,6 +115,33 @@ class CarState(CarStateBase):
     # TODO: is this needed?
     ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
 
+        # 在 carstate.py 的 update 方法中
+    lane_info = cp_cam.vl["CAM_LANEINFO"]
+
+    # 马自达只有基本的车道线状态
+    lane_lines_status = lane_info["LANE_LINES"]
+
+    # 优先使用外部融合结果
+    if self.fusion_enabled:
+        ret.leftLaneLine = self.external_fusion_left_lane
+        ret.rightLaneLine = self.external_fusion_right_lane
+    else:
+        # 如果没有外部融合，使用原始逻辑
+        # 根据状态设置 leftLaneLine 和 rightLaneLine
+        # 由于马自达没有类型和颜色信息,只能设置基本值
+        if lane_lines_status == 2:  # 两条车道线
+            ret.leftLaneLine = 0   # 假设为虚线白色
+            ret.rightLaneLine = 0
+        elif lane_lines_status == 3:  # 只有左车道线
+            ret.leftLaneLine = 0
+            ret.rightLaneLine = -1  # 无车道线
+        elif lane_lines_status == 4:  # 只有右车道线
+            ret.leftLaneLine = -1
+            ret.rightLaneLine = 0
+        else:  # 无车道线或LKAS禁用
+            ret.leftLaneLine = -1
+            ret.rightLaneLine = -1
+
     if ret.cruiseState.enabled:
       if not self.lkas_allowed_speed and self.acc_active_last:
         self.low_speed_alert = True
@@ -134,7 +166,7 @@ class CarState(CarStateBase):
 
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = not self.lkas_disabled
-    
+
     # TODO: add button types for inc and dec
     #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
     ret.buttonEvents = [
@@ -143,6 +175,26 @@ class CarState(CarStateBase):
       #*create_button_events(self.lkas_enabled, self.lkas_previously_enabled, {1: ButtonType.lfaButton}),
     ]
     return ret
+
+  def set_lane_fusion_result(self, left_lane, right_lane, enabled=False):
+    """
+    设置外部车道线融合结果
+    由LanePlanner调用来更新融合后的车道线信息
+    """
+    self.external_fusion_left_lane = left_lane
+    self.external_fusion_right_lane = right_lane
+    self.fusion_enabled = enabled
+
+  def get_lane_fusion_result(self):
+    """
+    获取当前的车道线融合结果
+    供LanePlanner查询使用
+    """
+    return {
+      'left_lane': self.external_fusion_left_lane,
+      'right_lane': self.external_fusion_right_lane,
+      'enabled': self.fusion_enabled
+    }
 
   @staticmethod
   def get_can_parsers(CP):
