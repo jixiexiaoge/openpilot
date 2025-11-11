@@ -1,15 +1,18 @@
+import os
+import ssl
 import requests
 from bs4 import BeautifulSoup
 import datetime
 import json
-import os
 import urllib3
 
-# 🚫 禁用 SSL 警告
+# 🚫 全局禁用 SSL 验证
+ssl._create_default_https_context = ssl._create_unverified_context
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 URL = "https://app.mspa.shop/"
 README_FILE = "README.md"
+
 
 
 def fetch_sponsor_data():
