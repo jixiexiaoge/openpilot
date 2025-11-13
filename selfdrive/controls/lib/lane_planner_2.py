@@ -74,7 +74,6 @@ class LanePlanner:
 
     self.params = Params()
     self.camera_offset = self.params.get_int("CameraOffset") * 0.01
-    self.path_offset = self.params.get_int("PathOffset") * 0.01
 
   def parse_model(self, md):
 
@@ -85,8 +84,8 @@ class LanePlanner:
       self.ll_t = (np.array(lane_lines[1].t) + np.array(lane_lines[2].t))/2
       # left and right ll x is the same
       self.ll_x = lane_lines[1].x
-      self.lll_y = np.array(lane_lines[1].y) + self.camera_offset
-      self.rll_y = np.array(lane_lines[2].y) + self.camera_offset
+      self.lll_y = np.array(lane_lines[1].y)
+      self.rll_y = np.array(lane_lines[2].y)
       self.lll_prob = md.laneLineProbs[1]
       self.rll_prob = md.laneLineProbs[2]
       self.lll_std = md.laneLineStds[1]
@@ -248,7 +247,7 @@ class LanePlanner:
           path_xyz[:,1] = self.d_prob * lane_path_y_interp + (1.0 - self.d_prob) * path_xyz[:,1]
 
 
-    path_xyz[:, 1] += (self.path_offset + self.lane_offset_filtered.x)
+    path_xyz[:, 1] += (self.camera_offset + self.lane_offset_filtered.x)
 
     self.offset_total = self.lane_offset_filtered.x
 

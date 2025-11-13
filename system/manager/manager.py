@@ -188,7 +188,7 @@ def get_default_params():
     ("AlwaysOnLKAS", "0"),
     ("BydAutoTuning", "0"),
     ("BydLatUseSiglin", "1"),
-    ("CameraOffset", "0"),
+    ("CameraOffset", "8"),
     ("UseRedPanda", "1"),
     ("KeepLkasPassive", "0"),
     ("UseSteerRateLimiter", "1"),
