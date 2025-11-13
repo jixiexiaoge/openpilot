@@ -461,7 +461,7 @@ class XiaogeDataBroadcaster:
         packet_data = {
             'version': 1,
             'sequence': self.sequence,
-            'timestamp': time.time(),
+            'timestamp': time.time() * 1000,  # 🔧 转换为毫秒（匹配安卓端期望）
             'data': data
         }
 
