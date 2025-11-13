@@ -12,6 +12,7 @@ import struct
 import time
 import traceback
 import zlib
+import gzip  # 🔧 添加gzip压缩支持
 from typing import Dict, Any, Optional, List, Tuple
 import numpy as np
 
@@ -218,8 +219,8 @@ class XiaogeDataBroadcaster:
         # 车道线索引：0=最左侧, 1=左车道线, 2=右车道线, 3=最右侧
         lane_lines = modelV2.laneLines
         data['laneLines'] = []
-        # 采样步长：每隔一个点取一个（减少50%数据量）
-        sample_step = 2
+        # 🔧 采样步长：从3增加到4（减少75%数据量），进一步减小数据包大小
+        sample_step = 4
         for i in range(min(4, len(lane_lines))):
             lane_line = lane_lines[i]
             x_list = self._capnp_list_to_list(lane_line.x)
@@ -319,7 +320,7 @@ class XiaogeDataBroadcaster:
             road_edge_stds = modelV2.roadEdgeStds if hasattr(modelV2, 'roadEdgeStds') else []
 
             data['roadEdges'] = []
-            sample_step = 2  # 采样步长
+            sample_step = 4  # 🔧 采样步长：从3增加到4，进一步减小数据包大小
             for i in range(min(2, len(road_edges))):
                 road_edge = road_edges[i]
                 x_list = self._capnp_list_to_list(road_edge.x)
@@ -480,23 +481,39 @@ class XiaogeDataBroadcaster:
             json_str = json.dumps(packet_data)
             packet_bytes = json_str.encode('utf-8')
 
-        # 添加CRC32校验
+        # 🔧 添加gzip压缩（可以再减少50-70%大小，特别是对于重复数据）
+        # 压缩级别：6（平衡压缩率和速度）
+        try:
+            compressed_bytes = gzip.compress(packet_bytes, compresslevel=6)
+            # 如果压缩后更小，使用压缩数据；否则使用原始数据
+            if len(compressed_bytes) < len(packet_bytes):
+                packet_bytes = compressed_bytes
+                is_compressed = True
+            else:
+                is_compressed = False
+        except Exception as e:
+            print(f"Warning: gzip compression failed, using uncompressed data: {e}")
+            is_compressed = False
+
+        # 添加CRC32校验（在压缩后计算，确保数据完整性）
         checksum = zlib.crc32(packet_bytes) & 0xffffffff
 
-        # 数据包格式: [校验和(4字节)][数据长度(4字节)][数据]
-        packet = struct.pack('!II', checksum, len(packet_bytes)) + packet_bytes
+        # 数据包格式: [压缩标志(1字节)][校验和(4字节)][数据长度(4字节)][数据]
+        # 压缩标志：0=未压缩，1=已压缩（gzip）
+        packet = struct.pack('!BII', 1 if is_compressed else 0, checksum, len(packet_bytes)) + packet_bytes
 
         # 检查数据包大小
-        # 注意：经过采样优化和 msgpack 序列化后，数据包大小应该显著减小
+        # 注意：经过采样优化（sample_step=4）、msgpack序列化和gzip压缩后，数据包大小应该显著减小
         # 如果仍然超过 1400 字节，可能需要进一步采样（增加 sample_step）或实现分包发送
         if len(packet) > 1400:  # 留一些余量，避免超过MTU
-            print(f"Warning: Packet size {len(packet)} bytes may exceed MTU (consider increasing sample_step)")
+            compression_info = f" (压缩={is_compressed})" if is_compressed else ""
+            print(f"Warning: Packet size {len(packet)} bytes may exceed MTU{compression_info} (consider increasing sample_step)")
 
         return packet
 
     def broadcast_data(self):
         """主循环：收集数据并广播"""
-        rk = Ratekeeper(20, print_delay_threshold=None)  # 20Hz
+        rk = Ratekeeper(10, print_delay_threshold=None)  # 🔧 降低到10Hz（每100ms一个数据包），减少网络拥塞和数据包丢失
 
         print(f"XiaogeDataBroadcaster started, broadcasting to {self.broadcast_ip}:{self.broadcast_port}")
 
@@ -587,10 +604,16 @@ class XiaogeDataBroadcaster:
                                     position_points = len(model_data['position']['x'])
                                     stats_info.append(f"position: {position_points}pts")
 
-                            # 输出日志（显示序列化格式）
+                            # 输出日志（显示序列化格式和压缩信息）
                             format_type = "msgpack" if MSGPACK_AVAILABLE else "JSON"
+                            # 检查数据包是否压缩（通过检查数据包格式中的压缩标志）
+                            try:
+                                is_compressed = packet[0] == 1  # 第一个字节是压缩标志
+                                compression_info = " (gzip压缩)" if is_compressed else ""
+                            except:
+                                compression_info = ""
                             stats_str = f" ({', '.join(stats_info)})" if stats_info else ""
-                            print(f"Broadcasted {self.sequence} packets ({format_type}), last size: {len(packet)} bytes{stats_str}")
+                            print(f"Broadcasted {self.sequence} packets ({format_type}{compression_info}), last size: {len(packet)} bytes{stats_str}")
                     except Exception as e:
                         print(f"Failed to broadcast packet: {e}")
 
