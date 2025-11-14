@@ -253,6 +253,8 @@ class XiaogeDataBroadcaster:
                     print(f"Warning: Slow processing detected: {processing_time*1000:.1f}ms")
 
                 # 如果有数据则广播
+                # 注意：如果 openpilot 系统正常运行，至少会有 carState 数据
+                # Android 端已有 15 秒超时机制，不需要额外的心跳包
                 if data:
                     packet = self.create_packet(data)
 
@@ -265,6 +267,8 @@ class XiaogeDataBroadcaster:
                             print(f"Broadcasted {self.sequence} packets, last size: {len(packet)} bytes")
                     except Exception as e:
                         print(f"Failed to broadcast packet: {e}")
+                # 如果没有数据，不发送任何包（系统可能未启动或消息源不可用）
+                # Android 端会在 15 秒后检测到超时并显示"断开"
 
                 rk.keep_time()
 
