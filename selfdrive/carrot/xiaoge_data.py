@@ -133,11 +133,36 @@ class XiaogeDataBroadcaster:
 
         # 车道宽度和变道状态 - 保留（超车决策需要）
         meta = modelV2.meta
+        # Cap'n Proto 枚举类型转换：_DynamicEnum 类型需要特殊处理
+        # 尝试多种方式获取枚举的整数值
+        def enum_to_int(enum_value, default=0):
+            """将 Cap'n Proto 枚举转换为整数"""
+            if enum_value is None:
+                return default
+            try:
+                # 方法1: 尝试直接转换为整数（如果支持）
+                return int(enum_value)
+            except (TypeError, ValueError):
+                try:
+                    # 方法2: 尝试使用 .raw 属性
+                    return enum_value.raw
+                except AttributeError:
+                    try:
+                        # 方法3: 尝试使用 .value 属性
+                        return enum_value.value
+                    except AttributeError:
+                        try:
+                            # 方法4: 尝试使用字符串表示并解析
+                            return int(str(enum_value).split('.')[-1])
+                        except (ValueError, AttributeError):
+                            # 如果所有方法都失败，返回默认值
+                            return default
+        
         data['meta'] = {
             'laneWidthLeft': float(meta.laneWidthLeft),  # 左车道宽度
             'laneWidthRight': float(meta.laneWidthRight),  # 右车道宽度
-            'laneChangeState': int(meta.laneChangeState),  # 变道状态
-            'laneChangeDirection': int(meta.laneChangeDirection),  # 变道方向
+            'laneChangeState': enum_to_int(meta.laneChangeState, 0),  # 变道状态
+            'laneChangeDirection': enum_to_int(meta.laneChangeDirection, 0),  # 变道方向
         }
 
         # 曲率信息 - 用于判断弯道（超车决策关键数据）
