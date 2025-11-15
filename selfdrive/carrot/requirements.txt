@@ -1,7 +1,0 @@
-cat > /data/openpilot/selfdrive/carrot/requirements.txt << 'EOF'
-# 现代汽车自动超车控制器依赖
-# 这些依赖通常已经在OpenPilot环境中提供
-
-cereal
-common
-EOF

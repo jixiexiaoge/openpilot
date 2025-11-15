@@ -809,31 +809,31 @@ class CarrotMan:
         # 当前车道前车
         if hasattr(radar_state, 'leadOne') and radar_state.leadOne and hasattr(radar_state.leadOne,'status') and radar_state.leadOne.status:
           if hasattr(radar_state.leadOne, 'dRel'):
-            msg["lead_distance"] = int(radar_state.leadOne.dRel)
+            msg["drel"] = int(radar_state.leadOne.dRel)
           if hasattr(radar_state.leadOne, 'vLead'):
-            msg["lead_speed"] = int(radar_state.leadOne.vLead * 3.6)
+            msg["vlead"] = int(radar_state.leadOne.vLead * 3.6)
           if hasattr(radar_state.leadOne, 'vRel'):
-            msg["lead_relative_speed"] = int(radar_state.leadOne.vRel * 3.6)
+            msg["vrel"] = int(radar_state.leadOne.vRel * 3.6)
           if hasattr(radar_state.leadOne, 'aRel'):
             msg["lead_accel"] = radar_state.leadOne.aRel
         # 左侧前车
         if hasattr(radar_state, 'leadLeft') and radar_state.leadLeft and hasattr(radar_state.leadLeft,'status') and radar_state.leadLeft.status:
-          msg["left_lead_detected"] = True
+          msg["l_lead"] = True
           if hasattr(radar_state.leadLeft, 'dRel'):
-            msg["left_lead_distance"] = int(radar_state.leadLeft.dRel)
+            msg["l_drel"] = int(radar_state.leadLeft.dRel)
           if hasattr(radar_state.leadLeft, 'vLead'):
-            msg["left_lead_speed"] = int(radar_state.leadLeft.vLead * 3.6)
+            msg["l_vlead"] = int(radar_state.leadLeft.vLead * 3.6)
           if hasattr(radar_state.leadLeft, 'vRel'):
-            msg["left_lead_relative_speed"] = int(radar_state.leadLeft.vRel * 3.6)
+            msg["l_vrel"] = int(radar_state.leadLeft.vRel * 3.6)
         # 右侧前车
         if hasattr(radar_state, 'leadRight') and radar_state.leadRight and hasattr(radar_state.leadRight,'status') and radar_state.leadRight.status:
-          msg["right_lead_detected"] = True
+          msg["r_lead"] = True
           if hasattr(radar_state.leadRight, 'dRel'):
-            msg["right_lead_distance"] = int(radar_state.leadRight.dRel)
+            msg["r_drel"] = int(radar_state.leadRight.dRel)
           if hasattr(radar_state.leadRight, 'vLead'):
-            msg["right_lead_speed"] = int(radar_state.leadRight.vLead * 3.6)
+            msg["r_vlead"] = int(radar_state.leadRight.vLead * 3.6)
           if hasattr(radar_state.leadRight, 'vRel'):
-            msg["right_lead_relative_speed"] = int(radar_state.leadRight.vRel * 3.6)
+            msg["r_vrel"] = int(radar_state.leadRight.vRel * 3.6)
 
       msg["desire_speed"] = int(self.carrot_serv.desired_speed) # 期望速度
       msg["cruise_speed"] = v_cruise_kph # 巡航速度
@@ -842,6 +842,9 @@ class CarrotMan:
       msg['lat_a'] = round(self.lat_a,1)
       msg['max_curve'] = round(self.max_curve,1)
       msg['atc_type'] = self.carrot_serv.atcType
+      msg['roadcate'] = self.xroadcate
+      msg['lidar_lblind'] = self.carrot_serv.lidar_lblind
+      msg['lidar_rblind'] = self.carrot_serv.lidar_rblind
 
     if 0 == blinker_test:
       if self.sm.alive['modelV2']:
@@ -853,6 +856,8 @@ class CarrotMan:
           msg['r_lane_width'] = round(self.sm['modelV2'].meta.laneWidthRight,1)
           msg['l_edge_dist'] = round(self.sm['modelV2'].meta.distanceToRoadEdgeLeft,1)
           msg['r_edge_dist'] = round(self.sm['modelV2'].meta.distanceToRoadEdgeRight,1)
+          lane_change_state = self.sm['modelV2'].meta.laneChangeState
+          msg["atc_state"] = lane_change_state.raw
       if self.sm.alive['selfdriveState']:
         selfdrive = self.sm['selfdriveState']
         msg['active'] = "on" if selfdrive.active else "off"
