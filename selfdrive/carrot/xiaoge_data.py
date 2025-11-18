@@ -120,7 +120,7 @@ class XiaogeDataBroadcaster:
 
 
     def collect_car_state(self, carState) -> Dict[str, Any]:
-        """收集本车状态数据 - 最小化版本（只保留超车决策必需字段）"""
+        """收集本车状态数据 - 简化版（只保留超车决策必需字段）"""
         # 数据验证：确保 vEgo 为有效值
         vEgo = float(carState.vEgo)
         if vEgo < 0:
@@ -130,12 +130,7 @@ class XiaogeDataBroadcaster:
         return {
             'vEgo': vEgo,  # 实际速度
             'steeringAngleDeg': float(carState.steeringAngleDeg),  # 方向盘角度
-            'brakePressed': bool(carState.brakePressed),  # 刹车
             'leftLatDist': float(carState.leftLatDist),  # 车道距离（返回原车道）
-            'rightLatDist': float(carState.rightLatDist),  # 车道距离（返回原车道）
-            'leftLaneLine': int(carState.leftLaneLine),  # 车道线类型
-            'rightLaneLine': int(carState.rightLaneLine),  # 车道线类型
-            'standstill': bool(carState.standstill),  # 静止状态
             'leftBlindspot': bool(carState.leftBlindspot) if hasattr(carState, 'leftBlindspot') else False,  # 左盲区
             'rightBlindspot': bool(carState.rightBlindspot) if hasattr(carState, 'rightBlindspot') else False,  # 右盲区
         }
@@ -407,19 +402,10 @@ class XiaogeDataBroadcaster:
         elif hasattr(modelV2, 'velocity') and len(modelV2.velocity.x) > 0:
             v_ego = float(modelV2.velocity.x[0])
 
-        data['modelVEgo'] = v_ego
-        # 后续代码使用 v_ego 替代 model_v_ego
+        # modelVEgo 和 laneWidth 已删除 - 简化版不再需要
 
         # 更新车道线数据缓存（每帧更新一次，避免重复计算）
         self._update_lane_cache(modelV2)
-
-        # 计算实际车道宽度（用于判断侧方车辆位置）
-        lane_width = self._calculate_lane_width(modelV2)
-        if lane_width > 0:
-            data['laneWidth'] = lane_width
-        else:
-            # 如果无法从车道线计算，使用默认值 3.5 米
-            lane_width = 3.5
 
         # 获取当前时间戳（用于计算横向速度）
         current_time = time.time()
@@ -502,19 +488,14 @@ class XiaogeDataBroadcaster:
                 right_vehicles.append(vehicle_data)
 
         # 前车检测 - 选择当前车道最近的前车（lead0）
+        # 简化版：只保留超车决策必需的字段
         if center_vehicles:
             # 选择距离最近的前车
             lead0 = min(center_vehicles, key=lambda v: v['x'])
             data['lead0'] = {
                 'x': lead0['x'],
-                'dRel': lead0.get('dRel', lead0['x']),
+                'y': lead0['y'],  # 横向位置（用于返回原车道判断）
                 'v': lead0['v'],
-                'a': lead0['a'],
-                'y': lead0['y'],  # 添加横向位置
-                'yRel': lead0.get('yRel', -lead0['y']),
-                'vRel': lead0['vRel'],  # 相对速度
-                'dPath': lead0['dPath'],  # 路径偏移
-                'inLaneProb': lead0.get('inLaneProb', 1.0),
                 'prob': lead0['prob'],
             }
         elif len(modelV2.leadsV3) > 0:
@@ -523,74 +504,18 @@ class XiaogeDataBroadcaster:
             x = float(lead0.x[0]) if len(lead0.x) > 0 else 0.0
             y = float(lead0.y[0]) if len(lead0.y) > 0 else 0.0
             v = float(lead0.v[0]) if len(lead0.v) > 0 else 0.0
-            dRel = x - self.RADAR_TO_CAMERA
-            yRel = -y
-            v_rel = v - v_ego  # 修复：使用 v_ego
-            vLead = v_ego + v_rel  # 修复：使用 v_ego
-            dPath, in_lane_prob, _ = self._calculate_dpath(dRel, yRel, 0.0, vLead)
             data['lead0'] = {
                 'x': x,
-                'dRel': dRel,
+                'y': y,  # 横向位置
                 'v': v,
-                'a': float(lead0.a[0]) if len(lead0.a) > 0 else 0.0,
-                'y': y,  # 添加横向位置
-                'yRel': yRel,
-                'vRel': v - v_ego,  # 修复：使用 v_ego
-                'dPath': dPath,
-                'inLaneProb': in_lane_prob,
                 'prob': float(lead0.prob),
             }
         else:
             data['lead0'] = {
-                'x': 0.0, 'dRel': 0.0, 'v': 0.0, 'a': 0.0, 'y': 0.0, 'yRel': 0.0,
-                'vRel': 0.0, 'dPath': 0.0, 'inLaneProb': 0.0, 'prob': 0.0
+                'x': 0.0, 'y': 0.0, 'v': 0.0, 'prob': 0.0
             }
 
-        # 第二前车 - 选择当前车道第二近的前车（lead1）
-        if len(center_vehicles) > 1:
-            # 按距离排序，选择第二近的
-            sorted_center = sorted(center_vehicles, key=lambda v: v['x'])
-            lead1 = sorted_center[1]
-            data['lead1'] = {
-                'x': lead1['x'],
-                'dRel': lead1.get('dRel', lead1['x']),
-                'v': lead1['v'],
-                'a': lead1['a'],  # 添加加速度字段，与 lead0 保持一致
-                'y': lead1['y'],  # 添加横向位置
-                'yRel': lead1.get('yRel', -lead1['y']),
-                'vRel': lead1['vRel'],
-                'dPath': lead1['dPath'],
-                'inLaneProb': lead1.get('inLaneProb', 1.0),
-                'prob': lead1['prob'],
-            }
-        elif len(modelV2.leadsV3) > 1:
-            # 如果没有明确的中心车道第二辆车，使用第二个检测目标
-            lead1 = modelV2.leadsV3[1]
-            x = float(lead1.x[0]) if len(lead1.x) > 0 else 0.0
-            y = float(lead1.y[0]) if len(lead1.y) > 0 else 0.0
-            v = float(lead1.v[0]) if len(lead1.v) > 0 else 0.0
-            dRel = x - self.RADAR_TO_CAMERA
-            yRel = -y
-            v_rel = v - v_ego  # 修复：使用 v_ego
-            vLead = v_ego + v_rel  # 修复：使用 v_ego
-            dPath, in_lane_prob, _ = self._calculate_dpath(dRel, yRel, 0.0, vLead)
-            data['lead1'] = {
-                'x': x,
-                'dRel': dRel,
-                'v': v,
-                'a': float(lead1.a[0]) if len(lead1.a) > 0 else 0.0,  # 添加加速度字段
-                'y': y,  # 添加横向位置
-                'yRel': yRel,
-                'vRel': v - v_ego,  # 修复：使用 v_ego
-                'dPath': dPath,
-                'inLaneProb': in_lane_prob,
-                'prob': float(lead1.prob),
-            }
-        else:
-            data['lead1'] = {
-                'x': 0.0, 'dRel': 0.0, 'v': 0.0, 'a': 0.0, 'y': 0.0, 'yRel': 0.0,
-                'vRel': 0.0, 'dPath': 0.0, 'inLaneProb': 0.0, 'prob': 0.0
-            }
+        # 第二前车（lead1）已删除 - 简化版不再需要
 
         # 优化：使用类常量配置侧方车辆筛选参数
         # 侧方车辆检测 - 选择最近的左侧和右侧车辆
@@ -604,201 +529,39 @@ class XiaogeDataBroadcaster:
             if v['dRel'] > self.SIDE_VEHICLE_MIN_DISTANCE and abs(v['dPath']) < self.SIDE_VEHICLE_MAX_DPATH
         ]
 
-        # 优化：使用类常量配置 Cut-in 检测阈值
-        # Cut-in 检测：检测可能切入的车辆
-        # 参考 radard.py:520-546，使用 in_lane_prob_future 检测
-        cutin_vehicles = []
-        for v in left_vehicles + right_vehicles:
-            # 如果未来车道内概率超过阈值，可能是切入车辆
-            if v.get('inLaneProbFuture', 0.0) > self.CUTIN_PROB_THRESHOLD:
-                cutin_vehicles.append(v)
+        # Cut-in 检测已删除 - 简化版不再需要
 
-        # 选择左侧最近的车辆
+        # 选择左侧最近的车辆 - 简化版：只保留超车决策必需的字段
         if left_filtered:
             lead_left = min(left_filtered, key=lambda vehicle: vehicle['dRel'])
-
-            # 更新历史数据（用于计算横向速度）
-            self.lead_left_history.append({
-                'yRel': lead_left['yRel'],
-                'dRel': lead_left['dRel'],
-                'timestamp': lead_left.get('timestamp', current_time)
-            })
-            # 优化：使用类常量配置历史数据大小
-            # 只保留最近 HISTORY_SIZE 帧数据
-            if len(self.lead_left_history) > self.HISTORY_SIZE:
-                self.lead_left_history.pop(0)
-
-            # 计算横向速度（用于未来位置预测）
-            yvRel = self._estimate_lateral_velocity(
-                lead_left['yRel'],
-                lead_left['dRel'],
-                self.lead_left_history
-            )
-
-            # 应用时间滤波（指数移动平均）
-            # 参考 radard.py:520-546，需要至少 FILTER_INIT_FRAMES 帧数据才使用滤波
-            if self.lead_left_count < self.FILTER_INIT_FRAMES:
-                # 初始化阶段：累积数据，使用平均值
-                if self.lead_left_count == 0:
-                    # 修复：只复制需要滤波的字段，避免复制不必要的字段（如timestamp, inLaneProb等）
-                    self.lead_left_filtered = {
-                        'x': lead_left['x'],
-                        'v': lead_left['v'],
-                        'y': lead_left['y'],
-                        'vRel': lead_left['vRel'],
-                        'dPath': lead_left['dPath'],
-                        'yRel': lead_left['yRel']
-                    }
-                else:
-                    # 使用简单平均初始化
-                    count = self.lead_left_count + 1
-                    self.lead_left_filtered['x'] = (self.lead_left_filtered['x'] * self.lead_left_count + lead_left['x']) / count
-                    self.lead_left_filtered['v'] = (self.lead_left_filtered['v'] * self.lead_left_count + lead_left['v']) / count
-                    self.lead_left_filtered['y'] = (self.lead_left_filtered['y'] * self.lead_left_count + lead_left['y']) / count
-                    self.lead_left_filtered['vRel'] = (self.lead_left_filtered['vRel'] * self.lead_left_count + lead_left['vRel']) / count
-                    self.lead_left_filtered['dPath'] = (self.lead_left_filtered['dPath'] * self.lead_left_count + lead_left['dPath']) / count
-                    self.lead_left_filtered['yRel'] = (self.lead_left_filtered['yRel'] * self.lead_left_count + lead_left['yRel']) / count
-            else:
-                # 稳定阶段：使用指数移动平均滤波
-                alpha = self.filter_alpha
-                self.lead_left_filtered['x'] = alpha * lead_left['x'] + (1 - alpha) * self.lead_left_filtered['x']
-                self.lead_left_filtered['v'] = alpha * lead_left['v'] + (1 - alpha) * self.lead_left_filtered['v']
-                self.lead_left_filtered['y'] = alpha * lead_left['y'] + (1 - alpha) * self.lead_left_filtered['y']
-                self.lead_left_filtered['vRel'] = alpha * lead_left['vRel'] + (1 - alpha) * self.lead_left_filtered['vRel']
-                self.lead_left_filtered['dPath'] = alpha * lead_left['dPath'] + (1 - alpha) * self.lead_left_filtered['dPath']
-                self.lead_left_filtered['yRel'] = alpha * lead_left['yRel'] + (1 - alpha) * self.lead_left_filtered['yRel']
-
-            self.lead_left_count += 1
-
             data['leadLeft'] = {
-                'x': self.lead_left_filtered['x'],
-                'dRel': lead_left['dRel'],  # 使用原始值，不过滤
-                'v': self.lead_left_filtered['v'],
-                'y': self.lead_left_filtered['y'],
-                'yRel': self.lead_left_filtered['yRel'],
-                'vRel': self.lead_left_filtered['vRel'],
-                'yvRel': yvRel,  # 横向速度
-                'dPath': self.lead_left_filtered['dPath'],
-                'inLaneProb': lead_left.get('inLaneProb', 0.0),
-                'inLaneProbFuture': lead_left.get('inLaneProbFuture', 0.0),
-                'prob': lead_left['prob'],
+                'dRel': lead_left['dRel'],  # 相对于雷达的距离
+                'vRel': lead_left['vRel'],  # 相对速度
                 'status': True,
             }
         else:
-            # 没有检测到车辆，重置滤波状态
-            self.lead_left_count = 0
-            self.lead_left_filtered = {'x': 0.0, 'v': 0.0, 'y': 0.0, 'vRel': 0.0, 'dPath': 0.0, 'yRel': 0.0}
-            self.lead_left_history.clear()  # 清空历史数据
             data['leadLeft'] = {
-                'x': 0.0, 'dRel': 0.0, 'v': 0.0, 'y': 0.0, 'yRel': 0.0, 'vRel': 0.0, 'yvRel': 0.0,
-                'dPath': 0.0, 'inLaneProb': 0.0, 'inLaneProbFuture': 0.0,
-                'prob': 0.0, 'status': False
+                'dRel': 0.0,
+                'vRel': 0.0,
+                'status': False
             }
 
-        # 选择右侧最近的车辆
+        # 选择右侧最近的车辆 - 简化版：只保留超车决策必需的字段
         if right_filtered:
             lead_right = min(right_filtered, key=lambda vehicle: vehicle['dRel'])
-
-            # 更新历史数据（用于计算横向速度）
-            self.lead_right_history.append({
-                'yRel': lead_right['yRel'],
-                'dRel': lead_right['dRel'],
-                'timestamp': lead_right.get('timestamp', current_time)
-            })
-            # 优化：使用类常量配置历史数据大小
-            # 只保留最近 HISTORY_SIZE 帧数据
-            if len(self.lead_right_history) > self.HISTORY_SIZE:
-                self.lead_right_history.pop(0)
-
-            # 计算横向速度（用于未来位置预测）
-            yvRel = self._estimate_lateral_velocity(
-                lead_right['yRel'],
-                lead_right['dRel'],
-                self.lead_right_history
-            )
-
-            # 应用时间滤波（指数移动平均）
-            # 参考 radard.py:520-546，需要至少 FILTER_INIT_FRAMES 帧数据才使用滤波
-            if self.lead_right_count < self.FILTER_INIT_FRAMES:
-                # 初始化阶段：累积数据，使用平均值
-                if self.lead_right_count == 0:
-                    # 修复：只复制需要滤波的字段，避免复制不必要的字段（如timestamp, inLaneProb等）
-                    self.lead_right_filtered = {
-                        'x': lead_right['x'],
-                        'v': lead_right['v'],
-                        'y': lead_right['y'],
-                        'vRel': lead_right['vRel'],
-                        'dPath': lead_right['dPath'],
-                        'yRel': lead_right['yRel']
-                    }
-                else:
-                    # 使用简单平均初始化
-                    count = self.lead_right_count + 1
-                    self.lead_right_filtered['x'] = (self.lead_right_filtered['x'] * self.lead_right_count + lead_right['x']) / count
-                    self.lead_right_filtered['v'] = (self.lead_right_filtered['v'] * self.lead_right_count + lead_right['v']) / count
-                    self.lead_right_filtered['y'] = (self.lead_right_filtered['y'] * self.lead_right_count + lead_right['y']) / count
-                    self.lead_right_filtered['vRel'] = (self.lead_right_filtered['vRel'] * self.lead_right_count + lead_right['vRel']) / count
-                    self.lead_right_filtered['dPath'] = (self.lead_right_filtered['dPath'] * self.lead_right_count + lead_right['dPath']) / count
-                    self.lead_right_filtered['yRel'] = (self.lead_right_filtered['yRel'] * self.lead_right_count + lead_right['yRel']) / count
-            else:
-                # 稳定阶段：使用指数移动平均滤波
-                alpha = self.filter_alpha
-                self.lead_right_filtered['x'] = alpha * lead_right['x'] + (1 - alpha) * self.lead_right_filtered['x']
-                self.lead_right_filtered['v'] = alpha * lead_right['v'] + (1 - alpha) * self.lead_right_filtered['v']
-                self.lead_right_filtered['y'] = alpha * lead_right['y'] + (1 - alpha) * self.lead_right_filtered['y']
-                self.lead_right_filtered['vRel'] = alpha * lead_right['vRel'] + (1 - alpha) * self.lead_right_filtered['vRel']
-                self.lead_right_filtered['dPath'] = alpha * lead_right['dPath'] + (1 - alpha) * self.lead_right_filtered['dPath']
-                self.lead_right_filtered['yRel'] = alpha * lead_right['yRel'] + (1 - alpha) * self.lead_right_filtered['yRel']
-
-            self.lead_right_count += 1
-
             data['leadRight'] = {
-                'x': self.lead_right_filtered['x'],
-                'dRel': lead_right['dRel'],  # 使用原始值，不过滤
-                'v': self.lead_right_filtered['v'],
-                'y': self.lead_right_filtered['y'],
-                'yRel': self.lead_right_filtered['yRel'],
-                'vRel': self.lead_right_filtered['vRel'],
-                'yvRel': yvRel,  # 横向速度
-                'dPath': self.lead_right_filtered['dPath'],
-                'inLaneProb': lead_right.get('inLaneProb', 0.0),
-                'inLaneProbFuture': lead_right.get('inLaneProbFuture', 0.0),
-                'prob': lead_right['prob'],
+                'dRel': lead_right['dRel'],  # 相对于雷达的距离
+                'vRel': lead_right['vRel'],  # 相对速度
                 'status': True,
             }
         else:
-            # 没有检测到车辆，重置滤波状态
-            self.lead_right_count = 0
-            self.lead_right_filtered = {'x': 0.0, 'v': 0.0, 'y': 0.0, 'vRel': 0.0, 'dPath': 0.0, 'yRel': 0.0}
-            self.lead_right_history.clear()  # 清空历史数据
             data['leadRight'] = {
-                'x': 0.0, 'dRel': 0.0, 'v': 0.0, 'y': 0.0, 'yRel': 0.0, 'vRel': 0.0, 'yvRel': 0.0,
-                'dPath': 0.0, 'inLaneProb': 0.0, 'inLaneProbFuture': 0.0,
-                'prob': 0.0, 'status': False
+                'dRel': 0.0,
+                'vRel': 0.0,
+                'status': False
             }
 
-        # 添加 Cut-in 检测结果
-        if cutin_vehicles:
-            # 选择最近的潜在切入车辆
-            cutin_vehicle = min(cutin_vehicles, key=lambda vehicle: vehicle['dRel'])
-            data['cutin'] = {
-                'x': cutin_vehicle['x'],
-                'dRel': cutin_vehicle['dRel'],
-                'v': cutin_vehicle['v'],
-                'y': cutin_vehicle['y'],
-                'vRel': cutin_vehicle['vRel'],
-                'dPath': cutin_vehicle['dPath'],
-                'inLaneProb': cutin_vehicle.get('inLaneProb', 0.0),
-                'inLaneProbFuture': cutin_vehicle.get('inLaneProbFuture', 0.0),
-                'prob': cutin_vehicle['prob'],
-                'status': True,
-            }
-        else:
-            data['cutin'] = {
-                'x': 0.0, 'dRel': 0.0, 'v': 0.0, 'y': 0.0, 'vRel': 0.0,
-                'dPath': 0.0, 'inLaneProb': 0.0, 'inLaneProbFuture': 0.0,
-                'prob': 0.0, 'status': False
-            }
+        # Cut-in 检测已删除 - 简化版不再需要
 
         # 车道线置信度 - 超车决策需要
         data['laneLineProbs'] = [
