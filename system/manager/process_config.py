@@ -143,6 +143,7 @@ procs = [
 
   #PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet, enabled=not PC),
   PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet),
+  PythonProcess("xiaoge_data", "selfdrive.carrot.xiaoge_data", always_run),
   PythonProcess("carrot_man", "selfdrive.carrot.carrot_man", always_run),#, enabled=not PC),
 ]
 
