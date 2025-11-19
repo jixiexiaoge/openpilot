@@ -889,8 +889,26 @@ class XiaogeDataBroadcaster:
                                 print(f"Sent {self.sequence} packets to {client_count} client(s), last size: {len(packet)} bytes")
                         except Exception as e:
                             print(f"Failed to send packet to clients: {e}")
-                    # 如果没有数据，不发送任何包（系统可能未启动或消息源不可用）
-                    # 客户端会在 30 秒后通过心跳检测到连接断开
+                    else:
+                        # 如果没有数据，发送一个最小的心跳数据包，保持连接活跃
+                        # 这样客户端就不会因为超时而断开连接
+                        try:
+                            # 创建一个最小的心跳数据包（只包含基本结构，data字段为空对象）
+                            # 注意：data字段必须是有效的JSON对象，不能为null，否则Android端解析会失败
+                            heartbeat_packet = {
+                                'version': 1,
+                                'sequence': self.sequence,
+                                'timestamp': time.time(),
+                                'ip': self.device_ip,
+                                'data': {}  # 空对象，而不是null，确保Android端能正确解析
+                            }
+                            json_str = json.dumps(heartbeat_packet)
+                            packet_bytes = json_str.encode('utf-8')
+                            self.broadcast_to_clients(packet_bytes)
+                            self.sequence += 1
+                        except Exception as e:
+                            # 心跳包发送失败不影响主流程
+                            pass
 
                     rk.keep_time()
 
