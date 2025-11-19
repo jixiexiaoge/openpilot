@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
 小鸽数据广播模块
-从系统获取实时数据，通过UDP广播到7701端口
+从系统获取实时数据，通过TCP连接传输到7711端口
 """
 
-import fcntl
 import json
 import socket
 import struct
+import threading
 import time
 import traceback
-import zlib
 from typing import Dict, Any, List, Tuple
 
 import numpy as np
@@ -48,14 +47,27 @@ class XiaogeDataBroadcaster:
     MIN_LANE_HALF_WIDTH = 0.1  # 最小车道半宽阈值（避免除零）
     TARGET_LANE_WIDTH_DISTANCE = 20.0  # 车道宽度计算的目标距离（米）
 
-    def __init__(self):
-        self.broadcast_port = 7701
-        self.broadcast_ip = None
-        self.sequence = 0
+    def get_ip_address(self):
+        """获取本机局域网IP地址"""
+        try:
+            # 创建一个UDP socket连接到外部地址（不需要实际连接成功）
+            # 这样可以自动选择正确的网络接口IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "127.0.0.1"
 
-        # 初始化UDP socket
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    def __init__(self):
+        self.tcp_port = 7711  # TCP 端口号
+        self.sequence = 0
+        self.device_ip = self.get_ip_address()  # 获取本机IP
+
+        # TCP 客户端连接管理（线程安全）
+        self.clients = {}  # {addr: conn} 存储活跃的客户端连接
+        self.clients_lock = threading.Lock()  # 保护客户端列表的锁
+        self.server_socket = None  # TCP 服务器 socket
+        self.server_running = False  # 服务器运行状态标志
 
         # 订阅消息（纯视觉数据，不使用雷达）
         self.sm = messaging.SubMaster([
@@ -92,32 +104,195 @@ class XiaogeDataBroadcaster:
             'cache_valid': False
         }
 
-        # 获取广播地址
-        self.broadcast_ip = self.get_broadcast_address()
-        if self.broadcast_ip == '255.255.255.255':
-            print("Warning: Could not determine network interface, using fallback broadcast address")
 
-    def get_broadcast_address(self):
-        """获取广播地址"""
-        interfaces = [b'br0', b'eth0', b'enp0s3'] if PC else [b'wlan0', b'eth0']
+    def recvall(self, sock, n):
+        """
+        接收指定字节数的数据（TCP 需要确保接收完整数据）
+        参考 carrot_man.py:765-773 的实现
+        参数:
+        - sock: socket 对象
+        - n: 需要接收的字节数
+        返回: 接收到的数据（bytearray），如果连接关闭则返回 None
+        """
+        data = bytearray()
+        while len(data) < n:
+            packet = sock.recv(n - len(data))
+            if not packet:  # 连接已关闭
+                return None
+            data.extend(packet)
+        return data
 
-        for iface in interfaces:
+    def send_packet_to_client(self, conn, packet):
+        """
+        向单个客户端发送数据包（TCP 需要确保数据完整发送）
+        参数:
+        - conn: 客户端连接对象
+        - packet: 要发送的数据包（bytes）
+        返回: 是否发送成功（bool）
+        """
+        try:
+            # TCP 发送数据包格式: [数据长度(4字节)][数据]
+            # 先发送数据长度（网络字节序，big-endian）
+            size = len(packet)
+            conn.sendall(struct.pack('!I', size))
+            # 再发送实际数据
+            conn.sendall(packet)
+            return True
+        except (socket.error, OSError):
+            # 连接已断开或发送失败
+            return False
+
+    def handle_client(self, conn, addr):
+        """
+        处理单个客户端连接
+        支持客户端发送命令：
+        - CMD 2: 心跳包，回复 0 表示存活
+        """
+        print(f"Client connected from {addr}")
+
+        # 将客户端添加到连接列表（线程安全）
+        with self.clients_lock:
+            self.clients[addr] = conn
+
+        try:
+            while self.server_running:
+                # 接收客户端请求(4字节命令)
+                # 如果客户端只是接收数据不发送命令，这里会阻塞，这是正常的
+                # 只要不抛出异常，连接就保持着，主线程可以继续通过 broadcast_to_clients 发送数据
+                cmd_data = self.recvall(conn, 4)
+
+                if not cmd_data:
+                    break
+
+                cmd = struct.unpack('!I', cmd_data)[0]
+
+                if cmd == 2:  # 心跳请求
+                    # 响应心跳：发送大小为0的数据包
+                    try:
+                        conn.sendall(struct.pack('!I', 0))
+                    except (socket.error, OSError):
+                        break
+                # 可以扩展其他命令，例如请求特定数据
+
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
+        finally:
+            # 清理客户端连接
+            with self.clients_lock:
+                self.clients.pop(addr, None)
             try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    ip = fcntl.ioctl(
-                        s.fileno(),
-                        0x8919,  # SIOCGIFADDR
-                        struct.pack('256s', iface)
-                    )[20:24]
-                    broadcast_ip = socket.inet_ntoa(ip)
-                    ip_parts = broadcast_ip.split('.')
-                    ip_parts[3] = '255'
-                    return '.'.join(ip_parts)
-            except (OSError, Exception):
-                continue
+                conn.close()
+            except:
+                pass
+            print(f"Client {addr} disconnected")
 
-        return '255.255.255.255'
+    def start_tcp_server(self):
+        """
+        启动 TCP 服务器（在独立线程中运行）
+        参考 carrot_man.py:809-878 的 carrot_route() 实现
+        """
+        try:
+            # 创建 TCP socket
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # 设置 SO_REUSEADDR 选项，允许端口重用
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # 绑定到所有网络接口的指定端口
+            self.server_socket.bind(('0.0.0.0', self.tcp_port))
+            # 开始监听连接（最多 5 个待处理连接）
+            self.server_socket.listen(5)
 
+            self.server_running = True
+            print(f"TCP server started, listening on port {self.tcp_port}")
+
+            while self.server_running:
+                try:
+                    # 等待客户端连接（阻塞调用）
+                    conn, addr = self.server_socket.accept()
+                    # 为每个客户端创建独立线程处理连接
+                    client_thread = threading.Thread(
+                        target=self.handle_client,
+                        args=(conn, addr),
+                        daemon=True  # 设置为守护线程，主程序退出时自动结束
+                    )
+                    client_thread.start()
+                except socket.error as e:
+                    if self.server_running:
+                        print(f"Error accepting connection: {e}")
+                    break
+        except Exception as e:
+            print(f"TCP server error: {e}")
+            traceback.print_exc()
+        finally:
+            self.server_running = False
+            if self.server_socket:
+                try:
+                    self.server_socket.close()
+                except:
+                    pass
+            print("TCP server stopped")
+
+    def broadcast_to_clients(self, packet):
+        """
+        向所有连接的客户端广播数据包
+        参数:
+        - packet: 要发送的数据包（bytes）
+        """
+        if not packet:
+            return
+
+        # 线程安全地获取客户端列表副本
+        with self.clients_lock:
+            clients_copy = dict(self.clients)  # 创建副本，避免在迭代时修改原字典
+
+        # 记录需要清理的断开连接
+        dead_clients = []
+
+        # 向所有客户端发送数据
+        for addr, conn in clients_copy.items():
+            if not self.send_packet_to_client(conn, packet):
+                # 发送失败，标记为断开连接
+                dead_clients.append(addr)
+
+        # 清理断开的连接
+        if dead_clients:
+            with self.clients_lock:
+                for addr in dead_clients:
+                    self.clients.pop(addr, None)
+                    try:
+                        # 尝试关闭连接（如果还未关闭）
+                        if addr in clients_copy:
+                            clients_copy[addr].close()
+                    except:
+                        pass
+
+    def shutdown(self):
+        """
+        优雅关闭服务器
+        关闭所有客户端连接并停止服务器
+        """
+        print("Shutting down TCP server...")
+
+        # 停止服务器运行标志
+        self.server_running = False
+
+        # 关闭所有客户端连接（线程安全）
+        with self.clients_lock:
+            for addr, conn in self.clients.items():
+                try:
+                    conn.close()
+                    print(f"Closed connection to {addr}")
+                except:
+                    pass
+            self.clients.clear()
+
+        # 关闭服务器 socket
+        if self.server_socket:
+            try:
+                self.server_socket.close()
+            except:
+                pass
+
+        print("TCP server shutdown complete")
 
     def collect_car_state(self, carState) -> Dict[str, Any]:
         """收集本车状态数据 - 简化版（只保留超车决策必需字段）"""
@@ -620,11 +795,15 @@ class XiaogeDataBroadcaster:
     # 移除 collect_blindspot_data() - 盲区数据已直接从carState获取
 
     def create_packet(self, data: Dict[str, Any]) -> bytes:
-        """创建数据包，包含序列号、时间戳和校验"""
+        """
+        创建数据包
+        返回: UTF-8 编码的 JSON 字节串
+        """
         packet_data = {
             'version': 1,
             'sequence': self.sequence,
             'timestamp': time.time(),
+            'ip': self.device_ip,
             'data': data
         }
 
@@ -632,87 +811,100 @@ class XiaogeDataBroadcaster:
         json_str = json.dumps(packet_data)
         packet_bytes = json_str.encode('utf-8')
 
-        # 添加CRC32校验
-        checksum = zlib.crc32(packet_bytes) & 0xffffffff
+        # 直接返回 JSON 字节数据，由发送函数负责添加长度头
+        # TCP 协议本身保证数据完整性，无需应用层 CRC32 校验
 
-        # 数据包格式: [校验和(4字节)][数据长度(4字节)][数据]
-        packet = struct.pack('!II', checksum, len(packet_bytes)) + packet_bytes
+        # 检查数据包大小
+        if len(packet_bytes) > 1024 * 1024:  # 1MB 警告
+            print(f"Warning: Large packet size {len(packet_bytes)} bytes")
 
-        # 修复：改进数据包大小检查和处理
-        if len(packet) > 1400:  # 留一些余量，避免超过MTU（以太网MTU通常为1500字节）
-            print(f"Warning: Packet size {len(packet)} bytes may exceed MTU")
-            # 注意：如果数据包过大，可以考虑：
-            # 1. 压缩数据（但会增加CPU开销）
-            # 2. 分包发送（但会增加协议复杂度）
-            # 3. 减少数据字段（但可能影响功能）
-            # 当前实现：仅记录警告，由上层决定如何处理
-
-        return packet
+        return packet_bytes
 
     def broadcast_data(self):
-        """主循环：收集数据并广播"""
+        """主循环：收集数据并通过 TCP 推送给所有连接的客户端"""
         rk = Ratekeeper(20, print_delay_threshold=None)  # 20Hz
 
-        print(f"XiaogeDataBroadcaster started, broadcasting to {self.broadcast_ip}:{self.broadcast_port}")
+        # 启动 TCP 服务器（在独立线程中运行）
+        server_thread = threading.Thread(
+            target=self.start_tcp_server,
+            daemon=True  # 设置为守护线程
+        )
+        server_thread.start()
 
-        while True:
-            try:
-                # 性能监控
-                start_time = time.perf_counter()
+        # 等待服务器启动
+        time.sleep(0.5)
 
-                # 更新所有消息
-                self.sm.update(0)
+        print(f"XiaogeDataBroadcaster started, TCP server listening on port {self.tcp_port}")
 
-                # 收集数据
-                data = {}
+        try:
+            while True:
+                try:
+                    # 性能监控
+                    start_time = time.perf_counter()
 
-                # 本车状态 - 始终收集（数据验证已在 collect_car_state() 内部完成）
-                if self.sm.alive['carState']:
-                    data['carState'] = self.collect_car_state(self.sm['carState'])
+                    # 更新所有消息
+                    self.sm.update(0)
 
-                # 模型数据
-                if self.sm.alive['modelV2']:
-                    # 修复：传递 carState 以获取更准确的自车速度
-                    carState = self.sm['carState'] if self.sm.alive['carState'] else None
-                    data['modelV2'] = self.collect_model_data(self.sm['modelV2'], carState)
+                    # 收集数据
+                    data = {}
 
-                # 系统状态
-                if self.sm.alive['selfdriveState']:
-                    data['systemState'] = self.collect_system_state(
-                        self.sm['selfdriveState']
-                    )
+                    # 本车状态 - 始终收集（数据验证已在 collect_car_state() 内部完成）
+                    if self.sm.alive['carState']:
+                        data['carState'] = self.collect_car_state(self.sm['carState'])
 
-                # 盲区数据已包含在carState中，无需单独收集
+                    # 模型数据
+                    if self.sm.alive['modelV2']:
+                        # 修复：传递 carState 以获取更准确的自车速度
+                        carState = self.sm['carState'] if self.sm.alive['carState'] else None
+                        data['modelV2'] = self.collect_model_data(self.sm['modelV2'], carState)
 
-                # 性能监控
-                processing_time = time.perf_counter() - start_time
-                if processing_time > 0.05:  # 超过50ms
-                    print(f"Warning: Slow processing detected: {processing_time*1000:.1f}ms")
+                    # 系统状态
+                    if self.sm.alive['selfdriveState']:
+                        data['systemState'] = self.collect_system_state(
+                            self.sm['selfdriveState']
+                        )
 
-                # 如果有数据则广播
-                # 注意：如果 openpilot 系统正常运行，至少会有 carState 数据
-                # Android 端已有 15 秒超时机制，不需要额外的心跳包
-                if data:
-                    packet = self.create_packet(data)
+                    # 盲区数据已包含在carState中，无需单独收集
 
-                    try:
-                        self.udp_socket.sendto(packet, (self.broadcast_ip, self.broadcast_port))
-                        self.sequence += 1
+                    # 性能监控
+                    processing_time = time.perf_counter() - start_time
+                    if processing_time > 0.05:  # 超过50ms
+                        print(f"Warning: Slow processing detected: {processing_time*1000:.1f}ms")
 
-                        # 每100帧打印一次日志
-                        if self.sequence % 100 == 0:
-                            print(f"Broadcasted {self.sequence} packets, last size: {len(packet)} bytes")
-                    except Exception as e:
-                        print(f"Failed to broadcast packet: {e}")
-                # 如果没有数据，不发送任何包（系统可能未启动或消息源不可用）
-                # Android 端会在 15 秒后检测到超时并显示"断开"
+                    # 如果有数据则推送给所有连接的客户端
+                    # 注意：如果 openpilot 系统正常运行，至少会有 carState 数据
+                    # 心跳机制已在 handle_client() 中实现（30秒间隔）
+                    if data:
+                        packet = self.create_packet(data)
 
-                rk.keep_time()
+                        try:
+                            # 向所有连接的客户端广播数据包
+                            self.broadcast_to_clients(packet)
+                            self.sequence += 1
 
-            except Exception as e:
-                print(f"XiaogeDataBroadcaster error: {e}")
-                traceback.print_exc()
-                time.sleep(1)
+                            # 每100帧打印一次日志
+                            if self.sequence % 100 == 0:
+                                with self.clients_lock:
+                                    client_count = len(self.clients)
+                                print(f"Sent {self.sequence} packets to {client_count} client(s), last size: {len(packet)} bytes")
+                        except Exception as e:
+                            print(f"Failed to send packet to clients: {e}")
+                    # 如果没有数据，不发送任何包（系统可能未启动或消息源不可用）
+                    # 客户端会在 30 秒后通过心跳检测到连接断开
+
+                    rk.keep_time()
+
+                except KeyboardInterrupt:
+                    # 捕获 Ctrl+C，优雅关闭
+                    print("\nReceived shutdown signal, closing gracefully...")
+                    break
+                except Exception as e:
+                    print(f"XiaogeDataBroadcaster error: {e}")
+                    traceback.print_exc()
+                    time.sleep(1)
+        finally:
+            # 确保优雅关闭
+            self.shutdown()
 
 
 def main():
