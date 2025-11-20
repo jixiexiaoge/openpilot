@@ -36,38 +36,29 @@ BS_:
 BU_: MRR
 
 BO_ 849 RADAR_TRACK_351: 8 MRR
- SG_ LongDist : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
- SG_ LatDist : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
- SG_ TrackID : 38|6@1+ (1,0) [0|63] "" MRR
- SG_ RelSpeed : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
- SG_ IsValid : 56|1@0+ (1,0) [0|1] "" MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed _tang: 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
 
 BO_ 850 RADAR_TRACK_352: 8 MRR
- SG_ LongDist : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
- SG_ LatDist : 28|10@1+ (-0.05,-25.6) [-15.36|15.33] "m" MRR
- SG_ TrackID : 38|6@1+ (1,0) [0|63] "" MRR
- SG_ RelSpeed : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
- SG_ IsValid : 56|1@0+ (1,0) [0|1] "" MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (-0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
 
 BO_ 851 RADAR_TRACK_353: 8 MRR
- SG_ LongDist : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
- SG_ LatDist : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
- SG_ TrackID : 38|6@1+ (1,0) [0|63] "" MRR
- SG_ RelSpeed : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
- SG_ IsValid : 56|1@0+ (1,0) [0|1] "" MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
 
 BO_ 852 RADAR_TRACK_354: 8 MRR
- SG_ LongDist : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
- SG_ LatDist : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
- SG_ TrackID : 38|6@1+ (1,0) [0|63] "" MRR
- SG_ RelSpeed : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
- SG_ IsValid : 56|1@0+ (1,0) [0|1] "" MRR
-
-BO_ 884 RADAR_MRR: 8 MRR
- SG_ TargetID : 1|2@0+ (1,0) [0|3] "" MRR
- SG_ Type : 7|4@0+ (1,0) [0|15] "" MRR
- SG_ LatDist : 15|8@0+ (0.1,-12) [0|255] "" MRR
- SG_ LongDist : 23|8@0+ (1,-100) [0|255] "" MRR
- SG_ IsValid : 40|1@0+ (1,0) [0|3] "" MRR
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" MRR
- SG_ CheckSum : 56|8@1+ (1,0) [0|255] "" MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
