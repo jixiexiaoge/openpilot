@@ -2,22 +2,20 @@ name: Sync Branch
 
 on:
   schedule:
-    - cron: '0 18 * * *'  # 每天 UTC 18 点运行
-  workflow_dispatch:        # 允许手动触发
+    - cron: '0 18 * * *'
+  workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the target repository (your repo)
       - name: Checkout the target repository (your repo)
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
 
-      # 2. Add upstream repositories and fetch branches (容错)
       - name: Add upstream repositories and fetch branches
         run: |
           set -e
@@ -48,33 +46,24 @@ jobs:
           git remote add fishop https://jihulab.com/fishop/openpilot.git
           git fetch fishop escc-cpv9 --no-tags || echo "⚠️ fishop fetch failed"
 
-          # yysnet Gitee (new) — bydTang
+          # yysnet Gitee
           git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
           git fetch yysnet bydTang --no-tags || echo "⚠️ yysnet bydTang fetch failed"
 
-      # 3. Push branches to your repository（即使失败也不中断）
       - name: Push branches to your repository
         run: |
           set +e
 
-          # ajouatom
           git checkout -B carrot2-v9 ajouatom/carrot2-v9 && git push origin carrot2-v9 --force || echo "⚠️ carrot2-v9 push skipped"
-          git checkout -B j-st2 ajouatom/j-st2 && git push origin j-st2 --force || echo "⚠️ j-st2 push skipped"
 
-          # sunnypilot
           #git checkout -B dev-c3-new sunnypilot/dev-c3-new && git push origin dev-c3-new --force || echo "⚠️ dev-c3-new push skipped"
 
-          # dragonpilot
-          #git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
+          git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
 
-          # frogpilot
           git checkout -B frogpilot frogpilot/FrogPilot && git push origin frogpilot --force || echo "⚠️ frogpilot push skipped"
 
-          # mr-one GitLab
-          #git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
+          git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
 
-          # fishop GitLab
           git checkout -B escc-cpv9 fishop/escc-cpv9 && git push origin escc-cpv9 --force || echo "⚠️ escc-cpv9 push skipped"
 
-          # yysnet Gitee (new)
           git checkout -B bydTang yysnet/bydTang && git push origin bydTang --force || echo "⚠️ bydTang push skipped"
