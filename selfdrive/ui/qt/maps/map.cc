@@ -138,7 +138,7 @@ void MapWindow::initLayers() {
     };
 
     QVariantList fillExtrusionOpacity = {
-      "interpolate", 
+      "interpolate",
       QVariantList{"linear"},
       QVariantList{"zoom"},
       15, 0,
@@ -335,20 +335,20 @@ void MapWindow::initializeGL() {
   //m_map->setMargins({ 0, 350, 0, 50 });
   m_map->setMargins({ 0, 250, 0, 50 });
   m_map->setPitch(MIN_PITCH);
-  
+
   // carrot
   int mapbox_style = Params().getInt("MapboxStyle");
-  
+
   MAX_ZOOM = 17;
   switch(mapbox_style) {
     case 1:
-      m_map->setStyleUrl("mapbox://styles/mapbox/navigation-night-v1"); 
+      m_map->setStyleUrl("mapbox://styles/mike854/clt0hm8mw01ok01p4blkr27jp");
       break;
     case 2:
-      m_map->setStyleUrl("mapbox://styles/mapbox/satellite-streets-v12");
+      m_map->setStyleUrl("mapbox://styles/frogsgomoo/cmcfv151j000o01rcdxebhl76");
       MAX_ZOOM = 20;
       break;
-    case 0:  
+    case 0:
       m_map->setStyleUrl("mapbox://styles/commaai/clkqztk0f00ou01qyhsa5bzpj");
     default:
       break;
