@@ -2,7 +2,7 @@ name: Sync Branch
 
 on:
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '0 18 * * *'    # 每天 UTC 18 点
   workflow_dispatch:
 
 jobs:
@@ -26,10 +26,6 @@ jobs:
           git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom carrot2-v9 fetch failed"
           git fetch ajouatom j-st2 --no-tags || echo "⚠️ ajouatom j-st2 fetch failed"
 
-          # sunnypilot branch
-          git remote add sunnypilot https://github.com/sunnypilot/sunnypilot.git
-          git fetch sunnypilot dev-c3-new --no-tags || echo "⚠️ sunnypilot fetch failed"
-
           # dragonpilot branch
           git remote add dragonpilot https://github.com/dragonpilot-community/dragonpilot.git
           git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot fetch failed"
@@ -46,17 +42,16 @@ jobs:
           git remote add fishop https://jihulab.com/fishop/openpilot.git
           git fetch fishop escc-cpv9 --no-tags || echo "⚠️ fishop fetch failed"
 
-          # yysnet Gitee
+          # yysnet Gitee carrot2-v9 → will become bydTang
           git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
-          git fetch yysnet bydTang --no-tags || echo "⚠️ yysnet bydTang fetch failed"
+          git fetch yysnet carrot2-v9 --no-tags || echo "⚠️ yysnet carrot2-v9 fetch failed"
 
       - name: Push branches to your repository
         run: |
           set +e
 
           git checkout -B carrot2-v9 ajouatom/carrot2-v9 && git push origin carrot2-v9 --force || echo "⚠️ carrot2-v9 push skipped"
-
-          #git checkout -B dev-c3-new sunnypilot/dev-c3-new && git push origin dev-c3-new --force || echo "⚠️ dev-c3-new push skipped"
+          #git checkout -B j-st2 ajouatom/j-st2 && git push origin j-st2 --force || echo "⚠️ j-st2 push skipped"
 
           git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
 
@@ -66,4 +61,5 @@ jobs:
 
           git checkout -B escc-cpv9 fishop/escc-cpv9 && git push origin escc-cpv9 --force || echo "⚠️ escc-cpv9 push skipped"
 
-          git checkout -B bydTang yysnet/bydTang && git push origin bydTang --force || echo "⚠️ bydTang push skipped"
+          # NEW: yysnet carrot2-v9 → your repository branch "bydTang"
+          git checkout -B bydTang yysnet/carrot2-v9 && git push origin bydTang --force || echo "⚠️ bydTang push skipped"
