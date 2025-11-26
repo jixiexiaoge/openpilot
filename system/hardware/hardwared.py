@@ -241,11 +241,13 @@ def hardware_thread(end_event, hw_queue) -> None:
       # Heuristic: harness connected AND peripheral panda voltage indicates car power (>11V typical automotive) -> treat as ignition.
       if not onroad_conditions["ignition"]:
         try:
-          if params.get_bool("ForceHarnessIgnition"):
+          # Enable fallback if param is set OR fingerprint indicates VW ID.4
+          fallback_enabled = params.get_bool("ForceHarnessIgnition") or (os.getenv("FINGERPRINT") == "VOLKSWAGEN_ID4_MK1")
+          if fallback_enabled:
             harness_connected = any(ps.harnessStatus != log.PandaState.HarnessStatus.notConnected for ps in pandaStates)
             if harness_connected and peripheral_panda_present and peripheralState.voltage > 11.0:
               onroad_conditions["ignition"] = True
-              cloudlog.event("IgnitionFallbackUsed", harness_connected=harness_connected, voltage=peripheralState.voltage)
+              cloudlog.event("IgnitionFallbackUsed", harness_connected=harness_connected, voltage=peripheralState.voltage, reason="voltage+harness")
         except Exception:
             pass
 
