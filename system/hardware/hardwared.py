@@ -236,6 +236,19 @@ def hardware_thread(end_event, hw_queue) -> None:
       # Set ignition based on any panda connected
       onroad_conditions["ignition"] = any(ps.ignitionLine or ps.ignitionCan for ps in pandaStates if ps.pandaType != log.PandaState.PandaType.unknown)
 
+      # Fallback ignition detection for VW MEB (e.g. ID.4) where CAN-FD ignition signal may not populate ignitionCan
+      # Enable only if param ForceHarnessIgnition set to true to avoid false positives on other platforms.
+      # Heuristic: harness connected AND peripheral panda voltage indicates car power (>11V typical automotive) -> treat as ignition.
+      if not onroad_conditions["ignition"]:
+        try:
+          if params.get_bool("ForceHarnessIgnition"):
+            harness_connected = any(ps.harnessStatus != log.PandaState.HarnessStatus.notConnected for ps in pandaStates)
+            if harness_connected and peripheral_panda_present and peripheralState.voltage > 11.0:
+              onroad_conditions["ignition"] = True
+              cloudlog.event("IgnitionFallbackUsed", harness_connected=harness_connected, voltage=peripheralState.voltage)
+        except Exception:
+            pass
+
       pandaState = pandaStates[0]
 
       in_car = pandaState.harnessStatus != log.PandaState.HarnessStatus.notConnected
