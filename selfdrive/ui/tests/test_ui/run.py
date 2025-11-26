@@ -56,7 +56,7 @@ def setup_settings_firehose(click, pm: PubMaster):
 
 def setup_settings_developer(click, pm: PubMaster):
   CP = car.CarParams()
-  CP.experimentalLongitudinalAvailable = True
+  CP.alphaLongitudinalAvailable = True  # 修复：使用正确的字段名 alphaLongitudinalAvailable
   Params().put("CarParamsPersistent", CP.to_bytes())
 
   setup_settings_device(click, pm)
