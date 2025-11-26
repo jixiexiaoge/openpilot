@@ -203,9 +203,22 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
       candidate = found_car
 
   print(f"SelectedCar = {candidate}")
+  # 规范化 candidate：当通过 CarSelected3 选择时可能是枚举对象而非其字符串值
+  try:
+    if hasattr(candidate, "value"):
+      candidate = candidate.value
+  except Exception:
+    pass
+
   Params().put("CarName", candidate)
 
   Params().put("FingerPrints", str(fingerprints))
+  # 防止因 candidate 类型不一致导致的字典访问错误
+  if candidate not in interfaces:
+    # 回退到 MOCK，记录事件便于诊断
+    from opendbc.car.mock.values import CAR as MOCK
+    candidate = MOCK.MOCK.value if hasattr(MOCK.MOCK, "value") else str(MOCK.MOCK)
+    carlog.error({"event": "candidate_not_in_interfaces_fallback", "fallback": candidate})
   CarInterface = interfaces[candidate]
   CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False)
   CP.carVin = vin
