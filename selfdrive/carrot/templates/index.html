@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xiaoge 数据实时显示</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .connection-panel {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .connection-panel input {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .connection-panel input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-connected {
+            background: #28a745;
+        }
+
+        .status-disconnected {
+            background: #dc3545;
+            animation: none;
+        }
+
+        .status-connecting {
+            background: #ffc107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card h3 {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .data-sections {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .data-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+        }
+
+        .data-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #667eea;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table tr {
+            transition: background-color 0.2s;
+        }
+
+        .data-table tr:hover {
+            background: #e9ecef;
+        }
+
+        .data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .data-table td:first-child {
+            font-weight: 600;
+            color: #495057;
+            width: 50%;
+        }
+
+        .data-table td:last-child {
+            color: #212529;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .value-updated {
+            animation: highlight 0.5s ease-out;
+        }
+
+        @keyframes highlight {
+            0% { background-color: #fff3cd; }
+            100% { background-color: transparent; }
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        @media (max-width: 768px) {
+            .data-sections {
+                grid-template-columns: 1fr;
+            }
+            
+            .connection-panel {
+                flex-direction: column;
+            }
+            
+            .connection-panel input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚗 Xiaoge 数据实时显示</h1>
+            <div>
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span class="status-text" id="statusText">未连接</span>
+            </div>
+        </div>
+
+        <div class="connection-panel">
+            <input type="text" id="targetIp" placeholder="输入目标 IP 地址 (例如: 192.168.1.100)" value="">
+            <button class="btn btn-primary" id="connectBtn" onclick="connectServer()">连接</button>
+            <button class="btn btn-danger" id="disconnectBtn" onclick="disconnectServer()" disabled>断开</button>
+        </div>
+
+        <div class="content">
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <h3>数据包总数</h3>
+                    <div class="value" id="totalPackets">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>总数据量</h3>
+                    <div class="value" id="totalBytes">0 KB</div>
+                </div>
+                <div class="stat-card">
+                    <h3>最后更新</h3>
+                    <div class="value" id="lastUpdate">--</div>
+                </div>
+                <div class="stat-card">
+                    <h3>错误计数</h3>
+                    <div class="value" id="errorCount">0</div>
+                </div>
+            </div>
+
+            <div class="data-sections">
+                <div class="data-section">
+                    <h2>📊 车辆状态 (carState)</h2>
+                    <div id="carStateData" class="no-data">等待数据...</div>
+                </div>
+
+                <div class="data-section">
+                    <h2>🤖 模型数据 (modelV2)</h2>
+                    <div id="modelV2Data" class="no-data">等待数据...</div>
+                </div>
+
+                <div class="data-section">
+                    <h2>⚙️ 系统状态 (systemState)</h2>
+                    <div id="systemStateData" class="no-data">等待数据...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentData = {};
+        let lastUpdateTime = {};
+
+        // 连接状态管理
+        socket.on('connect', () => {
+            console.log('WebSocket 已连接');
+            updateConnectionStatus('disconnected', 'WebSocket 已连接，等待连接服务器');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('WebSocket 已断开');
+            updateConnectionStatus('disconnected', 'WebSocket 已断开');
+        });
+
+        socket.on('connection_status', (data) => {
+            console.log('连接状态:', data);
+            updateConnectionStatus(data.status, data.message);
+        });
+
+        socket.on('data_update', (data) => {
+            if (data.packet) {
+                updateStats(data.stats);
+                updateDataDisplay(data.packet);
+            }
+        });
+
+        function updateConnectionStatus(status, message) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+
+            indicator.className = 'status-indicator status-' + status;
+            statusText.textContent = message;
+
+            if (status === 'connected') {
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+            } else {
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            }
+        }
+
+        function updateStats(stats) {
+            // 平滑更新统计数据（避免闪烁）
+            animateValue('totalPackets', parseInt(stats.total_packets || 0));
+            animateValue('totalBytes', formatBytes(stats.total_bytes || 0));
+            
+            const lastUpdate = stats.last_update;
+            if (lastUpdate) {
+                const date = new Date(lastUpdate);
+                document.getElementById('lastUpdate').textContent = 
+                    date.toLocaleTimeString('zh-CN');
+            }
+            
+            animateValue('errorCount', parseInt(stats.error_count || 0));
+        }
+
+        function animateValue(elementId, targetValue) {
+            const element = document.getElementById(elementId);
+            const currentValue = parseInt(element.textContent) || 0;
+            
+            if (currentValue !== targetValue) {
+                // 平滑过渡
+                const diff = targetValue - currentValue;
+                const step = Math.sign(diff) * Math.ceil(Math.abs(diff) / 10);
+                
+                const timer = setInterval(() => {
+                    const current = parseInt(element.textContent) || 0;
+                    if (Math.abs(targetValue - current) <= Math.abs(step)) {
+                        element.textContent = targetValue;
+                        clearInterval(timer);
+                    } else {
+                        element.textContent = current + step;
+                    }
+                }, 20);
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function updateDataDisplay(packet) {
+            if (!packet || !packet.data) return;
+
+            const data = packet.data;
+
+            // 更新车辆状态（平滑更新，避免闪烁）
+            if (data.carState) {
+                updateSection('carStateData', data.carState, 'carState');
+            }
+
+            // 更新模型数据
+            if (data.modelV2) {
+                updateSection('modelV2Data', data.modelV2, 'modelV2');
+            }
+
+            // 更新系统状态
+            if (data.systemState) {
+                updateSection('systemStateData', data.systemState, 'systemState');
+            }
+        }
+
+        function updateSection(containerId, data, prefix) {
+            const container = document.getElementById(containerId);
+            
+            if (!data || Object.keys(data).length === 0) {
+                container.innerHTML = '<div class="no-data">暂无数据</div>';
+                return;
+            }
+
+            let html = '<table class="data-table">';
+            
+            for (const [key, value] of Object.entries(data)) {
+                const fullKey = `${prefix}.${key}`;
+                const displayValue = formatValue(value, key);
+                
+                // 检查值是否变化（避免闪烁）
+                const changed = lastUpdateTime[fullKey] !== JSON.stringify(value);
+                lastUpdateTime[fullKey] = JSON.stringify(value);
+                
+                html += `
+                    <tr ${changed ? 'class="value-updated"' : ''}>
+                        <td>${formatKey(key)}</td>
+                        <td>${displayValue}</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        function formatKey(key) {
+            // 格式化键名显示
+            return key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+        }
+
+        function formatValue(value, key) {
+            if (value === null || value === undefined) {
+                return '<span style="color: #6c757d;">N/A</span>';
+            }
+
+            if (typeof value === 'boolean') {
+                return value ? '<span style="color: #28a745;">✅ 是</span>' : 
+                              '<span style="color: #dc3545;">❌ 否</span>';
+            }
+
+            if (typeof value === 'object') {
+                if (Array.isArray(value)) {
+                    return '[' + value.map(v => formatValue(v, key)).join(', ') + ']';
+                }
+                // 嵌套对象
+                let html = '<div style="margin-left: 10px;">';
+                for (const [k, v] of Object.entries(value)) {
+                    html += `<div><strong>${formatKey(k)}:</strong> ${formatValue(v, k)}</div>`;
+                }
+                html += '</div>';
+                return html;
+            }
+
+            if (typeof value === 'number') {
+                // 根据字段名格式化数字
+                if (key.toLowerCase().includes('speed') || key.toLowerCase().includes('v')) {
+                    return value.toFixed(2) + ' m/s';
+                }
+                if (key.toLowerCase().includes('angle') || key.toLowerCase().includes('deg')) {
+                    return value.toFixed(1) + '°';
+                }
+                if (key.toLowerCase().includes('dist') || key.toLowerCase().includes('drel')) {
+                    return value.toFixed(1) + ' m';
+                }
+                if (key.toLowerCase().includes('prob')) {
+                    return (value * 100).toFixed(1) + '%';
+                }
+                return value.toFixed(3);
+            }
+
+            return String(value);
+        }
+
+        function connectServer() {
+            const targetIp = document.getElementById('targetIp').value.trim();
+            if (!targetIp) {
+                alert('请输入目标 IP 地址');
+                return;
+            }
+            socket.emit('connect_server', { target_ip: targetIp });
+        }
+
+        function disconnectServer() {
+            socket.emit('disconnect_server');
+        }
+
+        // 页面加载时请求最新数据
+        window.addEventListener('load', () => {
+            socket.emit('get_latest_data');
+        });
+    </script>
+</body>
+</html>
+
