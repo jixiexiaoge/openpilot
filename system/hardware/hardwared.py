@@ -216,9 +216,9 @@ def hardware_thread(end_event, hw_queue) -> None:
       # Set ignition based on any panda connected
       onroad_conditions["ignition"] = any(ps.ignitionLine or ps.ignitionCan for ps in pandaStates if ps.pandaType != log.PandaState.PandaType.unknown)
       # 对 ID.3 用档位覆盖 Panda ignition 状态
-      if sm['carState'].gearShifter in (
-        log.CarState.GearShifter.drive,):
-        onroad_conditions["ignition"] = True
+      #if sm['carState'].gearShifter in (
+        #log.CarState.GearShifter.drive,):
+        #onroad_conditions["ignition"] = True
 
       pandaState = pandaStates[0]
 
