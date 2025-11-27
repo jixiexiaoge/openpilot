@@ -13,6 +13,7 @@ import psutil
 
 import cereal.messaging as messaging
 from cereal import log
+from cereal.log import CarState
 from cereal.services import SERVICE_LIST
 from openpilot.common.dict_helpers import strip_deprecated_keys
 from openpilot.common.filter_simple import FirstOrderFilter
@@ -215,6 +216,10 @@ def hardware_thread(end_event, hw_queue) -> None:
 
       # Set ignition based on any panda connected
       onroad_conditions["ignition"] = any(ps.ignitionLine or ps.ignitionCan for ps in pandaStates if ps.pandaType != log.PandaState.PandaType.unknown)
+      # 对 ID.3 用档位覆盖 Panda ignition 状态
+      if sm['carState'].gearShifter in (
+        log.CarState.GearShifter.drive,):
+        onroad_conditions["ignition"] = True
 
       pandaState = pandaStates[0]
 
