@@ -4,6 +4,9 @@
 #include <eigen3/Eigen/Dense>
 
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 
 #include "selfdrive/ui/qt/maps/map_helpers.h"
 #include "selfdrive/ui/qt/util.h"
@@ -13,7 +16,7 @@
 const int INTERACTION_TIMEOUT = 100;
 
 //const float MAX_ZOOM = 20;// 17;
-const float MIN_ZOOM = 14;
+const float MIN_ZOOM = 15; // 14;
 const float MAX_PITCH = 50;
 const float MIN_PITCH = 0;
 const float MAP_SCALE = 2;
@@ -147,6 +150,40 @@ void MapWindow::initLayers() {
       20, 0
     };
 
+    if (!m_map->sourceExists("carrotSpeedSource")) {
+      qDebug() << "Initializing carrotSpeedSource";
+
+      // 빈 FeatureCollection GeoJSON (QVariantMap 버전)
+      QVariantMap fc;
+      fc["type"] = "FeatureCollection";
+      fc["features"] = QVariantList{};   // 빈 리스트
+
+      QVariantMap src;
+      src["type"] = "geojson";
+      src["data"] = fc;
+      m_map->addSource("carrotSpeedSource", src);
+    }
+
+    if (!m_map->layerExists("carrotSpeedLayer")) {
+      qDebug() << "Initializing carrotSpeedLayer";
+      QVariantMap layer;
+      layer["type"] = "symbol";
+      layer["source"] = "carrotSpeedSource";
+      m_map->addLayer("carrotSpeedLayer", layer);
+
+      // properties.speed 를 텍스트로 표시 (토큰 방식)
+      // "{speed}" 라고 쓰면 properties.speed 값을 문자열로 넣어줌
+      m_map->setLayoutProperty("carrotSpeedLayer", "text-field", "{speed}");
+      m_map->setLayoutProperty("carrotSpeedLayer", "text-size", 16.0);
+      m_map->setLayoutProperty("carrotSpeedLayer", "text-offset", QVariantList{ 0.0, -1.5 });
+      m_map->setLayoutProperty("carrotSpeedLayer", "text-anchor", "top");
+      m_map->setLayoutProperty("carrotSpeedLayer", "icon-allow-overlap", true);
+      m_map->setPaintProperty("carrotSpeedLayer", "text-color", QColor("white"));
+      m_map->setPaintProperty("carrotSpeedLayer", "text-halo-color", QColor("black"));
+      m_map->setPaintProperty("carrotSpeedLayer", "text-halo-width", 1.0);
+      m_map->setLayoutProperty("carrotSpeedLayer", "text-allow-overlap", true);
+
+    }
     m_map->setPaintProperty("buildingsLayer", "fill-extrusion-color", QColor("grey"));
     m_map->setPaintProperty("buildingsLayer", "fill-extrusion-opacity", fillExtrusionOpacity);
     m_map->setPaintProperty("buildingsLayer", "fill-extrusion-height", fillExtrusionHight);
@@ -228,6 +265,74 @@ void MapWindow::updateState(const UIState &s) {
 
   initLayers();
 
+  {
+    std::string raw = params_memory.get("CarrotSpeedViz");
+    if (!raw.empty()) {
+      QString qraw = QString::fromStdString(raw);
+      //printf("%s\n", qraw.toStdString().c_str());
+      if (qraw != last_viz_raw) {
+        last_viz_raw = qraw;
+
+        QJsonParseError err;
+        QJsonDocument doc = QJsonDocument::fromJson(qraw.toUtf8(), &err);
+        if (err.error == QJsonParseError::NoError && doc.isObject()) {
+          QJsonObject obj = doc.object();
+          QJsonArray pts = obj["pts"].toArray();
+
+          // GeoJSON FeatureCollection → QVariantMap 트리로 만들기
+          QVariantList features;  // Feature 리스트
+
+          for (const QJsonValue& v : pts) {
+            QJsonArray arr = v.toArray();
+            if (arr.size() < 3) continue;
+
+            double plat = arr[0].toDouble();
+            double plon = arr[1].toDouble();
+            double spd = arr[2].toDouble();
+
+            // geometry: Point (GeoJSON: [lon, lat] 순서)
+            QVariantList coords;
+            coords.append(plon);
+            coords.append(plat);
+
+            QVariantMap geom;
+            geom["type"] = "Point";
+            geom["coordinates"] = coords;
+
+            // properties: speed
+            QVariantMap props;
+            props["speed"] = static_cast<int>(std::round(spd));
+
+            // Feature
+            QVariantMap feature;
+            feature["type"] = "Feature";
+            feature["geometry"] = geom;
+            feature["properties"] = props;
+
+            features.append(feature);
+          }
+
+          QVariantMap fc;
+          fc["type"] = "FeatureCollection";
+          fc["features"] = features;
+
+          QJsonDocument fc_doc = QJsonDocument::fromVariant(fc);
+          QByteArray fc_bytes = fc_doc.toJson(QJsonDocument::Compact);
+
+          QVariantMap src;
+          src["type"] = "geojson";
+          src["data"] = fc_bytes;
+          m_map->updateSource("carrotSpeedSource", src);
+          m_map->setLayoutProperty("carrotSpeedLayer", "visibility", "visible");
+        }
+      }
+    }
+    else {
+      // 필요하면 숨기기
+      // m_map->setLayoutProperty("carrotSpeedLayer", "visibility", "none");
+    }
+  }
+
   if (!locationd_valid) {
     setError(tr("Waiting for GPS(APN)"));
   } else if (routing_problem) {
@@ -295,17 +400,17 @@ void MapWindow::updateState(const UIState &s) {
     updateDestinationMarker();
   }
   if (loaded_once && (sm.rcv_frame("modelV2") != model_rcv_frame)) {
-    auto locationd_location = sm["liveLocationKalman"].getLiveLocationKalman();
-    if (locationd_location.getGpsOK()) {
-      //auto carrot_man = sm["carrotMan"].getCarrotMan();
+    /*
+    gps = (ublox_avaliable)? sm[gps_service].getGpsLocationExternal() : sm[gps_service].getGpsLocation();
+    if (gps.getHasFix()) {
       auto model_path = model_to_collection(locationd_location.getCalibratedOrientationECEF(), locationd_location.getPositionECEF(), sm["modelV2"].getModelV2().getPosition(), carrotMan.getXPosLat(), carrotMan.getXPosLon());
-      //auto model_path = model_to_collection(sm["modelV2"].getModelV2().getPosition(), carrotMan.getXPosLat(), carrotMan.getXPosLon(), carrotMan.getXPosAngle());
       QMapLibre::Feature model_path_feature(QMapLibre::Feature::LineStringType, model_path, {}, {});
       QVariantMap modelV2Path;
       modelV2Path["type"] = "geojson";
       modelV2Path["data"] = QVariant::fromValue<QMapLibre::Feature>(model_path_feature);
       m_map->updateSource("modelPathSource", modelV2Path);
     }
+    */
     model_rcv_frame = sm.rcv_frame("modelV2");
   }
 }

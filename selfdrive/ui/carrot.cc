@@ -2400,9 +2400,8 @@ public:
         if (strcmp(driving_mode_str, driving_mode_str_last)) ui_draw_text_a(s, dx, dy, driving_mode_str, 30, COLOR_WHITE, BOLD);
         strcpy(driving_mode_str_last, driving_mode_str);
 
-        auto locationd = sm["liveLocationKalman"].getLiveLocationKalman();
-        bool is_gps_valid = sm.valid("liveLocationKalman") && locationd.getGpsOK();
-        if (is_gps_valid) {
+        auto gps = (s->ublox_avaliable) ? sm["gpsLocationExternal"].getGpsLocationExternal() : sm["gpsLocation"].getGpsLocation();
+        if (gps.getHasFix()) {
           ui_draw_text(s, dx, dy - 45, "GPS", 30, COLOR_GREEN, BOLD);
         }
 

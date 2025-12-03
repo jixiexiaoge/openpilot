@@ -15,6 +15,8 @@ from openpilot.selfdrive.locationd.models.constants import GENERATED_DIR
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.common.swaglog import cloudlog
 
+from openpilot.common.gps import get_gps_location_service
+
 MAX_ANGLE_OFFSET_DELTA = 20 * DT_MDL  # Max 20 deg/s
 ROLL_MAX_DELTA = np.radians(20.0) * DT_MDL  # 20deg in 1 second is well within curvature limits
 ROLL_MIN, ROLL_MAX = np.radians(-10), np.radians(10)
@@ -245,7 +247,9 @@ def retrieve_initial_vehicle_params(params: Params, CP: car.CarParams, replay: b
         if debug and len(initial_filter_std) != 0:
           p_initial = np.diag(initial_filter_std)
 
-        steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetAverageDeg
+        #steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetAverageDeg
+        #steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetDeg
+        steer_ratio, stiffness_factor = lp.steerRatio, lp.stiffnessFactor
         retrieve_success = True
     except Exception as e:
       cloudlog.error(f"Failed to retrieve initial values: {e}")
@@ -269,7 +273,8 @@ def main():
   REPLAY = bool(int(os.getenv("REPLAY", "0")))
 
   pm = messaging.PubMaster(['liveParameters'])
-  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', 'liveLocationKalman'], poll='livePose')
+  gps_location_service = get_gps_location_service(Params())
+  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', gps_location_service], poll='livePose', ignore_alive=[gps_location_service], ignore_valid=[gps_location_service])
 
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
@@ -289,12 +294,12 @@ def main():
           t = sm.logMonoTime[which] * 1e-9
           learner.handle_log(t, which, sm[which])
 
-    if sm.updated['liveLocationKalman']:
-      location = sm['liveLocationKalman']
-      if (location.status == log.LiveLocationKalman.Status.valid) and location.positionGeodetic.valid and location.gpsOK:
-        bearing = math.degrees(location.calibratedOrientationNED.value[2])
-        lat = location.positionGeodetic.value[0]
-        lon = location.positionGeodetic.value[1]
+    if sm.updated[gps_location_service]:
+      gps = sm[gps_location_service]
+      if gps.hasFix:
+        bearing = gps.bearingDeg
+        lat = gps.latitude
+        lon = gps.longitude
         params_memory.put("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
         
 

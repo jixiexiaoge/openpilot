@@ -22,6 +22,9 @@ from openpilot.selfdrive.navd.helpers import Coordinate
 from opendbc.car.common.conversions import Conversions as CV
 
 from openpilot.selfdrive.carrot.carrot_serv import CarrotServ
+from openpilot.selfdrive.carrot.carrot_speed import CarrotSpeed
+
+from openpilot.common.gps import get_gps_location_service
 
 try:
   from shapely.geometry import LineString
@@ -185,7 +188,8 @@ class CarrotMan:
     print("************************************************CarrotMan init************************************************")
     self.params = Params()
     self.params_memory = Params("/dev/shm/params")
-    self.sm = messaging.SubMaster(['deviceState', 'carState', 'controlsState', 'longitudinalPlan', 'modelV2', 'selfdriveState', 'carControl', 'navRouteNavd', 'liveLocationKalman', 'navInstruction'])
+    self.gps_location_service = get_gps_location_service(self.params)
+    self.sm = messaging.SubMaster(['deviceState', 'carState', 'controlsState', 'radarState', 'longitudinalPlan', 'modelV2', 'selfdriveState', 'carControl', 'navRouteNavd', self.gps_location_service, 'navInstruction'])
     self.pm = messaging.PubMaster(['carrotMan', "navRoute", "navInstructionCarrot"])
 
     self.carrot_serv = CarrotServ()
@@ -258,9 +262,22 @@ class CarrotMan:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     frame = 0
     self.save_toggle_values()
-    rk = Ratekeeper(10, print_delay_threshold=None)
+
+    carrot_speed = CarrotSpeed(neighbor_ring=2)
+    self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
+
+    rk = Ratekeeper(20, print_delay_threshold=None)
 
     carrotIndex_last = self.carrot_serv.carrotIndex
+    phone_gps_frame = self.carrot_serv.phone_gps_frame
+    carrot_speed_active_count = 0
+    self.v_cruise_last = 0
+    self.long_active = False
+    self.v_cruise_change = 0
+    self._last_vt = 0.0
+    self.gas_pressed_count = 0
+    self._last_viz_t = 0.0
+
     while self.is_running:
       try:
         self.sm.update(0)
@@ -273,7 +290,16 @@ class CarrotMan:
 
         #print("coords=", coords)
         #print("curvatures=", curvatures)
-        self.carrot_serv.update_navi(remote_ip, self.sm, self.pm, vturn_speed, coords, distances, route_speed)
+        self.carrot_serv.update_navi(remote_ip, self.sm, self.pm, vturn_speed, coords, distances, route_speed, self.gps_location_service)
+
+        if phone_gps_frame != self.carrot_serv.phone_gps_frame:
+          phone_gps_frame = self.carrot_serv.phone_gps_frame
+          carrot_speed_active_count = 10
+        else:
+          carrot_speed_active_count -= 1
+
+        if carrot_speed_active_count > 0:
+          self.carrot_speed_serv(carrot_speed, frame)
 
         if frame % 20 == 0 or remote_addr is not None:
           try:
@@ -318,6 +344,71 @@ class CarrotMan:
         traceback.print_exc()
         time.sleep(1)
 
+  def carrot_speed_serv(self, carrot_speed, frame):
+    v_ego = a_ego = 0.0
+    gas_pressed = False
+    if self.sm.alive['carState'] and self.sm.alive['carControl']:
+      CS = self.sm['carState']
+      CC = self.sm['carControl']
+      v_ego = CS.vEgo
+      a_ego = CS.aEgo
+      gas_pressed = CS.gasPressed
+      v_ego_kph = v_ego * 3.6
+      if gas_pressed:
+        self.gas_pressed_count = 200
+        self.v_cruise_change = 0
+      elif self._last_vt == CS.vCruise:
+        self.v_cruise_last = CS.vCruise
+      elif self.long_active and CC.longActive and self.gas_pressed_count == 0:
+        if self.v_cruise_last < CS.vCruise:  # 속도가 증가하면
+          self.v_cruise_change = 100
+        elif self.v_cruise_last > CS.vCruise: # 속도가 감소하면
+          if v_ego_kph < CS.vCruise: # 주행속도가 느리면
+            self.v_cruise_change = 100
+          else:                       # 주행속도가 빠르면
+            self.v_cruise_change = -100
+
+        if self.v_cruise_change != 0:
+          self.gas_pressed_count = 0
+      else:
+        self.v_cruise_change = 0
+      self.long_active = CC.longActive
+      self.v_cruise_last = CS.vCruise
+    else:
+      self.v_cruise_change = 0
+
+    now = time.monotonic()
+    heading = self.carrot_serv.bearing #nPosAnglePhone
+    lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
+    vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    if self.v_cruise_change != 0:
+      carrot_speed.add_sample(lat, lon, heading, self.v_cruise_last if self.v_cruise_change > 0 else (- self.v_cruise_last))
+      if self.v_cruise_change > 0:
+        self.v_cruise_change -= 1
+      if self.v_cruise_change < 0:
+        self.v_cruise_change += 1
+    else:
+      if self.gas_pressed_count > 0:
+        vt = max(vt, self.v_cruise_last)
+        carrot_speed.add_sample(lat, lon, heading, vt)
+
+      self.params_memory.put_int_nonblocking("CarrotSpeed", int(vt))
+
+    self._last_vt = vt
+    if gas_pressed and a_ego < -0.5: #self._last_vt < 0.0:
+      carrot_speed.invalidate_last_hit(window_s=2.0, action="clear")
+    self.gas_pressed_count = max(0, self.gas_pressed_count - 1)
+
+    if now - self._last_viz_t > 0.5: # 2Hz
+        self._last_viz_t = now
+        viz_json = carrot_speed.export_cells_around(lat, lon, heading, ring=2, max_points=64)
+        # 메모리 Params에 쓰는 게 좋음 (디스크 말고)
+        self.params_memory.put_nonblocking("CarrotSpeedViz", viz_json)
+
+    carrot_speed.maybe_save()
+
+
+  
   def carrot_navi_route(self):
 
     if self.carrot_serv.active_carrot > 1:

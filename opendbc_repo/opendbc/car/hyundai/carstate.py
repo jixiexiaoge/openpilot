@@ -129,13 +129,15 @@ class CarState(CarStateBase):
       ecu_disabled = True
 
     if ecu_disabled:
-      self.SCC11 = self.SCC12 = self.SCC13 = self.SCC14 = False
+      self.SCC11 = self.SCC12 = self.SCC13 = self.SCC14 = self.FCA11 = False
     else:
       bus_cruise = 2 if self.CP.flags & HyundaiFlags.CAMERA_SCC else 0
       self.SCC11 = True if 1056 in fingerprints[bus_cruise] else False
       self.SCC12 = True if 1057 in fingerprints[bus_cruise] else False
       self.SCC13 = True if 1290 in fingerprints[bus_cruise] else False
       self.SCC14 = True if 905 in fingerprints[bus_cruise] else False
+    self.FCA11 = False
+    self.FCA11_bus = Bus.cam
       
     self.HAS_LFA_BUTTON = True if 913 in fingerprints[0] else False
     self.CRUISE_BUTTON_ALT = True if 1007 in fingerprints[0] else False
@@ -179,6 +181,12 @@ class CarState(CarStateBase):
     elif self.controls_ready_count == 100:
       print("cp_cam.seen_addresses =", cp_cam.seen_addresses)
       print("cp.seen_addresses =", cp.seen_addresses)
+      if 909 in cp_cam.seen_addresses:
+        self.FCA11 = True
+        self.FCA11_bus = Bus.cam
+      elif 909 in cp.seen_addresses:
+        self.FCA11 = True
+        self.FCA11_bus = Bus.pt
       if cp_alt is not None:
         print("cp_alt.seen_addresses =", cp_alt.seen_addresses)
 
@@ -360,6 +368,7 @@ class CarState(CarStateBase):
     self.scc12 = cp_cruise.vl["SCC12"] if self.SCC12 else None
     self.scc13 = cp_cruise.vl["SCC13"] if self.SCC13 else None
     self.scc14 = cp_cruise.vl["SCC14"] if self.SCC14 else None
+    self.fca11 = can_parsers[self.FCA11_bus].vl["FCA11"] if self.FCA11 else None
     cluSpeed = cp.vl["CLU11"]["CF_Clu_Vanz"]
     decimal = cp.vl["CLU11"]["CF_Clu_VanzDecimal"]
     if 0. < decimal < 0.5:
