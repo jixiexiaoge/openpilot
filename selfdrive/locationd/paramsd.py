@@ -247,9 +247,7 @@ def retrieve_initial_vehicle_params(params: Params, CP: car.CarParams, replay: b
         if debug and len(initial_filter_std) != 0:
           p_initial = np.diag(initial_filter_std)
 
-        #steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetAverageDeg
-        #steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetDeg
-        steer_ratio, stiffness_factor = lp.steerRatio, lp.stiffnessFactor
+        steer_ratio, stiffness_factor, angle_offset_deg = lp.steerRatio, lp.stiffnessFactor, lp.angleOffsetAverageDeg
         retrieve_success = True
     except Exception as e:
       cloudlog.error(f"Failed to retrieve initial values: {e}")
@@ -300,7 +298,7 @@ def main():
         bearing = gps.bearingDeg
         lat = gps.latitude
         lon = gps.longitude
-        params_memory.put("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
+        params_memory.put_nonblocking("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
         
 
     if sm.updated['livePose']:
