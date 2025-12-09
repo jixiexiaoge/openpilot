@@ -55,11 +55,11 @@ jobs:
 
           git checkout -B dragonpilot-pre-build dragonpilot/pre-build && git push origin dragonpilot-pre-build --force || echo "⚠️ dragonpilot-pre-build push skipped"
 
-          git checkout -B frogpilot frogpilot/FrogPilot && git push origin frogpilot --force || echo "⚠️ frogpilot push skipped"
+          #git checkout -B frogpilot frogpilot/FrogPilot && git push origin frogpilot --force || echo "⚠️ frogpilot push skipped"
 
-          git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
+          #git checkout -B vw-meb mrone/vw-meb && git push origin vw-meb --force || echo "⚠️ vw-meb push skipped"
 
-          git checkout -B escc-cpv9 fishop/escc-cpv9 && git push origin escc-cpv9 --force || echo "⚠️ escc-cpv9 push skipped"
+          #git checkout -B escc-cpv9 fishop/escc-cpv9 && git push origin escc-cpv9 --force || echo "⚠️ escc-cpv9 push skipped"
 
           # NEW: yysnet carrot2-v9 → your repository branch "bydTang"
           git checkout -B bydTang yysnet/carrot2-v9 && git push origin bydTang --force || echo "⚠️ bydTang push skipped"
