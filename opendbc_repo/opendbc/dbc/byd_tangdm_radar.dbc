@@ -1,0 +1,64 @@
+VERSION ""
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: MRR
+
+BO_ 849 RADAR_TRACK_351: 8 MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed _tang: 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
+
+BO_ 850 RADAR_TRACK_352: 8 MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (-0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
+
+BO_ 851 RADAR_TRACK_353: 8 MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
+
+BO_ 852 RADAR_TRACK_354: 8 MRR
+ SG_ LongDist_tang : 16|12@1- (0.06,-4) [-61.44|61.41] "m" MRR
+ SG_ LatDist_tang : 28|10@1+ (0.05,-25.6) [-15.36|15.33] "m" MRR
+ SG_ TrackID_tang : 38|6@1+ (1,0) [0|63] "" MRR
+ SG_ RelSpeed_tang : 44|10@1+ (1,-512) [-512|511] "km/s" MRR
+ SG_ IsValid_tang : 56|1@0+ (1,0) [0|1] "" MRR
