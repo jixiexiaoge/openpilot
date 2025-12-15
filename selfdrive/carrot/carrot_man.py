@@ -379,6 +379,7 @@ class CarrotMan:
       self.v_cruise_last = CS.vCruise
     else:
       self.v_cruise_change = 0
+      return
     v_cruise_apply = max(min(CS.vCruise, v_ego_kph), 20)
 
     now = time.monotonic()
