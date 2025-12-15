@@ -141,7 +141,7 @@ void MapWindow::initLayers() {
     };
 
     QVariantList fillExtrusionOpacity = {
-      "interpolate", 
+      "interpolate",
       QVariantList{"linear"},
       QVariantList{"zoom"},
       15, 0,
@@ -153,10 +153,10 @@ void MapWindow::initLayers() {
     if (!m_map->sourceExists("carrotSpeedSource")) {
       qDebug() << "Initializing carrotSpeedSource";
 
-      // ºó FeatureCollection GeoJSON (QVariantMap ¹öÀü)
+      // é”Ÿæ–¤æ‹· FeatureCollection GeoJSON (QVariantMap é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·)
       QVariantMap fc;
       fc["type"] = "FeatureCollection";
-      fc["features"] = QVariantList{};   // ºó ¸®½ºÆ®
+      fc["features"] = QVariantList{};   // é”Ÿæ–¤æ‹· é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é£˜
 
       QVariantMap src;
       src["type"] = "geojson";
@@ -171,8 +171,8 @@ void MapWindow::initLayers() {
       layer["source"] = "carrotSpeedSource";
       m_map->addLayer("carrotSpeedLayer", layer);
 
-      // properties.speed ¸¦ ÅØ½ºÆ®·Î Ç¥½Ã (ÅäÅ« ¹æ½Ä)
-      // "{speed}" ¶ó°í ¾²¸é properties.speed °ªÀ» ¹®ÀÚ¿­·Î ³Ö¾îÁÜ
+      // properties.speed é”Ÿæ–¤æ‹· é”Ÿæˆªæ–¤æ‹·é£˜é”Ÿæ–¤æ‹· é’Žé”Ÿæ–¤æ‹· (é”Ÿæ–¤æ‹·å¥´ é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·)
+      // "{speed}" é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· properties.speed é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· é”Ÿæ–¤æ‹·é”ŸèŠ‚åŒ¡æ‹·é”Ÿæ–¤æ‹· é”Ÿè¡—æ’…æ‹·é”Ÿæ–¤æ‹·
       m_map->setLayoutProperty("carrotSpeedLayer", "text-field", "{speed}");
       m_map->setLayoutProperty("carrotSpeedLayer", "text-size", 16.0);
       m_map->setLayoutProperty("carrotSpeedLayer", "text-offset", QVariantList{ 0.0, -1.5 });
@@ -279,8 +279,8 @@ void MapWindow::updateState(const UIState &s) {
           QJsonObject obj = doc.object();
           QJsonArray pts = obj["pts"].toArray();
 
-          // GeoJSON FeatureCollection ¡æ QVariantMap Æ®¸®·Î ¸¸µé±â
-          QVariantList features;  // Feature ¸®½ºÆ®
+          // GeoJSON FeatureCollection é”Ÿæ–¤æ‹· QVariantMap é£˜é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿï¿½
+          QVariantList features;  // Feature é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é£˜
 
           for (const QJsonValue& v : pts) {
             QJsonArray arr = v.toArray();
@@ -290,7 +290,7 @@ void MapWindow::updateState(const UIState &s) {
             double plon = arr[1].toDouble();
             double spd = arr[2].toDouble();
 
-            // geometry: Point (GeoJSON: [lon, lat] ¼ø¼­)
+            // geometry: Point (GeoJSON: [lon, lat] é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·)
             QVariantList coords;
             coords.append(plon);
             coords.append(plat);
@@ -328,7 +328,7 @@ void MapWindow::updateState(const UIState &s) {
       }
     }
     else {
-      // ÇÊ¿äÇÏ¸é ¼û±â±â
+      // é”Ÿç»žåŒ¡æ‹·é”Ÿè¾ƒé©æ‹· é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿï¿½
       // m_map->setLayoutProperty("carrotSpeedLayer", "visibility", "none");
     }
   }
@@ -440,20 +440,20 @@ void MapWindow::initializeGL() {
   //m_map->setMargins({ 0, 350, 0, 50 });
   m_map->setMargins({ 0, 250, 0, 50 });
   m_map->setPitch(MIN_PITCH);
-  
+
   // carrot
   int mapbox_style = Params().getInt("MapboxStyle");
-  
+
   MAX_ZOOM = 17;
   switch(mapbox_style) {
     case 1:
-      m_map->setStyleUrl("mapbox://styles/mapbox/navigation-night-v1"); 
+      m_map->setStyleUrl("mapbox://styles/mike854/clt0hm8mw01ok01p4blkr27jp");
       break;
     case 2:
-      m_map->setStyleUrl("mapbox://styles/mapbox/satellite-streets-v12");
+      m_map->setStyleUrl("mapbox://styles/frogsgomoo/cmcfv151j000o01rcdxebhl76");
       MAX_ZOOM = 20;
       break;
-    case 0:  
+    case 0:
       m_map->setStyleUrl("mapbox://styles/commaai/clkqztk0f00ou01qyhsa5bzpj");
     default:
       break;
