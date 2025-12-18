@@ -1,3 +1,13 @@
+Carrot2-v9 (2025-12-18)
+========================
+* 同步cp最新ds模型的版本
+
+Carrot2-v9 (2025-12-06)
+========================
+* DarkSouls model
+* fix Angle Steering(HKG car)
+* fix LaneChange desire
+
 Carrot2-v9 (2025-12-06)
 ========================
 * 放弃了老门参数
