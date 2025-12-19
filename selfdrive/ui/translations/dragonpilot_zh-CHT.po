@@ -1,0 +1,429 @@
+# Traditional Chinese translations for dragonpilot.
+# Copyright (C) 2025 dragonpilot
+# This file is distributed under the same license as the dragonpilot package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dragonpilot\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-19 09:07+0800\n"
+"PO-Revision-Date: 2025-12-18 12:30+0800\n"
+"Last-Translator: dragonpilot\n"
+"Language-Team: Chinese (Traditional)\n"
+"Language: zh-CHT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: dragonpilot/settings.py:91
+#, python-format
+msgid "+ Auto Lane Change after:"
+msgstr "+ 自動變換車道延遲："
+
+#: dragonpilot/settings.py:240
+#, python-format
+msgid "0 min = Immediately"
+msgstr "0 分鐘 = 立即"
+
+#: dragonpilot/settings.py:122
+#, python-format
+msgid ""
+"Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when "
+"appropriate."
+msgstr "自適應滑行模式 (ACM) 在適當情況下減少煞車，實現更平順的滑行。"
+
+#: dragonpilot/settings.py:127
+#, python-format
+msgid "Adaptive Experimental Mode (AEM)"
+msgstr "自適應實驗模式 (AEM)"
+
+#: dragonpilot/settings.py:128
+#, python-format
+msgid ""
+"Adaptive mode switcher between ACC and Blended based on driving context."
+msgstr "根據駕駛情境自動在 ACC 和混合模式間切換。"
+
+#: dragonpilot/settings.py:186
+#, python-format
+msgid "All"
+msgstr "全部"
+
+#: dragonpilot/settings.py:207
+#, python-format
+msgid ""
+"Allow openpilot to obey right-hand traffic conventions on right driver seat."
+msgstr "允許 openpilot 在右駕車輛上遵循右側通行規則。"
+
+#: dragonpilot/settings.py:67
+#, python-format
+msgid "Always-on Lane Keeping Assist (ALKA)"
+msgstr "持續車道維持輔助 (ALKA)"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Are you sure you want to reset ALL DP SETTINGS to default?"
+msgstr "確定要將所有 DP 設定重置為預設值嗎？"
+
+#: dragonpilot/settings.py:226
+#, python-format
+msgid "Audible Alert"
+msgstr "聲音提示"
+
+#: dragonpilot/settings.py:239
+#, python-format
+msgid "Auto Shutdown After"
+msgstr "自動關機延遲"
+
+#: dragonpilot/settings.py:48
+#, python-format
+msgid "Avoid EPS Lockout"
+msgstr "避免 EPS 鎖定"
+
+#: dragonpilot/settings.py:109
+#, python-format
+msgid ""
+"Block lane change assist when the system detects the road edge.<br>NOTE: "
+"This will show 'Car Detected in Blindspot' warning."
+msgstr ""
+"當系統偵測到道路邊緣時阻止變換車道輔助。<br>注意：這將顯示「偵測到盲點車輛」"
+"警告。"
+
+#: dragonpilot/settings.py:134
+#, python-format
+msgid ""
+"DTSC automatically adjusts the vehicle's predicted speed based on upcoming "
+"road curvature and grip conditions.<br>Originally from the openpilot TACO "
+"branch."
+msgstr ""
+"DTSC 根據前方道路曲率和抓地力條件自動調整車輛預測速度。<br>源自 openpilot "
+"TACO 分支。"
+
+#: dragonpilot/settings.py:257
+#, python-format
+msgid "Delay Starting Loggerd for:"
+msgstr "延遲啟動記錄程式："
+
+#: dragonpilot/settings.py:258
+#, python-format
+msgid ""
+"Delays the startup of loggerd and its related processes when the device goes "
+"on-road.<br>This prevents the initial moments of a drive from being "
+"recorded, protecting location privacy at the start of a trip."
+msgstr ""
+"當設備上路時延遲啟動記錄程式及相關程序。<br>這可防止行程開始時的位置被記錄，"
+"保護隱私。"
+
+#: dragonpilot/settings.py:269
+#, python-format
+msgid "Disable Comma Connect"
+msgstr "停用 Comma Connect"
+
+#: dragonpilot/settings.py:270
+#, python-format
+msgid ""
+"Disable Comma connect service if you do not wish to upload / being tracked "
+"by the service."
+msgstr "如果您不希望上傳資料或被服務追蹤，請停用 Comma Connect 服務。"
+
+#: dragonpilot/settings.py:179
+#, python-format
+msgid "Display Lead Stats"
+msgstr "顯示前車統計"
+
+#: dragonpilot/settings.py:145
+#, python-format
+msgid "Display Mode"
+msgstr "顯示模式"
+
+#: dragonpilot/settings.py:180
+#, python-format
+msgid ""
+"Display the statistics of lead car and/or radar tracking points.<br>Lead: "
+"Lead stats only<br>Radar: Radar tracking point stats only<br>All: Lead and "
+"Radar stats<br>NOTE: Radar option only works on certain vehicle models."
+msgstr ""
+"顯示前車和/或雷達追蹤點的統計資料。<br>前車：僅顯示前車統計<br>雷達：僅顯示雷"
+"達追蹤點統計<br>全部：顯示前車和雷達統計<br>注意：雷達選項僅適用於特定車型。"
+
+#: dragonpilot/settings.py:11
+#, python-format
+msgid "Door Auto Lock/Unlock"
+msgstr "車門自動鎖定/解鎖"
+
+#: dragonpilot/settings.py:133
+#, python-format
+msgid "Dynamic Turn Speed Control (DTSC)"
+msgstr "動態轉彎速度控制 (DTSC)"
+
+#: dragonpilot/settings.py:121
+#, python-format
+msgid "Enable Adaptive Coasting Mode (ACM)"
+msgstr "啟用自適應滑行模式 (ACM)"
+
+#: dragonpilot/settings.py:213
+#, python-format
+msgid "Enable Beep (Warning)"
+msgstr "啟用蜂鳴器（警告）"
+
+#: dragonpilot/settings.py:206
+#, python-format
+msgid "Enable Right-Hand Drive Mode"
+msgstr "啟用右駕模式"
+
+#: dragonpilot/settings.py:17
+#, python-format
+msgid "Enable TSS1 SnG Mod"
+msgstr "啟用 TSS1 走停修正"
+
+#: dragonpilot/settings.py:68
+#, python-format
+msgid ""
+"Enable lateral control even when ACC/cruise is disengaged, using ACC Main or "
+"LKAS button to toggle. Vehicle must be moving."
+msgstr ""
+"即使 ACC/巡航未啟用也保持橫向控制，使用 ACC Main 或 LKAS 按鈕切換。車輛必須在"
+"行駛中。"
+
+#: dragonpilot/settings.py:12
+#, python-format
+msgid ""
+"Enable openpilot to auto-lock doors above 20 km/h and auto-unlock when "
+"shifting to Park."
+msgstr "啟用 openpilot 在時速超過 20 公里時自動鎖門，換至 P 檔時自動解鎖。"
+
+#: dragonpilot/settings.py:160
+#, python-format
+msgid "Hide HUD When Moves above:"
+msgstr "行駛超過此速度時隱藏 HUD："
+
+#: dragonpilot/settings.py:74
+#, python-format
+msgid "Lane Change Assist At:"
+msgstr "變換車道輔助啟用速度："
+
+#: dragonpilot/settings.py:184
+#, python-format
+msgid "Lead"
+msgstr "前車"
+
+#: dragonpilot/settings.py:150
+#, python-format
+msgid "MAIN+"
+msgstr "MAIN+"
+
+#: dragonpilot/settings.py:152
+#, python-format
+msgid "MAIN-"
+msgstr "MAIN-"
+
+#: dragonpilot/settings.py:36
+#, python-format
+msgid "MQB A0 SnG Mod"
+msgstr "MQB A0 走停修正"
+
+#: dragonpilot/settings.py:151
+#, python-format
+msgid "OP+"
+msgstr "OP+"
+
+#: dragonpilot/settings.py:153
+#, python-format
+msgid "OP-"
+msgstr "OP-"
+
+#: dragonpilot/settings.py:81 dragonpilot/settings.py:98
+#: dragonpilot/settings.py:167 dragonpilot/settings.py:183
+#: dragonpilot/settings.py:232 dragonpilot/settings.py:246
+#: dragonpilot/settings.py:264
+#, python-format
+msgid "Off"
+msgstr "關閉"
+
+#: dragonpilot/settings.py:92
+#, python-format
+msgid "Off = Disable Auto Lane Change."
+msgstr "關閉 = 停用自動變換車道。"
+
+#: dragonpilot/settings.py:75
+#, python-format
+msgid "Off = Disable LCA.<br>1 mph = 1.2 km/h."
+msgstr "關閉 = 停用變換車道輔助。<br>1 英里/時 = 1.2 公里/時。"
+
+#: dragonpilot/settings.py:42
+#, python-format
+msgid "PQ Steering Patch"
+msgstr "PQ 轉向修正"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:41
+#, python-format
+msgid "RESET"
+msgstr "重置"
+
+#: dragonpilot/settings.py:185
+#, python-format
+msgid "Radar"
+msgstr "雷達"
+
+#: dragonpilot/settings.py:172
+#, python-format
+msgid "Rainbow Driving Path like Tesla"
+msgstr "彩虹行駛路徑（類似特斯拉）"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Reset"
+msgstr "重置"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:40
+#, python-format
+msgid "Reset DP Settings"
+msgstr "重置 DP 設定"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:42
+#, python-format
+msgid "Reset dragonpilot settings to default and restart the device."
+msgstr "將 dragonpilot 設定重置為預設值並重新啟動設備。"
+
+#: dragonpilot/settings.py:108
+#, python-format
+msgid "Road Edge Detection (RED)"
+msgstr "道路邊緣偵測 (RED)"
+
+#: dragonpilot/settings.py:221
+#, python-format
+msgid ""
+"See https://github.com/eFiniLan/openpilot-ext-radar-addon for more "
+"information."
+msgstr "詳情請參閱 https://github.com/eFiniLan/openpilot-ext-radar-addon。"
+
+#: dragonpilot/settings.py:149 dragonpilot/settings.py:230
+#, python-format
+msgid "Std."
+msgstr "標準"
+
+#: dragonpilot/settings.py:146
+#, python-format
+msgid ""
+"Std.: Stock behavior.<br>MAIN+: ACC MAIN on = Display ON.<br>OP+: OP enabled "
+"= Display ON.<br>MAIN-: ACC MAIN on = Display OFF<br>OP-: OP enabled = "
+"Display OFF."
+msgstr ""
+"標準：原廠行為。<br>MAIN+：ACC MAIN 開啟 = 螢幕開啟。<br>OP+：OP 啟用 = 螢幕"
+"開啟。<br>MAIN-：ACC MAIN 開啟 = 螢幕關閉。<br>OP-：OP 啟用 = 螢幕關閉。"
+
+#: dragonpilot/settings.py:227
+#, python-format
+msgid ""
+"Std.: Stock behaviour.<br>Warning: Only emits sound when there is a warning."
+"<br>Off: Does not emit any sound at all."
+msgstr ""
+"標準：原廠行為。<br>警告：僅在有警告時發出聲音。<br>關閉：完全不發出聲音。"
+
+#: dragonpilot/settings.py:161
+#, python-format
+msgid ""
+"To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when "
+"the car moves.<br>Off = Stock Behavior<br>1 km/h = 0.6 mph"
+msgstr ""
+"為防止螢幕烙印，在車輛行駛時隱藏速度、最高速度和轉向/DM 圖示。<br>關閉 = 原廠"
+"行為<br>1 公里/時 = 0.6 英里/時"
+
+#: dragonpilot/settings.py:214
+#, python-format
+msgid "Use Buzzer for audiable alerts."
+msgstr "使用蜂鳴器進行聲音提示。"
+
+#: dragonpilot/settings.py:220
+#, python-format
+msgid "Use External Radar"
+msgstr "使用外部雷達"
+
+#: dragonpilot/settings.py:193
+#, python-format
+msgid "Use MICI (comma four) UI"
+msgstr "使用 MICI (comma four) 介面"
+
+#: dragonpilot/settings.py:23
+#, python-format
+msgid "Use Stock Longitudinal Control"
+msgstr "使用原廠縱向控制"
+
+#: dragonpilot/settings.py:231
+#, python-format
+msgid "Warning"
+msgstr "警告"
+
+#: dragonpilot/settings.py:173 dragonpilot/settings.py:194
+#, python-format
+msgid "Why not?"
+msgstr "有何不可？"
+
+#: dragonpilot/settings.py:252
+#, python-format
+msgid ""
+"dashy - dragonpilot's all-in-one system hub for you.<br><br>Visit http://"
+"<device_ip>:5088 to access.<br><br>Enable this to use HUD feature (live "
+"streaming)."
+msgstr ""
+"dashy - dragonpilot 的控制中心。<br><br>請訪問 http://<device_ip>:5088 "
+"進入。<br><br>啟用此功能以使用 HUD 功能（即時串流）。"
+
+#: dragonpilot/settings.py:251
+#, python-format
+msgid "dashy HUD"
+msgstr "dashy HUD"
+
+#: dragonpilot/settings.py:166
+#, python-format
+msgid "km/h"
+msgstr "km/h"
+
+#: dragonpilot/settings.py:245
+#, python-format
+msgid "min"
+msgstr "分鐘"
+
+#: dragonpilot/settings.py:80
+#, python-format
+msgid "mph"
+msgstr "mph"
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:18
+#, python-format
+msgid "or open browser"
+msgstr "或使用瀏覽器開啟"
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:14
+#, python-format
+msgid "scan to access"
+msgstr "掃描以存取"
+
+#: dragonpilot/settings.py:97 dragonpilot/settings.py:263
+#, python-format
+msgid "sec"
+msgstr "秒"
+
+#, python-format
+#~ msgid " km/h"
+#~ msgstr " 公里/時"
+
+#, python-format
+#~ msgid " mins"
+#~ msgstr " 分鐘"
+
+#, python-format
+#~ msgid " mph"
+#~ msgstr " 英里/時"
+
+#, python-format
+#~ msgid " sec"
+#~ msgstr " 秒"
+
+#, python-format
+#~ msgid " secs"
+#~ msgstr " 秒"
+
+#, python-format
+#~ msgid "0 mins = Immediately"
+#~ msgstr "0 分鐘 = 立即"

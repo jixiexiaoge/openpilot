@@ -1,0 +1,441 @@
+# Korean translations for dragonpilot.
+# Copyright (C) 2025 dragonpilot
+# This file is distributed under the same license as the dragonpilot package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: dragonpilot\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-19 09:07+0800\n"
+"PO-Revision-Date: 2025-12-18 12:30+0800\n"
+"Last-Translator: dragonpilot\n"
+"Language-Team: Korean\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: dragonpilot/settings.py:91
+#, python-format
+msgid "+ Auto Lane Change after:"
+msgstr "+ 자동 차선 변경 지연 시간:"
+
+#: dragonpilot/settings.py:240
+#, python-format
+msgid "0 min = Immediately"
+msgstr ""
+
+#: dragonpilot/settings.py:122
+#, python-format
+msgid ""
+"Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when "
+"appropriate."
+msgstr ""
+"적응형 관성 주행 모드(ACM)는 적절한 상황에서 제동을 줄여 부드러운 관성 주행"
+"을 가능하게 합니다."
+
+#: dragonpilot/settings.py:127
+#, python-format
+msgid "Adaptive Experimental Mode (AEM)"
+msgstr "적응형 실험 모드 (AEM)"
+
+#: dragonpilot/settings.py:128
+#, python-format
+msgid ""
+"Adaptive mode switcher between ACC and Blended based on driving context."
+msgstr "주행 상황에 따라 ACC와 혼합 모드 간 자동 전환합니다."
+
+#: dragonpilot/settings.py:186
+#, python-format
+msgid "All"
+msgstr "전체"
+
+#: dragonpilot/settings.py:207
+#, python-format
+msgid ""
+"Allow openpilot to obey right-hand traffic conventions on right driver seat."
+msgstr "우측 운전석 차량에서 openpilot이 우측 통행 규칙을 따르도록 허용합니다."
+
+#: dragonpilot/settings.py:67
+#, python-format
+msgid "Always-on Lane Keeping Assist (ALKA)"
+msgstr "상시 차선 유지 보조 (ALKA)"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Are you sure you want to reset ALL DP SETTINGS to default?"
+msgstr "모든 DP 설정을 기본값으로 초기화하시겠습니까?"
+
+#: dragonpilot/settings.py:226
+#, python-format
+msgid "Audible Alert"
+msgstr "소리 알림"
+
+#: dragonpilot/settings.py:239
+#, python-format
+msgid "Auto Shutdown After"
+msgstr "자동 종료 대기 시간"
+
+#: dragonpilot/settings.py:48
+#, python-format
+msgid "Avoid EPS Lockout"
+msgstr "EPS 잠금 방지"
+
+#: dragonpilot/settings.py:109
+#, python-format
+msgid ""
+"Block lane change assist when the system detects the road edge.<br>NOTE: "
+"This will show 'Car Detected in Blindspot' warning."
+msgstr ""
+"시스템이 도로 가장자리를 감지하면 차선 변경 보조를 차단합니다.<br>참고: '사각"
+"지대 차량 감지' 경고가 표시됩니다."
+
+#: dragonpilot/settings.py:134
+#, python-format
+msgid ""
+"DTSC automatically adjusts the vehicle's predicted speed based on upcoming "
+"road curvature and grip conditions.<br>Originally from the openpilot TACO "
+"branch."
+msgstr ""
+"DTSC는 다가오는 도로 곡률 및 접지 조건에 따라 차량의 예상 속도를 자동으로 조"
+"정합니다.<br>openpilot TACO 브랜치에서 유래했습니다."
+
+#: dragonpilot/settings.py:257
+#, python-format
+msgid "Delay Starting Loggerd for:"
+msgstr "로거 시작 지연 시간:"
+
+#: dragonpilot/settings.py:258
+#, python-format
+msgid ""
+"Delays the startup of loggerd and its related processes when the device goes "
+"on-road.<br>This prevents the initial moments of a drive from being "
+"recorded, protecting location privacy at the start of a trip."
+msgstr ""
+"기기가 도로 주행을 시작할 때 로거 및 관련 프로세스의 시작을 지연시킵니다.<br>"
+"이를 통해 주행 시작 시점의 위치가 기록되지 않아 개인정보를 보호합니다."
+
+#: dragonpilot/settings.py:269
+#, python-format
+msgid "Disable Comma Connect"
+msgstr "Comma Connect 비활성화"
+
+#: dragonpilot/settings.py:270
+#, python-format
+msgid ""
+"Disable Comma connect service if you do not wish to upload / being tracked "
+"by the service."
+msgstr ""
+"데이터 업로드 또는 서비스 추적을 원하지 않는 경우 Comma Connect 서비스를 비활"
+"성화하세요."
+
+#: dragonpilot/settings.py:179
+#, python-format
+msgid "Display Lead Stats"
+msgstr "선행 차량 통계 표시"
+
+#: dragonpilot/settings.py:145
+#, python-format
+msgid "Display Mode"
+msgstr "디스플레이 모드"
+
+#: dragonpilot/settings.py:180
+#, python-format
+msgid ""
+"Display the statistics of lead car and/or radar tracking points.<br>Lead: "
+"Lead stats only<br>Radar: Radar tracking point stats only<br>All: Lead and "
+"Radar stats<br>NOTE: Radar option only works on certain vehicle models."
+msgstr ""
+"선행 차량 및/또는 레이더 추적 포인트의 통계를 표시합니다.<br>선행: 선행 차량 "
+"통계만<br>레이더: 레이더 추적 포인트 통계만<br>전체: 선행 차량 및 레이더 통계"
+"<br>참고: 레이더 옵션은 특정 차량 모델에서만 작동합니다."
+
+#: dragonpilot/settings.py:11
+#, python-format
+msgid "Door Auto Lock/Unlock"
+msgstr "도어 자동 잠금/해제"
+
+#: dragonpilot/settings.py:133
+#, python-format
+msgid "Dynamic Turn Speed Control (DTSC)"
+msgstr "동적 회전 속도 제어 (DTSC)"
+
+#: dragonpilot/settings.py:121
+#, python-format
+msgid "Enable Adaptive Coasting Mode (ACM)"
+msgstr "적응형 관성 주행 모드 (ACM) 활성화"
+
+#: dragonpilot/settings.py:213
+#, python-format
+msgid "Enable Beep (Warning)"
+msgstr "부저음 활성화 (경고)"
+
+#: dragonpilot/settings.py:206
+#, python-format
+msgid "Enable Right-Hand Drive Mode"
+msgstr "우측 운전석 모드 활성화"
+
+#: dragonpilot/settings.py:17
+#, python-format
+msgid "Enable TSS1 SnG Mod"
+msgstr "TSS1 정지 및 출발 모드 활성화"
+
+#: dragonpilot/settings.py:68
+#, python-format
+msgid ""
+"Enable lateral control even when ACC/cruise is disengaged, using ACC Main or "
+"LKAS button to toggle. Vehicle must be moving."
+msgstr ""
+"ACC/크루즈가 비활성화되어 있어도 횡방향 제어를 활성화합니다. ACC Main 또는 "
+"LKAS 버튼으로 전환합니다. 차량이 움직이고 있어야 합니다."
+
+#: dragonpilot/settings.py:12
+#, python-format
+msgid ""
+"Enable openpilot to auto-lock doors above 20 km/h and auto-unlock when "
+"shifting to Park."
+msgstr ""
+"openpilot이 시속 20km 이상에서 도어를 자동 잠금하고, P 기어로 변속 시 자동 해"
+"제하도록 활성화합니다."
+
+#: dragonpilot/settings.py:160
+#, python-format
+msgid "Hide HUD When Moves above:"
+msgstr "다음 속도 이상에서 HUD 숨기기:"
+
+#: dragonpilot/settings.py:74
+#, python-format
+msgid "Lane Change Assist At:"
+msgstr "차선 변경 보조 활성화 속도:"
+
+#: dragonpilot/settings.py:184
+#, python-format
+msgid "Lead"
+msgstr "선행 차량"
+
+#: dragonpilot/settings.py:150
+#, python-format
+msgid "MAIN+"
+msgstr "MAIN+"
+
+#: dragonpilot/settings.py:152
+#, python-format
+msgid "MAIN-"
+msgstr "MAIN-"
+
+#: dragonpilot/settings.py:36
+#, python-format
+msgid "MQB A0 SnG Mod"
+msgstr "MQB A0 정지 및 출발 모드"
+
+#: dragonpilot/settings.py:151
+#, python-format
+msgid "OP+"
+msgstr "OP+"
+
+#: dragonpilot/settings.py:153
+#, python-format
+msgid "OP-"
+msgstr "OP-"
+
+#: dragonpilot/settings.py:81 dragonpilot/settings.py:98
+#: dragonpilot/settings.py:167 dragonpilot/settings.py:183
+#: dragonpilot/settings.py:232 dragonpilot/settings.py:246
+#: dragonpilot/settings.py:264
+#, python-format
+msgid "Off"
+msgstr "끄기"
+
+#: dragonpilot/settings.py:92
+#, python-format
+msgid "Off = Disable Auto Lane Change."
+msgstr "끄기 = 자동 차선 변경 비활성화."
+
+#: dragonpilot/settings.py:75
+#, python-format
+msgid "Off = Disable LCA.<br>1 mph = 1.2 km/h."
+msgstr "끄기 = 차선 변경 보조 비활성화.<br>1 mph = 1.2 km/h."
+
+#: dragonpilot/settings.py:42
+#, python-format
+msgid "PQ Steering Patch"
+msgstr "PQ 조향 패치"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:41
+#, python-format
+msgid "RESET"
+msgstr "초기화"
+
+#: dragonpilot/settings.py:185
+#, python-format
+msgid "Radar"
+msgstr "레이더"
+
+#: dragonpilot/settings.py:172
+#, python-format
+msgid "Rainbow Driving Path like Tesla"
+msgstr "무지개 주행 경로 (테슬라 스타일)"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Reset"
+msgstr "초기화"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:40
+#, python-format
+msgid "Reset DP Settings"
+msgstr "DP 설정 초기화"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:42
+#, python-format
+msgid "Reset dragonpilot settings to default and restart the device."
+msgstr "dragonpilot 설정을 기본값으로 초기화하고 기기를 재시작합니다."
+
+#: dragonpilot/settings.py:108
+#, python-format
+msgid "Road Edge Detection (RED)"
+msgstr "도로 가장자리 감지 (RED)"
+
+#: dragonpilot/settings.py:221
+#, python-format
+msgid ""
+"See https://github.com/eFiniLan/openpilot-ext-radar-addon for more "
+"information."
+msgstr ""
+"자세한 내용은 https://github.com/eFiniLan/openpilot-ext-radar-addon 을 참조하"
+"세요."
+
+#: dragonpilot/settings.py:149 dragonpilot/settings.py:230
+#, python-format
+msgid "Std."
+msgstr "표준"
+
+#: dragonpilot/settings.py:146
+#, python-format
+msgid ""
+"Std.: Stock behavior.<br>MAIN+: ACC MAIN on = Display ON.<br>OP+: OP enabled "
+"= Display ON.<br>MAIN-: ACC MAIN on = Display OFF<br>OP-: OP enabled = "
+"Display OFF."
+msgstr ""
+"표준: 순정 동작.<br>MAIN+: ACC MAIN 켜짐 = 디스플레이 켜짐.<br>OP+: OP 활성"
+"화 = 디스플레이 켜짐.<br>MAIN-: ACC MAIN 켜짐 = 디스플레이 꺼짐.<br>OP-: OP "
+"활성화 = 디스플레이 꺼짐."
+
+#: dragonpilot/settings.py:227
+#, python-format
+msgid ""
+"Std.: Stock behaviour.<br>Warning: Only emits sound when there is a warning."
+"<br>Off: Does not emit any sound at all."
+msgstr ""
+"표준: 순정 동작.<br>경고: 경고가 있을 때만 소리가 납니다.<br>끄기: 소리가 전"
+"혀 나지 않습니다."
+
+#: dragonpilot/settings.py:161
+#, python-format
+msgid ""
+"To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when "
+"the car moves.<br>Off = Stock Behavior<br>1 km/h = 0.6 mph"
+msgstr ""
+"화면 번인 방지를 위해 차량 주행 시 속도, 최고 속도 및 조향/DM 아이콘을 숨깁니"
+"다.<br>끄기 = 순정 동작<br>1 km/h = 0.6 mph"
+
+#: dragonpilot/settings.py:214
+#, python-format
+msgid "Use Buzzer for audiable alerts."
+msgstr "소리 알림에 부저를 사용합니다."
+
+#: dragonpilot/settings.py:220
+#, python-format
+msgid "Use External Radar"
+msgstr "외부 레이더 사용"
+
+#: dragonpilot/settings.py:193
+#, python-format
+msgid "Use MICI (comma four) UI"
+msgstr "MICI (comma four) UI 사용"
+
+#: dragonpilot/settings.py:23
+#, python-format
+msgid "Use Stock Longitudinal Control"
+msgstr "순정 종방향 제어 사용"
+
+#: dragonpilot/settings.py:231
+#, python-format
+msgid "Warning"
+msgstr "경고"
+
+#: dragonpilot/settings.py:173 dragonpilot/settings.py:194
+#, python-format
+msgid "Why not?"
+msgstr "당연하죠!"
+
+#: dragonpilot/settings.py:252
+#, python-format
+msgid ""
+"dashy - dragonpilot's all-in-one system hub for you.<br><br>Visit http://"
+"<device_ip>:5088 to access.<br><br>Enable this to use HUD feature (live "
+"streaming)."
+msgstr ""
+"dashy - dragonpilot의 올인원 시스템 허브입니다.<br><br>http://"
+"<device_ip>:5088 로 접속하세요.<br><br>HUD 기능(실시간 스트리밍)을 사용하려"
+"면 활성화하세요."
+
+#: dragonpilot/settings.py:251
+#, python-format
+msgid "dashy HUD"
+msgstr "dashy HUD"
+
+#: dragonpilot/settings.py:166
+#, python-format
+msgid "km/h"
+msgstr ""
+
+#: dragonpilot/settings.py:245
+#, python-format
+msgid "min"
+msgstr ""
+
+#: dragonpilot/settings.py:80
+#, python-format
+msgid "mph"
+msgstr ""
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:18
+#, python-format
+msgid "or open browser"
+msgstr "또는 브라우저를 열어서"
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:14
+#, python-format
+msgid "scan to access"
+msgstr "스캔하여 접속"
+
+#: dragonpilot/settings.py:97 dragonpilot/settings.py:263
+#, python-format
+msgid "sec"
+msgstr ""
+
+#, python-format
+#~ msgid " km/h"
+#~ msgstr " km/h"
+
+#, python-format
+#~ msgid " mins"
+#~ msgstr " 분"
+
+#, python-format
+#~ msgid " mph"
+#~ msgstr " mph"
+
+#, python-format
+#~ msgid " sec"
+#~ msgstr " 초"
+
+#, python-format
+#~ msgid " secs"
+#~ msgstr " 초"
+
+#, python-format
+#~ msgid "0 mins = Immediately"
+#~ msgstr "0분 = 즉시"

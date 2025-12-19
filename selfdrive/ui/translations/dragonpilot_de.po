@@ -1,0 +1,453 @@
+# German translations for PACKAGE package.
+# Copyright (C) 2025 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-19 09:07+0800\n"
+"PO-Revision-Date: 2025-12-18 12:21+0800\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: dragonpilot/settings.py:91
+#, python-format
+msgid "+ Auto Lane Change after:"
+msgstr "+ Automatischer Spurwechsel nach:"
+
+#: dragonpilot/settings.py:240
+#, python-format
+msgid "0 min = Immediately"
+msgstr ""
+
+#: dragonpilot/settings.py:122
+#, python-format
+msgid ""
+"Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when "
+"appropriate."
+msgstr ""
+"Der adaptive Rollmodus (ACM) reduziert das Bremsen, um ein sanfteres Rollen "
+"zu ermöglichen, wenn dies angemessen ist."
+
+#: dragonpilot/settings.py:127
+#, python-format
+msgid "Adaptive Experimental Mode (AEM)"
+msgstr "Adaptiver Experimentalmodus (AEM)"
+
+#: dragonpilot/settings.py:128
+#, python-format
+msgid ""
+"Adaptive mode switcher between ACC and Blended based on driving context."
+msgstr ""
+"Adaptiver Moduswechsler zwischen ACC und Blended basierend auf dem "
+"Fahrkontext."
+
+#: dragonpilot/settings.py:186
+#, python-format
+msgid "All"
+msgstr "Alle"
+
+#: dragonpilot/settings.py:207
+#, python-format
+msgid ""
+"Allow openpilot to obey right-hand traffic conventions on right driver seat."
+msgstr "Openpilot erlauben, Rechtsverkehrsregeln bei Rechtslenker zu befolgen."
+
+#: dragonpilot/settings.py:67
+#, python-format
+msgid "Always-on Lane Keeping Assist (ALKA)"
+msgstr "Dauerhafter Spurhalteassistent (ALKA)"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Are you sure you want to reset ALL DP SETTINGS to default?"
+msgstr ""
+"Möchten Sie wirklich ALLE DP-EINSTELLUNGEN auf die Standardwerte "
+"zurücksetzen?"
+
+#: dragonpilot/settings.py:226
+#, python-format
+msgid "Audible Alert"
+msgstr "Akustische Warnung"
+
+#: dragonpilot/settings.py:239
+#, python-format
+msgid "Auto Shutdown After"
+msgstr "Automatisches Herunterfahren nach"
+
+#: dragonpilot/settings.py:48
+#, python-format
+msgid "Avoid EPS Lockout"
+msgstr "EPS-Sperre vermeiden"
+
+#: dragonpilot/settings.py:109
+#, python-format
+msgid ""
+"Block lane change assist when the system detects the road edge.<br>NOTE: "
+"This will show 'Car Detected in Blindspot' warning."
+msgstr ""
+"Spurwechselassistent blockieren, wenn das System den Straßenrand erkennt."
+"<br>HINWEIS: Dies zeigt die Warnung 'Fahrzeug im toten Winkel erkannt' an."
+
+#: dragonpilot/settings.py:134
+#, python-format
+msgid ""
+"DTSC automatically adjusts the vehicle's predicted speed based on upcoming "
+"road curvature and grip conditions.<br>Originally from the openpilot TACO "
+"branch."
+msgstr ""
+"DTSC passt die vorhergesagte Geschwindigkeit des Fahrzeugs automatisch an "
+"die bevorstehende Straßenkrümmung und Griffbedingungen an.<br>Ursprünglich "
+"aus dem openpilot TACO-Zweig."
+
+#: dragonpilot/settings.py:257
+#, python-format
+msgid "Delay Starting Loggerd for:"
+msgstr "Loggerd-Start verzögern um:"
+
+#: dragonpilot/settings.py:258
+#, python-format
+msgid ""
+"Delays the startup of loggerd and its related processes when the device goes "
+"on-road.<br>This prevents the initial moments of a drive from being "
+"recorded, protecting location privacy at the start of a trip."
+msgstr ""
+"Verzögert den Start von loggerd und zugehörigen Prozessen, wenn das Gerät in "
+"Betrieb geht.<br>Dies verhindert, dass die ersten Momente einer Fahrt "
+"aufgezeichnet werden, wodurch die Standortprivatsphäre zu Beginn einer Fahrt "
+"geschützt wird."
+
+#: dragonpilot/settings.py:269
+#, python-format
+msgid "Disable Comma Connect"
+msgstr "Comma Connect deaktivieren"
+
+#: dragonpilot/settings.py:270
+#, python-format
+msgid ""
+"Disable Comma connect service if you do not wish to upload / being tracked "
+"by the service."
+msgstr ""
+"Comma Connect-Dienst deaktivieren, wenn Sie keine Daten hochladen / vom "
+"Dienst verfolgt werden möchten."
+
+#: dragonpilot/settings.py:179
+#, python-format
+msgid "Display Lead Stats"
+msgstr "Vorausfahrendes Fahrzeug-Statistiken anzeigen"
+
+#: dragonpilot/settings.py:145
+#, python-format
+msgid "Display Mode"
+msgstr "Anzeigemodus"
+
+#: dragonpilot/settings.py:180
+#, python-format
+msgid ""
+"Display the statistics of lead car and/or radar tracking points.<br>Lead: "
+"Lead stats only<br>Radar: Radar tracking point stats only<br>All: Lead and "
+"Radar stats<br>NOTE: Radar option only works on certain vehicle models."
+msgstr ""
+"Zeigt Statistiken des vorausfahrenden Fahrzeugs und/oder Radar-"
+"Trackingpunkte an.<br>Lead: Nur Vorausfahrendes Fahrzeug<br>Radar: Nur Radar-"
+"Trackingpunkte<br>Alle: Vorausfahrendes Fahrzeug und Radar<br>HINWEIS: "
+"Radaroption funktioniert nur bei bestimmten Fahrzeugmodellen."
+
+#: dragonpilot/settings.py:11
+#, python-format
+msgid "Door Auto Lock/Unlock"
+msgstr "Automatische Türverriegelung/-entriegelung"
+
+#: dragonpilot/settings.py:133
+#, python-format
+msgid "Dynamic Turn Speed Control (DTSC)"
+msgstr "Dynamische Kurvengeschwindigkeitskontrolle (DTSC)"
+
+#: dragonpilot/settings.py:121
+#, python-format
+msgid "Enable Adaptive Coasting Mode (ACM)"
+msgstr "Adaptiven Rollmodus (ACM) aktivieren"
+
+#: dragonpilot/settings.py:213
+#, python-format
+msgid "Enable Beep (Warning)"
+msgstr "Signalton aktivieren (Warnung)"
+
+#: dragonpilot/settings.py:206
+#, python-format
+msgid "Enable Right-Hand Drive Mode"
+msgstr "Rechtslenkermodus aktivieren"
+
+#: dragonpilot/settings.py:17
+#, python-format
+msgid "Enable TSS1 SnG Mod"
+msgstr "TSS1 SnG Mod aktivieren"
+
+#: dragonpilot/settings.py:68
+#, python-format
+msgid ""
+"Enable lateral control even when ACC/cruise is disengaged, using ACC Main or "
+"LKAS button to toggle. Vehicle must be moving."
+msgstr ""
+"Querregelung aktivieren, auch wenn ACC/Tempomat deaktiviert ist, mit ACC-"
+"Haupttaste oder LKAS-Taste umschalten. Fahrzeug muss in Bewegung sein."
+
+#: dragonpilot/settings.py:12
+#, python-format
+msgid ""
+"Enable openpilot to auto-lock doors above 20 km/h and auto-unlock when "
+"shifting to Park."
+msgstr ""
+"Openpilot erlauben, Türen über 20 km/h automatisch zu verriegeln und beim "
+"Einlegen von Park automatisch zu entriegeln."
+
+#: dragonpilot/settings.py:160
+#, python-format
+msgid "Hide HUD When Moves above:"
+msgstr "HUD ausblenden bei Bewegung über:"
+
+#: dragonpilot/settings.py:74
+#, python-format
+msgid "Lane Change Assist At:"
+msgstr "Spurwechselassistent bei:"
+
+#: dragonpilot/settings.py:184
+#, python-format
+msgid "Lead"
+msgstr "Vorausfahrendes Fahrzeug"
+
+#: dragonpilot/settings.py:150
+#, python-format
+msgid "MAIN+"
+msgstr "MAIN+"
+
+#: dragonpilot/settings.py:152
+#, python-format
+msgid "MAIN-"
+msgstr "MAIN-"
+
+#: dragonpilot/settings.py:36
+#, python-format
+msgid "MQB A0 SnG Mod"
+msgstr "MQB A0 SnG Mod"
+
+#: dragonpilot/settings.py:151
+#, python-format
+msgid "OP+"
+msgstr "OP+"
+
+#: dragonpilot/settings.py:153
+#, python-format
+msgid "OP-"
+msgstr "OP-"
+
+#: dragonpilot/settings.py:81 dragonpilot/settings.py:98
+#: dragonpilot/settings.py:167 dragonpilot/settings.py:183
+#: dragonpilot/settings.py:232 dragonpilot/settings.py:246
+#: dragonpilot/settings.py:264
+#, python-format
+msgid "Off"
+msgstr "Aus"
+
+#: dragonpilot/settings.py:92
+#, python-format
+msgid "Off = Disable Auto Lane Change."
+msgstr "Aus = Automatischen Spurwechsel deaktivieren."
+
+#: dragonpilot/settings.py:75
+#, python-format
+msgid "Off = Disable LCA.<br>1 mph = 1.2 km/h."
+msgstr "Aus = LCA deaktivieren.<br>1 mph = 1,2 km/h."
+
+#: dragonpilot/settings.py:42
+#, python-format
+msgid "PQ Steering Patch"
+msgstr "PQ-Lenkungspatch"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:41
+#, python-format
+msgid "RESET"
+msgstr "ZURÜCKSETZEN"
+
+#: dragonpilot/settings.py:185
+#, python-format
+msgid "Radar"
+msgstr "Radar"
+
+#: dragonpilot/settings.py:172
+#, python-format
+msgid "Rainbow Driving Path like Tesla"
+msgstr "Regenbogen-Fahrpfad wie Tesla"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:198
+#, python-format
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:40
+#, python-format
+msgid "Reset DP Settings"
+msgstr "DP-Einstellungen zurücksetzen"
+
+#: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:42
+#, python-format
+msgid "Reset dragonpilot settings to default and restart the device."
+msgstr ""
+"Dragonpilot-Einstellungen auf Standardwerte zurücksetzen und Gerät neu "
+"starten."
+
+#: dragonpilot/settings.py:108
+#, python-format
+msgid "Road Edge Detection (RED)"
+msgstr "Straßenranderkennung (RED)"
+
+#: dragonpilot/settings.py:221
+#, python-format
+msgid ""
+"See https://github.com/eFiniLan/openpilot-ext-radar-addon for more "
+"information."
+msgstr ""
+"Siehe https://github.com/eFiniLan/openpilot-ext-radar-addon für weitere "
+"Informationen."
+
+#: dragonpilot/settings.py:149 dragonpilot/settings.py:230
+#, python-format
+msgid "Std."
+msgstr "Standard"
+
+#: dragonpilot/settings.py:146
+#, python-format
+msgid ""
+"Std.: Stock behavior.<br>MAIN+: ACC MAIN on = Display ON.<br>OP+: OP enabled "
+"= Display ON.<br>MAIN-: ACC MAIN on = Display OFF<br>OP-: OP enabled = "
+"Display OFF."
+msgstr ""
+"Standard: Serienmäßiges Verhalten.<br>MAIN+: ACC MAIN ein = Anzeige EIN."
+"<br>OP+: OP aktiviert = Anzeige EIN.<br>MAIN-: ACC MAIN ein = Anzeige "
+"AUS<br>OP-: OP aktiviert = Anzeige AUS."
+
+#: dragonpilot/settings.py:227
+#, python-format
+msgid ""
+"Std.: Stock behaviour.<br>Warning: Only emits sound when there is a warning."
+"<br>Off: Does not emit any sound at all."
+msgstr ""
+"Standard: Serienmäßiges Verhalten.<br>Warnung: Gibt nur bei Warnungen Ton "
+"aus.<br>Aus: Gibt überhaupt keinen Ton aus."
+
+#: dragonpilot/settings.py:161
+#, python-format
+msgid ""
+"To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when "
+"the car moves.<br>Off = Stock Behavior<br>1 km/h = 0.6 mph"
+msgstr ""
+"Um Bildschirmeinbrennen zu verhindern, Geschwindigkeit, MAX-Geschwindigkeit "
+"und Lenk-/DM-Symbole ausblenden, wenn sich das Fahrzeug bewegt.<br>Aus = "
+"Serienmäßiges Verhalten<br>1 km/h = 0,6 mph"
+
+#: dragonpilot/settings.py:214
+#, python-format
+msgid "Use Buzzer for audiable alerts."
+msgstr "Signalton für hörbare Warnungen verwenden."
+
+#: dragonpilot/settings.py:220
+#, python-format
+msgid "Use External Radar"
+msgstr "Externes Radar verwenden"
+
+#: dragonpilot/settings.py:193
+#, python-format
+msgid "Use MICI (comma four) UI"
+msgstr "MICI (comma four) Benutzeroberfläche verwenden"
+
+#: dragonpilot/settings.py:23
+#, python-format
+msgid "Use Stock Longitudinal Control"
+msgstr "Serienmäßige Längsregelung verwenden"
+
+#: dragonpilot/settings.py:231
+#, python-format
+msgid "Warning"
+msgstr "Warnung"
+
+#: dragonpilot/settings.py:173 dragonpilot/settings.py:194
+#, python-format
+msgid "Why not?"
+msgstr "Warum nicht?"
+
+#: dragonpilot/settings.py:252
+#, python-format
+msgid ""
+"dashy - dragonpilot's all-in-one system hub for you.<br><br>Visit http://"
+"<device_ip>:5088 to access.<br><br>Enable this to use HUD feature (live "
+"streaming)."
+msgstr ""
+"dashy - dragonpilots All-in-One-System-Hub für Sie.<br><br>Besuchen Sie "
+"http://<device_ip>:5088 für den Zugriff.<br><br>Aktivieren Sie dies, um die "
+"HUD-Funktion (Live-Streaming) zu nutzen."
+
+#: dragonpilot/settings.py:251
+#, python-format
+msgid "dashy HUD"
+msgstr "dashy HUD"
+
+#: dragonpilot/settings.py:166
+#, python-format
+msgid "km/h"
+msgstr ""
+
+#: dragonpilot/settings.py:245
+#, python-format
+msgid "min"
+msgstr ""
+
+#: dragonpilot/settings.py:80
+#, python-format
+msgid "mph"
+msgstr ""
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:18
+#, python-format
+msgid "or open browser"
+msgstr "oder Browser öffnen"
+
+#: dragonpilot/selfdrive/ui/mici/layouts/dashy_qrcode.py:14
+#, python-format
+msgid "scan to access"
+msgstr "scannen zum Zugriff"
+
+#: dragonpilot/settings.py:97 dragonpilot/settings.py:263
+#, python-format
+msgid "sec"
+msgstr ""
+
+#, python-format
+#~ msgid " km/h"
+#~ msgstr " km/h"
+
+#, python-format
+#~ msgid " mins"
+#~ msgstr " Min."
+
+#, python-format
+#~ msgid " mph"
+#~ msgstr " mph"
+
+#, python-format
+#~ msgid " sec"
+#~ msgstr " Sek."
+
+#, python-format
+#~ msgid " secs"
+#~ msgstr " Sek."
+
+#, python-format
+#~ msgid "0 mins = Immediately"
+#~ msgstr "0 Min. = Sofort"
