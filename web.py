@@ -1,8 +1,7 @@
-
 #!/usr/bin/env python3
 """
-openpilot modelV2 车辆检测数据实时展示
-通过Flask在端口8899显示车辆检测信息
+openpilot modelV2 车辆检测数据实时展示 - 无过滤版本
+通过Flask在端口8899显示所有检测到的车辆信息
 """
 
 import json
@@ -17,18 +16,16 @@ from openpilot.common.realtime import Ratekeeper
 
 
 class VehicleDetectionDisplay:
-    """车辆检测数据展示类"""
+    """车辆检测数据展示类 - 显示所有检测目标"""
 
-    # 常量定义（参考 radard.py）
+    # 常量定义（移除所有限制）
     RADAR_TO_CAMERA = 1.52  # 雷达相对于相机中心的偏移（米）
-    LANE_PROB_THRESHOLD = 0.1  # 车道内概率阈值
-    CONFIDENCE_BASE_THRESHOLD = 0.5  # 基础置信度阈值
-    CONFIDENCE_DISTANCE_THRESHOLD = 50.0  # 距离阈值（米）
-    CONFIDENCE_DISTANCE_BOOST = 0.7  # 距离超过阈值时的置信度提升
-    CONFIDENCE_VELOCITY_DIFF_THRESHOLD = 10.0  # 速度差异阈值（m/s）
-    CONFIDENCE_VELOCITY_BOOST = 0.6  # 速度差异超过阈值时的置信度提升
-    SIDE_VEHICLE_MIN_DISTANCE = 5.0  # 侧方车辆最小距离（米）
-    SIDE_VEHICLE_MAX_DPATH = 3.5  # 侧方车辆最大路径偏移（米）
+    LANE_PROB_THRESHOLD = 0.0  # 移除车道内概率阈值限制
+    CONFIDENCE_BASE_THRESHOLD = 0.0  # 移除基础置信度阈值限制
+    CONFIDENCE_DISTANCE_THRESHOLD = 999.0  # 移除距离阈值限制
+    CONFIDENCE_DISTANCE_BOOST = 0.0  # 移除距离置信度提升
+    CONFIDENCE_VELOCITY_DIFF_THRESHOLD = 999.0  # 移除速度差异阈值限制
+    CONFIDENCE_VELOCITY_BOOST = 0.0  # 移除速度置信度提升
     DEFAULT_LANE_HALF_WIDTH = 1.75  # 默认车道半宽
     MIN_LANE_HALF_WIDTH = 0.1  # 最小车道半宽阈值
 
@@ -38,6 +35,7 @@ class VehicleDetectionDisplay:
             'center_vehicles': [],
             'left_vehicles': [],
             'right_vehicles': [],
+            'all_detections': [],  # 所有原始检测数据
             'timestamp': 0,
             'frame_id': 0
         }
@@ -159,7 +157,7 @@ class VehicleDetectionDisplay:
             return 0.0, 0.0, 0.0
 
     def collect_vehicle_data(self) -> Dict[str, Any]:
-        """收集车辆检测数据"""
+        """收集车辆检测数据 - 显示所有检测目标"""
         if not self.sm.alive['modelV2']:
             return {}
 
@@ -179,27 +177,18 @@ class VehicleDetectionDisplay:
         left_vehicles = []
         right_vehicles = []
         center_vehicles = []
+        all_detections = []  # 所有原始检测数据
 
-        # 遍历所有检测目标
+        # 遍历所有检测目标 - 移除所有过滤条件
         for i, lead in enumerate(modelV2.leadsV3):
             lead_prob = float(lead.prob)
 
-            # 动态置信度过滤
-            x = float(lead.x[0]) if len(lead.x) > 0 else 0.0
-            v = float(lead.v[0]) if len(lead.v) > 0 else 0.0
-
-            min_prob = self.CONFIDENCE_BASE_THRESHOLD
-            if x > self.CONFIDENCE_DISTANCE_THRESHOLD:
-                min_prob = max(min_prob, self.CONFIDENCE_DISTANCE_BOOST)
-            if abs(v - v_ego) > self.CONFIDENCE_VELOCITY_DIFF_THRESHOLD:
-                min_prob = max(min_prob, self.CONFIDENCE_VELOCITY_BOOST)
-
-            if lead_prob < min_prob:
-                continue
-
             # 提取车辆数据
+            x = float(lead.x[0]) if len(lead.x) > 0 else 0.0
             y = float(lead.y[0]) if len(lead.y) > 0 else 0.0
+            v = float(lead.v[0]) if len(lead.v) > 0 else 0.0
             a = float(lead.a[0]) if len(lead.a) > 0 else 0.0
+
             v_rel = v - v_ego
             dRel = x - self.RADAR_TO_CAMERA
             yRel = -y
@@ -209,8 +198,12 @@ class VehicleDetectionDisplay:
             # 计算路径偏移和车道内概率
             dPath, in_lane_prob, in_lane_prob_future = self._calculate_dpath(dRel, yRel, yvRel, vLead)
 
+            # 生成更稳定的车辆ID
+            vehicle_id = f"V{i}_{hash(f'{x:.1f}_{y:.1f}_{lead_prob:.3f}') % 1000}"
+
             vehicle_data = {
-                'id': i,
+                'id': vehicle_id,
+                'raw_id': i,  # 保留原始数组索引
                 'x': round(x, 2),
                 'y': round(y, 2),
                 'dRel': round(dRel, 2),
@@ -223,10 +216,14 @@ class VehicleDetectionDisplay:
                 'inLaneProb': round(in_lane_prob, 3),
                 'inLaneProbFuture': round(in_lane_prob_future, 3),
                 'prob': round(lead_prob, 3),
+                'stopped': abs(v) < 0.1,  # 标记停止车辆
             }
 
-            # 根据位置分类车辆
-            if in_lane_prob > self.LANE_PROB_THRESHOLD:
+            # 添加到所有检测列表
+            all_detections.append(vehicle_data.copy())
+
+            # 根据位置分类车辆 - 移除概率阈值限制
+            if in_lane_prob > 0.05:  # 极低阈值，基本不过滤
                 center_vehicles.append(vehicle_data)
             elif yRel < 0:
                 left_vehicles.append(vehicle_data)
@@ -237,6 +234,7 @@ class VehicleDetectionDisplay:
             'center_vehicles': center_vehicles,
             'left_vehicles': left_vehicles,
             'right_vehicles': right_vehicles,
+            'all_detections': all_detections,
             'timestamp': time.time(),
             'frame_id': modelV2.frameId
         }
@@ -245,7 +243,7 @@ class VehicleDetectionDisplay:
         """数据更新循环"""
         rk = Ratekeeper(20, print_delay_threshold=None)
 
-        print("Vehicle detection data collector started")
+        print("Vehicle detection data collector started (No Filter Mode)")
 
         while True:
             try:
@@ -270,25 +268,29 @@ class VehicleDetectionDisplay:
 app = Flask(__name__)
 display = VehicleDetectionDisplay()
 
-# HTML模板
+# 完整的HTML模板
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>openpilot 车辆检测数据</title>
+    <title>openpilot 车辆检测数据 - 无过滤模式</title>
     <meta charset="utf-8">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1400px; margin: 0 auto; }
         .header { background: #333; color: white; padding: 10px; text-align: center; }
         .lane-section { margin: 10px 0; padding: 15px; background: white; border-radius: 5px; }
         .lane-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
         .current-lane { border-left: 5px solid #4CAF50; }
         .left-lane { border-left: 5px solid #2196F3; }
         .right-lane { border-left: 5px solid #FF9800; }
-        .vehicle { margin: 5px 0; padding: 8px; background: #f9f9f9; border-radius: 3px; font-family: monospace; }
+        .all-detections { border-left: 5px solid #9C27B0; }
+        .vehicle { margin: 5px 0; padding: 8px; background: #f9f9f9; border-radius: 3px; font-family: monospace; font-size: 12px; }
+        .vehicle.stopped { background: #ffebee; border-left: 3px solid #f44336; }
         .no-vehicle { color: #666; font-style: italic; }
         .info { margin: 10px 0; padding: 10px; background: #e3f2fd; border-radius: 5px; }
+        .stats { display: flex; gap: 20px; margin: 10px 0; flex-wrap: wrap; }
+        .stat-item { background: #f5f5f5; padding: 8px; border-radius: 3px; text-align: center; min-width: 120px; }
     </style>
     <script>
         function updateData() {
@@ -298,10 +300,15 @@ HTML_TEMPLATE = """
                     updateLane('center', data.center_vehicles);
                     updateLane('left', data.left_vehicles);
                     updateLane('right', data.right_vehicles);
+                    updateLane('all', data.all_detections);
 
                     // 更新信息
                     document.getElementById('timestamp').textContent = new Date(data.timestamp * 1000).toLocaleTimeString();
                     document.getElementById('frame_id').textContent = data.frame_id;
+
+                    // 更新统计
+                    document.getElementById('total_count').textContent = data.all_detections.length;
+                    document.getElementById('stopped_count').textContent = data.all_detections.filter(v => v.stopped).length;
                 })
                 .catch(error => console.error('Error:', error));
         }
@@ -312,8 +319,9 @@ HTML_TEMPLATE = """
                 container.innerHTML = '<div class="no-vehicle">无检测到的车辆</div>';
             } else {
                 container.innerHTML = vehicles.map(v => `
-                    <div class="vehicle">
-                        ID:${v.id} | 距离:${v.x}m | 横向:${v.y}m | 速度:${v.v}m/s |
+                    <div class="vehicle ${v.stopped ? 'stopped' : ''}">
+                        ${v.stopped ? '🛑 ' : ''}ID:${v.id} (raw:${v.raw_id}) |
+                        距离:${v.x}m | 横向:${v.y}m | 速度:${v.v}m/s |
                         相对速度:${v.vRel}m/s | 置信度:${v.prob} | 车道概率:${v.inLaneProb}
                     </div>
                 `).join('');
@@ -328,13 +336,39 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <div class="header">
-            <h1>openpilot 视觉模型车辆检测数据</h1>
+            <h1>openpilot 视觉模型车辆检测数据 - 无过滤模式</h1>
+            <p>显示所有检测到的车辆，移除置信度和距离限制</p>
         </div>
 
         <div class="info">
             <strong>更新时间:</strong> <span id="timestamp">--</span> |
             <strong>帧ID:</strong> <span id="frame_id">--</span> |
             <strong>刷新频率:</strong> 10Hz
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <strong>总检测数:</strong> <span id="total_count">0</span>
+            </div>
+            <div class="stat-item">
+                <strong>停止车辆:</strong> <span id="stopped_count">0</span>
+            </div>
+            <div class="stat-item">
+                <strong>当前车道:</strong> {{ center_count }} 辆
+            </div>
+            <div class="stat-item">
+                <strong>左车道:</strong> {{ left_count }} 辆
+            </div>
+            <div class="stat-item">
+                <strong>右车道:</strong> {{ right_count }} 辆
+            </div>
+        </div>
+
+        <div class="lane-section all-detections">
+            <div class="lane-title">🟣 所有检测目标 ({{ total_count }} 辆)</div>
+            <div id="all-vehicles">
+                <div class="no-vehicle">加载中...</div>
+            </div>
         </div>
 
         <div class="lane-section current-lane">
@@ -364,41 +398,30 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    """主页面"""
-    # 获取当前车辆数量
     with display.data_lock:
         center_count = len(display.current_data.get('center_vehicles', []))
         left_count = len(display.current_data.get('left_vehicles', []))
         right_count = len(display.current_data.get('right_vehicles', []))
+        total_count = len(display.current_data.get('all_detections', []))
 
     return render_template_string(
         HTML_TEMPLATE,
         center_count=center_count,
         left_count=left_count,
-        right_count=right_count
+        right_count=right_count,
+        total_count=total_count
     )
 
 @app.route('/api/data')
 def get_data():
-    """API接口获取最新数据"""
     with display.data_lock:
         return jsonify(display.current_data)
 
+if __name__ == '__main__':
+    # 启动数据更新线程
+    update_thread = threading.Thread(target=display.update_loop, daemon=True)
+    update_thread.start()
 
-def main():
-    """主函数"""
-    # 启动数据收集线程
-    collector_thread = threading.Thread(target=display.update_loop, daemon=True)
-    collector_thread.start()
-
-    # 等待数据初始化
-    time.sleep(1)
-
-    # 启动Flask服务
-    print("Starting Flask server on port 8899...")
-    print("Access http://localhost:8899 to view vehicle detection data")
-    app.run(host='0.0.0.0', port=8899, debug=False, threaded=True)
-
-
-if __name__ == "__main__":
-    main()
+    # 启动Flask应用
+    print("Starting Flask server on http://0.0.0.0:8899")
+    app.run(host='0.0.0.0', port=8899, debug=False)
