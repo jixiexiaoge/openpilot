@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum, IntFlag
-
+from openpilot.common.params import Params
+from openpilot.system.hardware import PC
 import numpy as np
 from opendbc.car import Bus, PlatformConfig, DbcDict, Platforms, CarSpecs
 from opendbc.car.structs import CarParams
@@ -280,6 +281,28 @@ class CanBus:
   CHASSIS = 2
   LOOPBACK = 128
   DROPPED = 192
+
+  @staticmethod
+  def checkPanda():
+    if Params().get_bool("UseRedPanda"):
+      CanBus.POWERTRAIN = 0 + 4
+      CanBus.OBSTACLE = 1 + 4
+      CanBus.CAMERA = 2 + 4
+      CanBus.CHASSIS = 2 + 4
+      CanBus.LOOPBACK = 128 + 4
+      CanBus.DROPPED = 192 + 4
+      print("Using External Panda")
+    else:
+      CanBus.POWERTRAIN = 0
+      CanBus.OBSTACLE = 1
+      CanBus.CAMERA = 2
+      CanBus.CHASSIS = 2 + 4
+      CanBus.LOOPBACK = 128
+      CanBus.DROPPED = 192
+      print("Using Internal Panda")
+
+if not PC:
+  CanBus.checkPanda()
 
 class GMFlags(IntFlag):
   PEDAL_LONG = 1

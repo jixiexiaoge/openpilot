@@ -100,7 +100,10 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
     ret.brand = "gm"
-    ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.gm)]
+    if Params().get_bool("UseRedPanda"):
+      ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.noOutput),get_safety_config(structs.CarParams.SafetyModel.gm)]
+    else:
+      ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.gm)]
     ret.autoResumeSng = False
     ret.enableBsm = 0x142 in fingerprint[CanBus.POWERTRAIN] or 0x142 in fingerprint[CanBus.CAMERA]
     ret.startAccel = 1.0
