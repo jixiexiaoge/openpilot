@@ -20,15 +20,18 @@ import time
 import numpy as np
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
+# Cooldown times (how long to stay in experimental mode after trigger)
+AEM_COOLDOWN_STOP = 0.5      # seconds - for stop sign/light detection
+AEM_COOLDOWN_TTC = 3.0       # seconds - for lead TTC events
 
-AEM_COOLDOWN_TIME = 0.5  # seconds
-
+# Stop sign/light detection thresholds
 SLOW_DOWN_BP = [0., 2.78, 5.56, 8.34, 11.12, 13.89, 15.28]
 SLOW_DOWN_DIST = [10, 30., 50., 70., 80., 90., 120.]
 
-# Allow throttle
-# ALLOW_THROTTLE_THRESHOLD = 0.4
-# MIN_ALLOW_THROTTLE_SPEED = 2.5
+# TTC-based triggering thresholds
+TTC_THRESHOLD = 1.8          # seconds - trigger when TTC drops below this
+MIN_SPEED_FOR_TTC = 5.0      # m/s (~18 km/h) - TTC meaningless at low speeds
+MIN_CLOSING_SPEED = 0.5      # m/s - must be closing at least this fast
 
 
 class AEM:
@@ -37,9 +40,11 @@ class AEM:
     self._active = False
     self._cooldown_end_time = 0.0
 
-  def _perform_experimental_mode(self):
+  def _perform_experimental_mode(self, cooldown: float = AEM_COOLDOWN_TTC):
     self._active = True
-    self._cooldown_end_time = time.monotonic() + AEM_COOLDOWN_TIME
+    # Extend cooldown if new trigger comes in
+    new_end = time.monotonic() + cooldown
+    self._cooldown_end_time = max(self._cooldown_end_time, new_end)
 
   def get_mode(self, mode):
     # override mode
@@ -50,21 +55,20 @@ class AEM:
     return mode
 
   def update_states(self, model_msg, radar_msg, v_ego):
+    # Stop sign/light detection - model predicts stopping ahead
+    # Uses max() so it can't shorten an existing longer cooldown
+    if len(model_msg.orientation.x) == len(model_msg.position.x) == ModelConstants.IDX_N and \
+      model_msg.position.x[ModelConstants.IDX_N - 1] < np.interp(v_ego, SLOW_DOWN_BP, SLOW_DOWN_DIST):
+      self._perform_experimental_mode(AEM_COOLDOWN_STOP)
 
-    # Stop sign/light detection
-    if not self._active:
-      if len(model_msg.orientation.x) == len(model_msg.position.x) == ModelConstants.IDX_N and \
-        model_msg.position.x[ModelConstants.IDX_N - 1] < np.interp(v_ego, SLOW_DOWN_BP, SLOW_DOWN_DIST):
-        self._perform_experimental_mode()
-
-    # throttle prob is low and there is no lead ahead (prep for brake?)
-    # if not self._active:
-    #   if len(model_msg.meta.disengagePredictions.gasPressProbs) > 1:
-    #     throttle_prob = model_msg.meta.disengagePredictions.gasPressProbs[1]
-    #   else:
-    #     throttle_prob = 1.0
-
-    #   allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED
-    #   if not allow_throttle and not radar_msg.leadOne.status:
-    #     self._perform_experimental_mode()
+    # TTC-based triggering - lead car braking hard
+    if v_ego > MIN_SPEED_FOR_TTC and radar_msg.leadOne.status:
+      # vRel is negative when closing in on lead
+      closing_speed = -radar_msg.leadOne.vRel
+      if closing_speed > MIN_CLOSING_SPEED:
+        d_rel = radar_msg.leadOne.dRel
+        if d_rel > 0:
+          ttc = d_rel / closing_speed
+          if ttc < TTC_THRESHOLD:
+            self._perform_experimental_mode(AEM_COOLDOWN_TTC)
 
