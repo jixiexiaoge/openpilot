@@ -60,10 +60,10 @@ def internal_error(exception):
 
 @app.route("/footage/full/<cameratype>/<route>")
 def full(cameratype, route):
-  chunk_size = 1024 * 512  
+  chunk_size = 1024 * 512
   file_name = cameratype + (".ts" if cameratype == "qcamera" else ".hevc")
   vidlist = "|".join(Paths.log_root() + "/" + segment + "/" + file_name for segment in fleet.segments_in_route(route))
-  
+
   def generate_buffered_stream():
     with fleet.ffmpeg_mp4_concat_wrap_process_builder(vidlist, cameratype, chunk_size) as process:
       for chunk in iter(lambda: process.stdout.read(chunk_size), b""):
@@ -93,13 +93,13 @@ def download_dcamera(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
   return send_from_directory(file_name, "dcamera.hevc", as_attachment=True)
-  
+
 @app.route("/footage/full/ecamera/<route>/<segment>")
 def download_ecamera(route, segment):
   file_name = Paths.log_root() + route + "--" + segment + "/"
   print("download_route=", route, file_name, segment)
   return send_from_directory(file_name, "ecamera.hevc", as_attachment=True)
-        
+
 def upload_folder_to_ftp(local_folder, directory, remote_path):
     from tqdm import tqdm
     ftp_server = "shind0.synology.me"
@@ -144,14 +144,14 @@ def upload_folder_to_ftp(local_folder, directory, remote_path):
     except Exception as e:
         print(f"FTP Upload Error: {e}")
         return False
-        
+
 
 @app.route("/folder-info")
 def get_folder_info():
     path = request.args.get('path')
     if not path or not os.path.exists(path):
         return jsonify({'error': 'Folder not found'}), 404
-    
+
     try:
         folder_name = os.path.basename(path)
         seg_num = int(folder_name.split('--')[2])
@@ -161,7 +161,7 @@ def get_folder_info():
             try:
                 base_name = '--'.join(folder_name.split('--')[:2])
                 seg1_path = os.path.join(os.path.dirname(path), f"{base_name}--1")
-                
+
                 if os.path.exists(seg1_path):
                     seg1_stat = os.stat(seg1_path)
                     created_time = seg1_stat.st_ctime - 60
@@ -176,7 +176,7 @@ def get_folder_info():
                     total_size += os.path.getsize(fp)
                 except OSError:
                     continue
-        
+
         return jsonify({
             'created_date': formatted_date,
             'size': total_size,
@@ -184,24 +184,24 @@ def get_folder_info():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-        
+
 @app.route("/folder-date")
 def get_folder_date():
     path = request.args.get('path')
     subtract_minutes = int(request.args.get('subtract_minutes', 0))
-    
+
     if not path or not os.path.exists(path):
         return jsonify({'error': 'Folder not found'}), 404
-    
+
     try:
         stat_info = os.stat(path)
         created_time = stat_info.st_ctime
-        
+
         if subtract_minutes > 0:
             created_time -= subtract_minutes * 60
-        
+
         formatted_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(created_time))
-        
+
         return jsonify({
             'date': formatted_date,
             'status': 'success'
@@ -235,24 +235,24 @@ def upload_carrot(route, segment):
             return "Failed to upload files", 500
     else:
         return "Segment already uploaded", 200
-        
+
 @app.template_filter('datetimeformat')
 def datetimeformat_filter(filename):
     try:
         date_part = filename[:8]
         time_part = filename[9:15]
-        
+
         year = date_part[:4]
         month = date_part[4:6]
         day = date_part[6:8]
-        
+
         hour = time_part[:2]
         minute = time_part[2:4]
-        
+
         return f"{year}년 {month}월 {day}일 {hour}시 {minute}분"
     except:
         return filename
-        
+
 @app.route("/file-size")
 def get_file_size():
     path = request.args.get('path')
@@ -289,8 +289,8 @@ def route(route):
         seg_num = segment.split("--")[2]
         links.append(f'<a href="{route}?{seg_num},{query_type}">{segment}</a>')
         segments.append(f"'{segment}'")
-    
-    return render_template("route.html", 
+
+    return render_template("route.html",
                          route=route,
                          query_type=query_type,
                          links="<br>".join(links),
@@ -620,7 +620,7 @@ def carinfo():
                     "Cruise Information": {
                         "Cruise Status": "On" if CS.cruiseState.enabled else "Off",
                         "Adaptive Cruise": "On" if CS.cruiseState.available else "Off",
-                        "Set Speed": f"{CS.cruiseState.speed * 3.6:.1f} km/h" if CS.cruiseState.speed > 0 else "Not Set",
+                        "Set Speed": f"{CS.cruiseState.speed * 3.6} km/h" if CS.cruiseState.speed > 0 else "Not Set"
                         "Following Distance": str(CS.cruiseState.followDistance) if hasattr(CS.cruiseState, 'followDistance') else "Unknown"
                     },
                     "Wheel Speeds": {
