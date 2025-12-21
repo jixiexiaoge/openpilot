@@ -349,6 +349,8 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
   values["AccelLimitBandUpper"] = 0.0   # 이값이 1.26일때 가속을 안하는 증상이 보임.. 
   values["AccelLimitBandLower"] = 0.0
 
+  values["ZEROS_7"] = 1
+
   return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
 def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_override, set_speed, hud_control, jerk_u, jerk_l, CS):
@@ -588,6 +590,12 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           values['RR_DETECT_DISTANCE'] = 2
           values['RR_DETECT_LATERAL'] = hud_control.leadRightLat2
         """
+        if CC.leftBlinker:
+          #values['LEFT_BLINK_HOLD'] = 1
+          pass
+        if CC.rightBlinker:
+          #values['RIGHT_BLINK_HOLD'] = 1
+          pass
         ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values))
 
       if CS.adrv_info_162 is not None:
@@ -647,14 +655,8 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
       if frame % 20 == 0: # 아직 시험중..
         if CS.hda_info_4a3 is not None:
           values = copy.copy(CS.hda_info_4a3)
-          #if canfd_debug == 1:
-          values["SIGNAL_0"] = 5
-          values["NEW_SIGNAL_1"] = 4
-          values["SPEED_LIMIT"] = 80
-          values["NEW_SIGNAL_3"] = 154
-          values["NEW_SIGNAL_4"] = 9
-          values["NEW_SIGNAL_5"] = 0
-          values["NEW_SIGNAL_6"] = 256
+          values["LinkClass"] = 1
+          values["SPEED_LIMIT"] = 100
           ret.append(packer.make_can_msg("HDA_INFO_4A3", CAN.CAM, values))
 
   return ret

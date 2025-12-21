@@ -225,11 +225,11 @@ class CarController(CarControllerBase):
     #  apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 
     v_ego_kph = CS.out.vEgoRaw * CV.MS_TO_KPH
-    if abs(apply_angle - self.apply_angle_last) < 0.1:
-      alpha = min(0.05 + 0.45 * v_ego_kph / 30.0, 0.5)
-    else:
-      alpha = 1.0 # min(0.1 + 0.9 * v_ego_kph / 30.0, 1.0)
-
+    #if abs(apply_angle - self.apply_angle_last) < 0.1:
+    #  alpha = min(0.05 + 0.45 * v_ego_kph / 30.0, 0.5)
+    #else:
+    #  alpha = 1.0 # min(0.1 + 0.9 * v_ego_kph / 30.0, 1.0)
+    alpha = np.interp(v_ego_kph, [0, 20, 30], [0.5, 0.8, 1.0])
     apply_angle = self.apply_angle_last * (1 - alpha) + apply_angle * alpha
 
     if angle_control:
