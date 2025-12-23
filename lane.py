@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import time
 import numpy as np
-from collections import deque
+from collections import deque, Counter
 import threading
 from flask import Flask, jsonify, render_template_string
 
@@ -26,14 +26,14 @@ latest_data = {
 }
 
 latest_config = {
-    'lookahead_start': 6.0,
-    'lookahead_end': 45.0,
-    'num_points': 100,
-    'prob_threshold': 0.3,
-    'rel_std_solid_max': 0.08,
-    'rel_std_dash_min': 0.12,
-    'jump_threshold_factor': 0.4,
-    'window_points': 38
+    'lookahead_start': 3.0,
+    'lookahead_end': 40.0,
+    'num_points': 120,
+    'prob_threshold': 0.4,
+    'rel_std_solid_max': 0.06,
+    'rel_std_dash_min': 0.15,
+    'jump_threshold_factor': 0.5,
+    'window_points': 25
 }
 config_lock = threading.Lock()
 
@@ -237,6 +237,7 @@ class LaneLineDetector:
         self.params = Params()
         self.intrinsics = None
         self.w, self.h = None, None
+        self.history = {'left': deque(maxlen=5), 'right': deque(maxlen=5)}
         self.update_params()
 
     def update_params(self):
@@ -267,28 +268,97 @@ class LaneLineDetector:
             return True
         except Exception: return False
 
-    def analyze_vocal_continuity(self, pixel_values, v_ego):
-        if len(pixel_values) < 30: return -1, 0.0
+    def smooth_result(self, side, current_type):
+        """使用历史帧平滑结果"""
+        self.history[side].append(current_type)
 
-        std = np.std(pixel_values)
-        mean = np.mean(pixel_values)
+        if len(self.history[side]) < 3:
+            return current_type
+
+        # 投票机制：取最近5帧的众数
+        counts = Counter(self.history[side])
+        most_common = counts.most_common(1)[0][0]
+
+        return most_common
+
+    def analyze_lane_continuity(self, pixel_values, v_ego):
+        """改进的虚线检测 - 添加周期性分析
+
+        理论依据:
+        1. 信号处理(Signal Processing): 使用自相关(Autocorrelation)检测亮度信号的周期性
+        2. 统计学(Statistics): 使用相对标准差(Relative STD)区分实线(低波动)和虚线(高波动)
+        """
+        if len(pixel_values) < 30:
+            return -1, 0.0
+
+        # 基础统计
+        pixels = np.array(pixel_values, dtype=np.float32)
+        std = np.std(pixels)
+        mean = np.mean(pixels)
         rel_std = std / max(mean, 1.0)
 
+        # 1. 明确的实线判断 - 方差极低且稳定
         if rel_std < self.rel_std_solid_max:
             return 1, rel_std
 
-        window = max(10, min(self.window_points, len(pixel_values)-1))
-        if len(pixel_values) >= window:
-            diffs = np.abs(np.diff(pixel_values))
-            jump_thresh = self.jump_threshold_factor * max(mean, 1.0)
-            significant_jumps = int(np.sum(diffs > jump_thresh))
+        # 2. 归一化信号用于周期性分析
+        normalized = (pixels - mean) / max(std, 1.0)
 
-            if significant_jumps >= 3 and rel_std > self.rel_std_dash_min:
-                return 0, rel_std
+        # 3. 自相关分析检测周期性
+        def detect_periodicity(signal, min_period=5, max_period=None):
+            """使用自相关检测周期性"""
+            if max_period is None:
+                max_period = len(signal) // 3
 
-        if rel_std > self.rel_std_dash_min * 1.5:
+            autocorr_scores = []
+            for lag in range(min_period, min(max_period, len(signal)//2)):
+                corr = np.corrcoef(signal[:-lag], signal[lag:])[0, 1]
+                if not np.isnan(corr):
+                    autocorr_scores.append((lag, corr))
+
+            if not autocorr_scores:
+                return False, 0
+
+            # 找到最强的周期性（正相关峰值）
+            max_corr = max(autocorr_scores, key=lambda x: x[1])
+            return max_corr[1] > 0.3, max_corr[0]  # 相关系数 > 0.3 认为有周期性
+
+        has_period, period = detect_periodicity(normalized)
+
+        # 4. 改进的跳变分析 - 检测虚线段数
+        diffs = np.abs(np.diff(pixels))
+        jump_thresh = self.jump_threshold_factor * max(mean, 1.0)
+        significant_jumps = diffs > jump_thresh
+
+        # 统计虚线段数（连续跳变算一段）
+        dash_segments = 0
+        in_segment = False
+        for is_jump in significant_jumps:
+            if is_jump and not in_segment:
+                dash_segments += 1
+                in_segment = True
+            elif not is_jump:
+                in_segment = False
+
+        # 5. 综合判断虚线
+        # 条件：高方差 + 周期性 + 足够的虚线段数（至少2-3段）
+        max_possible_segments = (len(pixels) // period * 1.5) if period > 0 else 999
+
+        is_dashed = (
+            rel_std > self.rel_std_dash_min and
+            has_period and
+            dash_segments >= 2 and
+            dash_segments <= max_possible_segments
+        )
+
+        if is_dashed:
             return 0, rel_std
 
+        # 6. 备选判断 - 基于跳变但要求更严格
+        if dash_segments >= 4 and rel_std > self.rel_std_dash_min * 1.2:
+            return 0, rel_std
+
+        # 7. 不确定情况
         return -1, rel_std
 
     def update(self, sm, yuv_buf):
@@ -327,12 +397,24 @@ class LaneLineDetector:
                 if p[2] <= 1.0: continue
                 u = int(p[0] / p[2] * self.intrinsics[0, 0] + self.intrinsics[0, 2])
                 v = int(p[1] / p[2] * self.intrinsics[1, 1] + self.intrinsics[1, 2])
-                if 0 <= u < self.w and 0 <= v < self.h:
-                    pixels.append(int(y_data[v, u]))
 
-            res_type, res_std = self.analyze_vocal_continuity(pixels, v_ego)
+                # 添加边界检查和插值采样
+                if 1 <= u < self.w-1 and 1 <= v < self.h-1:
+                    # 使用双线性插值提高采样质量 (5点均值)
+                    pixel_val = (
+                        int(y_data[v, u]) * 0.5 +
+                        int(y_data[v-1, u]) * 0.125 +
+                        int(y_data[v+1, u]) * 0.125 +
+                        int(y_data[v, u-1]) * 0.125 +
+                        int(y_data[v, u+1]) * 0.125
+                    )
+                    pixels.append(pixel_val)
+
+            res_type, res_std = self.analyze_lane_continuity(pixels, v_ego)
 
             side = 'left' if i == 0 else 'right'
+            # 平滑结果
+            res_type = self.smooth_result(side, res_type)
             result[side] = res_type
             result[f'{side}_rel_std'] = res_std
 

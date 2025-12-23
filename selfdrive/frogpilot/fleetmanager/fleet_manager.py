@@ -620,7 +620,7 @@ def carinfo():
                     "Cruise Information": {
                         "Cruise Status": "On" if CS.cruiseState.enabled else "Off",
                         "Adaptive Cruise": "On" if CS.cruiseState.available else "Off",
-                        "Set Speed": f"{CS.cruiseState.speed * 3.6:.5f} km/h" if CS.cruiseState.speed > 0 else "Not Set"
+                        "Set Speed": f"{CS.cruiseState.speed * 3.6:.1f} km/h" if CS.cruiseState.speed > 0 else "Not Set",
                         "Following Distance": str(CS.cruiseState.followDistance) if hasattr(CS.cruiseState, 'followDistance') else "Unknown"
                     },
                     "Wheel Speeds": {
