@@ -25,6 +25,18 @@ latest_data = {
     'last_update': 0
 }
 
+latest_config = {
+    'lookahead_start': 6.0,
+    'lookahead_end': 45.0,
+    'num_points': 100,
+    'prob_threshold': 0.3,
+    'rel_std_solid_max': 0.08,
+    'rel_std_dash_min': 0.12,
+    'jump_threshold_factor': 0.4,
+    'window_points': 38
+}
+config_lock = threading.Lock()
+
 # ==============================================================================
 # Web 界面 (Stateless Flask)
 # ==============================================================================
@@ -50,6 +62,11 @@ HTML_TEMPLATE = """
         .speed { color: #38bdf8; font-size: 2.5rem; }
         .unit { font-size: 1rem; color: #64748b; margin-left: 0.5rem; font-weight: 400; }
         .footer { text-align: center; font-size: 0.875rem; color: #475569; margin-top: 2rem; font-weight: 500; }
+        .panel { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #334155; }
+        .row { display: flex; align-items: center; justify-content: space-between; margin: 0.75rem 0; }
+        .row label { color: #94a3b8; font-size: 0.95rem; width: 50%; }
+        .row input[type="range"] { width: 40%; }
+        .row .val { width: 10%; text-align: right; color: #38bdf8; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
     </style>
 </head>
 <body>
@@ -75,11 +92,75 @@ HTML_TEMPLATE = """
             <span class="label">右侧方差</span>
             <span class="value" id="right_std">0.0000</span>
         </div>
+        <div class="panel">
+            <div class="row">
+                <label>概率阈值</label>
+                <input id="prob_threshold" type="range" min="0" max="1" step="0.01" value="0.3">
+                <span class="val" id="prob_threshold_val">0.30</span>
+            </div>
+            <div class="row">
+                <label>实线相对方差最大值</label>
+                <input id="rel_std_solid_max" type="range" min="0.02" max="0.20" step="0.01" value="0.08">
+                <span class="val" id="rel_std_solid_max_val">0.08</span>
+            </div>
+            <div class="row">
+                <label>虚线相对方差最小值</label>
+                <input id="rel_std_dash_min" type="range" min="0.05" max="0.50" step="0.01" value="0.12">
+                <span class="val" id="rel_std_dash_min_val">0.12</span>
+            </div>
+            <div class="row">
+                <label>采样起点 (米)</label>
+                <input id="lookahead_start" type="range" min="2" max="10" step="0.5" value="6.0">
+                <span class="val" id="lookahead_start_val">6.0</span>
+            </div>
+            <div class="row">
+                <label>采样终点 (米)</label>
+                <input id="lookahead_end" type="range" min="20" max="60" step="0.5" value="45.0">
+                <span class="val" id="lookahead_end_val">45.0</span>
+            </div>
+            <div class="row">
+                <label>采样点数量</label>
+                <input id="num_points" type="range" min="20" max="200" step="1" value="100">
+                <span class="val" id="num_points_val">100</span>
+            </div>
+            <div class="row">
+                <label>亮度跳变因子</label>
+                <input id="jump_threshold_factor" type="range" min="0.1" max="1.0" step="0.05" value="0.4">
+                <span class="val" id="jump_threshold_factor_val">0.40</span>
+            </div>
+            <div class="row">
+                <label>虚线周期窗口点数</label>
+                <input id="window_points" type="range" min="10" max="80" step="1" value="38">
+                <span class="val" id="window_points_val">38</span>
+            </div>
+        </div>
         <div class="footer">
             最后心跳: <span id="timestamp">--:--:--</span>
         </div>
     </div>
     <script>
+        const ids = ["prob_threshold","rel_std_solid_max","rel_std_dash_min","lookahead_start","lookahead_end","num_points","jump_threshold_factor","window_points"];
+        function setVal(id, val) {
+            document.getElementById(id).value = val;
+            document.getElementById(id + "_val").innerText = (typeof val === 'number') ? (id.includes("num_points") || id.includes("window_points") ? Math.round(val) : Number(val).toFixed(id.includes("lookahead") ? 1 : 2)) : val;
+        }
+        function bindSliders() {
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                el.oninput = () => {
+                    const v = el.type === 'range' ? parseFloat(el.value) : el.value;
+                    setVal(id, v);
+                    const payload = {};
+                    payload[id] = (id === 'num_points' || id === 'window_points') ? Math.round(v) : v;
+                    fetch('/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                };
+            });
+        }
+        function loadConfig() {
+            fetch('/config').then(r=>r.json()).then(cfg=>{
+                ids.forEach(id => setVal(id, cfg[id]));
+            });
+        }
         function update() {
             fetch('/data')
                 .then(r => r.json())
@@ -99,8 +180,16 @@ HTML_TEMPLATE = """
                     document.getElementById('timestamp').innerText = new Date(data.last_update * 1000).toLocaleTimeString();
                 })
                 .catch(e => console.error("Monitor failed:", e));
+            fetch('/config')
+                .then(r=>r.json())
+                .then(cfg=>{
+                    ids.forEach(id => setVal(id, cfg[id]));
+                })
+                .catch(e => console.error("Config failed:", e));
         }
-        setInterval(update, 500);
+        bindSliders();
+        loadConfig();
+        setInterval(update, 1000);
         update();
     </script>
 </body>
@@ -114,6 +203,22 @@ def index():
 @app.route('/data')
 def get_data():
     return jsonify(latest_data)
+
+@app.route('/config', methods=['GET'])
+def get_config():
+    with config_lock:
+        return jsonify(latest_config)
+
+@app.route('/config', methods=['POST'])
+def set_config():
+    from flask import request
+    data = request.get_json(force=True) or {}
+    allowed = set(latest_config.keys())
+    with config_lock:
+        for k, v in data.items():
+            if k in allowed:
+                latest_config[k] = float(v) if k not in ('num_points', 'window_points') else int(v)
+    return jsonify({'ok': True, 'config': latest_config})
 
 def start_flask():
     cloudlog.info("Starting Flask on port 8888")
@@ -135,14 +240,16 @@ class LaneLineDetector:
         self.update_params()
 
     def update_params(self):
-        self.lookahead_start = 6.0
-        self.lookahead_end = 45.0  # 覆盖 39 米长距离
-        self.num_points = 100      # 增加采样密度 (约 0.4m 一个点)
-        self.prob_threshold = 0.3
-
-        # 针对中国道路的相对方差阈值
-        self.rel_std_solid_max = 0.08
-        self.rel_std_dash_min = 0.12
+        with config_lock:
+            cfg = dict(latest_config)
+        self.lookahead_start = cfg['lookahead_start']
+        self.lookahead_end = cfg['lookahead_end']
+        self.num_points = int(cfg['num_points'])
+        self.prob_threshold = cfg['prob_threshold']
+        self.rel_std_solid_max = cfg['rel_std_solid_max']
+        self.rel_std_dash_min = cfg['rel_std_dash_min']
+        self.jump_threshold_factor = cfg['jump_threshold_factor']
+        self.window_points = int(cfg['window_points'])
 
     def init_camera(self, sm, vipc_client):
         if self.intrinsics is not None: return True
@@ -161,32 +268,24 @@ class LaneLineDetector:
         except Exception: return False
 
     def analyze_vocal_continuity(self, pixel_values, v_ego):
-        """
-        视觉连贯性检查 (考虑中国虚线 6m 线 + 9m 空)
-        """
         if len(pixel_values) < 30: return -1, 0.0
 
         std = np.std(pixel_values)
         mean = np.mean(pixel_values)
         rel_std = std / max(mean, 1.0)
 
-        # 1. 基础波动判断
         if rel_std < self.rel_std_solid_max:
-            return 1, rel_std  # 极其平稳 -> 实线
+            return 1, rel_std
 
-        # 2. 局部对比度检查 (虚线会有明显的周期性明暗)
-        # 计算 15 米周期内的梯度
-        # 在 100 个点覆盖 39 米的情况下，15 米约 38 个点
-        window = 38
+        window = max(10, min(self.window_points, len(pixel_values)-1))
         if len(pixel_values) >= window:
             diffs = np.abs(np.diff(pixel_values))
-            significant_jumps = np.sum(diffs > (mean * 0.4)) # 显著亮度跳变
+            jump_thresh = self.jump_threshold_factor * max(mean, 1.0)
+            significant_jumps = int(np.sum(diffs > jump_thresh))
 
-            # 虚线在 40 米内通常由于视角和采样，会有 3-6 次显著边缘
             if significant_jumps >= 3 and rel_std > self.rel_std_dash_min:
-                return 0, rel_std # 判定为虚线
+                return 0, rel_std
 
-        # 3. 兜底判断
         if rel_std > self.rel_std_dash_min * 1.5:
             return 0, rel_std
 
@@ -210,6 +309,8 @@ class LaneLineDetector:
             y_data = imgff[:self.h, :self.w]
             extrinsic = get_view_frame_from_calib_frame(calib.rpyCalib[0], 0.0, 0.0, 0.0)
         except Exception: return result
+
+        self.update_params()
 
         for i, line_idx in enumerate([1, 2]):
             line = model.laneLines[line_idx]
