@@ -370,7 +370,7 @@ class Updater:
         m = re.match(r'^(\d+)\.(\d+)\.(\d+)', name)
 
         # Logic:
-        # 1. Allow exactly 'pre-build'
+        # 1. Allow exactly 'pre-build' or 'testing'
         # 2. OR Allow if it parses as a version AND that version is >= 0.9.8
         if name in ('testing', 'pre-build') or (m and tuple(map(int, m.groups())) >= (0, 9, 8)):
           self.branches[name] = x.group('commit_sha')
