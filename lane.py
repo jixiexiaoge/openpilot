@@ -369,7 +369,7 @@ class LaneLineDetector:
             return result
 
         v_ego = sm['carState'].vEgo if sm.updated.get('carState') else 0.0
-        latest_data['speed'] = v_ego * 3.6
+        latest_data['speed'] = float(v_ego * 3.6)
 
         model = sm['modelV2']
         calib = sm['liveCalibration']
@@ -419,7 +419,7 @@ class LaneLineDetector:
             result[f'{side}_rel_std'] = res_std
 
             latest_data[f'{side}_type'] = ['虚线', '实线', '不确定'][res_type if res_type >= 0 else 2]
-            latest_data[f'{side}_rel_std'] = res_std
+            latest_data[f'{side}_rel_std'] = float(res_std)
 
         latest_data['last_update'] = time.time()
         return result
