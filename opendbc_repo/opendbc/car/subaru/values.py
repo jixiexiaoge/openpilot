@@ -26,6 +26,12 @@ class CarControllerParams:
     elif CP.carFingerprint == CAR.SUBARU_IMPREZA_2020:
       self.STEER_DELTA_UP = 35
       self.STEER_MAX = 1439
+      self.STEER_DELTA_UP = 35
+      self.STEER_DELTA_DOWN = 70
+    elif CP.carFingerprint == CAR.SUBARU_IMPREZA:
+      self.STEER_MAX = 3071
+      self.STEER_DELTA_UP = 60
+      self.STEER_DELTA_DOWN = 60
     else:
       self.STEER_MAX = 2047
 
@@ -57,7 +63,7 @@ class SubaruSafetyFlags(IntFlag):
   GEN2 = 1
   LONG = 2
   PREGLOBAL_REVERSED_DRIVER_TORQUE = 4
-
+  IMPREZA_2018 = 8
 
 class SubaruFlags(IntFlag):
   # Detected flags
@@ -74,6 +80,8 @@ class SubaruFlags(IntFlag):
   HYBRID = 32
   LKAS_ANGLE = 64
 
+  # rick
+  IMPREZA_2018 = 2 ** 10
 
 GLOBAL_ES_ADDR = 0x787
 GEN2_ES_BUTTONS_DID = b'\x11\x30'
@@ -143,7 +151,8 @@ class CAR(Platforms):
       SubaruCarDocs("Subaru Crosstrek 2018-19", video="https://youtu.be/Agww7oE1k-s?t=26"),
       SubaruCarDocs("Subaru XV 2018-19", video="https://youtu.be/Agww7oE1k-s?t=26"),
     ],
-    CarSpecs(mass=1568, wheelbase=2.67, steerRatio=15),
+    CarSpecs(mass=1568, wheelbase=2.67, steerRatio=13.5),
+    flags=SubaruFlags.IMPREZA_2018,
   )
   SUBARU_IMPREZA_2020 = SubaruPlatformConfig(
     [

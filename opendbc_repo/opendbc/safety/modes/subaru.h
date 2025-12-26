@@ -72,6 +72,8 @@
 
 static bool subaru_gen2 = false;
 static bool subaru_longitudinal = false;
+// rick
+static bool subaru_impreza_2018 = false;
 
 static uint32_t subaru_get_checksum(const CANPacket_t *msg) {
   return (uint8_t)msg->data[0];
@@ -140,6 +142,8 @@ static void subaru_rx_hook(const CANPacket_t *msg) {
 static bool subaru_tx_hook(const CANPacket_t *msg) {
   const TorqueSteeringLimits SUBARU_STEERING_LIMITS      = SUBARU_STEERING_LIMITS_GENERATOR(2047, 50, 70);
   const TorqueSteeringLimits SUBARU_GEN2_STEERING_LIMITS = SUBARU_STEERING_LIMITS_GENERATOR(1000, 40, 40);
+  // rick
+  const TorqueSteeringLimits SUBARU_IMPREZA_2018_STEERING_LIMITS = SUBARU_STEERING_LIMITS_GENERATOR(3071, 60, 60);
 
   const LongitudinalLimits SUBARU_LONG_LIMITS = {
     .min_gas = 808,       // appears to be engine braking
@@ -161,7 +165,11 @@ static bool subaru_tx_hook(const CANPacket_t *msg) {
 
     bool steer_req = (msg->data[3] >> 5) & 1U;
 
-    const TorqueSteeringLimits limits = subaru_gen2 ? SUBARU_GEN2_STEERING_LIMITS : SUBARU_STEERING_LIMITS;
+    // const TorqueSteeringLimits limits = subaru_gen2 ? SUBARU_GEN2_STEERING_LIMITS : SUBARU_STEERING_LIMITS;
+    // rick
+    const TorqueSteeringLimits limits = subaru_gen2 ? SUBARU_GEN2_STEERING_LIMITS :
+      (subaru_impreza_2018 ? SUBARU_IMPREZA_2018_STEERING_LIMITS: SUBARU_STEERING_LIMITS);
+
     violation |= steer_torque_cmd_checks(desired_torque, steer_req, limits);
   }
 
@@ -243,6 +251,10 @@ static safety_config subaru_init(uint16_t param) {
   const uint16_t SUBARU_PARAM_GEN2 = 1;
 
   subaru_gen2 = GET_FLAG(param, SUBARU_PARAM_GEN2);
+
+  // rick
+  const uint16_t SUBARU_PARAM_IMPREZA_2018 = 8;
+  subaru_impreza_2018 = GET_FLAG(param, SUBARU_PARAM_IMPREZA_2018);
 
 #ifdef ALLOW_DEBUG
   const uint16_t SUBARU_PARAM_LONGITUDINAL = 2;

@@ -1,0 +1,4 @@
+BO_ 35 SECONDARY_STEER_ANGLE: 8 XXX
+ SG_ ZORRO_STEER : 7|24@0- (0.004901594652,0) [-500|500] "" XXX
+
+CM_ "BO_ SECONDARY_STEER_ANGLE: ZSS is a high-precision steering angle sensor that can replace the lower resolution sensor in most TSS1 Toyotas. Learn more: https://github.com/commaai/openpilot/wiki/Toyota-Lexus#zorro-steering-sensor-zss";

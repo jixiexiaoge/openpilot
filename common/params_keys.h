@@ -155,4 +155,10 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"dp_dev_disable_connect", {PERSISTENT, BOOL, "0"}},
     {"dp_dev_tethering", {PERSISTENT, BOOL, "0"}},
     {"dp_ui_mici", {PERSISTENT, BOOL, "0"}},
+    {"dp_toyota_door_auto_lock_unlock", {PERSISTENT, BOOL, "0"}},
+    {"dp_toyota_tss1_sng", {PERSISTENT, BOOL, "0"}},
+    {"dp_toyota_stock_lon", {PERSISTENT, BOOL, "0"}},
+    {"dp_vag_a0_sng", {PERSISTENT, BOOL, "0"}},
+    {"dp_vag_pq_steering_patch", {PERSISTENT, BOOL, "0"}},
+    {"dp_vag_avoid_eps_lockout", {PERSISTENT, BOOL, "0"}},
 };

@@ -105,6 +105,24 @@ class Car:
       if self.params.get_bool("dp_lat_alka"):
         dp_params |= structs.DPFlags.LatALKA
 
+      if self.params.get_bool("dp_toyota_door_auto_lock_unlock"):
+        dp_params |= structs.DPFlags.ToyotaLockCtrl
+
+      if self.params.get_bool("dp_toyota_tss1_sng"):
+        dp_params |= structs.DPFlags.ToyotaTSS1SnG
+
+      if self.params.get_bool("dp_toyota_stock_lon"):
+        dp_params |= structs.DPFlags.ToyotaStockLon
+
+      if self.params.get_bool("dp_vag_a0_sng"):
+        dp_params |= structs.DPFlags.VagA0SnG
+
+      if self.params.get_bool("dp_vag_pq_steering_patch"):
+        dp_params |= structs.DPFlags.VAGPQSteeringPatch
+
+      if self.params.get_bool("dp_vag_avoid_eps_lockout"):
+        dp_params |= structs.DPFlags.VagAvoidEPSLockout
+
       dp_fingerprint = str(self.params.get("dp_dev_model_selected") or "")
       self.CI = get_car(*self.can_callbacks, obd_callback(self.params), alpha_long_allowed, is_release, num_pandas, dp_params, cached_params, dp_fingerprint=dp_fingerprint)
       self.RI = interfaces[self.CI.CP.carFingerprint].RadarInterface(self.CI.CP)

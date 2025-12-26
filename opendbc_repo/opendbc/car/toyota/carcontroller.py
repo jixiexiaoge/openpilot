@@ -2,6 +2,7 @@ import math
 import numpy as np
 from opendbc.car import Bus, make_tester_present_msg, rate_limit, structs, ACCELERATION_DUE_TO_GRAVITY, DT_CTRL
 from opendbc.car.lateral import apply_meas_steer_torque_limits, apply_std_steer_angle_limits, common_fault_avoidance
+from opendbc.car.can_definitions import CanData
 from opendbc.car.carlog import carlog
 from opendbc.car.common.filter_simple import FirstOrderFilter, HighPassFilter
 from opendbc.car.common.pid import PIDController
@@ -34,6 +35,17 @@ MAX_STEER_RATE_FRAMES = 18  # tx control frames needed before torque can be cut
 # EPS allows user torque above threshold for 50 frames before permanently faulting
 MAX_USER_TORQUE = 500
 
+# Lock / unlock door commands - Credit goes to AlexandreSato!
+from opendbc.car.common.conversions import Conversions as CV
+LOCK_SPEED = 20 * CV.KPH_TO_MS
+
+LOCK_UNLOCK_CAN_ID = 0x750
+UNLOCK_CMD = b'\x40\x05\x30\x11\x00\x40\x00\x00'
+LOCK_CMD = b'\x40\x05\x30\x11\x00\x80\x00\x00'
+
+from cereal import car
+PARK = car.CarState.GearShifter.park
+DRIVE = car.CarState.GearShifter.drive
 
 def get_long_tune(CP, params):
   if CP.carFingerprint in TSS2_CAR:
@@ -77,6 +89,8 @@ class CarController(CarControllerBase):
     self.secoc_lta_message_counter = 0
     self.secoc_acc_message_counter = 0
     self.secoc_prev_reset_counter = 0
+
+    self.doors_locked = False
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -190,6 +204,9 @@ class CarController(CarControllerBase):
       if not should_resume and CS.out.cruiseState.standstill:
         self.standstill_req = True
 
+    if (self.CP.flags & ToyotaFlags.TSS1_SNG.value) and CS.out.standstill and not self.last_standstill:
+      self.standstill_req = False
+
     self.last_standstill = CS.out.standstill
 
     # handle UI messages
@@ -261,6 +278,10 @@ class CarController(CarControllerBase):
         elif net_acceleration_request_min > 0.3:
           self.permit_braking = False
 
+        # rick - do not do delay compensation for non-TSS2 vehicles (e.g. car with sDSU?), assign the value back to actuators.accel
+        # from Jason, see https://github.com/sunnypilot/opendbc/compare/dd2016f77f8467ca2f7934db1b8c6d73164b3df7...f90b75b1531d0ef949c1c7fb8c175059448a2a97#diff-dc03b1fc7156134429efc0cdced75bc227d0ceb8bbd0c55763022fb9db6794d9
+        if not self.CP.carFingerprint in TSS2_CAR:
+          pcm_accel_cmd = actuators.accel
         pcm_accel_cmd = float(np.clip(pcm_accel_cmd, self.params.ACCEL_MIN, self.params.ACCEL_MAX))
 
         main_accel_cmd = 0. if self.CP.flags & ToyotaFlags.SECOC.value else pcm_accel_cmd
@@ -306,11 +327,11 @@ class CarController(CarControllerBase):
                                                      hud_control.rightLaneVisible, hud_control.leftLaneDepart,
                                                      hud_control.rightLaneDepart, lat_active, CS.lkas_hud))
 
-      if (self.frame % 100 == 0 or send_ui) and self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
+      if (self.frame % 100 == 0 or send_ui) and self.CP.flags & ToyotaFlags.DISABLE_RADAR.value and not self.CP.flags & ToyotaFlags.RADAR_FILTER.value:
         can_sends.append(toyotacan.create_fcw_command(self.packer, fcw_alert))
 
     # keep radar disabled
-    if self.frame % 20 == 0 and self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
+    if self.frame % 20 == 0 and self.CP.flags & ToyotaFlags.DISABLE_RADAR.value and not self.CP.flags & ToyotaFlags.RADAR_FILTER.value:
       can_sends.append(make_tester_present_msg(0x750, 0, 0xF))
 
     new_actuators = actuators.as_builder()
@@ -318,6 +339,14 @@ class CarController(CarControllerBase):
     new_actuators.torqueOutputCan = apply_torque
     new_actuators.steeringAngleDeg = self.last_angle
     new_actuators.accel = self.accel
+
+    if self.CP.flags & ToyotaFlags.LOCK_CTRL.value:
+      if not self.doors_locked and CS.out.gearShifter == DRIVE and CS.out.vEgo >= LOCK_SPEED:
+        can_sends.append(CanData(LOCK_UNLOCK_CAN_ID, LOCK_CMD, 0))
+        self.doors_locked = True
+      elif self.doors_locked and CS.out.gearShifter == PARK:
+        can_sends.append(CanData(LOCK_UNLOCK_CAN_ID, UNLOCK_CMD, 0))
+        self.doors_locked = False
 
     self.frame += 1
     return new_actuators, can_sends

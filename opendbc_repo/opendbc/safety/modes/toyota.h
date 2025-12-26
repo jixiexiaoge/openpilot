@@ -65,6 +65,9 @@ static int toyota_dbc_eps_torque_factor = 100;   // conversion factor for STEER_
 // dp - use DSU_CRUISE (0x365) for ACC main instead of PCM_CRUISE_2 (0x1D3)
 static bool toyota_unsupported_dsu = false;
 
+// lock ctrl
+static bool toyota_lock_ctrl = false;
+
 static uint32_t toyota_compute_checksum(const CANPacket_t *msg) {
   int len = GET_LEN(msg);
   uint8_t checksum = (uint8_t)(msg->addr) + (uint8_t)((unsigned int)(msg->addr) >> 8U) + (uint8_t)(len);
@@ -335,7 +338,8 @@ static bool toyota_tx_hook(const CANPacket_t *msg) {
   }
 
   // UDS: Only tester present ("\x0F\x02\x3E\x00\x00\x00\x00\x00") allowed on diagnostics address
-  if (msg->addr == 0x750U) {
+  // dp - lock_ctrl bypasses this restriction to allow any UDS message
+  if ((msg->addr == 0x750U) && !toyota_lock_ctrl) {
     // this address is sub-addressed. only allow tester present to radar (0xF)
     bool invalid_uds_msg = (GET_BYTES(msg, 0, 4) != 0x003E020FU) || (GET_BYTES(msg, 4, 4) != 0x0U);
     if (invalid_uds_msg) {
@@ -382,11 +386,16 @@ static safety_config toyota_init(uint16_t param) {
   const uint32_t TOYOTA_PARAM_UNSUPPORTED_DSU = 16UL << TOYOTA_PARAM_OFFSET;
   toyota_unsupported_dsu = GET_FLAG(param, TOYOTA_PARAM_UNSUPPORTED_DSU);
 
+  // lock ctrl
+  const uint32_t TOYOTA_PARAM_LOCK_CTRL = 32UL << TOYOTA_PARAM_OFFSET;
+  toyota_lock_ctrl = GET_FLAG(param, TOYOTA_PARAM_LOCK_CTRL);
+
   toyota_alt_brake = GET_FLAG(param, TOYOTA_PARAM_ALT_BRAKE);
   toyota_stock_longitudinal = GET_FLAG(param, TOYOTA_PARAM_STOCK_LONGITUDINAL);
   toyota_lta = GET_FLAG(param, TOYOTA_PARAM_LTA);
   toyota_dbc_eps_torque_factor = param & TOYOTA_EPS_FACTOR;
 
+  // upstream TX selection + dp features via tx_ext (lock_ctrl, long_filter)
   safety_config ret;
   if (toyota_secoc) {
     if (toyota_stock_longitudinal) {
@@ -433,6 +442,19 @@ static safety_config toyota_init(uint16_t param) {
   return ret;
 }
 
+// dp - tx_ext hook for dragonpilot-specific TX messages (lock_ctrl)
+static TxExtResult toyota_tx_ext_hook(const CANPacket_t *msg) {
+  TxExtResult result = {.allowed = false, .check_relay = false};
+  int len = GET_LEN(msg);
+
+  // dp - lock_ctrl: allow any UDS message on 0x750 (stock long already has tester present only)
+  if ((msg->addr == 0x750U) && toyota_lock_ctrl && (msg->bus == 0U) && (len == 8)) {
+    result.allowed = true;
+  }
+
+  return result;
+}
+
 // dp - rx_ext hook for optional messages (placeholder)
 static void toyota_rx_ext_hook(const CANPacket_t *msg) {
   if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
@@ -457,6 +479,7 @@ const safety_hooks toyota_hooks = {
   .rx = toyota_rx_hook,
   .rx_ext = toyota_rx_ext_hook,
   .tx = toyota_tx_hook,
+  .tx_ext = toyota_tx_ext_hook,
   .get_checksum = toyota_get_checksum,
   .compute_checksum = toyota_compute_checksum,
   .get_quality_flag_valid = toyota_get_quality_flag_valid,

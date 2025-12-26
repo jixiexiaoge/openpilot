@@ -22,4 +22,10 @@ CarParamsT = capnp.lib.capnp._StructModule
 class DPFlags:
   LatALKA = 1
   ExtRadar = 2
+  ToyotaLockCtrl = 2 ** 2
+  ToyotaTSS1SnG = 2 ** 3
+  ToyotaStockLon = 2 ** 4
+  VagA0SnG = 2 ** 5
+  VAGPQSteeringPatch = 2 ** 6
+  VagAvoidEPSLockout = 2 ** 7
   pass

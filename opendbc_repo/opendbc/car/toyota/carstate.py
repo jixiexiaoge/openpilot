@@ -53,12 +53,29 @@ class CarState(CarStateBase):
     self.gvc = 0.0
     self.secoc_synchronization = None
 
+    # radar filter (mainly for CHR/Camry)
+    # the idea is to place a Panda in between Radar and camera/body (engine room) to block 0x343 (longitudinal)
+    # depends on the firmware, we should be able to read most CAN directly from cp (not cp_cam, its empty)
+    self.dp_radar_filter = bool(self.CP.flags & ToyotaFlags.RADAR_FILTER.value)
+
+    # rick - dsu_bypass from cydia2020: https://github.com/cydia2020/toyota-dsu-reroute-harness/
+    # the idea is to "re-route" the DSU to Panda CAN2 (Which connects to ADAS Camera)
+    # * when comma device is not available, the DSU message can still communicate with ADAS Camera, and over to car.
+    # * when comma device is active, CAN message of DSU and ADAS camera will the be blocked by Panda, only forward some CAN messages over to car (from CAN0).
+    self.dp_dsu_bypass = self.CP.flags & ToyotaFlags.DSU_BYPASS.value
+
+    from opendbc.car.toyota.zss import ZSS
+    self.zss = ZSS(CP.flags)
+
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
 
     ret = structs.CarState()
-    cp_acc = cp_cam if self.CP.carFingerprint in (TSS2_CAR - RADAR_ACC_CAR) else cp
+    if self.dp_dsu_bypass:
+      cp_acc = cp_cam
+    else:
+      cp_acc = cp_cam if self.CP.carFingerprint in (TSS2_CAR - RADAR_ACC_CAR) else cp
 
     if not self.CP.flags & ToyotaFlags.SECOC.value:
       self.gvc = cp.vl["VSC1S07"]["GVC"]
@@ -78,7 +95,7 @@ class CarState(CarStateBase):
     else:
       ret.gasPressed = cp.vl["PCM_CRUISE"]["GAS_RELEASED"] == 0  # TODO: these also have GAS_PEDAL, come back and unify
       can_gear = int(cp.vl["GEAR_PACKET"]["GEAR"])
-      if not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
+      if not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value or self.dp_radar_filter:
         ret.stockAeb = bool(cp_acc.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_acc.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
     self.parse_wheel_speeds(ret,
@@ -117,6 +134,10 @@ class CarState(CarStateBase):
     # we could use the override bit from dbc, but it's triggered at too high torque values
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
+    if self.zss.enabled:
+      self.zss.set_values(can_parsers[Bus.zss])
+      ret.steeringAngleDeg = self.zss.get_steering_angle_deg(cp.vl["PCM_CRUISE"]["CRUISE_ACTIVE"], ret.steeringAngleDeg)
+
     # Check EPS LKA/LTA fault status
     ret.steerFaultTemporary = cp.vl["EPS_STATUS"]["LKA_STATE"] in TEMP_STEER_FAULTS
     ret.steerFaultPermanent = cp.vl["EPS_STATUS"]["LKA_STATE"] in PERM_STEER_FAULTS
@@ -147,8 +168,10 @@ class CarState(CarStateBase):
       conversion_factor = CV.KPH_TO_MS if is_metric else CV.MPH_TO_MS
       ret.cruiseState.speedCluster = cluster_set_speed * conversion_factor
 
-    if self.CP.carFingerprint in TSS2_CAR and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
-      self.acc_type = cp_acc.vl["ACC_CONTROL"]["ACC_TYPE"]
+    if (self.CP.carFingerprint in TSS2_CAR and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value) or \
+      self.dp_dsu_bypass:
+      if not (self.CP.flags & ToyotaFlags.SDSU.value):
+        self.acc_type = cp_acc.vl["ACC_CONTROL"]["ACC_TYPE"]
       ret.stockFcw = bool(cp_acc.vl["PCS_HUD"]["FCW"])
 
     # some TSS2 cars have low speed lockout permanently set, so ignore on those cars
@@ -211,7 +234,12 @@ class CarState(CarStateBase):
       ("BLINKERS_STATE", float('nan')),
     ]
 
-    return {
+    parsers = {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 2),
     }
+
+    if CP.flags & ToyotaFlags.ZSS:
+      parsers[Bus.zss] = CANParser("toyota_zss", [("SECONDARY_STEER_ANGLE", float('nan'))], 0)
+
+    return parsers

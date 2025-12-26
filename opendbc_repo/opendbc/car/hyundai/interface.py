@@ -152,6 +152,13 @@ class CarInterface(CarInterfaceBase):
     if candidate in (CAR.KIA_OPTIMA_H,):
       ret.dashcamOnly = True
 
+    # w/ SMDPS, allow steering to 0
+    if 0x2AA in fingerprint[0]:
+      ret.minSteerSpeed = 0.
+      print("----------------------------------------------")
+      print("dragonpilot: SMDPS detected!")
+      print("----------------------------------------------")
+
     return ret
 
   @staticmethod
