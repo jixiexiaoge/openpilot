@@ -108,6 +108,11 @@ static void subaru_rx_hook(const CANPacket_t *msg) {
   // enter controls on rising edge of ACC, exit controls on ACC off
   if ((msg->addr == MSG_SUBARU_CruiseControl) && (msg->bus == alt_main_bus)) {
     bool cruise_engaged = (msg->data[5] >> 1) & 1U;
+    // dp - ALKA: Cruise_On (bit 40) - ACC main on = ALKA enabled
+    acc_main_on = GET_BIT(msg, 40U);
+    if (alka_allowed && (alternative_experience & ALT_EXP_ALKA)) {
+      lkas_on = acc_main_on;
+    }
     pcm_cruise_check(cruise_engaged);
   }
 
@@ -204,6 +209,8 @@ static bool subaru_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config subaru_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Subaru
+
   static const CanMsg SUBARU_TX_MSGS[] = {
     SUBARU_BASE_TX_MSGS(SUBARU_MAIN_BUS, MSG_SUBARU_ES_LKAS)
     SUBARU_COMMON_TX_MSGS(SUBARU_MAIN_BUS)

@@ -199,6 +199,10 @@ class CarState(CarStateBase):
         buttonEvents += create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
 
     ret.buttonEvents = buttonEvents
+
+    # dp - ALKA: Toyota requires main ON to use ACC/LKA, use main as switch
+    self.lkas_on = ret.cruiseState.available
+
     return ret
 
   @staticmethod

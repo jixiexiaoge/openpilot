@@ -25,6 +25,9 @@ def main():
                        dirty=build_metadata.openpilot.is_dirty,
                        device=HARDWARE.get_device_type())
 
+  if params.get_bool("dp_dev_disable_connect"):
+    time.sleep(31536000) # a year
+    return
   try:
     while 1:
       cloudlog.info("starting athena daemon")

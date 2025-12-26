@@ -137,8 +137,8 @@ class ModelRenderer(Widget):
         self._update_leads(radar_state, path_x_array)
       self._transform_dirty = False
 
-    # Draw elements (hide when disengaged)
-    if ui_state.status != UIStatus.DISENGAGED:
+    # Draw elements (hide when disengaged, unless ALKA is active)
+    if ui_state.status != UIStatus.DISENGAGED or ui_state.dp_alka_active:
       self._draw_lane_lines()
       self._draw_path(sm)
 
@@ -333,7 +333,11 @@ class ModelRenderer(Widget):
     if self._experimental_mode:
       # Draw with acceleration coloring
       if ui_state.status == UIStatus.DISENGAGED:
-        draw_polygon(self._rect, self._path.projected_points, rl.Color(0, 0, 0, 90))
+        if ui_state.dp_alka_active:
+          # dp - ALKA: winning blue!
+          draw_polygon(self._rect, self._path.projected_points, rl.Color(40, 117, 165, 90))
+        else:
+          draw_polygon(self._rect, self._path.projected_points, rl.Color(0, 0, 0, 90))
       elif len(self._exp_gradient.colors) > 1:
         draw_polygon(self._rect, self._path.projected_points, gradient=self._exp_gradient)
       else:
@@ -350,7 +354,11 @@ class ModelRenderer(Widget):
       )
 
       if ui_state.status == UIStatus.DISENGAGED:
-        draw_polygon(self._rect, self._path.projected_points, rl.Color(0, 0, 0, 90))
+        if ui_state.dp_alka_active:
+          # dp - ALKA: winning blue!
+          draw_polygon(self._rect, self._path.projected_points, rl.Color(40, 117, 165, 90))
+        else:
+          draw_polygon(self._rect, self._path.projected_points, rl.Color(0, 0, 0, 90))
       else:
         draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
 

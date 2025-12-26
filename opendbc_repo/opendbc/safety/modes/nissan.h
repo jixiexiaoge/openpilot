@@ -45,6 +45,22 @@ static void nissan_rx_hook(const CANPacket_t *msg) {
     }
   }
 
+  if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
+    // dp - ALKA: Leaf CRUISE_AVAILABLE (bit 17) from CRUISE_THROTTLE (0x239)
+    if ((msg->addr == 0x239U) && (msg->bus == 0U)) {
+      acc_main_on = GET_BIT(msg, 17U);
+      lkas_on = acc_main_on;
+    }
+
+    // dp - ALKA: X-Trail/Altima CRUISE_ON (bit 36) from PRO_PILOT (0x1B6)
+    // GCOV_EXCL_START - X-Trail/Altima path requires multi-bus test infrastructure
+    if ((msg->addr == 0x1B6U) && (msg->bus == (nissan_alt_eps ? 2U : 1U))) {
+      acc_main_on = GET_BIT(msg, 36U);
+      lkas_on = acc_main_on;
+    }
+    // GCOV_EXCL_STOP
+  }
+
   // Handle cruise enabled
   if ((msg->addr == 0x30fU) && (msg->bus == (nissan_alt_eps ? 1U : 2U))) {
     bool cruise_engaged = (msg->data[0] >> 3) & 1U;
@@ -98,6 +114,8 @@ static bool nissan_tx_hook(const CANPacket_t *msg) {
 
 
 static safety_config nissan_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Nissan
+
   static const CanMsg NISSAN_TX_MSGS[] = {
     {0x169, 0, 8, .check_relay = true},   // LKAS
     {0x2b1, 0, 8, .check_relay = true},   // PROPILOT_HUD

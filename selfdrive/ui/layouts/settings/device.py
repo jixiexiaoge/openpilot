@@ -1,5 +1,6 @@
 import os
 import math
+import json
 
 from cereal import messaging, log
 from openpilot.common.basedir import BASEDIR
@@ -39,6 +40,12 @@ class DeviceLayout(Widget):
     self._fcc_dialog: HtmlModal | None = None
     self._training_guide: TrainingGuide | None = None
 
+    # dp - vehicle selector
+    self._dp_vehicle_selector_btn = button_item(lambda: tr("Vehicle Model"), lambda: tr("SELECT"), callback=self._on_vehicle_selector_btn_pressed)
+    self._dp_vehicle_selector_btn.action_item.set_value(ui_state.params.get("dp_dev_model_selected") or tr("[AUTO DETECT]"))
+    self._dp_vehicle_selector_make_dialog: MultiOptionDialog | None = None
+    self._dp_vehicle_selector_model_dialog: MultiOptionDialog | None = None
+
     items = self._initialize_items()
     self._scroller = Scroller(items, line_separator=True, spacing=0)
 
@@ -55,7 +62,12 @@ class DeviceLayout(Widget):
     self._power_off_btn = dual_button_item(lambda: tr("Reboot"), lambda: tr("Power Off"),
                                            left_callback=self._reboot_prompt, right_callback=self._power_off_prompt)
 
+    self._dp_on_off_road_btn = button_item(lambda: tr("On/Off Road"), lambda: tr("Go Offroad"), lambda: tr("Force openpilot to go into onroad/offroad state.<br>(e.g. for update purpose)"),
+                                        callback=self._dp_on_off_road_prompt)
+
     items = [
+      self._dp_vehicle_selector_btn,
+      self._dp_on_off_road_btn,
       text_item(lambda: tr("Dongle ID"), self._params.get("DongleId") or (lambda: tr("N/A"))),
       text_item(lambda: tr("Serial"), self._params.get("HardwareSerial") or (lambda: tr("N/A"))),
       self._pair_device_btn,
@@ -208,3 +220,82 @@ class DeviceLayout(Widget):
 
       self._training_guide = TrainingGuide(completed_callback=completed_callback)
     gui_app.set_modal_overlay(self._training_guide)
+
+  def _update_state(self):
+    self._dp_vehicle_selector_btn.action_item.set_value(ui_state.params.get("dp_dev_model_selected") or tr("[AUTO DETECT]"))
+
+  def _on_vehicle_selector_btn_pressed(self):
+    models_json = self._params.get("dp_dev_model_list")
+    if not models_json:
+      gui_app.set_modal_overlay(alert_dialog(tr("Vehicle Model list not found.")))
+      return
+
+    try:
+      car_models_list = json.loads(models_json)
+    except json.JSONDecodeError:
+      gui_app.set_modal_overlay(alert_dialog(tr("Vehicle Model list is not a valid format.")))
+      return
+
+    models_by_make = car_models_list
+
+    makes = sorted(models_by_make.keys())
+    all_makes = [tr("[AUTO DETECT]")] + makes
+
+    selected_model = self._params.get("dp_dev_model_selected")
+    current_selection = tr("[AUTO DETECT]")
+    if selected_model:
+      for make, models in models_by_make.items():
+        if selected_model in models:
+          current_selection = make
+          break
+
+    def _on_vehicle_selector_make_selected(result: int):
+      if result == DialogResult.CONFIRM and self._dp_vehicle_selector_make_dialog:
+        make = self._dp_vehicle_selector_make_dialog.selection
+        if make == tr("[AUTO DETECT]"):
+          if self._params.get("dp_dev_model_selected"):
+            self._params.remove("dp_dev_model_selected")
+            self._dp_vehicle_selector_btn.action_item.set_value(tr("[AUTO DETECT]"))
+            self._params.put_bool("OnroadCycleRequested", True)
+        else:
+          self._show_model_selection(make, models_by_make[make])
+      self._dp_vehicle_selector_make_dialog = None
+
+    self._dp_vehicle_selector_make_dialog = MultiOptionDialog(
+      tr("Select a Make"),
+      all_makes,
+      current_selection,
+    )
+    gui_app.set_modal_overlay(self._dp_vehicle_selector_make_dialog, callback=_on_vehicle_selector_make_selected)
+
+  def _show_model_selection(self, make, models):
+    selected_model = self._params.get("dp_dev_model_selected") or ""
+
+    def _on_vehicle_selector_model_selected(result: int):
+      if result == DialogResult.CONFIRM and self._dp_vehicle_selector_model_dialog:
+        selection = self._dp_vehicle_selector_model_dialog.selection
+        self._params.put("dp_dev_model_selected", selection)
+        self._dp_vehicle_selector_btn.action_item.set_value(selection)
+        self._params.put_bool("OnroadCycleRequested", True)
+      self._dp_vehicle_selector_model_dialog = None
+
+    self._dp_vehicle_selector_model_dialog = MultiOptionDialog(
+      tr("Select a Model") + f" ({make})",
+      models,
+      selected_model if selected_model in models else "",
+    )
+    gui_app.set_modal_overlay(self._dp_vehicle_selector_model_dialog, callback=_on_vehicle_selector_model_selected)
+
+  def _dp_on_off_road_prompt(self):
+    def on_off_road(result: int):
+      if result != DialogResult.CONFIRM:
+        return
+
+      val = self._params.get_bool("dp_dev_go_off_road")
+      self._params.put_bool("dp_dev_go_off_road", not val)
+
+      self._dp_on_off_road_btn.action_item.set_text(tr("Go Onroad") if not val else tr("Go Offroad"))
+
+    dialog = ConfirmDialog(tr("Are you sure you want to switch?"), tr("CONFIRM"))
+    gui_app.set_modal_overlay(dialog, callback=on_off_road)
+

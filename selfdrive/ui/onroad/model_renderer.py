@@ -7,7 +7,8 @@ from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.params import Params
 from openpilot.selfdrive.locationd.calibrationd import HEIGHT_INIT
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.system.ui.lib.application import gui_app
+from openpilot.system.ui.lib.application import gui_app, FontWeight
+from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.shader_polygon import draw_polygon, Gradient
 from openpilot.system.ui.widgets import Widget
 
@@ -27,6 +28,13 @@ NO_THROTTLE_COLORS = [
   rl.Color(242, 242, 242, 0),   # HSLF(112/360, 0.0, 0.95, 0.0)
 ]
 
+# dp
+DP_RAINBOW_SCROLL_SPEED_FACTOR = 20.0
+DP_RAINBOW_NUM_REPEATS = 3
+DP_RAINBOW_ALPHA = 128
+DP_RAINBOW_GRADIENT_SAMPLES = 20
+DP_RAINBOW_HUE_SECTORS = 6
+
 
 @dataclass
 class ModelPoints:
@@ -39,6 +47,19 @@ class LeadVehicle:
   glow: list[float] = field(default_factory=list)
   chevron: list[float] = field(default_factory=list)
   fill_alpha: int = 0
+  # dp
+  v_rel: float = 0.0
+  d_rel: float = 0.0
+  x: float = 0.0
+  y: float = 0.0
+  sz: float = 0.0
+
+@dataclass
+class DpUiLeadMode:
+  off = 0
+  lead = 1
+  radar = 2
+  all = 3
 
 
 class ModelRenderer(Widget):
@@ -75,6 +96,10 @@ class ModelRenderer(Widget):
     if car_params := Params().get("CarParams"):
       cp = messaging.log_from_bytes(car_params, car.CarParams)
       self._longitudinal_control = cp.openpilotLongitudinalControl
+
+    # dp
+    self._dp_ui_rainbow_rotation = 0.0
+    self._dp_ui_rainbow_gradient = None
 
   def set_transform(self, transform: np.ndarray):
     self._car_space_transform = transform.astype(np.float32)
@@ -121,6 +146,10 @@ class ModelRenderer(Widget):
       if render_lead_indicator:
         self._update_leads(radar_state, path_x_array)
       self._transform_dirty = False
+
+    # dp - draw live tracks before everything
+    if ui_state.dp_ui_lead in [DpUiLeadMode.radar, DpUiLeadMode.all] and sm.valid['liveTracks']:
+      self._draw_live_tracks(sm)
 
     # Draw elements
     self._draw_lane_lines()
@@ -253,7 +282,7 @@ class ModelRenderer(Widget):
     glow = [(x + (sz * 1.35) + g_xo, y + sz + g_yo), (x, y - g_yo), (x - (sz * 1.35) - g_xo, y + sz + g_yo)]
     chevron = [(x + (sz * 1.25), y + sz), (x, y), (x - (sz * 1.25), y + sz)]
 
-    return LeadVehicle(glow=glow, chevron=chevron, fill_alpha=int(fill_alpha))
+    return LeadVehicle(glow=glow, chevron=chevron, fill_alpha=int(fill_alpha), d_rel=d_rel, x=x, y=y, sz=sz, v_rel=v_rel)
 
   def _draw_lane_lines(self):
     """Draw lane lines and road edges"""
@@ -276,6 +305,13 @@ class ModelRenderer(Widget):
   def _draw_path(self, sm):
     """Draw path with dynamic coloring based on mode and throttle state."""
     if not self._path.projected_points.size:
+      return
+
+    if ui_state.dp_ui_rainbow:
+      v_ego = sm['carState'].vEgo
+      self._update_rainbow_gradient(v_ego)
+      if self._dp_ui_rainbow_gradient:
+        draw_polygon(self._rect, self._path.projected_points, gradient=self._dp_ui_rainbow_gradient)
       return
 
     allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
@@ -307,6 +343,24 @@ class ModelRenderer(Widget):
 
       rl.draw_triangle_fan(lead.glow, len(lead.glow), rl.Color(218, 202, 37, 255))
       rl.draw_triangle_fan(lead.chevron, len(lead.chevron), rl.Color(201, 34, 49, lead.fill_alpha))
+
+      if ui_state.dp_ui_lead in [DpUiLeadMode.lead, DpUiLeadMode.all]:
+        start_y = lead.y
+
+        car_state = ui_state.sm['carState']
+        # v
+        v = lead.v_rel + car_state.vEgo
+        v_str = f"{v * 3.6:.0f} kph" if ui_state.is_metric else f"{v * 2.237:.0f} mph"
+        # d_rel
+        dist_str = f"{lead.d_rel:.1f} m" if ui_state.is_metric else f"{lead.d_rel * 3.28084:.1f} ft"
+
+        self._dp_paint_centered_lead_text(f"{v_str} | {dist_str}", 40, lead.x, start_y + lead.sz)
+
+        # ttc
+        ttc = (lead.d_rel / car_state.vEgo) if car_state.vEgo > 0 else float("NaN")
+        if ttc < 5.:
+          ttc_str = f"{ttc:.1f}s"
+          self._dp_paint_centered_lead_text(ttc_str, 80, lead.x, start_y + lead.sz + 40)
 
   @staticmethod
   def _get_path_length_idx(pos_x_array: np.ndarray, path_distance: float) -> int:
@@ -433,3 +487,111 @@ class ModelRenderer(Widget):
       int(inv_t * start.b + t * end.b),
       int(inv_t * start.a + t * end.a)
     ) for start, end in zip(begin_colors, end_colors, strict=True)]
+
+  def _update_rainbow_gradient(self, v_ego):
+    # Scroll speed
+    rotation_speed = max(0.01, v_ego) / gui_app.target_fps / DP_RAINBOW_SCROLL_SPEED_FACTOR
+    self._dp_ui_rainbow_rotation += rotation_speed
+    if self._dp_ui_rainbow_rotation > 1.0:
+      self._dp_ui_rainbow_rotation -= 1.0
+
+    gradient_stops = np.linspace(0, 1, DP_RAINBOW_GRADIENT_SAMPLES)
+
+    hues = (gradient_stops * DP_RAINBOW_NUM_REPEATS + self._dp_ui_rainbow_rotation) % 1.0
+
+    # Vectorized hsv_to_rgb
+    i = np.floor(hues * DP_RAINBOW_HUE_SECTORS).astype(np.uint8)
+    f = hues * DP_RAINBOW_HUE_SECTORS - i
+    q = 1 - f
+    t = f
+
+    i %= DP_RAINBOW_HUE_SECTORS
+
+    rgb = np.zeros((hues.shape[0], 3))
+
+    masks = [i == j for j in range(DP_RAINBOW_HUE_SECTORS)]
+
+    rgb[masks[0], 0] = 1
+    rgb[masks[0], 1] = t[masks[0]]
+
+    rgb[masks[1], 0] = q[masks[1]]
+    rgb[masks[1], 1] = 1
+
+    rgb[masks[2], 1] = 1
+    rgb[masks[2], 2] = t[masks[2]]
+
+    rgb[masks[3], 1] = q[masks[3]]
+    rgb[masks[3], 2] = 1
+
+    rgb[masks[4], 0] = t[masks[4]]
+    rgb[masks[4], 2] = 1
+
+    rgb[masks[5], 0] = 1
+    rgb[masks[5], 2] = q[masks[5]]
+
+    rgb_int = (rgb * 255).astype(np.uint8)
+
+    colors = [rl.Color(r, g, b, DP_RAINBOW_ALPHA) for r, g, b in rgb_int]
+
+    self._dp_ui_rainbow_gradient = Gradient(
+      start=(0.0, 1.0),
+      end=(0.0, 0.0),
+      colors=colors,
+      stops=gradient_stops.tolist(),
+    )
+
+  def _dp_paint_centered_lead_text(self, text, size, x, y):
+    font = gui_app.font(FontWeight.NORMAL)
+    text_width = measure_text_cached(font, text, size).x
+    text_x = x - text_width / 2
+    rl.draw_text_ex(font, text, rl.Vector2(text_x, y), size, 0, rl.WHITE)
+
+  def _draw_live_tracks(self, sm):
+    font = gui_app.font(FontWeight.NORMAL)
+    live_tracks = sm['liveTracks']
+    font_size = 40
+    line_height = 40
+
+    for point in live_tracks.points:
+      d_rel = point.dRel
+      y_rel = point.yRel
+      v_rel = point.vRel
+
+      z_on_path = self._path_offset_z
+      if d_rel >= 0 and self._path.raw_points.shape[0] > 0:
+        path_x = self._path.raw_points[:, 0]
+        path_z = self._path.raw_points[:, 2]
+        idx = self._get_path_length_idx(path_x, d_rel)
+        if idx < len(path_z):
+          z_on_path += path_z[idx]
+
+      screen_pos = self._map_to_screen(d_rel, -y_rel, z_on_path)
+      if screen_pos:
+        sx, sy = int(screen_pos[0]), int(screen_pos[1])
+
+        rl.draw_circle(sx, sy, 10, rl.Color(255, 0, 0, 200))
+
+        if ui_state.is_metric:
+          dist_unit, speed_unit = "m", "m/s"
+          d_rel_str = f"{d_rel:.2f}"
+          y_rel_str = f"{y_rel:.2f}"
+          v_rel_str = f"{v_rel:.2f}"
+        else:
+          dist_unit, speed_unit = "ft", "mph"
+          d_rel_str = f"{d_rel * 3.28084:.2f}"
+          y_rel_str = f"{y_rel * 3.28084:.2f}"
+          v_rel_str = f"{v_rel * 2.23694:.2f}"
+
+        info_text = (
+          f"ID: {point.trackId}\n"
+          f"d: {d_rel_str} {dist_unit}\n"
+          f"y: {y_rel_str} {dist_unit}\n"
+          f"dV: {v_rel_str} {speed_unit}"
+        )
+        lines = info_text.split('\n')
+        text_x = sx + 15
+        text_y = sy - 20
+
+        for i, line in enumerate(lines):
+          rl.draw_text_ex(font, line, rl.Vector2(text_x, text_y + i * line_height), font_size, 0, rl.WHITE)
+

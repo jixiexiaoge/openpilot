@@ -10,13 +10,18 @@ $Cxx.namespace("cereal");
 # DO rename the structs
 # DON'T change the identifier (e.g. @0x81c2f05a394cf4af)
 
-struct CustomReserved0 @0x81c2f05a394cf4af {
+struct ControlsStateExt @0x81c2f05a394cf4af {
+  alkaActive @0 :Bool;
 }
 
-struct CustomReserved1 @0xaedffd8f31e7b55d {
+struct CarStateExt @0xaedffd8f31e7b55d {
+  # dp - ALKA: lkasOn state from carstate (mirrors panda's lkas_on)
+  lkasOn @0 :Bool;
 }
 
-struct CustomReserved2 @0xf35cc4560bbf6ec2 {
+struct ModelExt @0xf35cc4560bbf6ec2 {
+  leftEdgeDetected @0 :Bool;
+  rightEdgeDetected @1 :Bool;
 }
 
 struct CustomReserved3 @0xda96579883444c35 {

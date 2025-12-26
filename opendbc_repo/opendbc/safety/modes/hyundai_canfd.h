@@ -131,6 +131,11 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *msg) {
       int cruise_status = ((msg->data[8] >> 4) & 0x7U);
       bool cruise_engaged = (cruise_status == 1) || (cruise_status == 2);
       hyundai_common_cruise_state_check(cruise_engaged);
+
+      // dp - ALKA: track ACC main state (SCC_CONTROL 0x1A0, bit 66 = MainMode_ACC)
+      if (alka_allowed && (alternative_experience & ALT_EXP_ALKA)) {
+        lkas_on = GET_BIT(msg, 66U);  // ACC main on = ALKA enabled
+      }
     }
   }
 }
@@ -216,6 +221,8 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config hyundai_canfd_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Hyundai CAN-FD
+
   const uint16_t HYUNDAI_PARAM_CANFD_LKA_STEERING_ALT = 128;
   const uint16_t HYUNDAI_PARAM_CANFD_ALT_BUTTONS = 32;
 

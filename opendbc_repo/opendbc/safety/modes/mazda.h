@@ -33,6 +33,11 @@ static void mazda_rx_hook(const CANPacket_t *msg) {
     // enter controls on rising edge of ACC, exit controls on ACC off
     if (msg->addr == MAZDA_CRZ_CTRL) {
       bool cruise_engaged = msg->data[0] & 0x8U;
+      // dp - ALKA: CRZ_AVAILABLE (bit 17) = ACC Main ON
+      acc_main_on = GET_BIT(msg, 17U);
+      if (alka_allowed && (alternative_experience & ALT_EXP_ALKA)) {
+        lkas_on = acc_main_on;
+      }
       pcm_cruise_check(cruise_engaged);
     }
 
@@ -84,6 +89,8 @@ static bool mazda_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config mazda_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Mazda
+
   static const CanMsg MAZDA_TX_MSGS[] = {{MAZDA_LKAS, 0, 8, .check_relay = true}, {MAZDA_CRZ_BTNS, 0, 8, .check_relay = false}, {MAZDA_LKAS_HUD, 0, 8, .check_relay = true}};
 
   static RxCheck mazda_rx_checks[] = {

@@ -151,6 +151,9 @@ static void hyundai_rx_hook(const CANPacket_t *msg) {
       hyundai_common_cruise_buttons_check(cruise_button, main_button);
     }
 
+    // dp - ALKA: BCM_PO_11 (0x391) LKAS button is now handled in hyundai_rx_all_hook
+    // since BCM_PO_11 is not available on all models and can't be in rx_checks
+
     // gas press, different for EV, hybrid, and ICE models
     if ((msg->addr == 0x371U) && hyundai_ev_gas_signal) {
       gas_pressed = (((msg->data[4] & 0x7FU) << 1) | (msg->data[3] >> 7)) != 0U;
@@ -249,6 +252,8 @@ static bool hyundai_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config hyundai_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Hyundai
+
   static const CanMsg HYUNDAI_LONG_TX_MSGS[] = {
     HYUNDAI_LONG_COMMON_TX_MSGS(0)
     {0x38D, 0, 8, .check_relay = false}, // FCA11 Bus 0
@@ -320,6 +325,8 @@ static safety_config hyundai_init(uint16_t param) {
 }
 
 static safety_config hyundai_legacy_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Hyundai Legacy
+
   // older hyundai models have less checks due to missing counters and checksums
   static RxCheck hyundai_legacy_rx_checks[] = {
     HYUNDAI_COMMON_RX_CHECKS(true)
@@ -333,9 +340,13 @@ static safety_config hyundai_legacy_init(uint16_t param) {
   return BUILD_SAFETY_CFG(hyundai_legacy_rx_checks, HYUNDAI_TX_MSGS);
 }
 
-// dp - rx_ext hook for optional messages (placeholder)
+// dp - ALKA: track ACC main state (SCC11 0x420, bit 0 = MainMode_ACC)
 static void hyundai_rx_ext_hook(const CANPacket_t *msg) {
-  SAFETY_UNUSED(msg);
+  if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
+    if ((msg->addr == 0x420U) && (msg->bus == (hyundai_camera_scc ? 2U : 0U)) && !hyundai_longitudinal) {
+      lkas_on = GET_BIT(msg, 0U);  // ACC main on = ALKA enabled
+    }
+  }
 }
 
 const safety_hooks hyundai_hooks = {

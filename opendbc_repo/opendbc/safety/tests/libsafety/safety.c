@@ -77,6 +77,11 @@ bool get_steering_disengage_prev(void){
   return steering_disengage_prev;
 }
 
+// dp - ALKA: setter for steering_disengage to test driver override
+void set_steering_disengage(bool c){
+  steering_disengage = c;
+}
+
 bool get_cruise_engaged_prev(void){
   return cruise_engaged_prev;
 }
@@ -91,6 +96,23 @@ bool get_vehicle_moving(void){
 
 bool get_acc_main_on(void){
   return acc_main_on;
+}
+
+// dp - ALKA getters/setters
+bool get_alka_allowed(void){
+  return alka_allowed;
+}
+
+bool get_lkas_on(void){
+  return lkas_on;
+}
+
+void set_lkas_on(bool c){
+  lkas_on = c;
+}
+
+bool get_lat_control_allowed(void){
+  return lat_control_allowed();
 }
 
 float get_vehicle_speed_min(void){

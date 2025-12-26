@@ -123,6 +123,9 @@ class CarState(CarStateBase):
     if self.CP.flags & SubaruFlags.SEND_INFOTAINMENT:
       self.es_infotainment_msg = copy.copy(cp_cam.vl["ES_Infotainment"])
 
+    # dp - ALKA: use ACC main state
+    self.lkas_on = ret.cruiseState.available
+
     return ret
 
   @staticmethod

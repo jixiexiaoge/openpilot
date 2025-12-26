@@ -219,6 +219,9 @@ class CarState(CarStateBase):
       *create_button_events(self.cruise_setting, prev_cruise_setting, SETTINGS_BUTTONS_DICT),
     ]
 
+    # dp - ALKA: direct tracking - lkas_on follows acc_main (cruiseState.available)
+    self.lkas_on = ret.cruiseState.available
+
     return ret
 
   def get_can_parsers(self, CP):

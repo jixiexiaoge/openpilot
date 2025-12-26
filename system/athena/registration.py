@@ -13,9 +13,12 @@ from openpilot.selfdrive.selfdrived.alertmanager import set_offroad_alert
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.system.hardware.hw import Paths
 from openpilot.common.swaglog import cloudlog
+import os
 
 
 UNREGISTERED_DONGLE_ID = "UnregisteredDevice"
+
+LITE = os.getenv("LITE") is not None
 
 def is_registered_device() -> bool:
   dongle = Params().get("DongleId")
@@ -51,16 +54,27 @@ def register(show_spinner=False) -> str | None:
       spinner = Spinner()
       spinner.update("registering device")
 
+    if LITE:
+      params.put("DongleId", UNREGISTERED_DONGLE_ID)
+      return UNREGISTERED_DONGLE_ID
+
     # Block until we get the imei
     serial = HARDWARE.get_serial()
     start_time = time.monotonic()
     imei1: str | None = None
     imei2: str | None = None
+    skip_imei_count = 0
     while imei1 is None and imei2 is None:
       try:
         imei1, imei2 = HARDWARE.get_imei(0), HARDWARE.get_imei(1)
       except Exception:
         cloudlog.exception("Error getting imei, trying again...")
+        spinner.update(f"registering device - serial: {serial}, Error getting IMEI, trying {skip_imei_count}/30")
+        # rick - no imei = can't register = skip everything
+        if skip_imei_count > 30:
+          params.put("DongleId", UNREGISTERED_DONGLE_ID)
+          return UNREGISTERED_DONGLE_ID
+        skip_imei_count += 1
         time.sleep(1)
 
       if time.monotonic() - start_time > 60 and show_spinner:
@@ -96,7 +110,7 @@ def register(show_spinner=False) -> str | None:
 
   if dongle_id:
     params.put("DongleId", dongle_id)
-    set_offroad_alert("Offroad_UnregisteredHardware", (dongle_id == UNREGISTERED_DONGLE_ID) and not PC)
+    set_offroad_alert("Offroad_UnregisteredHardware", (dongle_id == UNREGISTERED_DONGLE_ID) and not PC and not os.getenv("LITE"))
   return dongle_id
 
 

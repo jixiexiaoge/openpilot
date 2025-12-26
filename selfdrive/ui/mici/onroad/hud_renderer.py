@@ -187,7 +187,8 @@ class HudRenderer(Widget):
       self._wheel_alpha_filter.update(255)
       self._wheel_y_filter.update(0)
     else:
-      if ui_state.status == UIStatus.DISENGAGED:
+      # dp - ALKA: show steering wheel when ALKA is active (even when disengaged)
+      if ui_state.status == UIStatus.DISENGAGED and not ui_state.dp_alka_active:
         self._wheel_alpha_filter.update(0)
         self._wheel_y_filter.update(wheel_txt.height / 2)
       else:

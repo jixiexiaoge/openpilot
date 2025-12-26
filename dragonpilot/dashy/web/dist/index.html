@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dashy by dragonpilot</title>
+    <link rel="icon" href="/icons/icon-192x192.png">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+    <div id="app-container">
+        <nav>
+            <button id="nav-files" class="active">Files</button>
+            <button id="nav-hud">HUD</button>
+            <!-- <button id="nav-settings">Settings</button> -->
+            <button id="nav-local-settings">Local Settings</button>
+        </nav>
+
+        <main id="page-content" style="flex-grow: 1; min-height: 0;">
+            <div id="files-page" class="page active">
+                <div id="files-breadcrumbs"></div>
+                <table id="files-table">
+                    <thead><tr><th></th><th>Name</th><th>Last Modified</th><th style="text-align:right;">Size</th><th></th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="hud-page" class="page">
+                <div id="hud-page-content">
+                    <video id="videoPlayer" autoplay playsinline muted></video>
+                    <canvas id="uiCanvas"></canvas>
+
+                </div>
+            </div>
+
+            <!--
+            <div id="settings-page" class="page">
+                <div class="settings-page-wrapper">
+                    <h1>Settings</h1>
+                    <div id="settings-content"></div>
+                </div>
+                <div id="save-bar">
+                    <span id="save-status"></span>
+                    <button id="save-settings-btn">Save Settings</button>
+                </div>
+            </div>
+            -->
+
+            <div id="local-settings-page" class="page">
+                <div class="settings-page-wrapper">
+                    <h1>Local Settings</h1>
+                    <div id="local-settings-content"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Main app -->
+    <script src="/js/app.js"></script>
+</body>
+</html>

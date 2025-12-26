@@ -29,6 +29,8 @@ MM_MODEM = MM + ".Modem"
 MM_MODEM_SIMPLE = MM + ".Modem.Simple"
 MM_SIM = MM + ".Sim"
 
+LITE = os.getenv("LITE") is not None
+
 class MM_MODEM_STATE(IntEnum):
   FAILED        = -1
   UNKNOWN       = 0
@@ -94,7 +96,7 @@ class Tici(HardwareBase):
 
   @cached_property
   def amplifier(self):
-    if self.get_device_type() == "mici":
+    if self.get_device_type() == "mici" or LITE:
       return None
     return Amplifier()
 
@@ -210,7 +212,7 @@ class Tici(HardwareBase):
     return str(self.get_modem().Get(MM_MODEM, 'EquipmentIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT))
 
   def get_network_info(self):
-    if self.get_device_type() == "mici":
+    if self.get_device_type() == "mici" or LITE:
       return None
     try:
       modem = self.get_modem()
@@ -302,6 +304,8 @@ class Tici(HardwareBase):
       return None
 
   def get_modem_temperatures(self):
+    if LITE:
+      return []
     timeout = 0.2  # Default timeout is too short
     try:
       modem = self.get_modem()
@@ -446,6 +450,10 @@ class Tici(HardwareBase):
 
     # pandad core
     affine_irq(3, "spi_geni")         # SPI
+    # rick - for c3
+    if "tici" in self.get_device_type():
+      affine_irq(3, "xhci-hcd:usb3")  # aux panda USB (or potentially anything else on USB)
+      affine_irq(3, "xhci-hcd:usb1")  # internal panda USB (also modem)
     try:
       pid = subprocess.check_output(["pgrep", "-f", "spi0"], encoding='utf8').strip()
       subprocess.call(["sudo", "chrt", "-f", "-p", "1", pid])
@@ -464,14 +472,24 @@ class Tici(HardwareBase):
 
     cmds = []
 
-    if self.get_device_type() in ("tizi", ):
+    # rick - for c3
+    if self.get_device_type() in ("tizi", "tici"):
       # clear out old blue prime initial APN
       os.system('mmcli -m any --3gpp-set-initial-eps-bearer-settings="apn="')
 
+      # rick - c3, only for tizi
+      if self.get_device_type() == "tizi":
+        cmds += [
+          # SIM hot swap
+          'AT+QSIMDET=1,0',
+          'AT+QSIMSTAT=1',
+        ]
+
       cmds += [
-        # SIM hot swap
-        'AT+QSIMDET=1,0',
-        'AT+QSIMSTAT=1',
+        # rick - move away, not for c3
+        # # SIM hot swap
+        # 'AT+QSIMDET=1,0',
+        # 'AT+QSIMSTAT=1',
 
         # configure modem as data-centric
         'AT+QNVW=5280,0,"0102000000000000"',

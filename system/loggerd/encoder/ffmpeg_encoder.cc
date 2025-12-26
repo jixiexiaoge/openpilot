@@ -22,6 +22,8 @@ extern "C" {
 
 const int env_debug_encoder = (getenv("DEBUG_ENCODER") != NULL) ? atoi(getenv("DEBUG_ENCODER")) : 0;
 
+const int env_dashy = (getenv("DASHY") != NULL) ? atoi(getenv("DASHY")) : 0;
+
 FfmpegEncoder::FfmpegEncoder(const EncoderInfo &encoder_info, int in_width, int in_height)
     : VideoEncoder(encoder_info, in_width, in_height) {
   frame = av_frame_alloc();
@@ -57,7 +59,13 @@ void FfmpegEncoder::encoder_open() {
   this->codec_ctx->height = frame->height;
   this->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
   this->codec_ctx->time_base = (AVRational){ 1, encoder_info.fps };
-  int err = avcodec_open2(this->codec_ctx, codec, NULL);
+  AVDictionary *opts = NULL;
+  if (env_dashy && codec_id == AV_CODEC_ID_H264) {
+    av_dict_set(&opts, "preset", "ultrafast", 0);
+    av_dict_set(&opts, "tune", "zerolatency", 0);
+  }
+  int err = avcodec_open2(this->codec_ctx, codec, &opts);
+  av_dict_free(&opts);
   assert(err >= 0);
 
   is_open = true;

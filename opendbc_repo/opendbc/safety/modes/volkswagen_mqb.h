@@ -4,6 +4,8 @@
 #include "opendbc/safety/modes/volkswagen_common.h"
 
 static safety_config volkswagen_mqb_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for VW MQB
+
   // Transmit of GRA_ACC_01 is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
   // MSG_LH_EPS_03: openpilot needs to replace apparent driver steering input torque to pacify VW Emergency Assist
   static const CanMsg VOLKSWAGEN_MQB_STOCK_TX_MSGS[] = {{MSG_HCA_01, 0, 8, .check_relay = true}, {MSG_GRA_ACC_01, 0, 8, .check_relay = false}, {MSG_GRA_ACC_01, 2, 8, .check_relay = false},
@@ -62,6 +64,10 @@ static void volkswagen_mqb_rx_hook(const CANPacket_t *msg) {
       int acc_status = (msg->data[3] & 0x7U);
       bool cruise_engaged = (acc_status == 3) || (acc_status == 4) || (acc_status == 5);
       acc_main_on = cruise_engaged || (acc_status == 2);
+      // dp - ALKA: use ACC main for LKAS state
+      if (alka_allowed && (alternative_experience & ALT_EXP_ALKA)) {
+        lkas_on = acc_main_on;
+      }
 
       if (!volkswagen_longitudinal) {
         pcm_cruise_check(cruise_engaged);

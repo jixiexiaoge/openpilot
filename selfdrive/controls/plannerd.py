@@ -24,6 +24,13 @@ def main():
 
   dp_flags = 0
 
+  if params.get_bool("dp_lon_acm"):
+    dp_flags |= DPFlags.ACM
+  if params.get_bool("dp_lon_aem"):
+    dp_flags |= DPFlags.AEM
+  if params.get_bool("dp_lon_dtsc"):
+    dp_flags |= DPFlags.DTSC
+
   while True:
     sm.update()
     if sm.updated['modelV2']:

@@ -35,7 +35,7 @@ class ConfidenceBall(Widget):
       return
 
     # animate status dot in from bottom
-    if ui_state.status == UIStatus.DISENGAGED:
+    if ui_state.status == UIStatus.DISENGAGED and not ui_state.dp_alka_active:
       self._confidence_filter.update(-0.5)
     else:
       self._confidence_filter.update((1 - max(ui_state.sm['modelV2'].meta.disengagePredictions.brakeDisengageProbs or [1])) *
@@ -54,7 +54,7 @@ class ConfidenceBall(Widget):
     dot_height = self._rect.y + dot_height
 
     # confidence zones
-    if ui_state.status == UIStatus.ENGAGED or self._demo:
+    if ui_state.status == UIStatus.ENGAGED or self._demo or ui_state.dp_alka_active:
       if self._confidence_filter.x > 0.5:
         top_dot_color = rl.Color(0, 255, 204, 255)
         bottom_dot_color = rl.Color(0, 255, 38, 255)

@@ -279,6 +279,9 @@ class CarStateBase(ABC):
     self.cluster_min_speed = 0.0  # min speed before dropping to 0
     self.secoc_key: bytes = b"00" * 16
 
+    # dp - ALKA: lkas_on state (mirrors panda's lkas_on for Python-panda sync)
+    self.lkas_on = False
+
     Q = [[0.0, 0.0], [0.0, 100.0]]
     R = 0.3
     A = [[1.0, DT_CTRL], [0.0, 1.0]]

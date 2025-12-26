@@ -62,6 +62,9 @@ static bool toyota_stock_longitudinal = false;
 static bool toyota_lta = false;
 static int toyota_dbc_eps_torque_factor = 100;   // conversion factor for STEER_TORQUE_EPS in %: see dbc file
 
+// dp - use DSU_CRUISE (0x365) for ACC main instead of PCM_CRUISE_2 (0x1D3)
+static bool toyota_unsupported_dsu = false;
+
 static uint32_t toyota_compute_checksum(const CANPacket_t *msg) {
   int len = GET_LEN(msg);
   uint8_t checksum = (uint8_t)(msg->addr) + (uint8_t)((unsigned int)(msg->addr) >> 8U) + (uint8_t)(len);
@@ -344,6 +347,8 @@ static bool toyota_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config toyota_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Toyota
+
   static const CanMsg TOYOTA_TX_MSGS[] = {
     TOYOTA_COMMON_TX_MSGS
   };
@@ -372,6 +377,10 @@ static safety_config toyota_init(uint16_t param) {
   const uint32_t TOYOTA_PARAM_SECOC = 8UL << TOYOTA_PARAM_OFFSET;
   toyota_secoc = GET_FLAG(param, TOYOTA_PARAM_SECOC);
 #endif
+
+  // dp - use DSU_CRUISE (0x365) for ACC main instead of PCM_CRUISE_2 (0x1D3)
+  const uint32_t TOYOTA_PARAM_UNSUPPORTED_DSU = 16UL << TOYOTA_PARAM_OFFSET;
+  toyota_unsupported_dsu = GET_FLAG(param, TOYOTA_PARAM_UNSUPPORTED_DSU);
 
   toyota_alt_brake = GET_FLAG(param, TOYOTA_PARAM_ALT_BRAKE);
   toyota_stock_longitudinal = GET_FLAG(param, TOYOTA_PARAM_STOCK_LONGITUDINAL);
@@ -426,7 +435,21 @@ static safety_config toyota_init(uint16_t param) {
 
 // dp - rx_ext hook for optional messages (placeholder)
 static void toyota_rx_ext_hook(const CANPacket_t *msg) {
-  SAFETY_UNUSED(msg);
+  if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
+    if (toyota_unsupported_dsu) {
+      // DSU_CRUISE (0x365) - Lexus IS, GS_F, RC and other DSU-based cars
+      if ((msg->addr == 0x365U) && (msg->bus == 0U)) {
+        acc_main_on = GET_BIT(msg, 0U);
+        lkas_on = acc_main_on;
+      }
+    } else {
+      // PCM_CRUISE_2 (0x1D3) - most Toyotas (default)
+      if ((msg->addr == 0x1D3U) && (msg->bus == 0U)) {
+        acc_main_on = GET_BIT(msg, 15U);
+        lkas_on = acc_main_on;
+      }
+    }
+  }
 }
 
 const safety_hooks toyota_hooks = {

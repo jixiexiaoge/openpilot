@@ -14,6 +14,9 @@ from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import T_IDX
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N, get_accel_from_plan
 from openpilot.selfdrive.car.cruise import V_CRUISE_MAX, V_CRUISE_UNSET
 from openpilot.common.swaglog import cloudlog
+from dragonpilot.selfdrive.controls.lib.acm import ACM
+from dragonpilot.selfdrive.controls.lib.aem import AEM
+from dragonpilot.selfdrive.controls.lib.dtsc import DTSC
 
 LON_MPC_STEP = 0.2  # first step is 0.2s
 A_CRUISE_MAX_VALS = [1.6, 1.2, 0.8, 0.6]
@@ -27,6 +30,9 @@ _A_TOTAL_MAX_V = [1.7, 3.2]
 _A_TOTAL_MAX_BP = [20., 40.]
 
 class DPFlags:
+  ACM = 1
+  AEM = 2
+  DTSC = 2 ** 2
   pass
 
 def get_max_accel(v_ego):
@@ -70,6 +76,9 @@ class LongitudinalPlanner:
     self.a_desired_trajectory = np.zeros(CONTROL_N)
     self.j_desired_trajectory = np.zeros(CONTROL_N)
     self.solverExecutionTime = 0.0
+    self.acm = ACM()
+    self.aem = AEM()
+    self.dtsc = DTSC(aggressiveness=0.8)
 
   @staticmethod
   def parse_model(model_msg):
@@ -93,6 +102,10 @@ class LongitudinalPlanner:
 
   def update(self, sm, dp_flags = 0):
     mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
+
+    if dp_flags & DPFlags.AEM:
+      self.aem.update_states(model_msg=sm['modelV2'], radar_msg=sm['radarState'], v_ego=sm['carState'].vEgo)
+      mode = self.aem.get_mode(mode)
 
     if len(sm['carControl'].orientationNED) == 3:
       accel_coast = get_coast_accel(sm['carControl'].orientationNED[1])
@@ -143,10 +156,29 @@ class LongitudinalPlanner:
 
     self.mpc.set_weights(prev_accel_constraint, personality=sm['selfdriveState'].personality)
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
+
+    # Apply DTSC curve speed constraints if enabled
+    if dp_flags & DPFlags.DTSC:
+      # Get modified acceleration constraints based on curvature
+      a_min_dtsc, a_max_dtsc = self.dtsc.get_mpc_constraints(
+        sm['modelV2'], v_ego, accel_clip[0], accel_clip[1])
+
+      # Update MPC parameters with curve constraints
+      # This directly modifies the acceleration bounds in the MPC solver
+      for i in range(len(a_min_dtsc)):
+        # Apply the more restrictive constraint
+        self.mpc.params[i, 0] = max(accel_clip[0], a_min_dtsc[i])  # a_min
+        self.mpc.params[i, 1] = min(accel_clip[1], a_max_dtsc[i])  # a_max
+
     self.mpc.update(sm['radarState'], v_cruise, x, v, a, j, personality=sm['selfdriveState'].personality)
 
     self.v_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.v_solution)
     self.a_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.a_solution)
+    # ACM - Adaptive Coasting Module
+    if dp_flags & DPFlags.ACM:
+      user_control = long_control_off if self.CP.openpilotLongitudinalControl else not sm['selfdriveState'].enabled
+      self.acm.update_states(sm['carControl'], sm['radarState'], user_control, v_ego, v_cruise)
+      self.a_desired_trajectory = self.acm.update_a_desired_trajectory(self.a_desired_trajectory)
     self.j_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC[:-1], self.mpc.j_solution)
 
     # TODO counter is only needed because radar is glitchy, remove once radar is gone

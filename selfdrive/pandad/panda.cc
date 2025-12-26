@@ -136,9 +136,18 @@ std::optional<std::string> Panda::get_serial() {
 }
 
 bool Panda::up_to_date() {
+  const bool tici_hw = getenv("TICI_HW");
+  const bool tici_tres = getenv("TICI_TRES");
   if (auto fw_sig = get_firmware_version()) {
     for (auto fn : { "panda.bin.signed", "panda_h7.bin.signed" }) {
-      auto content = util::read_file(std::string("../../panda/board/obj/") + fn);
+      // auto content = util::read_file(std::string("../../panda/board/obj/") + fn);
+      // rick - for tici
+      std::string content;
+      if (tici_hw && !tici_tres) {
+        content = util::read_file(std::string("../../panda_tici/board/obj/") + fn);
+      } else {
+        content = util::read_file(std::string("../../panda/board/obj/") + fn);
+      }
       if (content.size() >= fw_sig->size() &&
           memcmp(content.data() + content.size() - fw_sig->size(), fw_sig->data(), fw_sig->size()) == 0) {
         return true;

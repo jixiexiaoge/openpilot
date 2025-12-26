@@ -193,6 +193,9 @@ class CarState(CarStateBase):
                         *create_button_events(self.main_buttons[-1], prev_main_buttons, {1: ButtonType.mainCruise}),
                         *create_button_events(self.lda_button, prev_lda_button, {1: ButtonType.lkas})]
 
+    # dp - ALKA: direct tracking - lkas_on follows acc_main (cruiseState.available)
+    self.lkas_on = ret.cruiseState.available
+
     ret.blockPcmEnable = not self.recent_button_interaction()
 
     # low speed steer alert hysteresis logic (only for cars with steer cut off above 10 m/s)
@@ -290,6 +293,13 @@ class CarState(CarStateBase):
     ret.buttonEvents = [*create_button_events(self.cruise_buttons[-1], prev_cruise_buttons, BUTTONS_DICT),
                         *create_button_events(self.main_buttons[-1], prev_main_buttons, {1: ButtonType.mainCruise}),
                         *create_button_events(self.lda_button, prev_lda_button, {1: ButtonType.lkas})]
+
+    # dp - ALKA: direct tracking - lkas_on follows acc_main
+    if not self.CP.openpilotLongitudinalControl:
+      cp_cruise_info = cp_cam if self.CP.flags & HyundaiFlags.CANFD_CAMERA_SCC else cp
+      self.lkas_on = cp_cruise_info.vl["SCC_CONTROL"]["MainMode_ACC"] == 1
+    else:
+      self.lkas_on = ret.cruiseState.available
 
     ret.blockPcmEnable = not self.recent_button_interaction()
 

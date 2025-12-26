@@ -35,7 +35,6 @@ static bool honda_bosch_canfd = false;
 typedef enum {HONDA_NIDEC, HONDA_BOSCH} HondaHw;
 static HondaHw honda_hw = HONDA_NIDEC;
 
-
 static unsigned int honda_get_pt_bus(void) {
   return ((honda_hw == HONDA_BOSCH) && !honda_bosch_radarless && !honda_bosch_canfd) ? 1U : 0U;
 }
@@ -80,6 +79,10 @@ static void honda_rx_hook(const CANPacket_t *msg) {
   // 0x326 for all Bosch and some Nidec, 0x1A6 for some Nidec
   if ((msg->addr == 0x326U) || (msg->addr == 0x1A6U)) {
     acc_main_on = GET_BIT(msg, ((msg->addr == 0x326U) ? 28U : 47U));
+    // dp - ALKA: ACC main on = ALKA enabled
+    if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
+      lkas_on = acc_main_on;
+    }
     if (!acc_main_on) {
       controls_allowed = false;
     }
@@ -238,7 +241,8 @@ static bool honda_tx_hook(const CANPacket_t *msg) {
 
   // STEER: safety check
   if ((msg->addr == 0xE4U) || (msg->addr == 0x194U)) {
-    if (!controls_allowed) {
+    // dp - ALKA: use lat_control_allowed() instead of controls_allowed
+    if (!lat_control_allowed()) {
       bool steer_applied = msg->data[0] | msg->data[1];
       if (steer_applied) {
         tx = false;
@@ -273,6 +277,8 @@ static bool honda_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config honda_nidec_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Honda Nidec
+
   // 0x1FA is dynamically forwarded based on stock AEB
   // 0xE4 is steering on all cars except CRV and RDX, 0x194 for CRV and RDX,
   // 0x1FA is brake control, 0x30C is acc hud, 0x33D is lkas hud
@@ -318,6 +324,8 @@ static safety_config honda_nidec_init(uint16_t param) {
 }
 
 static safety_config honda_bosch_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Honda Bosch
+
   static CanMsg HONDA_BOSCH_TX_MSGS[] = {{0xE4, 0, 5, .check_relay = true}, {0xE5, 0, 8, .check_relay = true}, {0x296, 1, 4, .check_relay = false},
                                          {0x33D, 0, 5, .check_relay = true}, {0x33D, 0, 8, .check_relay = true}, {0x33DA, 0, 5, .check_relay = true}, {0x33DB, 0, 8, .check_relay = true}};  // Bosch
 
