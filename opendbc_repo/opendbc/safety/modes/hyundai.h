@@ -333,9 +333,15 @@ static safety_config hyundai_legacy_init(uint16_t param) {
   return BUILD_SAFETY_CFG(hyundai_legacy_rx_checks, HYUNDAI_TX_MSGS);
 }
 
+// dp - rx_ext hook for optional messages (placeholder)
+static void hyundai_rx_ext_hook(const CANPacket_t *msg) {
+  SAFETY_UNUSED(msg);
+}
+
 const safety_hooks hyundai_hooks = {
   .init = hyundai_init,
   .rx = hyundai_rx_hook,
+  .rx_ext = hyundai_rx_ext_hook,
   .tx = hyundai_tx_hook,
   .get_counter = hyundai_get_counter,
   .get_checksum = hyundai_get_checksum,
@@ -345,6 +351,7 @@ const safety_hooks hyundai_hooks = {
 const safety_hooks hyundai_legacy_hooks = {
   .init = hyundai_legacy_init,
   .rx = hyundai_rx_hook,
+  .rx_ext = hyundai_rx_ext_hook,
   .tx = hyundai_tx_hook,
   .get_counter = hyundai_get_counter,
   .get_checksum = hyundai_get_checksum,

@@ -359,8 +359,21 @@ class Updater:
     for line in output.split('\n'):
       ls_remotes_re = r'(?P<commit_sha>\b[0-9a-f]{5,40}\b)(\s+)(refs\/heads\/)(?P<branch_name>.*$)'
       x = re.fullmatch(ls_remotes_re, line.strip())
-      if x is not None and x.group('branch_name') not in excluded_branches:
-        self.branches[x.group('branch_name')] = x.group('commit_sha')
+      # if x is not None and x.group('branch_name') not in excluded_branches:
+      #   self.branches[x.group('branch_name')] = x.group('commit_sha')
+
+      # dp logic
+      if x is not None:
+        name = x.group('branch_name')
+
+        # Check for version X.Y.Z at the start (ignores trailing suffixes like -pre-build)
+        m = re.match(r'^(\d+)\.(\d+)\.(\d+)', name)
+
+        # Logic:
+        # 1. Allow exactly 'pre-build'
+        # 2. OR Allow if it parses as a version AND that version is >= 0.9.8
+        if name in ('testing', 'pre-build') or (m and tuple(map(int, m.groups())) >= (0, 9, 8)):
+          self.branches[name] = x.group('commit_sha')
 
     cur_branch = self.get_branch(OVERLAY_MERGED)
     cur_commit = self.get_commit_hash(OVERLAY_MERGED)

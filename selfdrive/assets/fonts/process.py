@@ -27,12 +27,13 @@ def _char_sets():
 
   for language, code in _languages().items():
     unifont.update(language)
-    po_path = TRANSLATIONS_DIR / f"app_{code}.po"
-    try:
-      chars = set(po_path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-      continue
-    (unifont if code in UNIFONT_LANGUAGES else base).update(chars)
+    for prefix in ("app_", "dragonpilot_"):
+      po_path = TRANSLATIONS_DIR / f"{prefix}{code}.po"
+      try:
+        chars = set(po_path.read_text(encoding="utf-8"))
+      except FileNotFoundError:
+        continue
+      (unifont if code in UNIFONT_LANGUAGES else base).update(chars)
 
   return tuple(sorted(ord(c) for c in base)), tuple(sorted(ord(c) for c in unifont))
 

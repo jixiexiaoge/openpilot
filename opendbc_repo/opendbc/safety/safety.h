@@ -192,6 +192,11 @@ bool safety_rx_hook(const CANPacket_t *msg) {
     current_hooks->rx(msg);
   }
 
+  // dp - rx_ext hook for ALL valid messages (including non-whitelisted)
+  if (valid && (current_hooks->rx_ext != NULL)) {
+    current_hooks->rx_ext(msg);
+  }
+
   // Handles gas, brake, and regen paddle
   generic_rx_checks();
 
@@ -205,6 +210,16 @@ bool safety_rx_hook(const CANPacket_t *msg) {
       stock_ecu_check((m->addr == addr) && (m->bus == msg->bus));
     }
   }
+
+  // dp - also check tx_ext messages for relay malfunction
+  // GCOV_EXCL_START
+  if (current_hooks->tx_ext != NULL) {
+    TxExtResult result = current_hooks->tx_ext(msg);
+    if (result.check_relay) {
+      stock_ecu_check(result.allowed);  // allowed means addr/bus/len matched
+    }
+  }
+  // GCOV_EXCL_STOP
 
   // reset mismatches on rising edge of controls_allowed to avoid rare race condition
   if (controls_allowed && !controls_allowed_prev) {
@@ -234,12 +249,21 @@ bool safety_tx_hook(CANPacket_t *msg) {
     whitelisted = true;
   }
 
+  // dp - tx_ext hook for messages NOT in base whitelist
+  // GCOV_EXCL_START
+  bool tx_ext_allowed = false;
+  if (!whitelisted && (current_hooks->tx_ext != NULL)) {
+    TxExtResult result = current_hooks->tx_ext(msg);
+    tx_ext_allowed = result.allowed;
+  }
+  // GCOV_EXCL_STOP
+
   bool safety_allowed = false;
-  if (whitelisted) {
+  if (whitelisted || tx_ext_allowed) {
     safety_allowed = current_hooks->tx(msg);
   }
 
-  return !relay_malfunction && whitelisted && safety_allowed;
+  return !relay_malfunction && (whitelisted || tx_ext_allowed) && safety_allowed;
 }
 
 static int get_fwd_bus(int bus_num) {
@@ -269,6 +293,26 @@ int safety_fwd_hook(int bus_num, int addr) {
       }
     }
   }
+
+  // dp - also block tx_ext messages with check_relay from being forwarded
+  // GCOV_EXCL_START
+  if (!blocked && (current_hooks->tx_ext != NULL)) {
+    // Create a fake packet to check tx_ext (we only have addr, need to check all possible lengths)
+    // For forwarding, we check if ANY matching addr on destination_bus should be blocked
+    CANPacket_t fake_msg = {0};
+    fake_msg.addr = addr;
+    fake_msg.bus = destination_bus;
+    // Check common message lengths (4, 5, 6, 7, 8 bytes)
+    for (int len = 4; len <= 8; len++) {
+      fake_msg.data_len_code = len;  // approximate DLC
+      TxExtResult result = current_hooks->tx_ext(&fake_msg);
+      if (result.allowed && result.check_relay) {
+        blocked = true;
+        break;
+      }
+    }
+  }
+  // GCOV_EXCL_STOP
 
   if (!blocked && (current_hooks->fwd != NULL)) {
     blocked = current_hooks->fwd(bus_num, addr);

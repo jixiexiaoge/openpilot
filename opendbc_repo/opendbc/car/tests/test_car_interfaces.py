@@ -52,7 +52,7 @@ def get_fuzzy_car_interface(car_name: str, draw: DrawType) -> CarInterfaceBase:
   # initialize car interface
   CarInterface = interfaces[car_name]
   car_params = CarInterface.get_params(car_name, params['fingerprints'], params['car_fw'],
-                                       alpha_long=params['alpha_long'], is_release=False, docs=False)
+                                       alpha_long=params['alpha_long'], is_release=False, dp_params=0, docs=False)
   return CarInterface(car_params)
 
 

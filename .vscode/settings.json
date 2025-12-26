@@ -3,10 +3,24 @@
   "editor.insertSpaces": true,
   "editor.renderWhitespace": "trailing",
   "files.trimTrailingWhitespace": true,
+  "terminal.integrated.defaultProfile.linux": "dragonpilot",
+  "terminal.integrated.profiles.linux": {
+    "dragonpilot": {
+      "path": "bash",
+      "args": ["-c", "distrobox enter dp"]
+    }
+  },
   "search.exclude": {
     "**/.git": true,
     "**/.venv": true,
-    "**/__pycache__": true
+    "**/__pycache__": true,
+    "msgq_repo/": true,
+    "rednose/": true,
+    "rednose_repo/": true,
+    "openpilot/": true,
+    "teleoprtc_repo/": true,
+    "tinygrad/": true,
+    "tinygrad_repo/": true
   },
   "files.exclude": {
     "**/.git": true,

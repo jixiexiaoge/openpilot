@@ -292,6 +292,12 @@ class ListItem(Widget):
     # Cached properties for performance
     self._prev_description: str | None = self.description
 
+  @property
+  def enabled(self) -> bool:
+    if self.action_item:
+      return self.action_item.enabled
+    return True
+
   def show_event(self):
     self._set_description_visible(False)
 
@@ -350,17 +356,20 @@ class ListItem(Widget):
     content_x = self._rect.x + ITEM_PADDING
     text_x = content_x
 
+    color = ITEM_TEXT_COLOR if self.enabled else ITEM_TEXT_VALUE_COLOR
+    icon_tint = rl.WHITE if self.enabled else ITEM_TEXT_VALUE_COLOR
+
     # Only draw title and icon for items that have them
     if self.title:
       # Draw icon if present
       if self.icon:
-        rl.draw_texture(self._icon_texture, int(content_x), int(self._rect.y + (ITEM_BASE_HEIGHT - self._icon_texture.height) // 2), rl.WHITE)
+        rl.draw_texture(self._icon_texture, int(content_x), int(self._rect.y + (ITEM_BASE_HEIGHT - self._icon_texture.height) // 2), icon_tint)
         text_x += ICON_SIZE + ITEM_PADDING
 
       # Draw main text
       text_size = measure_text_cached(self._font, self.title, ITEM_TEXT_FONT_SIZE)
       item_y = self._rect.y + (ITEM_BASE_HEIGHT - text_size.y) // 2
-      rl.draw_text_ex(self._font, self.title, rl.Vector2(text_x, item_y), ITEM_TEXT_FONT_SIZE, 0, ITEM_TEXT_COLOR)
+      rl.draw_text_ex(self._font, self.title, rl.Vector2(text_x, item_y), ITEM_TEXT_FONT_SIZE, 0, color)
 
     # Draw description if visible
     if self.description_visible:
@@ -464,3 +473,288 @@ def multiple_button_item(title: str | Callable[[], str], description: str | Call
                          button_width: int = BUTTON_WIDTH, callback: Callable = None, icon: str = ""):
   action = MultipleButtonAction(buttons, button_width, selected_index, callback=callback)
   return ListItem(title=title, description=description, icon=icon, action_item=action)
+
+
+# Copyright (c) 2019, Rick Lan
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, and/or sublicense,
+# for non-commercial purposes only, subject to the following conditions:
+#
+# - The above copyright notice and this permission notice shall be included in
+#   all copies or substantial portions of the Software.
+# - Commercial use (e.g. use in a product, service, or activity intended to
+#   generate revenue) is prohibited without explicit written permission from
+#   the copyright holder.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+from abc import ABC, abstractmethod
+
+class BaseSpinBoxAction(ItemAction, ABC):
+  def __init__(self, callback: Callable | None, enabled: bool | Callable[[], bool], width: int):
+    super().__init__(width=width, enabled=enabled)
+    self._callback = callback
+
+    icon_size = 60
+    self._minus_icon = gui_app.texture("icons/minus.png", icon_size, icon_size)
+    self._plus_icon = gui_app.texture("icons/plus.png", icon_size, icon_size)
+
+    self._minus_button = Button("", self._on_minus, icon=self._minus_icon, button_style=ButtonStyle.LIST_ACTION, multi_touch=True)
+    self._plus_button = Button("", self._on_plus, icon=self._plus_icon, button_style=ButtonStyle.LIST_ACTION, multi_touch=True)
+
+  def set_touch_valid_callback(self, touch_callback: Callable[[], bool]) -> None:
+    super().set_touch_valid_callback(touch_callback)
+    self._minus_button.set_touch_valid_callback(touch_callback)
+    self._plus_button.set_touch_valid_callback(touch_callback)
+
+  def _render(self, rect: rl.Rectangle) -> bool:
+    is_enabled = _resolve_value(self._enabled_source, False)
+
+    button_width = 110
+    button_height = BUTTON_HEIGHT
+    spacing = 10
+    button_y = rect.y + (rect.height - button_height) / 2
+
+    minus_rect = rl.Rectangle(rect.x, button_y, button_width, button_height)
+    plus_rect = rl.Rectangle(rect.x + rect.width - button_width, button_y, button_width, button_height)
+
+    label_x = rect.x + button_width + spacing
+    label_width = (plus_rect.x) - (label_x) - spacing
+
+    self._minus_button.set_enabled(is_enabled and self._get_minus_enabled())
+    self._plus_button.set_enabled(is_enabled and self._get_plus_enabled())
+
+    self._minus_button.render(minus_rect)
+    self._plus_button.render(plus_rect)
+
+    if label_width > 0:
+      label_rect = rl.Rectangle(label_x, rect.y, label_width, rect.height)
+      display_text = self._get_display_text()
+      color = ITEM_TEXT_VALUE_COLOR if is_enabled else ITEM_DESC_TEXT_COLOR
+      gui_label(label_rect, display_text, font_size=ITEM_TEXT_FONT_SIZE, color=color,
+                font_weight=FontWeight.NORMAL, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
+                alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
+
+    return False
+
+  @abstractmethod
+  def _on_minus(self):
+    """Called when the minus button is pressed."""
+    pass
+
+  @abstractmethod
+  def _on_plus(self):
+    """Called when the plus button is pressed."""
+    pass
+
+  @abstractmethod
+  def _get_minus_enabled(self) -> bool:
+    """Return True if the minus button should be enabled."""
+    pass
+
+  @abstractmethod
+  def _get_plus_enabled(self) -> bool:
+    """Return True if the plus button should be enabled."""
+    pass
+
+  @abstractmethod
+  def _get_display_text(self) -> str:
+    """Return the string to display in the center."""
+    pass
+
+
+class SpinBoxAction(BaseSpinBoxAction):
+  def __init__(self, initial_value: int, min_val: int, max_val: int, step: int = 1,
+               suffix: str = "", special_value_text: str | None = None,
+               callback: Callable[[int], None] | None = None, enabled: bool | Callable[[], bool] = True,
+               width: int = 320):
+    super().__init__(callback, enabled, width)
+    self._value = initial_value
+    self._min_val = min_val
+    self._max_val = max_val
+    self._step = step
+    self._suffix = suffix
+    self._special_value_text = special_value_text
+
+  def set_value(self, value: int):
+    self._value = max(self._min_val, min(self._max_val, value))
+
+  def get_value(self) -> int:
+    return self._value
+
+  def _on_minus(self):
+    new_val = max(self._min_val, self._value - self._step)
+    if new_val != self._value:
+      self._value = new_val
+      if self._callback:
+        self._callback(self._value)
+
+  def _on_plus(self):
+    new_val = min(self._max_val, self._value + self._step)
+    if new_val != self._value:
+      self._value = new_val
+      if self._callback:
+        self._callback(self._value)
+
+  def _get_minus_enabled(self) -> bool:
+    return self._value > self._min_val
+
+  def _get_plus_enabled(self) -> bool:
+    return self._value < self._max_val
+
+  def _get_display_text(self) -> str:
+    if self._special_value_text and self._value == self._min_val:
+      return self._special_value_text
+    return f"{self._value}{self._suffix}"
+
+
+class DoubleSpinBoxAction(BaseSpinBoxAction):
+  def __init__(self, initial_value: float, min_val: float, max_val: float, step: float = 0.1,
+               decimals: int = 1, suffix: str = "", special_value_text: str | None = None, # <-- 1. This is correct
+               callback: Callable[[float], None] | None = None, enabled: bool | Callable[[], bool] = True,
+               width: int = 320):
+    super().__init__(callback, enabled, width)
+    self._value = initial_value
+    self._min_val = min_val
+    self._max_val = max_val
+    self._step = step
+    self._decimals = decimals
+    self._suffix = suffix
+    self._special_value_text = special_value_text  # <-- 2. Store the variable
+
+  def set_value(self, value: float):
+    self._value = max(self._min_val, min(self._max_val, value))
+
+  def get_value(self) -> float:
+    return self._value
+
+  def _on_minus(self):
+    new_val = max(self._min_val, self._value - self._step)
+    if new_val < self._value:
+      self._value = new_val
+      if self._callback:
+        self._callback(self._value)
+
+  def _on_plus(self):
+    new_val = min(self._max_val, self._value + self._step)
+    if new_val > self._value:
+      self._value = new_val
+      if self._callback:
+        self._callback(self._value)
+
+  def _get_minus_enabled(self) -> bool:
+    return self._value > self._min_val
+
+  def _get_plus_enabled(self) -> bool:
+    return self._value < self._max_val
+
+  def _get_display_text(self) -> str:
+    is_min_val = abs(self._value - self._min_val) < 1e-9
+    if self._special_value_text and is_min_val:
+      return self._special_value_text
+
+    return f"{self._value:.{self._decimals}f}{self._suffix}"
+
+
+class TextSpinBoxAction(BaseSpinBoxAction):
+  def __init__(self, options: list[str], initial_index: int = 0,
+               callback: Callable[[int], None] | None = None, enabled: bool | Callable[[], bool] = True,
+               width: int = 320):
+    super().__init__(callback, enabled, width)
+    self._options = options if options else [""]
+    self._current_index = max(0, min(len(self._options) - 1, initial_index))
+    self._initial_index = initial_index
+
+  def set_index(self, index: int):
+    self._current_index = max(0, min(len(self._options) - 1, index))
+
+  def get_index(self) -> int:
+    return self._current_index
+
+  def _on_minus(self):
+    new_idx = max(0, self._current_index - 1)
+    if new_idx != self._current_index:
+      self._current_index = new_idx
+      if self._callback:
+        self._callback(self._current_index)
+
+  def _on_plus(self):
+    new_idx = min(len(self._options) - 1, self._current_index + 1)
+    if new_idx != self._current_index:
+      self._current_index = new_idx
+      if self._callback:
+        self._callback(self._current_index)
+
+  def _get_minus_enabled(self) -> bool:
+    return self._current_index > 0
+
+  def _get_plus_enabled(self) -> bool:
+    return self._current_index < len(self._options) - 1
+
+  def _get_display_text(self) -> str:
+    return self._options[self._current_index]
+
+
+def spin_button_item(title: str | Callable[[], str], callback: Callable[[int], None] | None,
+                       initial_value: int, min_val: int, max_val: int, step: int = 1,
+                       suffix: str = "", special_value_text: str | None = None,
+                       description: str | Callable[[], str] | None = None,
+                       icon: str = "", enabled: bool | Callable[[], bool] = True,
+                       width: int = 500) -> ListItem:
+  """
+  Creates a ListItem with a spinbox-style control (minus, value, plus).
+
+  :param title: The main title of the list item.
+  :param callback: Function to call with the new integer value when it changes.
+  :param initial_value: The starting value.
+  :param min_val: The minimum allowed value.
+  :param max_val: The maximum allowed value.
+  :param step: The increment/decrement amount on each button press.
+  :param suffix: A string to append to the value (e.g., " s").
+  :param special_value_text: Text to display when the value is at min_val (e.g., "Auto").
+  :param description: Optional description text shown when the item is expanded.
+  :param icon: Optional icon for the list item.
+  :param enabled: Whether the control is enabled.
+  :return: A ListItem widget.
+  """
+  action = SpinBoxAction(initial_value=initial_value, min_val=min_val, max_val=max_val, step=step,
+                         suffix=suffix, special_value_text=special_value_text,
+                         callback=callback, enabled=enabled, width=width)
+  return ListItem(title=title, description=description, action_item=action, icon=icon)
+
+def double_spin_button_item(title: str | Callable[[], str], callback: Callable[[float], None] | None,
+                            initial_value: float, min_val: float, max_val: float, step: float = 0.1,
+                            decimals: int = 1, suffix: str = "", special_value_text: str | None = None,
+                            description: str | Callable[[], str] | None = None,
+                            icon: str = "", enabled: bool | Callable[[], bool] = True,
+                            width: int = 500) -> ListItem:
+  """
+  Creates a ListItem with a spinbox-style control for float values.
+
+  :param decimals: Number of decimal places to display.
+  :return: A ListItem widget.
+  """
+  action = DoubleSpinBoxAction(initial_value=initial_value, min_val=min_val, max_val=max_val, step=step,
+                               decimals=decimals, suffix=suffix, special_value_text=special_value_text,
+                               callback=callback, enabled=enabled, width=width)
+  return ListItem(title=title, description=description, action_item=action, icon=icon)
+
+def text_spin_button_item(title: str | Callable[[], str], callback: Callable[[int], None] | None,
+                          options: list[str], initial_index: int = 0,
+                          description: str | Callable[[], str] | None = None,
+                          icon: str = "", enabled: bool | Callable[[], bool] = True,
+                          width: int = 500) -> ListItem:
+  """
+  Creates a ListItem with a spinbox control for a list of text options.
+
+  :param options: A list of strings to cycle through (e.g., ['Low', 'Mid', 'High']).
+  :param initial_index: The starting index in the options list.
+  :param callback: Function to call with the new *index* (int) when it changes.
+  :return: A ListItem widget.
+  """
+  action = TextSpinBoxAction(options=options, initial_index=initial_index,
+                             callback=callback, enabled=enabled, width=width)
+  return ListItem(title=title, description=description, action_item=action, icon=icon)

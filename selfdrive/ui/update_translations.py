@@ -40,3 +40,10 @@ def update_translations():
 
 if __name__ == "__main__":
   update_translations()
+
+  # Also update dragonpilot translations if available
+  try:
+    from dragonpilot.selfdrive.ui.update_translations import update_translations as update_dp_translations
+    update_dp_translations()
+  except ImportError:
+    pass
