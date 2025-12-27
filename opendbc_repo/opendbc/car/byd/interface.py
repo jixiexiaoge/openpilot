@@ -9,8 +9,9 @@ from opendbc.car.byd.carcontroller import CarController
 from opendbc.car.byd.carstate import CarState
 from opendbc.car.byd.radar_interface import RadarInterface
 from opendbc.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD, LatControlInputs, NanoFFModel
-from opendbc.car.byd.values import CanBus, BydFlags, BydSafetyFlags, MPC_ACC_CAR, TORQUE_LAT_CAR, EXP_LONG_CAR, PT_RADAR_CAR, RADAR_CAR,\
+from opendbc.car.byd.values import CAR, CanBus, BydFlags, BydSafetyFlags, MPC_ACC_CAR, TORQUE_LAT_CAR, EXP_LONG_CAR, PT_RADAR_CAR, RADAR_CAR,\
                 PLATFORM_TANG_DMI, PLATFORM_SONG_PLUS_DMI, PLATFORM_QIN_PLUS_DMI, PLATFORM_YUAN_PLUS_DMI_ATTO3, PLATFORM_SEAL, PLATFORM_HAN_DMI
+
 from opendbc.car.byd.tuning import Tuning
 
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -84,7 +85,10 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.YUAN_PLUS_DMI_ATTO3.value
 
     elif candidate in PLATFORM_SEAL:
-      ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.SEAL.value
+      if candidate == CAR.BYD_TENGSHI_D9:
+        ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.TENGSHI.value
+      else:
+        ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.SEAL.value
 
     else: #汉dm，唐dm，宋Pro
       ret.safetyConfigs[valid_safety_index].safetyParam |= BydSafetyFlags.HAN_TANG_DMEV.value
