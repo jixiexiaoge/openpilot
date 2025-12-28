@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-灏忛附鏁版嵁骞挎挱妯″潡
-浠庣郴缁熻幏鍙栧疄鏃舵暟鎹紝閫氳繃TCP杩炴帴浼犺緭鍒?711绔彛
+小鸽数据广播模块
+从系统获取实时数据，通过TCP连接传输到7711端口
 """
 
 import json
@@ -19,39 +19,39 @@ from openpilot.system.hardware import PC
 
 
 class XiaogeDataBroadcaster:
-    # 甯搁噺瀹氫箟锛堝弬鑰?radard.py:28锛?
-    RADAR_TO_CAMERA = 1.52  # 闆疯揪鐩稿浜庣浉鏈哄腑蹇冪殑鍋忕Щ锛堢背锛?
-    RADAR_LAT_FACTOR = 0.5  # 鏈潵浣嶇疆棰勬祴鏃堕棿鍥犲瓙锛堢锛夛紝鍙傝€?radard.py 鐨?radar_lat_factor
-    FILTER_INIT_FRAMES = 3  # 婊ゆ尝鍣ㄥ垵濮嬪寲鎵€闇€鐨勬渶灏忓抚鏁帮紙鍙傝€?radard.py:520-546 鐨?cnt > 3锛?
+    # 常量定义（参考 radard.py:28）
+    RADAR_TO_CAMERA = 1.52  # 雷达相对于相机中心的偏移（米）
+    RADAR_LAT_FACTOR = 0.5  # 未来位置预测时间因子（秒），参考 radard.py 的 radar_lat_factor
+    FILTER_INIT_FRAMES = 3  # 滤波器初始化所需的最小帧数（参考 radard.py:520-546 的 cnt > 3）
 
-    # 浼樺寲锛氳溅閬撳垎绫诲拰妫€娴嬮槇鍊硷紙鍙傝€?radard.py:520-546锛?
-    LANE_PROB_THRESHOLD = 0.1  # 杞﹂亾鍐呮鐜囬槇鍊硷紝鐢ㄤ簬鍖哄垎褰撳墠杞﹂亾鍜屼晶鏂硅溅閬擄紙鍙傝€?radard.py:520锛?
-    CUTIN_PROB_THRESHOLD = 0.1  # Cut-in 妫€娴嬬殑杞﹂亾鍐呮鐜囬槇鍊硷紙鍙傝€?radard.py:520锛?
+    # 优化：车道分类和检测阈值（参考 radard.py:520-546）
+    LANE_PROB_THRESHOLD = 0.1  # 车道内概率阈值，用于区分当前车道和侧方车道（参考 radard.py:520）
+    CUTIN_PROB_THRESHOLD = 0.1  # Cut-in 检测的车道内概率阈值（参考 radard.py:520）
 
-    # 浼樺寲锛氬巻鍙叉暟鎹厤缃�
-    HISTORY_SIZE = 10  # 鍘嗗彶鏁版嵁淇濈暀甯ф暟锛岀敤浜庤绠楁í鍚戦€熷害
+    # 优化：历史数据配置
+    HISTORY_SIZE = 10  # 历史数据保留帧数，用于计算横向速度
 
-    # 浼樺寲锛氬姩鎬佺疆淇″害闃堝€煎弬鏁帮紙鍙傝€?radard.py:126-157 鐨勫尮閰嶉€昏緫锛?
-    CONFIDENCE_BASE_THRESHOLD = 0.5  # 鍩虹缃俊搴﹂槇鍊�
-    CONFIDENCE_DISTANCE_THRESHOLD = 50.0  # 璺濈闃堝€硷紙绫筹級锛岃秴杩囨璺濈瑕佹眰鏇撮珮缃俊搴�
-    CONFIDENCE_DISTANCE_BOOST = 0.7  # 璺濈瓒呰繃闃堝€兼椂鐨勭疆淇″害鎻愬崌
-    CONFIDENCE_VELOCITY_DIFF_THRESHOLD = 10.0  # 閫熷害宸紓闃堝€硷紙m/s锛�
-    CONFIDENCE_VELOCITY_BOOST = 0.6  # 閫熷害宸紓瓒呰繃闃堝€兼椂鐨勭疆淇″害鎻愬崌
+    # 优化：动态置信度阈值参数（参考 radard.py:126-157 的匹配逻辑）
+    CONFIDENCE_BASE_THRESHOLD = 0.5  # 基础置信度阈值
+    CONFIDENCE_DISTANCE_THRESHOLD = 50.0  # 距离阈值（米），超过此距离要求更高置信度
+    CONFIDENCE_DISTANCE_BOOST = 0.7  # 距离超过阈值时的置信度提升
+    CONFIDENCE_VELOCITY_DIFF_THRESHOLD = 10.0  # 速度差异阈值（m/s）
+    CONFIDENCE_VELOCITY_BOOST = 0.6  # 速度差异超过阈值时的置信度提升
 
-    # 浼樺寲锛氫晶鏂硅溅杈嗙瓫閫夊弬鏁帮紙鍙傝€?radard.py:560-569锛?
-    SIDE_VEHICLE_MIN_DISTANCE = 5.0  # 渚ф柟杞﹁締鏈€灏忚窛绂伙紙绫筹級
-    SIDE_VEHICLE_MAX_DPATH = 3.5  # 渚ф柟杞﹁締鏈€澶ц矾寰勫亸绉伙紙绫筹級
+    # 优化：侧方车辆筛选参数（参考 radard.py:560-569）
+    SIDE_VEHICLE_MIN_DISTANCE = 5.0  # 侧方车辆最小距离（米）
+    SIDE_VEHICLE_MAX_DPATH = 3.5  # 侧方车辆最大路径偏移（米）
 
-    # 浼樺寲锛氳溅閬撳搴﹁绠楀弬鏁�
-    DEFAULT_LANE_HALF_WIDTH = 1.75  # 榛樿杞﹂亾鍗婂 3.5m / 2
-    MIN_LANE_HALF_WIDTH = 0.1  # 鏈€灏忚溅閬撳崐瀹介槇鍊硷紙閬垮厤闄ら浂锛�
-    TARGET_LANE_WIDTH_DISTANCE = 20.0  # 杞﹂亾瀹藉害璁＄畻鐨勭洰鏍囪窛绂伙紙绫筹級
+    # 优化：车道宽度计算参数
+    DEFAULT_LANE_HALF_WIDTH = 1.75  # 默认车道半宽 3.5m / 2
+    MIN_LANE_HALF_WIDTH = 0.1  # 最小车道半宽阈值（避免除零）
+    TARGET_LANE_WIDTH_DISTANCE = 20.0  # 车道宽度计算的目标距离（米）
 
     def get_ip_address(self):
-        """鑾峰彇鏈満灞€鍩熺綉IP鍦板潃"""
+        """获取本机局域网IP地址"""
         try:
-            # 鍒涘缓涓€涓猆DP socket杩炴帴鍒板閮ㄥ湴鍧€锛堜笉闇€瑕佸疄闄呰繛鎺ユ垚鍔燂級
-            # 杩欐牱鍙互鑷姩閫夋嫨姝ｇ‘鐨勭綉缁滄帴鍙P
+            # 创建一个UDP socket连接到外部地址（不需要实际连接成功）
+            # 这样可以自动选择正确的网络接口IP
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect(("8.8.8.8", 80))
                 return s.getsockname()[0]
@@ -59,59 +59,59 @@ class XiaogeDataBroadcaster:
             return "127.0.0.1"
 
     def __init__(self):
-        self.tcp_port = 7711  # TCP 绔彛鍙�
+        self.tcp_port = 7711  # TCP 端口号
         self.sequence = 0
-        self.device_ip = self.get_ip_address()  # 鑾峰彇鏈満IP
+        self.device_ip = self.get_ip_address()  # 获取本机IP
 
-        # TCP 瀹㈡埛绔繛鎺ョ鐞嗭紙绾跨▼瀹夊叏锛�
-        self.clients = {}  # {addr: conn}  瀛樺偍娲昏穬鐨勫鎴风杩炴帴
-        self.clients_lock = threading.Lock()  # 淇濇姢瀹㈡埛绔垪琛ㄧ殑閿�
-        self.server_socket = None  # TCP 鏈嶅姟鍣� socket
-        self.server_running = False  # 鏈嶅姟鍣ㄨ繍琛岀姸鎬佹爣蹇�
+        # TCP 客户端连接管理（线程安全）
+        self.clients = {}  # {addr: conn}  存储活跃的客户端连接
+        self.clients_lock = threading.Lock()  # 保护客户端列表的锁
+        self.server_socket = None  # TCP 服务器 socket
+        self.server_running = False  # 服务器运行状态标志
 
-        # 璁㈤槄娑堟伅锛堢函瑙嗚鏁版嵁锛屼笉浣跨敤闆疯揪锛�
+        # 订阅消息（纯视觉数据，不使用雷达）
         self.sm = messaging.SubMaster([
             'carState',
             'modelV2',
             'selfdriveState',
-            # 绉婚櫎 'controlsState' - 涓嶅啀闇€瑕� longControlState
-            # 绉婚櫎 'can' - 鐩插尯鏁版嵁鐩存帴浠巆arState鑾峰彇
-            # 绉婚櫎 'radarState' - 绾瑙夋柟妗堬紝涓嶄娇鐢ㄩ浄杈捐瀺鍚堟暟鎹�
+            # 移除 'controlsState' - 不再需要 longControlState
+            # 移除 'can' - 盲区数据直接从carState获取
+            # 移除 'radarState' - 纯视觉方案，不使用雷达融合数据
         ])
 
-        # 鏃堕棿婊ゆ尝锛氱敤浜庡钩婊戜晶鏂硅溅杈嗘暟鎹紙鎸囨暟绉诲姩骞冲潎锛�
-        # alpha 鍊硷細0.3 琛ㄧず鏂版暟鎹潈閲�30%锛屽巻鍙叉暟鎹潈閲�70%
+        # 时间滤波：用于平滑侧方车辆数据（指数移动平均）
+        # alpha 值：0.3 表示新数据权重30%，历史数据权重70%
         self.filter_alpha = 0.3
         self.lead_left_filtered = {'x': 0.0, 'v': 0.0, 'y': 0.0, 'vRel': 0.0, 'dPath': 0.0, 'yRel': 0.0}
         self.lead_right_filtered = {'x': 0.0, 'v': 0.0, 'y': 0.0, 'vRel': 0.0, 'dPath': 0.0, 'yRel': 0.0}
-        self.lead_left_count = 0  # 杩炵画妫€娴嬭鏁帮紙鐢ㄤ簬婊ゆ尝鍒濆鍖栵級
+        self.lead_left_count = 0  # 连续检测计数（用于滤波器初始化）
         self.lead_right_count = 0
 
-        # 鍘嗗彶鏁版嵁缂撳瓨锛氱敤浜庤绠楁í鍚戦€熷害锛坹vRel锛夊拰婊ゆ尝鍣ㄥ垵濮嬪寲
-        # 瀛樺偍鏈€杩戝嚑甯х殑 yRel 鍜� dRel锛岀敤浜庤绠楁í鍚戦€熷害
-        self.lead_left_history: List[Dict[str, float]] = []  # 瀛樺偍 {'yRel': float, 'dRel': float, 'timestamp': float}
+        # 历史数据缓存：用于计算横向速度（yvRel）和滤波器初始化
+        # 存储最近几帧的 yRel 和 dRel，用于计算横向速度
+        self.lead_left_history: List[Dict[str, float]] = []  # 存储 {'yRel': float, 'dRel': float, 'timestamp': float}
         self.lead_right_history: List[Dict[str, float]] = []
 
-        # 杞﹂亾绾挎暟鎹紦瀛橈細閬垮厤閲嶅璁＄畻
-        # 淇锛氭坊鍔� position_valid 瀛楁锛岀紦瀛樿鍒掕矾寰勫崟璋冩€ч獙璇佺粨鏋�
+        # 车道线数据缓存：避免重复计算
+        # 修复：添加 position_valid 字段，缓存规划路径单调性验证结果
         self._lane_cache = {
             'lane_xs': None,
             'left_ys': None,
             'right_ys': None,
             'position_x': None,
             'position_y': None,
-            'position_valid': False,  # 鏂板锛氱紦瀛樿鍒掕矾寰勫崟璋冩€ч獙璇佺粨鏋�
+            'position_valid': False,  # 新增：缓存规划路径单调性验证结果
             'cache_valid': False
         }
 
     def recvall(self, sock, n):
         """
-        鎺ユ敹鎸囧畾瀛楄妭鏁扮殑鏁版嵁锛圱CP 闇€瑕佺‘淇濇帴鏀跺畬鏁存暟鎹級
-        鍙傝€?carrot_man.py:765-773 鐨勫疄鐜�
-        鍙傛暟:
-        - sock: socket 瀵硅薄
-        - n: 闇€瑕佹帴鏀剁殑瀛楄妭鏁�
-        杩斿洖: 鎺ユ敹鍒扮殑鏁版嵁锛坆ytearray锛夛紝濡傛灉杩炴帴鍏抽棴鍒欒繑鍥� None
+        接收指定字节数的数据（TCP 需要确保接收完整数据）
+        参考 carrot_man.py:765-773 的实现
+        参数:
+        - sock: socket 对象
+        - n: 需要接收的字节数
+        返回: 接收到的数据（bytearray），如果连接关闭则返回 None
         """
         data = bytearray()
         while len(data) < n:
@@ -123,18 +123,18 @@ class XiaogeDataBroadcaster:
 
     def send_packet_to_client(self, conn, packet):
         """
-        鍚戝崟涓鎴风鍙戦€佹暟鎹寘锛圱CP 闇€瑕佺‘淇濇暟鎹畬鏁村彂閫侊級
-        鍙傛暟:
-        - conn: 瀹㈡埛绔繛鎺ュ璞�
-        - packet: 瑕佸彂閫佺殑鏁版嵁鍖咃紙bytes锛�
-        杩斿洖: 鏄惁鍙戦€佹垚鍔燂紙bool锛�
+        向单个客户端发送数据包（TCP 需要确保数据完整发送）
+        参数:
+        - conn: 客户端连接对象
+        - packet: 要发送的数据包（bytes）
+        返回: 是否发送成功（bool）
         """
         try:
-            # TCP 鍙戰€佹暟鎹寘鏍煎紡: [鏁版嵁闀垮害(4瀛楄妭)][鏁版嵁]
-            # 鍏堝彂閫佹暟鎹暱搴︼紙缃戠粶瀛楄妭搴忥紝big-endian锛�
+            # TCP 发送数据包格式: [数据长度(4字节)][数据]
+            # 先发送数据长度（网络字节序，big-endian）
             size = len(packet)
             conn.sendall(struct.pack('!I', size))
-            # 鍐嶅彂閫佸疄闄呮暟鎹�
+            # 再发送实际数据
             conn.sendall(packet)
             return True
         except (socket.error, OSError):
@@ -143,21 +143,21 @@ class XiaogeDataBroadcaster:
 
     def handle_client(self, conn, addr):
         """
-        澶勭悊鍗曚釜瀹㈡埛绔繛鎺�
-        鏀寔瀹㈡埛绔彂閫佸懡浠わ細
-        - CMD 2: 蹇冭烦鍖咃紝鍥炲 0 琛ㄧず瀛樻椿
+        处理单个客户端连接
+        支持客户端发送命令：
+        - CMD 2: 心跳包，回复 0 表示存活
         """
         print(f"Client connected from {addr}")
 
-        # 灏嗗鎴风娣诲姞鍒拌繛鎺ュ垪琛紙绾跨▼瀹夊叏锛�
+        # 将客户端添加到连接列表（线程安全）
         with self.clients_lock:
             self.clients[addr] = conn
 
         try:
             while self.server_running:
-                # 鎺ユ敹瀹㈡埛绔姹�(4瀛楄妭鍛戒护)
-                # 濡傛灉瀹㈡埛绔彧鏄帴鏀舵暟鎹笉鍙戦€佸懡浠わ紝杩欓噷浼氶樆濉烇紝杩欐槸姝ｅ父鐨�
-                # 鍙涓嶆姏鍑哄紓甯革紝杩炴帴灏变繚鎸佺潃锛屼富绾跨▼鍙互缁х画閫氳繃 broadcast_to_clients 鍙戦€佹暟鎹�
+                # 接收客户端请求(4字节命令)
+                # 如果客户端只是接收数据不发送命令，这里会阻塞，这是正常的
+                # 只要不抛出异常，连接就保持着，主线程可以继续通过 broadcast_to_clients 发送数据
                 cmd_data = self.recvall(conn, 4)
 
                 if not cmd_data:
@@ -165,17 +165,17 @@ class XiaogeDataBroadcaster:
 
                 cmd = struct.unpack('!I', cmd_data)[0]
 
-                if cmd == 2:  # 蹇冭烦璇锋眰
-                    # 鍝嶅簲蹇冭烦锛氬彂閫佸ぇ灏忎负0鐨勬暟鎹寘
+                if cmd == 2:  # 心跳请求
+                    # 响应心跳：发送大小为0的数据包
                     try:
                         conn.sendall(struct.pack('!I', 0))
                     except (socket.error, OSError):
                         break
-                # 鍙互鎵╁睍鍏朵粬鍛戒护锛屼緥濡傝姹傜壒瀹氭暟鎹�
+                # 可以扩展其他命令，例如请求特定数据
         except Exception as e:
             print(f"Error handling client {addr}: {e}")
         finally:
-            # 娓呯悊瀹㈡埛绔繛鎺�
+            # 清理客户端连接
             with self.clients_lock:
                 self.clients.pop(addr, None)
             try:
@@ -186,17 +186,17 @@ class XiaogeDataBroadcaster:
 
     def start_tcp_server(self):
         """
-        鍚姩 TCP 鏈嶅姟鍣紙鍦ㄧ嫭绔嬬嚎绋嬩腑杩愯锛�
-        鍙傝€?carrot_man.py:809-878 鐨� carrot_route() 瀹炵幇
+        启动 TCP 服务器（在独立线程中运行）
+        参考 carrot_man.py:809-878 的 carrot_route() 实现
         """
         try:
-            # 鍒涘缓 TCP socket
+            # 创建 TCP socket
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # 璁剧疆 SO_REUSEADDR 閫夐」锛屽厑璁哥鍙ｉ噸鐢�
+            # 设置 SO_REUSEADDR 选项，允许端口重用
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            # 缁戝畾鍒版墍鏈夌綉缁滄帴鍙ｇ殑鎸囧畾绔彛
+            # 绑定到所有网络接口的指定端口
             self.server_socket.bind(('0.0.0.0', self.tcp_port))
-            # 寮€濮嬬洃鍚繛鎺ワ紙鏈€澶� 5 涓緟澶勭悊杩炴帴锛�
+            # 开始监听连接（最大 5 个待处理连接）
             self.server_socket.listen(5)
 
             self.server_running = True
@@ -204,13 +204,13 @@ class XiaogeDataBroadcaster:
 
             while self.server_running:
                 try:
-                    # 绛夊緟瀹㈡埛绔繛鎺ワ紙闃诲璋冪敤锛�
+                    # 等待客户端连接（阻塞调用）
                     conn, addr = self.server_socket.accept()
-                    # 涓烘瘡涓鎴风鍒涘缓鐙珛绾跨▼澶勭悊杩炴帴
+                    # 为每个客户端创建独立线程处理连接
                     client_thread = threading.Thread(
                         target=self.handle_client,
                         args=(conn, addr),
-                        daemon=True  # 璁剧疆涓哄畧鎶ょ嚎绋嬶紝涓荤▼搴忛€€鍑烘椂鑷姩缁撴潫
+                        daemon=True  # 设置为守护线程，主程序退出时自动结束
                     )
                     client_thread.start()
                 except socket.error as e:
@@ -231,33 +231,33 @@ class XiaogeDataBroadcaster:
 
     def broadcast_to_clients(self, packet):
         """
-        鍚戞墍鏈夎繛鎺ョ殑瀹㈡埛绔箍鎾暟鎹寘
-        鍙傛暟:
-        - packet: 瑕佸彂閫佺殑鏁版嵁鍖咃紙bytes锛�
+        向所有连接的客户端广播数据包
+        参数:
+        - packet: 要发送的数据包（bytes）
         """
         if not packet:
             return
 
-        # 绾跨▼瀹夊叏鍦拌幏鍙栧鎴风鍒楄〃鍓湰
+        # 线程安全地获取客户端列表副本
         with self.clients_lock:
-            clients_copy = dict(self.clients)  # 鍒涘缓鍓湰锛岄伩鍏嶅湪杩唬鏃朵慨鏀瑰師瀛楀吀
+            clients_copy = dict(self.clients)  # 创建副本，避免在迭代时修改原字典
 
-        # 璁板綍闇€瑕佹竻鐞嗙殑鏂紑杩炴帴
+        # 记录需要清理的断开连接
         dead_clients = []
 
-        # 鍚戞墍鏈夊鎴风鍙戦€佹暟鎹�
+        # 向所有客户端发送数据
         for addr, conn in clients_copy.items():
             if not self.send_packet_to_client(conn, packet):
-                # 鍙戰€佸け璐ワ紝鏍囪涓烘柇寮€杩炴帴
+                # 发送失败，标记为断开连接
                 dead_clients.append(addr)
 
-        # 娓呯悊鏂紑鐨勮繛鎺�
+        # 清理断开的连接
         if dead_clients:
             with self.clients_lock:
                 for addr in dead_clients:
                     self.clients.pop(addr, None)
                     try:
-                        # 灏濊瘯鍏抽棴杩炴帴锛堝鏋滆繕鏈叧闂級
+                        # 尝试关闭连接（如果还未关闭）
                         if addr in clients_copy:
                             clients_copy[addr].close()
                     except:
@@ -265,15 +265,15 @@ class XiaogeDataBroadcaster:
 
     def shutdown(self):
         """
-        浼橀泤鍏抽棴鏈嶅姟鍣�
-        鍏抽棴鎵€鏈夊鎴风杩炴帴骞跺仠姝㈡湇鍔″櫒
+        优雅关闭服务器
+        关闭所有客户端连接并停止服务器
         """
         print("Shutting down TCP server...")
 
-        # 鍋滄鏈嶅姟鍣ㄨ繍琛屾爣蹇�
+        # 停止服务器运行标志
         self.server_running = False
 
-        # 鍏抽棴鎵€鏈夊鎴风杩炴帴锛堢嚎绋嬪畨鍏級
+        # 关闭所有客户端连接（线程安全）
         with self.clients_lock:
             for addr, conn in self.clients.items():
                 try:
@@ -283,7 +283,7 @@ class XiaogeDataBroadcaster:
                     pass
             self.clients.clear()
 
-        # 鍏抽棴鏈嶅姟鍣� socket
+        # 关闭服务器 socket
         if self.server_socket:
             try:
                 self.server_socket.close()
@@ -293,46 +293,46 @@ class XiaogeDataBroadcaster:
         print("TCP server shutdown complete")
 
     def collect_car_state(self, carState) -> Dict[str, Any]:
-        """鏀堕泦鏈溅鐘舵€佹暟鎹� - 绠€鍖栫増锛堝彧淇濈暀瓒呰溅鍐崇瓥蹇呴渶瀛楁锛�
+        """收集本车状态数据 - 简化版（只保留超车决策必需字段）
         """
-        # 鏁版嵁楠岃瘉锛氱‘淇� vEgo 涓烘湁鏁堝€�
+        # 数据验证：确保 vEgo 为有效值
         vEgo = float(carState.vEgo)
         if vEgo < 0:
             print(f"Warning: Invalid vEgo value: {vEgo}, using 0.0")
             vEgo = 0.0
 
         return {
-            'vEgo': vEgo,  # 瀹為檯閫熷害
-            'steeringAngleDeg': float(carState.steeringAngleDeg),  # 鏂瑰悜鐩樿搴�
-            'leftLatDist': float(carState.leftLatDist),  # 杞﹂亾璺濈锛堣繑鍥炲師杞﹂亾锛�
-            'leftBlindspot': bool(carState.leftBlindspot) if hasattr(carState, 'leftBlindspot') else False,  # 宸︾洸鍖�
-            'rightBlindspot': bool(carState.rightBlindspot) if hasattr(carState, 'rightBlindspot') else False,  # 鍙崇洸鍖�
+            'vEgo': vEgo,  # 实际速度
+            'steeringAngleDeg': float(carState.steeringAngleDeg),  # 方向盘角度
+            'leftLatDist': float(carState.leftLatDist),  # 车道距离（返回原车道）
+            'leftBlindspot': bool(carState.leftBlindspot) if hasattr(carState, 'leftBlindspot') else False,  # 左盲区
+            'rightBlindspot': bool(carState.rightBlindspot) if hasattr(carState, 'rightBlindspot') else False,  # 右盲区
         }
 
     def _update_lane_cache(self, modelV2):
-        """鏇存柊杞﹂亾绾挎暟鎹紦瀛橈紝閬垮厤閲嶅璁＄畻"""
+        """更新车道线数据缓存，避免重复计算"""
         try:
-            # 淇锛氶渶瑕佽嚦灏� 3 鏉＄嚎鎵嶈兘璁块棶绱㈠紩 1 鍜� 2
+            # 修复：需要至少 3 条线才能访问索引 1 和 2
             if not hasattr(modelV2, 'laneLines') or len(modelV2.laneLines) < 3:
                 self._lane_cache['cache_valid'] = False
                 return
 
-            # 淇锛氶獙璇佺储寮� 1 鍜� 2 鏄惁瀛樺湪锛堥渶瑕佽嚦灏� 3 涓厓绱犳墠鑳借闂储寮� 2锛�
+            # 修复：验证索引 1 和 2 是否存在（需要至少 3 个元素才能访问索引 2）
             if len(modelV2.laneLines) <= 2:
                 self._lane_cache['cache_valid'] = False
                 return
 
-            # 鎻愬彇杞﹂亾绾挎暟鎹�
+            # 提取车道线数据
             lane_xs = [float(x) for x in modelV2.laneLines[1].x]
             left_ys = [float(y) for y in modelV2.laneLines[1].y]
             right_ys = [float(y) for y in modelV2.laneLines[2].y]
 
-            # 淇锛氶獙璇佀 x 鍧愭爣鏄惁鍗曡皟閫掑锛坣p.interp() 瑕佹眰锛�
+            # 修复：验证 x 坐标是否单调递增（np.interp() 要求）
             if not (len(lane_xs) == len(left_ys) == len(right_ys)):
                 self._lane_cache['cache_valid'] = False
                 return
 
-            # 淇锛氶獙璇� x 鍧愭爣鏄惁鍗曡皟閫掑锛坣p.interp() 瑕佹眰锛�
+            # 修复：验证 x 坐标是否单调递增（np.interp() 要求）
             if len(lane_xs) < 2 or not all(lane_xs[i] < lane_xs[i + 1] for i in range(len(lane_xs) - 1)):
                 self._lane_cache['cache_valid'] = False
                 return
@@ -341,19 +341,19 @@ class XiaogeDataBroadcaster:
             self._lane_cache['left_ys'] = left_ys
             self._lane_cache['right_ys'] = right_ys
 
-            # 鏇存柊瑙勫垝璺緞鏁版嵁
-            # 淇锛氬湪缂撳瓨鏇存柊鏃堕獙璇佸崟璋冩€э紝骞剁紦瀛橀獙璇佺粨鏋滐紝閬垮厤鍦� d_path_interp() 涓噸澶嶆鏌�
+            # 更新规划路径数据
+            # 修复：在缓存更新时验证单调性，并缓存验证结果，避免在 d_path_interp() 中重复检查
             if hasattr(modelV2, 'position') and len(modelV2.position.x) > 0:
                 position_x = [float(x) for x in modelV2.position.x]
                 position_y = [float(y) for y in modelV2.position.y]
 
-                # 楠岃瘉瑙勫垝璺緞鏁版嵁闀垮害涓€鑷存€у拰鍗曡皟鎬э紝骞剁紦瀛橀獙璇佺粨鏋�
+                # 验证规划路径数据长度一致性和单调性，并缓存验证结果
                 if len(position_x) == len(position_y) and len(position_x) >= 2:
-                    # 楠岃瘉 x 鍧愭爣鍗曡皟閫掑锛堝彧楠岃瘉涓€娆★紝缁撴灉缂撳瓨鍒� position_valid锛�
+                    # 验证 x 坐标单调递增（只验证一次，结果缓存到 position_valid）
                     if all(position_x[i] < position_x[i + 1] for i in range(len(position_x) - 1)):
                         self._lane_cache['position_x'] = position_x
                         self._lane_cache['position_y'] = position_y
-                        self._lane_cache['position_valid'] = True  # 缂撳瓨楠岃瘉缁撴灉
+                        self._lane_cache['position_valid'] = True  # 缓存验证结果
                     else:
                         self._lane_cache['position_x'] = None
                         self._lane_cache['position_y'] = None
@@ -373,75 +373,75 @@ class XiaogeDataBroadcaster:
                 len(self._lane_cache['right_ys']) > 0
             )
         except (IndexError, AttributeError, ValueError):
-            # 淇锛氫娇鐢ㄥ叿浣撶殑寮傚父绫诲瀷
+            # 修复：使用具体的异常类型
             self._lane_cache['cache_valid'] = False
 
     def _calculate_dpath(self, dRel: float, yRel: float, yvRel: float = 0.0, vLead: float = 0.0) -> Tuple[float, float, float]:
         """
-        璁＄畻杞﹁締鐩稿浜庤鍒掕矾寰勭殑妯悜鍋忕Щ (dPath) 鍜岃溅閬撳唴姒傜巼 (in_lane_prob)
-        鍙傝€?radard.py:74-87 鐨� d_path() 鏂规硶
+        计算车辆相对于规划路径的横向偏移 (dPath) 和车道内概率 (in_lane_prob)
+        参考 radard.py:74-87 的 d_path() 方法
 
-        鍙傛暟:
-        - dRel: 鐩稿浜庨浄杈剧殑璺濈锛堝凡鑰冭檻 RADAR_TO_CAMERA 鍋忕Щ锛�
-        - yRel: 鐩稿浜庣浉鏈虹殑妯悜浣嶇疆
-        - yvRel: 妯悜閫熷害锛堢敤浜庢湭鏉ヤ綅缃娴嬶紝鍙€夛級
-        - vLead: 鍓嶈溅閫熷害锛堢敤浜庢湭鏉ヤ綅缃娴嬶紝鍙€夛級
+        参数:
+        - dRel: 相对于雷达的距离（已考虑 RADAR_TO_CAMERA 偏移）
+        - yRel: 相对于相机的横向位置
+        - yvRel: 横向速度（用于未来位置预测，可选）
+        - vLead: 前车速度（用于未来位置预测，可选）
 
-        杩斿洖: (dPath, in_lane_prob, in_lane_prob_future)
-        - dPath: 鐩稿浜庤鍒掕矾寰勭殑妯悜鍋忕Щ
-        - in_lane_prob: 褰撳墠鏃跺埢鍦ㄨ溅閬撳唴鐨勬鐜�
-        - in_lane_prob_future: 鏈潵鏃跺埢鍦ㄨ溅閬撳唴鐨勬鐜囷紙鐢ㄤ簬 Cut-in 妫€娴嬶級
+        返回: (dPath, in_lane_prob, in_lane_prob_future)
+        - dPath: 相对于规划路径的横向偏移
+        - in_lane_prob: 当前时刻在车道内的概率
+        - in_lane_prob_future: 未来时刻在车道内的概率（用于 Cut-in 检测）
         """
         if not self._lane_cache['cache_valid']:
             return 0.0, 0.0, 0.0
 
         try:
-            # 浼樺寲锛氱Щ闄ら噸澶嶇殑鍗曡皟鎬ф鏌ワ紝鍥犱负 cache_valid 宸茬粡淇濊瘉浜嗘暟鎹殑鏈夋晥鎬�
-            # 鍗曡皟鎬ч獙璇佸凡鍦� _update_lane_cache() 涓畬鎴�
+            # 优化：移除重复的单调性检查，因为 cache_valid 已经保证了数据的有效性
+            # 单调性验证已在 _update_lane_cache() 中完成
             lane_xs = self._lane_cache['lane_xs']
             left_ys = self._lane_cache['left_ys']
             right_ys = self._lane_cache['right_ys']
 
             def d_path_interp(dRel_val: float, yRel_val: float) -> Tuple[float, float]:
-                """鍐呴儴鍑芥暟锛氳绠楁寚瀹氳窛绂诲鐨� dPath 鍜� in_lane_prob"""
-                # 鍦ㄨ窛绂� dRel_val 澶勬彃鍊艰绠楀乏鍙宠溅閬撶嚎鐨勬í鍚戜綅缃�
+                """内部函数：计算指定距离处的 dPath 和 in_lane_prob"""
+                # 在距离 dRel_val 处插值计算左右车道线的横向位置
                 left_lane_y = np.interp(dRel_val, lane_xs, left_ys)
                 right_lane_y = np.interp(dRel_val, lane_xs, right_ys)
 
-                # 璁＄畻杞﹂亾涓績浣嶇疆
+                # 计算车道中心位置
                 center_y = (left_lane_y + right_lane_y) / 2.0
 
-                # 璁＄畻杞﹂亾鍗婂
-                # 浼樺寲锛氫娇鐢ㄧ被甯搁噺鏇夸唬榄旀硶鏁板瓧
+                # 计算车道半宽
+                # 优化：使用类常量替代魔法数字
                 lane_half_width = abs(right_lane_y - left_lane_y) / 2.0
                 if lane_half_width < self.MIN_LANE_HALF_WIDTH:
                     lane_half_width = self.DEFAULT_LANE_HALF_WIDTH
 
-                # 淇锛氫娇鐢ㄦ纭殑绗﹀彿璁＄畻鐩稿浜庤溅閬撲腑蹇冪殑鍋忕Щ
-                # yRel_val 鍜� center_y 閮芥槸鐩稿浜庣浉鏈虹殑锛屾墍浠ョ浉鍑忓緱鍒扮浉瀵逛簬杞﹂亾涓績鐨勫亸绉�
+                # 修复：使用正确的符号计算相对于车道中心的偏移
+                # yRel_val 和 center_y 都是相对于相机的，所以相减得到相对于车道中心的偏移
                 dist_from_center = yRel_val - center_y
 
-                # 璁＄畻鍦ㄨ溅閬撳唴鐨勬鐜囷紙璺濈涓績瓒婅繎锛屾鐜囪秺楂橈級
-                # 鍙傝€?radard.py:82 鐨勮绠楁柟娉�
+                # 计算在车道内的概率（距离中心越近，概率越高）
+                # 参考 radard.py:82 的计算方法
                 in_lane_prob = max(0.0, 1.0 - (abs(dist_from_center) / lane_half_width))
 
-                # 璁＄畻 dPath锛堢浉瀵逛簬瑙勫垝璺緞鐨勬í鍚戝亸绉伙級
-                # 淇锛氫娇鐢ㄧ紦瀛樼殑楠岃瘉缁撴灉锛岄伩鍏嶉噸澶嶇殑鍗曡皟鎬ф鏌ワ紙鎬ц兘浼樺寲锛�
-                # 鍗曡皟鎬ч獙璇佸凡鍦� _update_lane_cache() 涓畬鎴愬苟缂撳瓨鍒� position_valid
+                # 计算 dPath（相对于规划路径的横向偏移）
+                # 修复：使用缓存的验证结果，避免重复的单调性检查（性能优化）
+                # 单调性验证已在 _update_lane_cache() 中完成并缓存到 position_valid
                 if self._lane_cache.get('position_valid', False):
                     path_y = np.interp(dRel_val, self._lane_cache['position_x'], self._lane_cache['position_y'])
-                    # 淇锛氬悓鏍蜂慨澶嶇鍙凤紝 dPath = yRel - path_y
+                    # 修复：同样修复符号， dPath = yRel - path_y
                     dPath = yRel_val - path_y
                 else:
                     dPath = dist_from_center
 
                 return dPath, in_lane_prob
 
-            # 璁＄畻褰撳墠鏃跺埢鐨勫€�
+            # 计算当前时刻的值
             dPath, in_lane_prob = d_path_interp(dRel, yRel)
 
-            # 璁＄畻鏈潵鏃跺埢鐨勫€�(鐢ㄤ簬 Cut-in 妫€娴嬶級
-            # 鍙傝€?radard.py:30-72 鐨� Track.update() 鏂规硶
+            # 计算未来时刻的值(用于 Cut-in 检测）
+            # 参考 radard.py:30-72 的 Track.update() 方法
             # yRel_future = yRel + yvLead * radar_lat_factor
             # dRel_future = dRel + vLead * radar_lat_factor
             future_dRel = dRel + vLead * self.RADAR_LAT_FACTOR
@@ -451,29 +451,29 @@ class XiaogeDataBroadcaster:
             return float(dPath), float(in_lane_prob), float(in_lane_prob_future)
 
         except (IndexError, ValueError, TypeError):
-            # 淇锛氫娇鐢ㄥ叿浣撶殑寮傚父绫诲瀷
-            # 璋冭瘯淇℃伅锛堝彲閫夛級
+            # 修复：使用具体的异常类型
+            # 调试信息（可选）
             # print(f"Error in _calculate_dpath: {e}")
             return 0.0, 0.0, 0.0
 
     def _estimate_lateral_velocity(self, current_yRel: float, current_dRel: float, history: List[Dict[str, float]]) -> float:
         """
-        浼拌妯悜閫熷害锛坹vRel锛�
-        閫氳繃鍘嗗彶鏁版嵁璁＄畻 yRel 鐨勫彉鍖栫巼
+        估计横向速度（yvRel）
+        通过历史数据计算 yRel 的变化率
 
-        鍙傛暟:
-        - current_yRel: 褰撳墠妯悜浣嶇疆锛堟湭浣跨敤锛屼繚鐣欑敤浜庢帴鍙ｅ吋瀹规€э級
-        - current_dRel: 褰撳墠璺濈锛堟湭浣跨敤锛屼繚鐣欑敤浜庢帴鍙ｅ吋瀹规€э級
-        - history: 鍘嗗彶鏁版嵁鍒楄〃锛屽寘鍚�{'yRel': float, 'dRel': float, 'timestamp': float}
+        参数:
+        - current_yRel: 当前横向位置（未使用，保留用于接口兼容性）
+        - current_dRel: 当前距离（未使用，保留用于接口兼容性）
+        - history: 历史数据列表，包含{'yRel': float, 'dRel': float, 'timestamp': float}
 
-        杩斿洖: 妯悜閫熷害锛坢/s锛�
+        返回: 横向速度（m/s）
         """
         if len(history) < 2:
             return 0.0
 
         try:
-            # 淇锛氫娇鐢ㄥ巻鍙叉暟鎹腑鏈€杩戜袱甯х殑宸€艰绠楅€熷害
-            # 鍙栨渶杩戠殑涓ゅ抚
+            # 修复：使用历史数据中最近两帧的差值计算速度
+            # 取最近的两帧
             recent = history[-2:]
             if len(recent) < 2:
                 return 0.0
@@ -482,52 +482,52 @@ class XiaogeDataBroadcaster:
             if dt <= 0:
                 return 0.0
 
-            # 淇锛氫娇鐢ㄥ巻鍙叉暟鎹腑鏈€杩戜袱甯х殑宸€硷紝鑰屼笉鏄綋鍓嶅€间笌鍘嗗彶鍊肩殑宸€�
+            # 修复：使用历史数据中最近两帧的差值，而不是当前值与历史值的差值
             dyRel = recent[1]['yRel'] - recent[0]['yRel']
             yvRel = dyRel / dt
 
             return float(yvRel)
         except (KeyError, IndexError, ZeroDivisionError):
-            # 淇锛氫娇鐢ㄥ叿浣撶殑寮傚父绫诲瀷
+            # 修复：使用具体的异常类型
             return 0.0
 
     def _calculate_lane_width(self, modelV2) -> float:
         """
-        浣跨敤杞﹂亾绾垮潗鏍囨暟鎹�璁＄畻鍦ㄧ害 20 绫冲璁＄畻杞﹂亾瀹藉害锛堜娇鐢ㄦ彃鍊兼柟娉曪級
-        鍙傝€?carrot.cc:2119-2130
+        使用车道线坐标数据计算在约 20 米处计算车道宽度（使用插值方法）
+        参考 carrot.cc:2119-2130
 
-        浼樺寲锛氫紭鍏堜娇鐢ㄧ紦瀛樼殑鏁版嵁锛堝凡楠岃瘉鍗曡皟鎬э級锛岄伩鍏嶉噸澶嶉獙璇佸拰閲嶅鏁版嵁杞崲
+        优化：优先使用缓存的数据（已验证单调性），避免重复验证和重复数据转换
         """
         try:
-            # 浼樺寲锛氫紭鍏堜娇鐢ㄧ紦瀛樼殑鏁版嵁锛屽洜涓� _update_lane_cache() 宸茬粡楠岃瘉杩囧崟璋冩€э�
-            # 杩欐牱鍙互閬垮厤閲嶅楠岃瘉鍜岄噸澶嶇殑鏁版嵁杞崲锛屾彁鍗囨€ц兘
+            # 优化：优先使用缓存的数据，因为 _update_lane_cache() 已经验证过单调性
+            # 这样可以避免重复验证和重复的数据转换，提升性能
             if self._lane_cache.get('cache_valid', False):
                 lane_xs = self._lane_cache['lane_xs']
                 left_ys = self._lane_cache['left_ys']
                 right_ys = self._lane_cache['right_ys']
 
-                # 浣跨敤绫诲父閲忔浛浠ｉ瓟娉曟暟瀛�
+                # 使用类常量替代魔法数字
                 target_distance = self.TARGET_LANE_WIDTH_DISTANCE
 
-                # 妫€鏌ョ洰鏍囪窛绂绘槸鍚﹀湪鑼冨洿鍐咃紙缂撳瓨鏁版嵁宸蹭繚璇佸崟璋冩€э級
+                # 检查目标距离是否在范围内（缓存数据已保证单调性）
                 if (
                     len(lane_xs) > 0 and
                     target_distance <= max(lane_xs) and target_distance >= min(lane_xs)
                 ):
 
-                    # 浣跨敤缂撳瓨鐨勬暟鎹繘琛屾彃鍊艰绠�
+                    # 使用缓存的数据进行插值计算
                     left_y_at_dist = np.interp(target_distance, lane_xs, left_ys)
                     right_y_at_dist = np.interp(target_distance, lane_xs, right_ys)
                     lane_width = abs(right_y_at_dist - left_y_at_dist)
                     return lane_width
 
-            # 濡傛灉缂撳瓨鏃犳晥锛屽洖閫€鍒扮洿鎺ヤ粠 modelV2 璇诲彇锛堥渶瑕侀獙璇佸崟璋冩€э級
-            # 闇€瑕佽嚦灏� 3 鏉¤溅閬撶嚎锛� 0=宸﹁矾杈圭嚎, 1=宸﹁溅閬撶嚎, 2=鍙宠溅閬撶嚎, 3=鍙宠矾杈圭嚎锛�
+            # 如果缓存无效，回退到直接从 modelV2 读取（需要验证单调性）
+            # 需要至少 3 条车道线（ 0=左路边线, 1=左车道线, 2=右车道线, 3=右路边线）
             if not hasattr(modelV2, 'laneLines') or len(modelV2.laneLines) < 3:
                 return 0.0
 
-            left_lane = modelV2.laneLines[1]  # 宸﹁溅閬撶嚎
-            right_lane = modelV2.laneLines[2]  # 鍙宠溅閬撶嚎
+            left_lane = modelV2.laneLines[1]  # 左车道线
+            right_lane = modelV2.laneLines[2]  # 右车道线
 
             target_distance = self.TARGET_LANE_WIDTH_DISTANCE
 
@@ -541,14 +541,14 @@ class XiaogeDataBroadcaster:
                 right_x = [float(x) for x in right_lane.x]
                 right_y = [float(y) for y in right_lane.y]
 
-                # 楠岃瘉鍒楄〃闈炵┖鍚庡啀璋冪敤 max/min锛屽苟楠岃瘉 x 鍧愭爣鍗曡皟鎬�
-                # 娉ㄦ剰锛氬彧鏈夊湪缂撳瓨鏃犳晥鏃舵墠闇€瑕侀獙璇侊紝鍥犱负缂撳瓨宸茬粡楠岃瘉杩囦簡
+                # 验证列表非空后再调用 max/min，并验证 x 坐标单调性
+                # 注意：只有在缓存无效时才需要验证，因为缓存已经验证过了
                 if (
                     len(left_x) > 0 and len(right_x) > 0 and
-                    # 楠岃瘉 x 鍧愭爣鍗曡皟閫掑锛堢紦瀛樻棤鏁堟椂鎵嶉渶瑕侊級
+                    # 验证 x 坐标单调递增（缓存无效时才需要）
                     len(left_x) >= 2 and all(left_x[i] < left_x[i + 1] for i in range(len(left_x) - 1)) and
                     len(right_x) >= 2 and all(right_x[i] < right_x[i + 1] for i in range(len(right_x) - 1)) and
-                    # 妫€鏌ョ洰鏍囪窛绂绘槸鍚﹀湪鑼冨洿鍐�
+                    # 检查目标距离是否在范围内
                     target_distance <= max(left_x) and target_distance <= max(right_x) and
                     target_distance >= min(left_x) and target_distance >= min(right_x)
                 ):
@@ -558,73 +558,73 @@ class XiaogeDataBroadcaster:
                     lane_width = abs(right_y_at_dist - left_y_at_dist)
                     return lane_width
         except (IndexError, ValueError, TypeError):
-            # 淇锛氫娇鐢ㄥ叿浣撶殑寮傚父绫诲瀷
+            # 修复：使用具体的异常类型
             pass
 
         return 0.0
 
     def collect_model_data(self, modelV2, carState=None) -> Dict[str, Any]:
         """
-        鏀堕泦妯″瀷鏁版嵁 - 浼樺寲鐗堟湰
-        閫氳繃 modelV2 鏁版嵁闂存帴鎺ㄦ柇渚ф柟杞﹁締鎯呭喌锛屾浛浠� radarState
+        收集模型数据 - 优化版本
+        通过 modelV2 数据间接推断侧方车辆情况，替代 radarState
 
-        鍙傛暟:
-        - modelV2: 妯″瀷鏁版嵁
-        - carState: 杞﹁締鐘舵€佹暟鎹紙鍙€夛紝鐢ㄤ簬鑾峰彇鏇村噯纭殑鑷溅閫熷害锛�
+        参数:
+        - modelV2: 模型数据
+        - carState: 车辆状态数据（可选，用于获取更准确的自车速度）
         """
         data = {}
 
-        # 淇锛氫紭鍏堜娇鐢� carState.vEgo锛堟潵鑷� CAN鎬荤嚎锛屾洿鍑嗙‘锛夛紝濡傛灉涓嶅彲鐢ㄥ垯浣跨敤妯″瀷浼拌
+        # 修复：优先使用 carState.vEgo（来自 CAN总线，更准确），如果不可用则使用模型估计
         v_ego = 0.0
         if carState is not None and hasattr(carState, 'vEgo'):
             v_ego = float(carState.vEgo)
         elif hasattr(modelV2, 'velocity') and len(modelV2.velocity.x) > 0:
             v_ego = float(modelV2.velocity.x[0])
 
-        # modelVEgo 鍜� laneWidth 宸插垹闄�
-        # 鏇存柊杞﹂亾绾挎暟鎹紦瀛橈紙姣忓抚鏇存柊涓€娆★紝閬垮厤閲嶅璁＄畻锛�
+        # modelVEgo 和 laneWidth 已删除
+        # 更新车道线数据缓存（每帧更新一次，避免重复计算）
         self._update_lane_cache(modelV2)
 
-        # 鑾峰彇褰撳墠鏃堕棿鎴筹紙鐢ㄤ簬璁＄畻妯悜閫熷害锛�
+        # 获取当前时间戳（用于计算横向速度）
         current_time = time.time()
 
-        # 鍒嗙被鎵€鏈夋娴嬪埌鐨勮溅杈嗭紙宸�/鍙�/涓溅閬擄級
+        # 分类所有检测到的车辆（左/右/中车道）
         left_vehicles: List[Dict[str, Any]] = []
         right_vehicles: List[Dict[str, Any]] = []
         center_vehicles: List[Dict[str, Any]] = []
 
-        # 閬嶅巻鎵€鏈夋娴嬭溅杈�
+        # 遍历所有检测车辆
         for i, lead in enumerate(modelV2.leadsV3):
             lead_prob = float(lead.prob)
 
-            # 鍔ㄦ€佺疆淇″害闃堝€硷細鏍规嵁璺濈鍜岄€熷害璋冩暣
-            # 鍙傝€?radard.py:126-157 鐨勫尮閰嶉€昏緫
-            x = float(lead.x[0]) if len(lead.x) > 0 else 0.0  # 绾靛悜璺濈
-            v = float(lead.v[0]) if len(lead.v) > 0 else 0.0  # 閫熷害
+            # 动态置信度阈值：根据距离和速度调整
+            # 参考 radard.py:126-157 的匹配逻辑
+            x = float(lead.x[0]) if len(lead.x) > 0 else 0.0  # 纵向距离
+            v = float(lead.v[0]) if len(lead.v) > 0 else 0.0  # 速度
 
-            # 浼樺寲锛氫娇鐢ㄧ被甯搁噺閰嶇疆鍔ㄦ€佺疆淇″害闃堝€�
-            # 鍔ㄦ€佽皟鏁寸疆淇″害闃堝€硷細璺濈瓒婅繙鎴栭€熷害宸紓瓒婂ぇ锛岃姹傜疆淇″害瓒婇珮
+            # 优化：使用类常量配置动态置信度阈值
+            # 动态调整置信度阈值：距离越远或速度差异越大，要求置信度越高
             min_prob = self.CONFIDENCE_BASE_THRESHOLD
             if x > self.CONFIDENCE_DISTANCE_THRESHOLD:
                 min_prob = max(min_prob, self.CONFIDENCE_DISTANCE_BOOST)
             if abs(v - v_ego) > self.CONFIDENCE_VELOCITY_DIFF_THRESHOLD:
                 min_prob = max(min_prob, self.CONFIDENCE_VELOCITY_BOOST)
 
-            # 杩囨护浣庣疆淇″害鐩爣
+            # 过滤低置信度目标
             if lead_prob < min_prob:
                 continue
 
-            # 鎻愬彇杞﹁締鏁版嵁
-            y = float(lead.y[0]) if len(lead.y) > 0 else 0.0  # 妯悜浣嶇疆
-            a = float(lead.a[0]) if len(lead.a) > 0 else 0.0  # 鍔犻€熷害
+            # 提取车辆数据
+            y = float(lead.y[0]) if len(lead.y) > 0 else 0.0  # 横向位置
+            a = float(lead.a[0]) if len(lead.a) > 0 else 0.0  # 加速度
 
-            # 璁＄畻鐩稿閫熷害锛堜娇鐢ㄦ洿鍑嗙‘鐨勮嚜杞﹂€熷害锛�
-            v_rel = v - v_ego  # 淇锛氫娇鐢� v_ego
+            # 计算相对速度（使用更准确的自车速度）
+            v_rel = v - v_ego  # 修复：使用 v_ego
 
-            # 璁＄畻 dRel锛堣€冭檻闆疯揪鍒扮浉鏈虹殑鍋忕Щ锛屽弬鑰� radard.py:220-243锛�
-            # 娉ㄦ剰锛氳櫧鐒朵笉浣跨敤闆疯揪锛屼絾 RADAR_TO_CAMERA 鏄浉鏈哄埌杞﹁締涓績鐨勫亸绉�
+            # 计算 dRel（考虑雷达到相机的偏移，参考 radard.py:220-243）
+            # 注意：虽然不使用雷达，但 RADAR_TO_CAMERA 是相机到车辆中心的偏移
             dRel = x - self.RADAR_TO_CAMERA
-            yRel = -y  # 娉ㄦ剰绗﹀彿锛歮odelV2.leadsV3[i].y 涓� yRel 绗﹀彿鐩稿弽
+            yRel = -y  # 注意符号：modelV2.leadsV3[i].y 与 yRel 符号相反
 
             # 浼拌妯悜閫熷害锛坹vRel锛� 鐢ㄤ簬鏈潵浣嶇疆棰勬祴
             # 瀵逛簬褰撳墠妫€娴嬭溅杈嗭紝浣跨敤绠€鍖栫殑鏂规硶锛氬亣璁炬í鍚戦€熷害涓庣浉瀵归€熷害鐩稿叧
@@ -648,47 +648,47 @@ class XiaogeDataBroadcaster:
                 'vRel': v_rel  # 鐩稿閫熷害
             }
 
-            # 涓�闆舵彁渚涘叿澶勬暟鎹�
+            # 为零提供此处数据
             vehicle_data.update({
-                'yvRel': yvRel,  # 妯悜閫熷害锛堢敤浜庢湭鏉ヤ綅缃娴嬶級
-                'dPath': dPath,  # 璺緞鍋忕Щ
-                'inLaneProb': in_lane_prob,  # 杞﹂亾鍐呮鐜�
-                'inLaneProbFuture': in_lane_prob_future,  # 鏈潵杞﹂亾鍐呮鐜囷紙鐢ㄤ簬 Cut-in 妫€娴嬶級
+                'yvRel': yvRel,  # 横向速度（用于未来位置预测）
+                'dPath': dPath,  # 路径偏移
+                'inLaneProb': in_lane_prob,  # 车道内概率
+                'inLaneProbFuture': in_lane_prob_future,  # 未来车道内概率（用于 Cut-in 检测）
                 'prob': lead_prob,
-                'timestamp': current_time  # 鏃堕棿鎴筹紝鐢ㄤ簬璁＄畻妯悜閫熷害
+                'timestamp': current_time  # 时间戳，用于计算横向速度
             })
 
-            # 浼樺寲锛氫娇鐢ㄧ被甯搁噺閰嶇疆杞﹂亾鍒嗙被闃堝€�
-            # 鏍规嵁杞﹂亾鍐呮鐜囧拰妯悜浣嶇疆鍒嗙被杞﹁締
-            # 鍙傝€?radard.py:520-546 鐨勫垎绫婚€昏緫
+            # 优化：使用类常量配置车道分类阈值
+            # 根据车道内概率和横向位置分类车辆
+            # 参考 radard.py:520-546 的分类逻辑
             if in_lane_prob > self.LANE_PROB_THRESHOLD:
-                # 褰撳墠杞﹂亾杞﹁締
+                # 当前车道车辆
                 center_vehicles.append(vehicle_data)
-            elif yRel < 0:  # 宸︿晶杞﹂亾
+            elif yRel < 0:  # 左侧车道
                 left_vehicles.append(vehicle_data)
-            else:  # 鍙充晶杞﹂亾
+            else:  # 右侧车道
                 right_vehicles.append(vehicle_data)
 
-        # 鍓嶈溅妫€娴� - 閫夋嫨褰撳墠杞﹂亾鏈€杩戠殑鍓嶈溅锛坙ead0锛�
-        # 绠€鍖栫増锛氬彧淇濈暀瓒呰溅鍐崇瓥蹇呴渶鐨勫瓧娈�
+        # 前车检测 - 选择当前车道最近的前车（lead0）
+        # 简化版：只保留超车决策必需的字段
         if center_vehicles:
-            # 閫夋嫨璺濈鏈€杩戠殑鍓嶈溅
+            # 选择距离最近的前车
             lead0 = min(center_vehicles, key=lambda v: v['x'])
             data['lead0'] = {
                 'x': lead0['x'],
-                'y': lead0['y'],  # 妯悜浣嶇疆锛堢敤浜庤繑鍥炲師杞﹂亾鍒ゆ柇锛�
+                'y': lead0['y'],  # 横向位置（用于返回原车道判断）
                 'v': lead0['v'],
                 'prob': lead0['prob'],
             }
         elif len(modelV2.leadsV3) > 0:
-            # 濡傛灉娌℃湁鏄庣‘鐨勪腑蹇冭溅閬撹溅杈嗭紝浣跨敤绗竴涓娴嬭溅杈�
+            # 如果没有明确的中心车道车辆，使用第一个检测车辆
             lead0 = modelV2.leadsV3[0]
             x = float(lead0.x[0]) if len(lead0.x) > 0 else 0.0
             y = float(lead0.y[0]) if len(lead0.y) > 0 else 0.0
             v = float(lead0.v[0]) if len(lead0.v) > 0 else 0.0
             data['lead0'] = {
                 'x': x,
-                'y': y,  # 妯悜浣嶇疆
+                'y': y,  # 横向位置
                 'v': v,
                 'prob': float(lead0.prob),
             }
@@ -697,10 +697,10 @@ class XiaogeDataBroadcaster:
                 'x': 0.0, 'y': 0.0, 'v': 0.0, 'prob': 0.0
             }
 
-        # 绗簩鍓嶈溅锛坙ead1锛夊凡鍒犻櫎 - 绠€鍖栫増涓嶅啀闇€瑕�
-        # 浼樺寲锛氫娇鐢ㄧ被甯搁噺閰嶇疆渚ф柟杞﹁締绛涢€夊弬鏁�
-        # 渚ф柟杞﹁締妫€娴� - 閫夋嫨鏈€杩戠殑宸︿晶鍜屽彸渚ц溅杈�
-        # 鍙傝€?radard.py:560-569 鐨勭瓫閫夐€昏緫
+        # 第二前车（lead1）已删除 - 简化版不再需要
+        # 优化：使用类常量配置侧方车辆筛选参数
+        # 侧方车辆检测 - 选择最近的左侧和右侧车辆
+        # 参考 radard.py:560-569 的筛选逻辑
         left_filtered = [
             v for v in left_vehicles
             if v['dRel'] > self.SIDE_VEHICLE_MIN_DISTANCE and abs(v['dPath']) < self.SIDE_VEHICLE_MAX_DPATH
@@ -710,13 +710,13 @@ class XiaogeDataBroadcaster:
             if v['dRel'] > self.SIDE_VEHICLE_MIN_DISTANCE and abs(v['dPath']) < self.SIDE_VEHICLE_MAX_DPATH
         ]
 
-        # Cut-in 妫€娴嬪凡鍒犻櫎 - 绠€鍖栫増涓嶅啀闇€瑕�
-        # 閫夋嫨宸︿晶鏈€杩戠殑杞﹁締 - 绠€鍖栫増锛氬彧淇濈暀瓒呰溅鍐崇瓥蹇呴渶鐨勫瓧娈�
+        # Cut-in 检测已删除 - 简化版不再需要
+        # 选择左侧最近的车辆 - 简化版：只保留超车决策必需的字段
         if left_filtered:
             lead_left = min(left_filtered, key=lambda vehicle: vehicle['dRel'])
             data['leadLeft'] = {
-                'dRel': lead_left['dRel'],  # 鐩稿浜庨浄杈剧殑璺濈
-                'vRel': lead_left['vRel'],  # 鐩稿閫熷害
+                'dRel': lead_left['dRel'],  # 相对于雷达的距离
+                'vRel': lead_left['vRel'],  # 相对速度
                 'status': True,
             }
         else:
@@ -726,12 +726,12 @@ class XiaogeDataBroadcaster:
                 'status': False
             }
 
-        # 閫夋嫨鍙充晶鏈€杩戠殑杞﹁締 - 绠€鍖栫増锛氬彧淇濈暀瓒呰溅鍐崇瓥蹇呴渶鐨勫瓧娈�
+        # 选择右侧最近的车辆 - 简化版：只保留超车决策必需的字段
         if right_filtered:
             lead_right = min(right_filtered, key=lambda vehicle: vehicle['dRel'])
             data['leadRight'] = {
-                'dRel': lead_right['dRel'],  # 鐩稿浜庨浄杈剧殑璺濈
-                'vRel': lead_right['vRel'],  # 鐩稿閫熷害
+                'dRel': lead_right['dRel'],  # 相对于雷达的距离
+                'vRel': lead_right['vRel'],  # 相对速度
                 'status': True,
             }
         else:
@@ -741,19 +741,19 @@ class XiaogeDataBroadcaster:
                 'status': False
             }
 
-        # Cut-in 妫€娴嬪凡鍒犻櫎 - 绠€鍖栫増涓嶅啀闇€瑕�
-        # 杞﹂亾绾跨疆淇″害 - 瓒呰溅鍐崇瓥闇€瑕�
+        # Cut-in 检测已删除 - 简化版不再需要
+        # 车道线置信度 - 超车决策需要
         data['laneLineProbs'] = [
-            float(modelV2.laneLineProbs[1]) if len(modelV2.laneLineProbs) >= 3 else 0.0,  # 宸﹁溅閬撶嚎缃俊搴�
-            float(modelV2.laneLineProbs[2]) if len(modelV2.laneLineProbs) >= 3 else 0.0,  # 鍙宠溅閬撶嚎缃俊搴�
+            float(modelV2.laneLineProbs[1]) if len(modelV2.laneLineProbs) >= 3 else 0.0,  # 左车道线置信度
+            float(modelV2.laneLineProbs[2]) if len(modelV2.laneLineProbs) >= 3 else 0.0,  # 右车道线置信度
         ]
 
-        # 杞﹂亾瀹藉害鍜屽彉閬撶姸鎬� - 淇濈暀锛堣秴杞﹀喅绛栭渶瑕侊級
+        # 车道宽度和变道状态 - 保留（超车决策需要）
         meta = modelV2.meta
 
-        # Cap'n Proto 鏋氫妇绫诲瀷杞崲锛歘DynamicEnum 绫诲瀷闇€瑕佺壒娈婂鐞�
+        # Cap'n Proto 枚举类型转换：_DynamicEnum 类型需要特殊处理
         def enum_to_int(enum_value, default=0):
-            """灏� Cap'n Proto 鏋氫妇杞崲涓烘暣鏁�"""
+            """将 Cap'n Proto 枚举转换为整数"""
             if enum_value is None:
                 return default
             try:
@@ -770,19 +770,36 @@ class XiaogeDataBroadcaster:
                         except (ValueError, AttributeError):
                             return default
 
-        data['meta'] = {
-            'laneWidthLeft': float(meta.laneWidthLeft),  # 宸﹁溅閬撳搴�
-            'laneWidthRight': float(meta.laneWidthRight),  # 鍙宠溅閬撳搴�
-            'laneChangeState': enum_to_int(meta.laneChangeState, 0),  # 鍙橀亾鐘舵€�
-            'laneChangeDirection': enum_to_int(meta.laneChangeDirection, 0),  # 鍙橀亾鏂瑰悜
+        # 在现有的 meta 字段之前添加驾驶意图数据
+        data['drivingIntent'] = {
+            'desire': int(meta.desire),  # 驾驶意图（直行、左转、右转等）
+            'desireState': [float(x) for x in meta.desireState],  # 各种意图的概率
+            'laneChangeProb': float(meta.laneChangeProb),  # 变道概率
+            'disengagePredictions': {  # 脱管预测
+                'brakeDisengageProbs': [float(x) for x in meta.disengagePredictions.brakeDisengageProbs],
+                'gasDisengageProbs': [float(x) for x in meta.disengagePredictions.gasDisengageProbs],
+            }
         }
 
-        # 鏇茬巼淇℃伅 - 鐢ㄤ簬鍒ゆ柇寮亾锛堣秴杞﹀喅绛栧叧閿暟鎹級
-        # 淇锛氭敼杩涚┖鍒楄〃妫€鏌ラ€昏緫锛屼娇浠ｇ爜鏇存竻鏅�
+        data['meta'] = {
+            'laneWidthLeft': float(meta.laneWidthLeft),  # 左车道宽度
+            'laneWidthRight': float(meta.laneWidthRight),  # 右车道宽度
+            'laneChangeState': enum_to_int(meta.laneChangeState, 0),  # 变道状态
+            'laneChangeDirection': enum_to_int(meta.laneChangeDirection, 0),  # 变道方向
+        }
+
+        # 在现有的 meta 字典中添加道路边缘距离
+        data['meta'].update({
+            'distanceToRoadEdgeLeft': float(meta.distanceToRoadEdgeLeft),  # 左侧距离道路边缘
+            'distanceToRoadEdgeRight': float(meta.distanceToRoadEdgeRight),  # 右侧距离道路边缘
+        })
+
+        # 曲率信息 - 用于判断弯道（超车决策关键数据）
+        # 修复：改进空列表检查逻辑，使代码更清晰
         if hasattr(modelV2, 'orientationRate') and len(modelV2.orientationRate.z) > 0:
             orientation_rate_z = [float(x) for x in modelV2.orientationRate.z]
             data['curvature'] = {
-                'maxOrientationRate': max(orientation_rate_z, key=abs),  # 鏈€澶ф柟鍚戝彉鍖栫巼 (rad/s)
+                'maxOrientationRate': max(orientation_rate_z, key=abs),  # 最大方向变化率 (rad/s)
             }
         else:
             data['curvature'] = {'maxOrientationRate': 0.0}
@@ -790,19 +807,19 @@ class XiaogeDataBroadcaster:
         return data
 
     def collect_system_state(self, selfdriveState) -> Dict[str, Any]:
-        """鏀堕泦绯荤粺鐘舵€�"""
+        """收集系统状态"""
         return {
             'enabled': bool(selfdriveState.enabled) if selfdriveState else False,
             'active': bool(selfdriveState.active) if selfdriveState else False,
         }
 
-    # 绉婚櫎 collect_carrot_data() - CarrotMan 鏁版嵁宸蹭笉鍐嶉渶瑕�
-    # 绉婚櫎 collect_blindspot_data() - 鐩插尯鏁版嵁宸茬洿鎺ヤ粠 carState 鑾峰彇
+    # 移除 collect_carrot_data() - CarrotMan 数据已不再需要
+    # 移除 collect_blindspot_data() - 盲区数据已直接 from carState 获取
 
     def create_packet(self, data: Dict[str, Any]) -> bytes:
         """
-        鍒涘缓鏁版嵁鍖�
-        杩斿洖: UTF-8 缂栫爜鐨� JSON 瀛楄妭涓�
+        创建数据包
+        返回: UTF-8 编码的 JSON 字节串
         """
         packet_data = {
             'version': 1,
@@ -812,31 +829,31 @@ class XiaogeDataBroadcaster:
             'data': data
         }
 
-        # 杞崲涓篔SON
+        # 转换为JSON
         json_str = json.dumps(packet_data)
         packet_bytes = json_str.encode('utf-8')
 
-        # 鐩存帴杩斿洖 JSON 瀛楄妭鏁版嵁锛岀敱鍙戦€佸嚱鏁拌礋璐ｆ坊鍔犻暱搴﹀ご
-        # TCP 鍗忚鏈韩淇濊瘉鏁版嵁瀹屾暣鎬э紝鏃犻渶搴旂敤灞� CRC32 鏍￠獙
+        # 直接返回 JSON 字节数据，由发送函数负责添加长度头
+        # TCP 协议本身保证数据完整性，无需应用层 CRC32 校验
 
-        # 妫€鏌ユ暟鎹寘澶у皬
-        if len(packet_bytes) > 1024 * 1024:  # 1MB 璀﹀憡
+        # 检查数据包大小
+        if len(packet_bytes) > 1024 * 1024:  # 1MB 警告
             print(f"Warning: Large packet size {len(packet_bytes)} bytes")
 
         return packet_bytes
 
     def broadcast_data(self):
-        """涓诲惊鐜細鏀堕泦鏁版嵁骞堕€氳繃 TCP 鎺ㄩ€佺粰鎵€鏈夎繛鎺ョ殑瀹㈡埛绔�"""
+        """主循环：收集数据并通过 TCP 推送给所有连接的客户端"""
         rk = Ratekeeper(20, print_delay_threshold=None)  # 20Hz
 
-        # 鍚姩 TCP 鏈嶅姟鍣紙鍦ㄧ嫭绔嬬嚎绋嬩腑杩愯锛�
+        # 启动 TCP 服务器（在独立线程中运行）
         server_thread = threading.Thread(
             target=self.start_tcp_server,
-            daemon=True  # 璁剧疆涓哄畧鎶ょ嚎绋�
+            daemon=True  # 设置为守护线程
         )
         server_thread.start()
 
-        # 绛夊緟鏈嶅姟鍣ㄥ惎鍔�
+        # 等待服务器启动
         time.sleep(0.5)
 
         print(f"XiaogeDataBroadcaster started, TCP server listening on port {self.tcp_port}")
@@ -844,81 +861,81 @@ class XiaogeDataBroadcaster:
         try:
             while True:
                 try:
-                    # 鎬ц兘鐩戞帶
+                    # 性能监控
                     start_time = time.perf_counter()
 
-                    # 鏇存柊鎵€鏈夋秷鎭�
+                    # 更新所有消息
                     self.sm.update(0)
 
-                    # 鏀堕泦鏁版嵁
+                    # 收集数据
                     data = {}
 
-                    # 鏈溅鐘舵€� - 濮嬬粓鏀堕泦锛堟暟鎹獙璇佸凡鍦� collect_car_state() 鍐呴儴瀹屾垚锛�
+                    # 本车状态 - 始终收集（数据验证已在 collect_car_state() 内部完成）
                     if self.sm.alive['carState']:
                         data['carState'] = self.collect_car_state(self.sm['carState'])
 
-                    # 妯″瀷鏁版嵁
+                    # 模型数据
                     if self.sm.alive['modelV2']:
-                        # 淇锛氫紶閫� carState 浠ヨ幏鍙栨洿鍑嗙‘鐨勮嚜杞﹂€熷害
+                        # 修复：传递 carState 以获取更准确的自车速度
                         carState = self.sm['carState'] if self.sm.alive['carState'] else None
                         data['modelV2'] = self.collect_model_data(self.sm['modelV2'], carState)
 
-                    # 绯荤粺鐘舵€�
+                    # 系统状态
                     if self.sm.alive['selfdriveState']:
                         data['systemState'] = self.collect_system_state(
                             self.sm['selfdriveState']
                         )
 
-                    # 鐩插尯鏁版嵁宸插寘鍚湪 carState 涓�
+                    # 盲区数据已包含在 carState 中
 
-                    # 鎬ц兘鐩戞帶
+                    # 性能监控
                     processing_time = time.perf_counter() - start_time
-                    if processing_time > 0.05:  # 瓒呰繃50ms
+                    if processing_time > 0.05:  # 超过50ms
                         print(f"Warning: Slow processing detected: {processing_time * 1000:.1f}ms")
 
-                    # 濡傛灉鏈夋暟鎹垯鎺ㄩ€佺粰鎵€鏈夎繛鎺ョ殑瀹㈡埛绔�
-                    # 娉ㄦ剰锛氬鏋� openpilot 绯荤粺姝ｅ父杩愯锛岃嚦灏戜細鏈� carState 鏁版嵁
-                    # 蹇冭烦鏈哄埗宸插湪 handle_client() 涓疄鐜帮紙30绉掗棿闅旓級
+                    # 如果有数据则推送给所有连接的客户端
+                    # 注意：如果 openpilot 系统正常运行，至少会有 carState 数据
+                    # 心跳机制已在 handle_client() 中实现（30秒间隔）
                     if data:
                         packet = self.create_packet(data)
 
                         try:
-                            # 鍚戞墍鏈夎繛鎺ョ殑瀹㈡埛绔箍鎾暟鎹寘
+                            # 向所有连接的客户端广播数据包
                             self.broadcast_to_clients(packet)
                             self.sequence += 1
 
-                            # 姣� 100 甯ф墦鍗颁竴娆℃棩蹇�
+                            # 每 100 帧打印一次日志
                             if self.sequence % 100 == 0:
                                 with self.clients_lock:
                                     client_count = len(self.clients)
-                                print(f"Sent {self.sequence} packets to {client_count} clients), last size: {len(packet)} bytes")
+                                print(f"Sent {self.sequence} packets to {client_count} clients, last size: {len(packet)} bytes")
                         except Exception as e:
                             print(f"Failed to send packet to clients: {e}")
                     else:
-                        # 濡傛灉娌℃湁鏁版嵁锛屽彂閫佷竴涓渶灏忕殑蹇冭烦鏁版嵁鍖咃紝淇濇寔杩炴帴娲昏穬
-                        # 杩欐牱瀹㈡埛绔氨涓嶄細鍥犱负瓒呮椂鑰屾柇寮€杩炴帴
+                        # 如果没有数据，发送一个最小的心跳数据包，保持连接活跃
+                        # 这样客户端就不会因为超时而断开连接
                         try:
-                            # 鍒涘缓涓€涓渶灏忕殑蹇冭烦鏁版嵁鍖咃紙鍙寘鍚熀鏈粨鏋勶紝 data 瀛楁涓虹┖瀵硅薄锛�
-                            # 娉ㄦ剰锛歞ata 瀛楁蹇呴』鏄湁鏁堢殑 JSON 瀵硅薄锛屼笉鑳戒负 null锛屽惁鍒橝ndroid 绔В鏋愪細澶辫触
+                            # 创建一个最小的心跳数据包（只包含基本结构， data 字段为空对象）
+                            # 注意：data 字段必须是有效的 JSON 对象，不能为 null，否则Android 端解析会失败
                             heartbeat_packet = {
                                 'version': 1,
                                 'sequence': self.sequence,
                                 'timestamp': time.time(),
                                 'ip': self.device_ip,
-                                'data': {}  # 绌哄璞★紝鑰屼笉鏄痭ull锛岀‘淇滱ndroid 绔兘姝ｇ‘瑙ｆ瀽
+                                'data': {}  # 空对象，而不是null，确保Android 端能正确解析
                             }
                             json_str = json.dumps(heartbeat_packet)
                             packet_bytes = json_str.encode('utf-8')
                             self.broadcast_to_clients(packet_bytes)
                             self.sequence += 1
                         except Exception:
-                            # 蹇冭烦鍖呭彂閫佸け璐ヤ笉褰卞搷涓绘祦绋�
+                            # 心跳包发送失败不影响主流程
                             pass
 
                     rk.keep_time()
 
                 except KeyboardInterrupt:
-                    # 鎹曡幏 Ctrl+C锛屼紭闆呭叧闂�
+                    # 捕获 Ctrl+C，优雅关闭
                     print("\nReceived shutdown signal, closing gracefully...")
                     break
                 except Exception as e:
@@ -926,7 +943,7 @@ class XiaogeDataBroadcaster:
                     traceback.print_exc()
                     time.sleep(1)
         finally:
-            # 纭繚浼橀泤鍏抽棴
+            # 确保优雅关闭
             self.shutdown()
 
 
