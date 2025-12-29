@@ -1,0 +1,1133 @@
+#!/usr/bin/env python3
+"""
+Xiaoge哨兵模式 - 主程序
+基于加速度计监测震动，触发拍照并记录到数据库
+"""
+import numpy as np
+import cereal.messaging as messaging
+from datetime import datetime
+import time
+import os
+import requests
+import sqlite3
+import threading
+import base64
+import io
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
+from typing import Optional, Tuple
+from openpilot.common.params import Params
+from openpilot.system.hardware import PC
+from openpilot.system.hardware.hw import Paths
+from PIL import Image
+
+# ============ 配置常量 ============
+# 使用openpilot的路径系统，兼容PC和设备
+if PC:
+    # PC环境：使用comma_home下的目录
+    MEDIA_DIR = os.path.join(Paths.comma_home(), "media", "sentry")
+else:
+    # 设备环境：使用/data/media/sentry
+    MEDIA_DIR = "/data/media/sentry"
+
+DB_PATH = os.path.join(MEDIA_DIR, "sentry.db")
+
+# 确保目录存在，设置正确的权限
+try:
+    os.makedirs(MEDIA_DIR, mode=0o755, exist_ok=True)
+except OSError as e:
+    print(f"Warning: Failed to create media directory {MEDIA_DIR}: {e}")
+    # 如果创建失败，尝试使用备用路径
+    if not PC:
+        MEDIA_DIR = "/tmp/sentry"
+        DB_PATH = os.path.join(MEDIA_DIR, "sentry.db")
+        os.makedirs(MEDIA_DIR, mode=0o755, exist_ok=True)
+
+# ============ 数据库管理类 ============
+class SentryDB:
+    """SQLite数据库管理，处理配置和事件日志"""
+
+    def __init__(self):
+        self.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+        self.lock = threading.Lock()
+        self.init_tables()
+
+    def init_tables(self):
+        """初始化数据库表结构"""
+        with self.lock:
+            cursor = self.conn.cursor()
+
+            # 配置表 - 包含推送和邮件相关字段
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS config (
+                    id INTEGER PRIMARY KEY,
+                    sensitivity_threshold REAL DEFAULT 0.08,
+                    webhook_url TEXT,
+                    webserver_url TEXT,
+                    web_password TEXT DEFAULT '8899',
+                    push_url TEXT,
+                    notification_type TEXT DEFAULT 'api',
+                    email_from TEXT,
+                    email_to TEXT,
+                    email_password TEXT,
+                    smtp_server TEXT,
+                    smtp_port INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # 检查并添加缺失的字段（数据库迁移）
+            cursor.execute("PRAGMA table_info(config)")
+            columns = [column[1] for column in cursor.fetchall()]
+            column_names = set(columns)
+
+            # 添加缺失的字段
+            if 'push_url' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN push_url TEXT')
+            if 'notification_type' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN notification_type TEXT DEFAULT "api"')
+            if 'email_from' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN email_from TEXT')
+            if 'email_to' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN email_to TEXT')
+            if 'email_password' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN email_password TEXT')
+            if 'smtp_server' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN smtp_server TEXT')
+            if 'smtp_port' not in column_names:
+                cursor.execute('ALTER TABLE config ADD COLUMN smtp_port INTEGER')
+
+            # 事件日志表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    event_type TEXT,
+                    delta_accel REAL,
+                    image_path TEXT,
+                    video_path TEXT,
+                    front_image_path TEXT,
+                    back_image_path TEXT,
+                    webhook_sent BOOLEAN DEFAULT 0,
+                    notes TEXT
+                )
+            ''')
+
+            # 插入默认配置
+            cursor.execute('SELECT COUNT(*) FROM config')
+            if cursor.fetchone()[0] == 0:
+                cursor.execute('''
+                    INSERT INTO config (sensitivity_threshold, web_password)
+                    VALUES (0.08, '8899')
+                ''')
+
+            self.conn.commit()
+
+    def get_config(self) -> dict:
+        """获取配置参数"""
+        with self.lock:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT * FROM config WHERE id = 1')
+            row = cursor.fetchone()
+            if row:
+                # 兼容旧版本数据库，安全获取字段值
+                config = {
+                    'sensitivity_threshold': row[1] if len(row) > 1 else 0.08,
+                    'webhook_url': row[2] if len(row) > 2 else None,
+                    'webserver_url': row[3] if len(row) > 3 else None,
+                    'web_password': row[4] if len(row) > 4 else '8899',
+                    'push_url': row[5] if len(row) > 5 else None,
+                    'notification_type': row[6] if len(row) > 6 else 'api',
+                    'email_from': row[7] if len(row) > 7 else None,
+                    'email_to': row[8] if len(row) > 8 else None,
+                    'email_password': row[9] if len(row) > 9 else None,
+                    'smtp_server': row[10] if len(row) > 10 else None,
+                    'smtp_port': row[11] if len(row) > 11 else None
+                }
+                return config
+            return {
+                'sensitivity_threshold': 0.08,
+                'web_password': '8899',
+                'push_url': None,
+                'notification_type': 'api',
+                'email_from': None,
+                'email_to': None,
+                'email_password': None,
+                'smtp_server': None,
+                'smtp_port': None
+            }
+
+    def update_config(self, **kwargs):
+        """更新配置参数"""
+        with self.lock:
+            cursor = self.conn.cursor()
+            fields = []
+            values = []
+            for key, value in kwargs.items():
+                fields.append(f"{key} = ?")
+                values.append(value)
+
+            if fields:
+                query = f"UPDATE config SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = 1"
+                cursor.execute(query, values)
+                self.conn.commit()
+
+    def log_event(self, event_type: str, delta_accel: float,
+                  image_path: Optional[str] = None,
+                  video_path: Optional[str] = None,
+                  front_image_path: Optional[str] = None,
+                  back_image_path: Optional[str] = None,
+                  webhook_sent: bool = False,
+                  notes: Optional[str] = None) -> int:
+        """记录哨兵事件"""
+        with self.lock:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                INSERT INTO events (event_type, delta_accel, image_path, video_path,
+                                  front_image_path, back_image_path, webhook_sent, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (event_type, delta_accel, image_path, video_path,
+                  front_image_path, back_image_path, webhook_sent, notes))
+            self.conn.commit()
+            return cursor.lastrowid
+
+    def get_events(self, limit: int = 50) -> list:
+        """获取事件列表"""
+        with self.lock:
+            cursor = self.conn.cursor()
+            cursor.execute('''
+                SELECT * FROM events ORDER BY timestamp DESC LIMIT ?
+            ''', (limit,))
+
+            events = []
+            for row in cursor.fetchall():
+                events.append({
+                    'id': row[0],
+                    'timestamp': row[1],
+                    'event_type': row[2],
+                    'delta_accel': row[3],
+                    'image_path': row[4],
+                    'video_path': row[5],
+                    'front_image_path': row[6],
+                    'back_image_path': row[7],
+                    'webhook_sent': row[8],
+                    'notes': row[9]
+                })
+            return events
+
+    def delete_event(self, event_id: int):
+        """删除事件记录"""
+        with self.lock:
+            cursor = self.conn.cursor()
+            cursor.execute('DELETE FROM events WHERE id = ?', (event_id,))
+            self.conn.commit()
+
+
+# ============ 哨兵模式核心类 ============
+class SentryMode:
+    """哨兵模式主程序，监测加速度并触发拍照"""
+
+    def __init__(self, db: SentryDB):
+        self.sm = messaging.SubMaster(['accelerometer'])
+        self.params = Params()
+        self.db = db
+
+        self.curr_accel = 0
+        self.prev_accel = None
+        self.sentry_status = False
+        self.secDelay = 0
+        self.transition_to_offroad_last = time.monotonic()
+        self.offroad_delay =10  # 等待90秒后开始监测（避免刚停车时的误触发）
+        self.last_timestamp = 0
+        self.last_config_reload = time.monotonic()
+        self.config_reload_interval = 30  # 每30秒重新加载一次配置
+
+        # 用于跟踪连续小于阈值的次数
+        self.below_threshold_count = 0
+        self.below_threshold_reset = 5  # 连续5次小于阈值才重置secDelay
+
+        # 初始化调试时间戳
+        self._last_warning_time = -1
+        self._last_debug_time = -1
+
+        # 检查OpenCV是否可用（录像功能依赖）
+        try:
+            import cv2
+            self.video_recording_available = True
+        except ImportError:
+            self.video_recording_available = False
+            print("Warning: OpenCV not installed, video recording disabled. Install with: pip3 install opencv-python")
+
+        # 从数据库加载配置
+        self.reload_config()
+        print("Xiaoge SentryMode initialized")
+
+    def reload_config(self):
+        """从数据库重新加载配置"""
+        config = self.db.get_config()
+        self.sensitivity_threshold = config.get('sensitivity_threshold', 0.08)
+        self.webhook_url = config.get('webhook_url')  # Discord Webhook（可选）
+        self.email_from = config.get('email_from')
+        self.email_to = config.get('email_to')
+        self.email_password = config.get('email_password')
+        self.smtp_server = config.get('smtp_server')
+        self.smtp_port = config.get('smtp_port')
+        self.frontAllowed = self.params.get_bool("RecordFront")
+
+    def takeSnapshot(self) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """拍摄前后摄像头照片并拼接（支持camerad已运行的情况）"""
+        try:
+            from openpilot.system.camerad.snapshot.snapshot import get_snapshots, jpeg_write
+            from msgq.visionipc import VisionIpcClient, VisionStreamType
+            import cereal.messaging as messaging
+            from openpilot.common.realtime import DT_MDL
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            back_path = None
+            front_path = None
+            combined_path = None
+
+            # 检查camerad是否运行
+            camerad_running = self.is_camerad_running()
+
+            if not camerad_running:
+                # 如果camerad未运行，使用snapshot函数（会自动启动和停止camerad）
+                from openpilot.system.camerad.snapshot.snapshot import snapshot
+                pic, fpic = snapshot()
+            else:
+                # 如果camerad已运行，直接使用VisionIpcClient获取快照（不需要等待4秒）
+                print("Camerad is running, using direct snapshot method...")
+                from openpilot.system.camerad.snapshot.snapshot import extract_image
+                from msgq.visionipc import VisionIpcClient, VisionStreamType
+
+                pic, fpic = None, None
+
+                # 获取后摄像头照片（使用wideRoadCameraState）
+                try:
+                    vipc_rear = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
+                    if vipc_rear.connect(True):
+                        buf = vipc_rear.recv()
+                        if buf is not None:
+                            pic = extract_image(buf)
+                except Exception as e:
+                    print(f"Error getting rear camera snapshot: {e}")
+
+                # 获取前摄像头照片（如果允许）
+                if self.frontAllowed:
+                    try:
+                        vipc_front = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_DRIVER, True)
+                        if vipc_front.connect(True):
+                            buf = vipc_front.recv()
+                            if buf is not None:
+                                fpic = extract_image(buf)
+                    except Exception as e:
+                        print(f"Error getting front camera snapshot: {e}")
+
+            if pic is not None:
+                back_path = os.path.join(MEDIA_DIR, f"back_{timestamp}.jpg")
+                jpeg_write(back_path, pic)
+                print(f"Back camera photo saved: {back_path}")
+
+            if fpic is not None:
+                front_path = os.path.join(MEDIA_DIR, f"front_{timestamp}.jpg")
+                jpeg_write(front_path, fpic)
+                print(f"Front camera photo saved: {front_path}")
+
+            if pic is not None and fpic is not None:
+                combined_path = os.path.join(MEDIA_DIR, f"360_{timestamp}.jpg")
+                self.stitch_images(front_path, back_path, combined_path)
+                print(f"Combined 360 photo saved: {combined_path}")
+            elif pic is not None:
+                # 如果只有后摄像头照片，使用它作为combined_path
+                combined_path = back_path
+                print(f"Using back camera photo as combined: {combined_path}")
+
+            return back_path, front_path, combined_path
+        except Exception as e:
+            print(f"Snapshot error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None, None
+
+    def is_camerad_running(self) -> bool:
+        """检查camerad是否运行（使用VisionIpcClient连接测试）"""
+        try:
+            from msgq.visionipc import VisionIpcClient, VisionStreamType
+            vipc_client = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
+            return vipc_client.connect(False)
+        except Exception:
+            return False
+
+    def capture_gif_animation(self, duration: int = 3, fps: int = 10, total_frames: int = 30) -> Optional[str]:
+        """捕捉多张图片并合并成GIF动画（更省电，文件更小）"""
+        try:
+            from msgq.visionipc import VisionIpcClient, VisionStreamType
+            from openpilot.system.camerad.snapshot.snapshot import extract_image
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            gif_path = os.path.join(MEDIA_DIR, f"sentry_{timestamp}.gif")
+
+            # 检查camerad是否运行
+            camerad_running = self.is_camerad_running()
+
+            # 连接到广角摄像头流
+            vipc_client = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
+
+            # 如果camerad未运行，启动它
+            if not camerad_running:
+                print("Wide camera not available, starting camerad...")
+                from openpilot.system.manager.process_config import managed_processes
+                managed_processes['camerad'].start()
+                time.sleep(2)  # 等待camerad启动
+
+            # 连接到摄像头流
+            if not vipc_client.connect(True):
+                print("Failed to connect to wide camera for GIF capture")
+                return None
+
+            # 捕捉多张图片
+            frames = []
+            frame_interval = 1.0 / fps  # 每帧间隔（10fps = 0.1秒）
+            start_time = time.monotonic()
+            frame_count = 0
+
+            print(f"Capturing {total_frames} frames for GIF ({duration}s @ {fps}fps)...")
+
+            while frame_count < total_frames and (time.monotonic() - start_time) < duration:
+                try:
+                    buf = vipc_client.recv()
+                    if buf is not None:
+                        frame = extract_image(buf)
+                        if frame is not None:
+                            # 转换为PIL Image并压缩（减小文件大小）
+                            frame_pil = Image.fromarray(frame)
+                            # 压缩到合适大小（最大800px宽度）
+                            width, height = frame_pil.size
+                            if width > 800:
+                                ratio = 800 / width
+                                new_width = 800
+                                new_height = int(height * ratio)
+                                frame_pil = frame_pil.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                            frames.append(frame_pil)
+                            frame_count += 1
+                except Exception as e:
+                    print(f"Error capturing frame {frame_count}: {e}")
+                    # 继续尝试
+
+                # 控制帧率
+                time.sleep(frame_interval)
+
+            if len(frames) == 0:
+                print("No frames captured for GIF")
+                return None
+
+            # 保存为GIF动画
+            # 第一帧作为主帧，其余帧作为附加帧
+            if len(frames) > 1:
+                frames[0].save(
+                    gif_path,
+                    save_all=True,
+                    append_images=frames[1:],
+                    duration=int(1000 / fps),  # 每帧持续时间（毫秒）
+                    loop=0,  # 无限循环
+                    optimize=True  # 优化文件大小
+                )
+            else:
+                # 如果只有一帧，保存为静态图片
+                frames[0].save(gif_path)
+
+            print(f"GIF animation created: {len(frames)} frames, saved to {gif_path}")
+
+            # 如果camerad是我们启动的且不在onroad状态，停止它
+            if not camerad_running and not self.params.get_bool("IsOnroad"):
+                try:
+                    from openpilot.system.manager.process_config import managed_processes
+                    managed_processes['camerad'].stop()
+                except Exception as e:
+                    print(f"Error stopping camerad: {e}")
+
+            return gif_path if os.path.exists(gif_path) else None
+
+        except Exception as e:
+            print(f"GIF capture error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def record_wide_camera_video(self, duration: int = 10) -> Optional[str]:
+        """录制广角摄像头视频"""
+        # 检查OpenCV是否可用
+        if not self.video_recording_available:
+            print("Video recording disabled: OpenCV not installed")
+            return None
+
+        try:
+            import cv2
+            from msgq.visionipc import VisionIpcClient, VisionStreamType
+            from openpilot.system.camerad.snapshot.snapshot import extract_image
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            video_path = os.path.join(MEDIA_DIR, f"sentry_{timestamp}.mp4")
+
+            # 检查camerad是否运行（使用VisionIpcClient连接测试）
+            camerad_running = self.is_camerad_running()
+
+            # 连接到广角摄像头流
+            vipc_client = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, True)
+
+            # 如果camerad未运行，启动它
+            if not camerad_running:
+                print("Wide camera not available, starting camerad...")
+                from openpilot.system.manager.process_config import managed_processes
+                managed_processes['camerad'].start()
+                time.sleep(2)  # 等待camerad启动
+
+            # 连接到摄像头流
+            if not vipc_client.connect(True):
+                print("Failed to connect to wide camera stream")
+                return None
+
+            # 获取第一帧以确定视频尺寸
+            print("Waiting for first frame from wide camera...")
+            buf = vipc_client.recv()
+            if buf is None:
+                print("Failed to receive frame from wide camera (timeout or no data)")
+                print("Hint: Check if camerad is running: pgrep -f camerad")
+                return None
+
+            frame = extract_image(buf)
+            if frame is None:
+                print("Failed to extract image from buffer")
+                return None
+
+            height, width = frame.shape[:2]
+
+            # 初始化视频写入器 (使用avc1/H.264编码，更好的浏览器兼容性)
+            # 尝试使用avc1，如果不支持则fallback到mp4v
+            fourcc = None
+            test_file = '/tmp/test_sentry_video.mp4'
+            for codec in ['avc1', 'H264', 'mp4v']:
+                try:
+                    test_fourcc = cv2.VideoWriter_fourcc(*codec)
+                    test_writer = cv2.VideoWriter(test_file, test_fourcc, 20, (width, height))
+                    if test_writer.isOpened():
+                        test_writer.release()
+                        # 清理测试文件
+                        if os.path.exists(test_file):
+                            try:
+                                os.remove(test_file)
+                            except Exception:
+                                pass
+                        fourcc = test_fourcc
+                        print(f"Using video codec: {codec}")
+                        break
+                except Exception:
+                    continue
+
+            if fourcc is None:
+                print("Warning: Failed to find suitable video codec, using default mp4v...")
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+            fps = 20  # 广角摄像头帧率
+            out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+            if not out.isOpened():
+                print(f"Failed to open video writer for {video_path}")
+                return None
+
+            print(f"Recording {duration}s video from wide camera ({width}x{height} @ {fps}fps)...")
+            start_time = time.monotonic()
+            frame_count = 0
+
+            # 录制指定时长
+            # 改进的帧接收逻辑：使用更积极的帧接收策略
+            vipc_client.connect(True)  # 确保连接
+            last_frame_time = time.monotonic()
+            frame_interval = 1.0 / fps  # 每帧间隔（20fps = 0.05秒）
+            max_wait_time = frame_interval * 2  # 最多等待2倍帧间隔
+
+            while (time.monotonic() - start_time) < duration:
+                frame_start = time.monotonic()
+                try:
+                    # 尝试接收帧（非阻塞）
+                    buf = vipc_client.recv()
+                    if buf is not None:
+                        frame = extract_image(buf)
+                        if frame is not None:
+                            # OpenCV需要BGR格式
+                            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                            out.write(frame_bgr)
+                            frame_count += 1
+                            last_frame_time = time.monotonic()
+                    else:
+                        # 如果没有收到帧，等待一小段时间后继续
+                        time.sleep(0.01)
+                except Exception as e:
+                    print(f"Error receiving frame: {e}")
+                    # 继续尝试，不要因为单帧错误而停止
+
+                # 控制帧率：确保每帧间隔正确
+                elapsed = time.monotonic() - frame_start
+                if elapsed < frame_interval:
+                    time.sleep(frame_interval - elapsed)
+
+            out.release()
+            print(f"Video recording completed: {frame_count} frames, saved to {video_path}")
+
+            # 如果camerad是我们启动的且不在onroad状态，停止它
+            if not camerad_running and not self.params.get_bool("IsOnroad"):
+                try:
+                    from openpilot.system.manager.process_config import managed_processes
+                    managed_processes['camerad'].stop()
+                except Exception as e:
+                    print(f"Error stopping camerad: {e}")
+
+            return video_path if os.path.exists(video_path) else None
+
+        except Exception as e:
+            print(f"Video recording error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def send_discord_webhook(self, message: str, image_path: Optional[str] = None) -> bool:
+        """发送Discord通知"""
+        if not self.webhook_url:
+            return False
+
+        data = {"content": message}
+        try:
+            if image_path and os.path.exists(image_path):
+                with open(image_path, "rb") as file:
+                    files = {"file": file}
+                    response = requests.post(self.webhook_url, data=data, files=files, timeout=10)
+            else:
+                headers = {"Content-Type": "application/json"}
+                response = requests.post(self.webhook_url, json=data, headers=headers, timeout=10)
+
+            if response.status_code in [200, 204]:
+                return True
+            else:
+                print(f"Discord webhook error: HTTP {response.status_code} - {response.text}")
+                return False
+        except Exception as e:
+            print(f"Discord webhook error: {e}")
+            return False
+
+    def compress_image_to_base64(self, image_path: Optional[str], max_size: int = 800, quality: int = 75) -> Optional[str]:
+        """压缩图片并转换为base64编码"""
+        if not image_path or not os.path.exists(image_path):
+            return None
+
+        try:
+            # 打开图片
+            img = Image.open(image_path)
+
+            # 计算缩放比例
+            width, height = img.size
+            if width > max_size or height > max_size:
+                if width > height:
+                    new_width = max_size
+                    new_height = int(height * (max_size / width))
+                else:
+                    new_height = max_size
+                    new_width = int(width * (max_size / height))
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+            # 转换为RGB模式（如果不是）
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+
+            # 压缩并转换为base64
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=quality, optimize=True)
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            return f"data:image/jpeg;base64,{image_base64}"
+        except Exception as e:
+            print(f"Image compression error: {e}")
+            return None
+
+    def generate_notification_html(self, delta_accel: float, image_base64: Optional[str] = None) -> str:
+        """生成统一的HTML通知内容（兼容邮件和API推送）"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 优化后的HTML，兼容邮件客户端和Web浏览器
+        html_content = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    /* 内联样式，确保邮件客户端兼容 */
+    body {{
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      padding: 0;
+      margin: 0;
+      background-color: #f5f5f5;
+      -webkit-font-smoothing: antialiased;
+    }}
+    .container {{
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }}
+    .header {{
+      text-align: center;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e5e5e5;
+      margin-bottom: 20px;
+    }}
+    .header h2 {{
+      color: #dc2626;
+      margin: 0;
+      font-size: 22px;
+      font-weight: bold;
+    }}
+    .info-table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 14px;
+    }}
+    .info-table td {{
+      padding: 10px 8px;
+      border-bottom: 1px solid #eeeeee;
+      vertical-align: top;
+    }}
+    .info-table td:first-child {{
+      font-weight: bold;
+      color: #666666;
+      width: 35%;
+    }}
+    .info-table td:last-child {{
+      color: #333333;
+    }}
+    .delta-value {{
+      color: #dc2626;
+      font-weight: bold;
+      font-size: 16px;
+    }}
+    .image-section {{
+      margin: 20px 0;
+      text-align: center;
+    }}
+    .image-section img {{
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      border: 1px solid #e5e5e5;
+      display: block;
+      margin: 10px auto;
+    }}
+    .tip-box {{
+      margin-top: 20px;
+      padding: 12px 15px;
+      background-color: #fff3cd;
+      border-left: 4px solid #ffc107;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #856404;
+    }}
+    .tip-box strong {{
+      color: #78350f;
+    }}
+    @media only screen and (max-width: 600px) {{
+      .container {{
+        padding: 15px;
+        border-radius: 0;
+      }}
+      .header h2 {{
+        font-size: 20px;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>🚨 哨兵模式触发警报</h2>
+    </div>
+
+    <table class="info-table">
+      <tr>
+        <td>触发时间</td>
+        <td>{timestamp}</td>
+      </tr>
+      <tr>
+        <td>加速度变化</td>
+        <td><span class="delta-value">{delta_accel:.4f}</span></td>
+      </tr>
+      <tr>
+        <td>灵敏度阈值</td>
+        <td>{self.sensitivity_threshold:.4f}</td>
+      </tr>
+      <tr>
+        <td>事件类型</td>
+        <td>车辆震动检测</td>
+      </tr>
+    </table>
+"""
+
+        # 如果有图片，添加到HTML中
+        if image_base64:
+            html_content += f"""
+    <div class="image-section">
+      <strong style="color: #333333; font-size: 14px;">现场照片：</strong>
+      <img src="{image_base64}" alt="哨兵照片" />
+    </div>
+"""
+
+        html_content += """
+    <div class="tip-box">
+      <strong>提示:</strong> 请及时查看车辆状态，如有异常请立即处理。
+    </div>
+  </div>
+</body>
+</html>
+"""
+        return html_content
+
+
+    def get_smtp_config(self, email: str) -> Tuple[Optional[str], Optional[int]]:
+        """根据邮箱地址自动获取SMTP服务器配置"""
+        email_lower = email.lower() if email else ""
+
+        # 常见邮箱的SMTP配置
+        smtp_configs = {
+            'gmail.com': ('smtp.gmail.com', 587),
+            'qq.com': ('smtp.qq.com', 587),
+            '163.com': ('smtp.163.com', 25),
+            '126.com': ('smtp.126.com', 25),
+            'sina.com': ('smtp.sina.com', 25),
+            'sina.cn': ('smtp.sina.cn', 25),
+            'sohu.com': ('smtp.sohu.com', 25),
+            'yahoo.com': ('smtp.mail.yahoo.com', 587),
+            'outlook.com': ('smtp-mail.outlook.com', 587),
+            'hotmail.com': ('smtp-mail.outlook.com', 587),
+            'live.com': ('smtp-mail.outlook.com', 587),
+            'foxmail.com': ('smtp.qq.com', 587),
+            '139.com': ('smtp.139.com', 25),
+        }
+
+        # 提取邮箱域名
+        if '@' in email_lower:
+            domain = email_lower.split('@')[1]
+            if domain in smtp_configs:
+                return smtp_configs[domain]
+
+        return None, None
+
+    def send_email_notification(self, delta_accel: float, back_path: Optional[str] = None,
+                            front_path: Optional[str] = None, combined_path: Optional[str] = None) -> bool:
+        """发送邮件通知"""
+        if not all([self.email_from, self.email_to, self.email_password]):
+            print("Email configuration incomplete")
+            return False
+
+        try:
+            # 获取SMTP配置（如果未配置则自动检测）
+            smtp_server = self.smtp_server
+            smtp_port = self.smtp_port
+
+            if not smtp_server or not smtp_port:
+                smtp_server, smtp_port = self.get_smtp_config(self.email_from)
+                if not smtp_server or not smtp_port:
+                    print(f"Unable to determine SMTP config for {self.email_from}")
+                    return False
+
+            # 压缩图片并转换为base64
+            image_base64 = None
+            if combined_path:
+                image_base64 = self.compress_image_to_base64(combined_path)
+            elif back_path:
+                image_base64 = self.compress_image_to_base64(back_path)
+
+            # 创建邮件
+            msg = MIMEMultipart('alternative')
+            msg['From'] = self.email_from
+            msg['To'] = self.email_to
+            msg['Subject'] = "🚨 哨兵模式触发警报"
+
+            # 使用统一的HTML生成方法
+            html_content = self.generate_notification_html(delta_accel, image_base64)
+
+            # 添加HTML内容
+            html_part = MIMEText(html_content, 'html', 'utf-8')
+            msg.attach(html_part)
+
+            # 发送邮件
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)  # 添加超时
+            server.starttls()  # 启用TLS加密
+            server.login(self.email_from, self.email_password)
+
+            # 发送邮件并检查结果
+            failed_recipients = server.send_message(msg)
+            server.quit()
+
+            if failed_recipients:
+                print(f"Email notification partially failed. Failed recipients: {failed_recipients}")
+                return False
+            else:
+                print(f"Email notification sent successfully to {self.email_to}")
+                return True
+
+        except smtplib.SMTPException as e:
+            print(f"Email notification SMTP error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        except Exception as e:
+            print(f"Email notification error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def stitch_images(self, front_path: str, back_path: str, output_path: str):
+        """拼接前后摄像头图片"""
+        try:
+            front_image = Image.open(front_path)
+            back_image = Image.open(back_path)
+            front_width, front_height = front_image.size
+            back_width, back_height = back_image.size
+
+            if front_height != back_height:
+                print("Error: Images must have the same height.")
+                return
+
+            result_image = Image.new("RGB", (front_width + back_width, front_height))
+            result_image.paste(front_image, (0, 0))
+            result_image.paste(back_image, (front_width, 0))
+            result_image.save(output_path)
+        except Exception as e:
+            print(f"Stitch error: {e}")
+
+    def update(self):
+        """主循环更新函数"""
+        t = time.monotonic()
+
+        # 定期重新加载配置（允许通过Web界面更新配置）
+        if t - self.last_config_reload > self.config_reload_interval:
+            self.reload_config()
+            self.last_config_reload = t
+
+        # 检查是否已经过了offroad延迟时间
+        if (t - self.transition_to_offroad_last) > self.offroad_delay:
+            # 检查加速度计数据是否有效
+            if not self.sm.valid.get('accelerometer', False):
+                # 每5秒打印一次警告，避免日志过多
+                if int(t) % 5 == 0 and int(t) != getattr(self, '_last_warning_time', -1):
+                    print(f"Warning: Accelerometer data not available. Is sensord running? (valid={self.sm.valid.get('accelerometer', False)}, alive={self.sm.alive.get('accelerometer', False)})")
+                    self._last_warning_time = int(t)
+                return
+
+            try:
+                self.curr_accel = np.array(self.sm['accelerometer'].acceleration.v)
+            except (KeyError, AttributeError, TypeError) as e:
+                print(f"Error reading accelerometer data: {e}")
+                return
+
+            if self.prev_accel is None:
+                print(f"SentryD Active - Accelerometer: {self.curr_accel}, Threshold: {self.sensitivity_threshold}")
+                self.prev_accel = self.curr_accel
+                return
+
+            delta = abs(np.linalg.norm(self.curr_accel) - np.linalg.norm(self.prev_accel))
+
+            # 每10秒打印一次当前状态（用于调试）
+            if int(t) % 10 == 0 and int(t) != getattr(self, '_last_debug_time', -1):
+                print(f"Debug: Delta={delta:.4f}, Threshold={self.sensitivity_threshold:.4f}, Accel={self.curr_accel}, secDelay={self.secDelay}")
+                self._last_debug_time = int(t)
+
+            if delta > self.sensitivity_threshold:
+                self.last_timestamp = t
+                self.secDelay += 1
+                self.below_threshold_count = 0  # 重置小于阈值的计数器
+
+                # 连续10次超过阈值就触发（约1秒，假设更新频率为10Hz）
+                # 或者累计超过阈值150次（约15秒）也触发
+                trigger_threshold = 10  # 连续触发阈值
+                cumulative_threshold = 150  # 累计触发阈值
+
+                if self.secDelay >= trigger_threshold or (self.secDelay > 0 and self.secDelay % cumulative_threshold == 0):
+                    self.sentry_status = True
+                    print(f"Triggered! Delta: {delta:.4f}, secDelay: {self.secDelay}")
+                    self.secDelay = 0
+                    self.below_threshold_count = 0
+
+                    # 第一步: 拍摄初始照片
+                    print(f"Taking initial snapshot... (frontAllowed={self.frontAllowed})")
+                    back_path, front_path, combined_path = self.takeSnapshot()
+                    if back_path:
+                        print(f"Initial snapshot saved: back={back_path}, front={front_path}, combined={combined_path}")
+                    else:
+                        print("Warning: Initial snapshot failed or returned None")
+
+                    # 第二步: 生成GIF动画或录制视频
+                    # 优先使用GIF方案（更省电，文件更小，更适合邮件）
+                    print("Starting 3s GIF capture (30 frames @ 10fps)...")
+                    gif_path = None
+                    video_path = None
+                    video_recording_failed = False
+
+                    # 尝试生成GIF（捕捉30帧，3秒@10fps）
+                    try:
+                        gif_path = self.capture_gif_animation(duration=3, fps=10, total_frames=30)
+                        if gif_path:
+                            print(f"GIF animation created: {gif_path}")
+                            video_recording_failed = False  # GIF成功，不算失败
+                        else:
+                            print("GIF capture failed, falling back to video recording...")
+                            video_recording_failed = True
+                    except Exception as e:
+                        print(f"GIF capture error: {e}, falling back to video recording...")
+                        video_recording_failed = True
+                        import traceback
+                        traceback.print_exc()
+
+                    # 如果GIF失败，尝试录制视频（如果OpenCV可用）
+                    if gif_path is None and self.video_recording_available:
+                        print("Starting 10s video recording...")
+                        try:
+                            video_path = self.record_wide_camera_video(duration=10)
+                            if video_path is None:
+                                video_recording_failed = True
+                        except Exception as e:
+                            print(f"Video recording failed: {e}")
+                            video_recording_failed = True
+                            import traceback
+                            traceback.print_exc()
+                    elif gif_path is None:
+                        video_recording_failed = True
+
+                    # 第三步: 录像结束后再拍一张照片
+                    print("Taking final snapshot...")
+                    back_path_final, front_path_final, combined_path_final = self.takeSnapshot()
+                    if back_path_final:
+                        print(f"Final snapshot saved: back={back_path_final}, front={front_path_final}, combined={combined_path_final}")
+                    else:
+                        print("Warning: Final snapshot failed or returned None")
+
+                    # 发送通知
+                    # 1. Discord Webhook（可选）
+                    webhook_sent = False
+                    if self.webhook_url:
+                        if combined_path or back_path:
+                            webhook_sent = self.send_discord_webhook(
+                                'ALERT! Sentry Detected Movement!',
+                                combined_path or back_path
+                            )
+                        else:
+                            webhook_sent = self.send_discord_webhook('ALERT! Sentry Detected Movement!')
+
+                    # 2. 邮件通知（必须）
+                    notification_sent = False
+                    if not all([self.email_from, self.email_to, self.email_password]):
+                        print("Warning: Email configuration incomplete. Email notification will not be sent.")
+                        print("Please configure email settings in the web interface.")
+                    else:
+                        notification_sent = self.send_email_notification(
+                            delta_accel=float(delta),
+                            back_path=back_path,
+                            front_path=front_path,
+                            combined_path=combined_path
+                        )
+
+                    # 生成notes
+                    note_parts = []
+                    if notification_sent:
+                        note_parts.append("Email: OK")
+                    else:
+                        note_parts.append("Email: Failed")
+
+                    if self.webhook_url:
+                        if webhook_sent:
+                            note_parts.append("Discord: OK")
+                        else:
+                            note_parts.append("Discord: Failed")
+
+                    if gif_path:
+                        note_parts.append(f"GIF: {os.path.basename(gif_path)}")
+                    elif video_recording_failed:
+                        note_parts.append("Video: Failed")
+                    elif video_path:
+                        note_parts.append(f"Video: {os.path.basename(video_path)}")
+                    else:
+                        note_parts.append("Video: None")
+
+                    notes = ", ".join(note_parts)
+
+                    # 记录到数据库 (包含GIF/视频路径和最终照片)
+                    # 优先使用GIF，如果没有则使用视频
+                    media_path = gif_path or video_path
+                    event_id = self.db.log_event(
+                        event_type='motion_detected',
+                        delta_accel=float(delta),
+                        image_path=combined_path_final or combined_path,  # 优先使用最终照片
+                        video_path=media_path,  # GIF或视频路径
+                        front_image_path=front_path_final or front_path,
+                        back_image_path=back_path_final or back_path,
+                        webhook_sent=webhook_sent,
+                        notes=notes  # 总是记录notes（包含邮件和Discord状态）
+                    )
+                    print(f"Event logged to database with ID: {event_id}")
+                    print(f"  - Image: {combined_path_final or combined_path}")
+                    if gif_path:
+                        print(f"  - GIF: {gif_path}")
+                    elif video_path:
+                        print(f"  - Video: {video_path}")
+                    else:
+                        print(f"  - Media: None")
+                    print(f"  - Notes: {notes}")
+            else:
+                # 如果delta小于阈值，增加"小于阈值"计数器
+                # 只有当连续多次小于阈值时，才重置secDelay（避免短暂波动导致重置）
+                self.below_threshold_count += 1
+
+                if self.below_threshold_count >= self.below_threshold_reset:
+                    # 连续多次小于阈值，重置secDelay
+                    if self.secDelay > 0:
+                        print(f"Resetting secDelay (was {self.secDelay}) after {self.below_threshold_count} consecutive below-threshold readings")
+                    self.secDelay = 0
+                    self.below_threshold_count = 0
+
+            # 检查运动是否结束
+            if self.sentry_status and time.monotonic() - self.last_timestamp > 2:
+                self.sentry_status = False
+                print("Movement Ended")
+
+            self.prev_accel = self.curr_accel
+
+    def start(self):
+        """启动哨兵监测循环"""
+        while True:
+            self.sm.update()
+            self.update()
+            time.sleep(0.1)
+
+
+def main():
+    """主程序入口"""
+    try:
+        db = SentryDB()
+        print("Database initialized")
+        sentry = SentryMode(db)
+        sentry.start()
+    except KeyboardInterrupt:
+        print("\nSentry mode stopped")
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+if __name__ == "__main__":
+    main()
+
