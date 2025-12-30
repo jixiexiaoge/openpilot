@@ -1,0 +1,303 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>comma3 实时车道线检测</title>  
+    <style>  
+        * {  
+            margin: 0;  
+            padding: 0;  
+            box-sizing: border-box;  
+        }  
+          
+        body {  
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;  
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);  
+            min-height: 100vh;  
+            padding: 20px;  
+        }  
+          
+        .header {  
+            text-align: center;  
+            color: white;  
+            margin-bottom: 30px;  
+        }  
+          
+        .header h1 {  
+            font-size: 2.5rem;  
+            margin-bottom: 10px;  
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);  
+        }  
+          
+        .header p {  
+            font-size: 1.1rem;  
+            opacity: 0.9;  
+        }  
+          
+        .container {  
+            max-width: 1400px;  
+            margin: 0 auto;  
+            display: flex;  
+            gap: 30px;  
+            flex-wrap: wrap;  
+        }  
+          
+        .video-section {  
+            flex: 1;  
+            min-width: 600px;  
+        }  
+          
+        .data-section {  
+            width: 350px;  
+            background: rgba(255, 255, 255, 0.95);  
+            border-radius: 15px;  
+            padding: 25px;  
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);  
+            backdrop-filter: blur(10px);  
+        }  
+          
+        .video-container {  
+            background: #000;  
+            border-radius: 15px;  
+            overflow: hidden;  
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);  
+            position: relative;  
+        }  
+          
+        .video-container img {  
+            width: 100%;  
+            height: auto;  
+            display: block;  
+        }  
+          
+        .video-overlay {  
+            position: absolute;  
+            top: 20px;  
+            left: 20px;  
+            color: white;  
+            font-size: 14px;  
+            background: rgba(0,0,0,0.6);  
+            padding: 8px 12px;  
+            border-radius: 5px;  
+        }  
+          
+        .data-section h3 {  
+            color: #333;  
+            margin-bottom: 20px;  
+            font-size: 1.3rem;  
+            border-bottom: 2px solid #667eea;  
+            padding-bottom: 10px;  
+        }  
+          
+        .data-item {  
+            margin: 15px 0;  
+            padding: 15px;  
+            background: #f8f9fa;  
+            border-radius: 10px;  
+            border-left: 4px solid #667eea;  
+            transition: transform 0.2s, box-shadow 0.2s;  
+        }  
+          
+        .data-item:hover {  
+            transform: translateY(-2px);  
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);  
+        }  
+          
+        .data-item strong {  
+            color: #333;  
+            display: block;  
+            margin-bottom: 5px;  
+            font-size: 0.9rem;  
+        }  
+          
+        .data-item span {  
+            color: #667eea;  
+            font-weight: bold;  
+            font-size: 1.1rem;  
+        }  
+          
+        .status-indicator {  
+            display: inline-block;  
+            width: 12px;  
+            height: 12px;  
+            border-radius: 50%;  
+            margin-right: 8px;  
+            animation: pulse 2s infinite;  
+        }  
+          
+        .status-online {  
+            background-color: #28a745;  
+        }  
+          
+        .status-offline {  
+            background-color: #dc3545;  
+        }  
+          
+        @keyframes pulse {  
+            0% { opacity: 1; }  
+            50% { opacity: 0.5; }  
+            100% { opacity: 1; }  
+        }  
+          
+        .refresh-btn {  
+            background: #667eea;  
+            color: white;  
+            border: none;  
+            padding: 10px 20px;  
+            border-radius: 5px;  
+            cursor: pointer;  
+            margin-top: 20px;  
+            width: 100%;  
+            font-size: 1rem;  
+            transition: background 0.3s;  
+        }  
+          
+        .refresh-btn:hover {  
+            background: #5a6fd8;  
+        }  
+          
+        @media (max-width: 1024px) {  
+            .container {  
+                flex-direction: column;  
+                align-items: center;  
+            }  
+              
+            .video-section, .data-section {  
+                width: 100%;  
+                max-width: 800px;  
+            }  
+        }  
+    </style>  
+</head>  
+<body>  
+    <div class="header">  
+        <h1>🚗 comma3 实时车道线检测</h1>  
+        <p>基于传统计算机视觉算法的车道线识别系统</p>  
+    </div>  
+      
+    <div class="container">  
+        <div class="video-section">  
+            <div class="video-container">  
+                <img src="/video_feed" alt="车道线检测视频流" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaVsOWtl+Wtl+ivleaWh+aho+WKoOi9veWksei0pTwvdGV4dD4KPC9zdmc+';">  
+                <div class="video-overlay">  
+                    <span class="status-indicator status-online"></span>  
+                    实时检测中  
+                </div>  
+            </div>  
+        </div>  
+          
+        <div class="data-section">  
+            <h3>📊 检测数据</h3>  
+              
+            <div class="data-item">  
+                <strong>左车道线类型</strong>  
+                <span id="left_type">Unknown</span>  
+            </div>  
+              
+            <div class="data-item">  
+                <strong>右车道线类型</strong>  
+                <span id="right_type">Unknown</span>  
+            </div>  
+              
+            <div class="data-item">  
+                <strong>道路曲率半径</strong>  
+                <span id="curvature">0.0</span> m  
+            </div>  
+              
+            <div class="data-item">  
+                <strong>车辆偏离距离</strong>  
+                <span id="departure">0.0</span> m  
+            </div>  
+              
+            <div class="data-item">  
+                <strong>更新时间</strong>  
+                <span id="update_time">--:--:--</span>  
+            </div>  
+              
+            <button class="refresh-btn" onclick="updateMetadata()">🔄 手动刷新</button>  
+        </div>  
+    </div>  
+  
+    <script>  
+        let updateCount = 0;  
+        let errorCount = 0;  
+          
+        function formatTime() {  
+            const now = new Date();  
+            return now.toLocaleTimeString('zh-CN');  
+        }  
+          
+        function updateMetadata() {  
+            fetch('/metadata')  
+                .then(response => {  
+                    if (!response.ok) {  
+                        throw new Error(`HTTP error! status: ${response.status}`);  
+                    }  
+                    return response.json();  
+                })  
+                .then(data => {  
+                    // 更新车道线类型  
+                    document.getElementById('left_type').textContent = data.left_type || 'Unknown';  
+                    document.getElementById('right_type').textContent = data.right_type || 'Unknown';  
+                      
+                    // 更新数值数据  
+                    document.getElementById('curvature').textContent =   
+                        (data.curvature || 0).toFixed(2);  
+                    document.getElementById('departure').textContent =   
+                        (data.departure || 0).toFixed(2);  
+                      
+                    // 更新时间  
+                    document.getElementById('update_time').textContent = formatTime();  
+                      
+                    // 重置错误计数  
+                    errorCount = 0;  
+                    updateCount++;  
+                      
+                    // 更新状态指示器  
+                    const indicator = document.querySelector('.status-indicator');  
+                    indicator.className = 'status-indicator status-online';  
+                      
+                    console.log(`数据更新成功 (${updateCount}次)`);  
+                })  
+                .catch(error => {  
+                    errorCount++;  
+                    console.error(`数据更新失败 (${errorCount}次):`, error);  
+                      
+                    // 连续失败3次后显示离线状态  
+                    if (errorCount >= 3) {  
+                        const indicator = document.querySelector('.status-indicator');  
+                        indicator.className = 'status-indicator status-offline';  
+                        document.querySelector('.video-overlay').innerHTML =   
+                            '<span class="status-indicator status-offline"></span>连接断开';  
+                    }  
+                });  
+        }  
+          
+        // 页面加载时立即更新一次  
+        updateMetadata();  
+          
+        // 每秒自动更新数据  
+        setInterval(updateMetadata, 1000);  
+          
+        // 监听视频流状态  
+        const videoImg = document.querySelector('img[src="/video_feed"]');  
+        videoImg.addEventListener('load', function() {  
+            console.log('视频流连接正常');  
+        });  
+          
+        videoImg.addEventListener('error', function() {  
+            console.error('视频流连接失败');  
+            const indicator = document.querySelector('.status-indicator');  
+            indicator.className = 'status-indicator status-offline';  
+        });  
+          
+        // 添加键盘快捷键  
+        document.addEventListener('keydown', function(event) {  
+            if (event.key === 'r' || event.key === 'R') {  
+                updateMetadata();  
+            }  
+        });  
+    </script>  
+</body>  
+</html>
