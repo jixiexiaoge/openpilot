@@ -751,48 +751,11 @@ class XiaogeDataBroadcaster:
         # 车道宽度和变道状态 - 保留（超车决策需要）
         meta = modelV2.meta
 
-        # Cap'n Proto 枚举类型转换：_DynamicEnum 类型需要特殊处理
-        def enum_to_int(enum_value, default=0):
-            """将 Cap'n Proto 枚举转换为整数"""
-            if enum_value is None:
-                return default
-            try:
-                return int(enum_value)
-            except (TypeError, ValueError):
-                try:
-                    return enum_value.raw
-                except AttributeError:
-                    try:
-                        return enum_value.value
-                    except AttributeError:
-                        try:
-                            return int(str(enum_value).split('.')[-1])
-                        except (ValueError, AttributeError):
-                            return default
-
-        # 在现有的 meta 字段之前添加驾驶意图数据
-        data['drivingIntent'] = {
-            'desire': int(meta.desire),  # 驾驶意图（直行、左转、右转等）
-            'desireState': [float(x) for x in meta.desireState],  # 各种意图的概率
-            'laneChangeProb': float(meta.laneChangeProb),  # 变道概率
-            'disengagePredictions': {  # 脱管预测
-                'brakeDisengageProbs': [float(x) for x in meta.disengagePredictions.brakeDisengageProbs],
-                'gasDisengageProbs': [float(x) for x in meta.disengagePredictions.gasDisengageProbs],
-            }
-        }
-
-        data['meta'] = {
-            'laneWidthLeft': float(meta.laneWidthLeft),  # 左车道宽度
-            'laneWidthRight': float(meta.laneWidthRight),  # 右车道宽度
-            'laneChangeState': enum_to_int(meta.laneChangeState, 0),  # 变道状态
-            'laneChangeDirection': enum_to_int(meta.laneChangeDirection, 0),  # 变道方向
-        }
-
         # 在现有的 meta 字典中添加道路边缘距离
-        data['meta'].update({
+        data['meta'] = {
             'distanceToRoadEdgeLeft': float(meta.distanceToRoadEdgeLeft),  # 左侧距离道路边缘
             'distanceToRoadEdgeRight': float(meta.distanceToRoadEdgeRight),  # 右侧距离道路边缘
-        })
+        }
 
         # 曲率信息 - 用于判断弯道（超车决策关键数据）
         # 修复：改进空列表检查逻辑，使代码更清晰
