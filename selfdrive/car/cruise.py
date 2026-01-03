@@ -454,7 +454,7 @@ class VCruiseCarrot:
         #  v_cruise_kph = max(-carrot_speed, v_cruise_kph)
         elif self.smartSpeedControl == 2:
           v_cruise_kph = min(-carrot_speed, v_cruise_kph)
-      self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
+      #self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
       self._add_log(f"Carrot speed set to {v_cruise_kph}")
     if self.carrot_cmd_index_last != self.carrot_cmd_index:
       self.carrot_cmd_index_last = self.carrot_cmd_index

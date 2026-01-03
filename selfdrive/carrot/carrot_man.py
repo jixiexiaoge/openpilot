@@ -276,6 +276,7 @@ class CarrotMan:
     self.v_cruise_change = 0
     self._last_vt = 0.0
     self.gas_pressed_count = 0
+    self.brake_pressed_count = 0
     self._last_viz_t = 0.0
 
     while self.is_running:
@@ -352,6 +353,8 @@ class CarrotMan:
       CC = self.sm['carControl']
       v_ego = CS.vEgo
       a_ego = CS.aEgo
+      if CS.brakePressed:
+        self.brake_pressed_count = 200
       gas_pressed = CS.gasPressed
       v_ego_kph = v_ego * 3.6
       if gas_pressed:
@@ -382,19 +385,23 @@ class CarrotMan:
       return
     
     v_cruise_apply = max(min(CS.vCruise, v_ego_kph), 20)
+    vt_last = self.params_memory.get_int("CarrotSpeed")
+    self.params_memory.put_int("CarrotSpeed", 0)
 
     now = time.monotonic()
     heading = self.carrot_serv.bearing #nPosAnglePhone
     lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
     vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
-    if self.v_cruise_change != 0:
+    if self.v_cruise_change != 0 and (vt_last != self._last_vt or vt_last == 0):
       carrot_speed.add_sample(lat, lon, heading, v_cruise_apply if self.v_cruise_change > 0 else (- v_cruise_apply))
       if self.v_cruise_change > 0:
         self.v_cruise_change -= 1
       if self.v_cruise_change < 0:
         self.v_cruise_change += 1
     else:
-      if self.gas_pressed_count > 0:
+      if self.brake_pressed_count > 0:
+        pass
+      elif self.gas_pressed_count > 0:
         vt = max(vt, v_cruise_apply)
         carrot_speed.add_sample(lat, lon, heading, vt)
       else:
@@ -404,6 +411,7 @@ class CarrotMan:
     if gas_pressed and a_ego < -0.5: #self._last_vt < 0.0:
       carrot_speed.invalidate_last_hit(window_s=2.0, action="clear")
     self.gas_pressed_count = max(0, self.gas_pressed_count - 1)
+    self.brake_pressed_count = max(0, self.brake_pressed_count - 1)
 
     if now - self._last_viz_t > 0.5: # 2Hz
         self._last_viz_t = now
