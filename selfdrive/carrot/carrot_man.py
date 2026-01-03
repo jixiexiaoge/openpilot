@@ -397,8 +397,8 @@ class CarrotMan:
       if self.gas_pressed_count > 0:
         vt = max(vt, v_cruise_apply)
         carrot_speed.add_sample(lat, lon, heading, vt)
-
-      self.params_memory.put_int_nonblocking("CarrotSpeed", int(vt))
+      else:
+        self.params_memory.put_int_nonblocking("CarrotSpeed", int(vt))
 
     self._last_vt = vt
     if gas_pressed and a_ego < -0.5: #self._last_vt < 0.0:
