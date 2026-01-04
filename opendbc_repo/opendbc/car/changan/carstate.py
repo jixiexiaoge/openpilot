@@ -3,8 +3,7 @@ import time
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_CTRL
-from opendbc.can.can_define import CANDefine
-from opendbc.can.parser import CANParser
+from opendbc.can import CANDefine, CANParser
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.changan.values import CAR, DBC, STEER_THRESHOLD, EPS_SCALE
 from opendbc.car import Bus, structs
@@ -62,11 +61,11 @@ class CarState(CarStateBase):
     self.counter_307 = 0
     self.counter_31a = 0
 
-    self.sigs244 = 0
-    self.sigs1ba = 0
-    self.sigs17e = 0
-    self.sigs307 = 0
-    self.sigs31a = 0
+    self.sigs244 = {}
+    self.sigs1ba = {}
+    self.sigs17e = {}
+    self.sigs307 = {}
+    self.sigs31a = {}
 
     self.steeringPressed = False
     self.steeringPressedMax = 0
