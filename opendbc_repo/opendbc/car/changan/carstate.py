@@ -1,12 +1,11 @@
 import copy
 import time
-from openpilot.common.conversions import Conversions as CV
-from openpilot.common.filter_simple import FirstOrderFilter
-from openpilot.common.realtime import DT_CTRL
+from opendbc.car.common.conversions import Conversions as CV
+from opendbc.car.common.filter_simple import FirstOrderFilter
 from opendbc.can import CANDefine, CANParser
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.changan.values import CAR, DBC, STEER_THRESHOLD, EPS_SCALE
-from opendbc.car import Bus, structs
+from opendbc.car import Bus, structs, DT_CTRL
 
 
 SteerControlType = structs.CarParams.SteerControlType
@@ -75,6 +74,13 @@ class CarState(CarStateBase):
     self.iacc_enable_switch_button_prev = 0
     self.iacc_enable_switch_button_rising_edge = False
 
+    # 新增：急弯检测相关参数
+    self.steering_angle_threshold = 30.0  # 急弯角度阈值
+    self.steering_rate_threshold = 50.0   # 急弯转向速率阈值
+    self.emergency_turn_active = False     # 急弯激活标志
+    self.last_steering_angle = 0.0
+    self.steering_rate = 0.0
+
 
   def update(self, can_parsers) -> structs.CarState: # type: ignore
     cp = can_parsers[Bus.pt]
@@ -100,6 +106,11 @@ class CarState(CarStateBase):
     ret.steeringAngleOffsetDeg = 0
     ret.steeringAngleDeg = cp.vl["GW_180"]["SAS_SteeringAngle"] # 方向盘角度
     ret.steeringRateDeg = cp.vl["GW_180"]["SAS_SteeringAngleSpeed"] # 方向盘速率
+
+    # 新增：急弯检测逻辑
+    current_steering_angle = ret.steeringAngleDeg
+    self.steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
+    self.last_steering_angle = current_steering_angle
 
     if self.CP.carFingerprint == CAR.QIYUAN_A05:
       can_gear = int(cp.vl["GW_331"]["TCU_GearForDisplay"]) # 档位

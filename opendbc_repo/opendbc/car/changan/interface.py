@@ -35,36 +35,22 @@ class CarInterface(CarInterfaceBase):
     ret.steerLimitTimer = 0.5  # 增加转向限制时间，使转向持续时间更长
 
     ret.steerControlType = structs.CarParams.SteerControlType.angle
-    ret.centerToFront = ret.wheelbase * 0.44 # 其他车没有 不清楚
+    ret.centerToFront = ret.wheelbase * 0.44
 
-    # TODO: Some TSS-P platforms have BSM, but are flipped based on region or driving direction.
-    # Detect flipped signals and enable for C-HR and others
+    # 调整转向参数以适应480度单边打满
+    ret.steerRatio = 15.0
+    ret.steerMaxBP = [0.]
+    ret.steerMaxV = [480.]
+    ret.steerRateCost = 0.5
+
     ret.enableBsm = True # 盲区检测
 
-    # No radar dbc for cars without DSU which are not TSS 2.0
-    # TODO: make an adas dbc file for dsu-less models
     ret.radarUnavailable = True
 
-    # if the smartDSU is detected, openpilot can send ACC_CONTROL and the smartDSU will block it from the DSU or radar.
-    # since we don't yet parse radar on TSS2/TSS-P radar-based ACC cars, gate longitudinal behind experimental toggle
-    ret.experimentalLongitudinalAvailable = True # ? 不清楚
+    ret.experimentalLongitudinalAvailable = True
 
-    # openpilot longitudinal enabled by default:
-    #  - non-(TSS2 radar ACC cars) w/ smartDSU installed
-    #  - cars w/ DSU disconnected
-    #  - TSS2 cars with camera sending ACC_CONTROL where we can block it
-    # openpilot longitudinal behind experimental long toggle:
-    #  - TSS2 radar ACC cars w/ smartDSU installed
-    #  - TSS2 radar ACC cars w/o smartDSU installed (disables radar)
-    #  - TSS-P DSU-less cars w/ CAN filter installed (no radar parser yet)
     ret.openpilotLongitudinalControl = True
     ret.autoResumeSng = ret.openpilotLongitudinalControl
-
-    # if not ret.openpilotLongitudinalControl:
-    #   ret.safetyConfigs[0].safetyParam |= Panda.FLAG_TOYOTA_STOCK_LONGITUDINAL
-
-    # if ret.enableGasInterceptor:
-    #   ret.safetyConfigs[0].safetyParam |= Panda.FLAG_TOYOTA_GAS_INTERCEPTOR
 
     # min speed to enable ACC. if car can do stop and go, then set enabling speed
     # to a negative value, so it won't matter.
@@ -75,9 +61,9 @@ class CarInterface(CarInterfaceBase):
 
     # 更新加速度控制参数
     tune.kpBP = [0., 5., 20., 40.]
-    tune.kpV = [0.8, 0.6, 0.4, 0.3]  # 提高低速响应性，降低高速敏感度
+    tune.kpV = [1.2, 1.0, 0.7, 0.5]  # 提高低速响应性，降低高速敏感度
     tune.kiBP = [0., 5., 12., 20., 27.]
-    tune.kiV = [0.2, 0.15, 0.12, 0.08, 0.05]  # 增加积分增益以减少稳态误差
+    tune.kiV = [0.3, 0.25, 0.2, 0.15, 0.1]  # 增加积分增益以减少稳态误差
     # 添加微分控制以减少超调
     tune.kdBP = [0., 10., 20., 30.]
     tune.kdV = [0.0, 0.1, 0.2, 0.3]  # 添加微分控制

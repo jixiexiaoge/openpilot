@@ -5,7 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import IntFlag
 
-from openpilot.common.conversions import Conversions as CV
+from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car import Bus, DbcDict, PlatformConfig, Platforms, CarSpecs, AngleSteeringLimits, structs
 from opendbc.car.docs_definitions import CarDocs, CarParts, CarHarness
 
@@ -18,7 +18,7 @@ class CarControllerParams:
   ACCEL_MIN = -3.5
 
   STEER_STEP = 1
-  STEER_MAX = 3000
+  STEER_MAX = 480
   STEER_ERROR_MAX = 650
 
   # LTA steering limits with expanded max steering angle to 480°
@@ -29,8 +29,8 @@ class CarControllerParams:
   )
 
   def __init__(self, CP):
-    self.STEER_DELTA_UP = 20
-    self.STEER_DELTA_DOWN = 40
+    self.STEER_DELTA_UP = 15
+    self.STEER_DELTA_DOWN = 25
 
 class ChanganSafetyFlags(IntFlag):
   CHANGAN_Z6_FLAG = 0x1
