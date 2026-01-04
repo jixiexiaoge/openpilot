@@ -38,8 +38,8 @@ from cereal import log, messaging
 from cereal import log, messaging
 import time
 from functools import wraps
-from openpilot.opendbc_repo.opendbc.car.interfaces import CarInterfaceBase
-from openpilot.opendbc_repo.opendbc.car.values import PLATFORMS
+#from openpilot.opendbc_repo.opendbc.car.interfaces import CarInterfaceBase
+#from openpilot.opendbc_repo.opendbc.car.values import PLATFORMS
 
 # Initialize messaging
 sm = messaging.SubMaster(['carState'])
