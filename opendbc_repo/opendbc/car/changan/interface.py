@@ -1,4 +1,5 @@
-from opendbc.car.changan.values import DBC, CarControllerParams, EPS_SCALE
+# from opendbc.car.changan.values import DBC, CarControllerParams, EPS_SCALE
+from opendbc.car.changan.values import CarControllerParams
 from opendbc.car import structs, get_safety_config
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarInterfaceBase
