@@ -8,6 +8,7 @@
 #define CHANGAN_EPS          0x17E
 #define CHANGAN_CRZ_BTNS     0x28C
 #define CHANGAN_SPEED        0x17A
+#define CHANGAN_SPEED_ALT    0x187
 #define CHANGAN_GAS          0x17D
 #define CHANGAN_BRAKE        0x1A6
 #define CHANGAN_BRAKE_ALT    0x196
@@ -20,9 +21,15 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
   if (GET_BUS(to_push) == CHANGAN_MAIN) {
     int addr = GET_ADDR(to_push);
 
-    if (addr == CHANGAN_SPEED) {
+    if ((addr == CHANGAN_SPEED) || (addr == CHANGAN_SPEED_ALT)) {
       // Signal: ESP_VehicleSpeed, factor: 0.05625, offset: 0
-      int speed = ((GET_BYTE(to_push, 2) & 0x3FU) << 8) | GET_BYTE(to_push, 3);
+      // Supports both 21|14@0+ and 23|14@0+ layouts
+      int speed;
+      if (addr == CHANGAN_SPEED) {
+        speed = ((GET_BYTE(to_push, 2) & 0x3FU) << 8) | GET_BYTE(to_push, 3);
+      } else {
+        speed = ((GET_BYTE(to_push, 2) & 0xFFU) << 6) | (GET_BYTE(to_push, 3) >> 2);
+      }
       UPDATE_VEHICLE_SPEED(speed * 0.05625 / 3.6);
     }
 
@@ -56,7 +63,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
       // Signal: ESP_BrakePedalAnyPressed
       brake_pressed = (GET_BYTE(to_push, 0) >> 4) & 0x1U;
     }
-    
+
     if (addr == CHANGAN_BRAKE_ALT) {
        // Signal: EMS_BrakePedalStatus
        if ((GET_BYTE(to_push, 0) & 0x1U) != 0) {
@@ -70,7 +77,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
 static bool changan_tx_hook(const CANPacket_t *to_send) {
   static const AngleSteeringLimits CHANGAN_STEERING_LIMITS = {
-    .max_angle = 5000,       // 500.0 deg
+    .max_angle = 4800,       // 480.0 deg
     .angle_deg_to_can = 10,  // 0.1 factor
     .angle_rate_up_lookup = {
       {5., 25., 25.},
@@ -95,9 +102,9 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
         tx = false;
       }
     }
-    
+
     if (addr == CHANGAN_STEER_CMD) {
-      // TODO: Verify signal layout for 0x1BA (32 bytes). 
+      // TODO: Verify signal layout for 0x1BA (32 bytes).
       // Assuming controls_allowed check is sufficient for now, but angle limits should be enforced if possible.
       if (!controls_allowed) {
         tx = false;
@@ -113,7 +120,7 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
         tx = false;
       }
     }
-    
+
     // Allow EPS status spoofing if needed
     if (addr == CHANGAN_EPS) {
       if (!controls_allowed) {
@@ -142,7 +149,7 @@ static int changan_fwd_hook(int bus, int addr) {
 
 static safety_config changan_init(uint16_t param) {
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER, 0, 8}, 
+    {CHANGAN_STEER, 0, 8},
     {CHANGAN_CRZ_BTNS, 0, 8},
     {CHANGAN_STEER_CMD, 0, 32}, // 0x1BA
     {CHANGAN_EPS, 0, 8}         // 0x17E
@@ -152,7 +159,7 @@ static safety_config changan_init(uint16_t param) {
     {.msg = {{CHANGAN_STEER,    0, 8, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_EPS,      0, 8, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_CRZ_BTNS, 0, 8, .frequency = 10U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_SPEED,    0, 8, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_SPEED,    0, 8, .frequency = 50U}, {CHANGAN_SPEED_ALT, 0, 8, .frequency = 50U}, { 0 }}},
     {.msg = {{CHANGAN_GAS,      0, 8, .frequency = 50U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_BRAKE,    0, 8, .frequency = 50U}, { 0 }, { 0 }}},
   };

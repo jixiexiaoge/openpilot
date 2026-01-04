@@ -25,15 +25,35 @@ class CarController(CarControllerBase):
         self.filtered_steering_angle = 0.0
         self.max_steering_angle = 480.0
 
+        # 紧急转向和弯道控制逻辑
+        self.emergency_turn_counter = 0
+        self.is_emergency_turning = False
+        self.emergency_turn_timer = 0
+
     def update(self, CC, CS, now_nanos):
         actuators = CC.actuators
 
         if self.first_start:
-            self.counter_244 = CS.counter_244
-            self.counter_1ba = CS.counter_1ba
-            self.counter_307 = CS.counter_307
-            self.counter_31a = CS.counter_31a
-            self.first_start = False
+            if hasattr(CS, 'counter_244'):
+                self.counter_244 = CS.counter_244
+                self.counter_1ba = CS.counter_1ba
+                self.counter_307 = CS.counter_307
+                self.counter_31a = CS.counter_31a
+                self.first_start = False
+
+        # 紧急转向检测逻辑
+        if abs(CS.out.steeringAngleDeg) > 100:
+            self.emergency_turn_counter += 1
+        else:
+            self.emergency_turn_counter = 0
+
+        if self.emergency_turn_counter > 3 or self.is_emergency_turning:
+            self.is_emergency_turning = True
+            # 100帧后自动退出紧急转向状态
+            self.emergency_turn_timer += 1
+            if self.emergency_turn_timer > 100 and abs(CS.out.steeringAngleDeg) < 30:
+                self.is_emergency_turning = False
+                self.emergency_turn_timer = 0
 
         can_sends = []
 
@@ -45,8 +65,9 @@ class CarController(CarControllerBase):
             apply_angle = np.clip(apply_angle, -self.max_steering_angle, self.max_steering_angle)
 
             # 应用转向平滑滤波
-            self.filtered_steering_angle = (self.steering_smoothing_factor * self.filtered_steering_angle +
-                                           (1 - self.steering_smoothing_factor) * apply_angle)
+            smoothing = 0.5 if self.is_emergency_turning else self.steering_smoothing_factor
+            self.filtered_steering_angle = (smoothing * self.filtered_steering_angle +
+                                           (1 - smoothing) * apply_angle)
             apply_angle = self.filtered_steering_angle
 
             # 应用标准转向角度限制
@@ -65,6 +86,21 @@ class CarController(CarControllerBase):
         # 纵向控制
         if CC.longActive:
             accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
+
+            # 紧急转向时限制加速度
+            if self.is_emergency_turning:
+                accel = min(accel, 0.5)
+
+            # 弯道限速逻辑
+            if abs(CS.out.steeringAngleDeg) > 150:
+                max_speed_limit = 40 / 3.6
+                if CS.out.vEgo > max_speed_limit:
+                    accel = min(accel, -0.5)
+
+            # 低速起步平滑处理
+            if CS.out.vEgo < 40 / 3.6:
+                accel *= 0.7
+
             can_sends.append(changancan.create_244_command(self.packer, CS.sigs244, accel, self.counter_244, True, 0, CS.out.vEgoRaw))
 
         # 状态消息发送 (10Hz)

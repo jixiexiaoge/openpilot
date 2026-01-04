@@ -56,8 +56,8 @@ def create_17E_command(packer, values, active, counter):
 
   return packer.make_can_msg("GW_17E", 0, values)
 
-def create_244_command(packer, sigs, accel, counter, enabled, acctrq, speed):
-    values = sigs.copy()
+def create_244_command(packer, values, accel, counter, enabled, acctrq, speed):
+    values = values.copy()
     values.update({
         "ACC_AccelCmd": accel,
         "ACC_RollingCounter_24E": counter,
@@ -66,16 +66,16 @@ def create_244_command(packer, sigs, accel, counter, enabled, acctrq, speed):
     })
     return packer.make_can_msg("GW_244", 0, values)
 
-def create_307_command(packer, sigs, counter, speed):
-    values = sigs.copy()
+def create_307_command(packer, values, counter, speed):
+    values = values.copy()
     values.update({
         "ACC_RollingCounter_35E": counter,
         "ACC_SetSpeed": speed,
     })
     return packer.make_can_msg("GW_307", 0, values)
 
-def create_31A_command(packer, sigs, counter, enabled, steering_pressed):
-    values = sigs.copy()
+def create_31A_command(packer, values, counter, enabled, steering_pressed):
+    values = values.copy()
     values.update({
         "ACC_RollingCounter_36D": counter,
         "ACC_IACCHWAEnable": enabled,
