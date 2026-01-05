@@ -1,6 +1,6 @@
 from opendbc.car import structs
 
-def create_1BA_command(packer, values, angle, active, counter):
+def create_steering_control(packer, values, angle, active, counter):
   """
   Creates the steering command message (GW_1BA).
 
@@ -29,7 +29,7 @@ def create_1BA_command(packer, values, angle, active, counter):
 
   return packer.make_can_msg("GW_1BA", 0, values)
 
-def create_17E_command(packer, values, active, counter):
+def create_eps_control(packer, values, active, counter):
   """
   Creates the EPS status message (GW_17E).
 
@@ -56,7 +56,7 @@ def create_17E_command(packer, values, active, counter):
 
   return packer.make_can_msg("GW_17E", 0, values)
 
-def create_244_command(packer, values, accel, counter, enabled, acctrq):
+def create_acc_control(packer, values, accel, counter, enabled, acctrq):
     values = values.copy()
     values.update({
         "ACC_AccelCmd": accel,
@@ -66,7 +66,7 @@ def create_244_command(packer, values, accel, counter, enabled, acctrq):
     })
     return packer.make_can_msg("GW_244", 0, values)
 
-def create_307_command(packer, values, counter, speed):
+def create_acc_set_speed(packer, values, counter, speed):
     values = values.copy()
     values.update({
         "ACC_RollingCounter_35E": counter,
@@ -74,7 +74,7 @@ def create_307_command(packer, values, counter, speed):
     })
     return packer.make_can_msg("GW_307", 0, values)
 
-def create_31A_command(packer, values, counter, enabled, steering_pressed):
+def create_acc_hud(packer, values, counter, enabled, steering_pressed):
     values = values.copy()
     values.update({
         "ACC_RollingCounter_36D": counter,

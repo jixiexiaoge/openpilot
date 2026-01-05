@@ -76,11 +76,11 @@ class CarController(CarControllerBase):
                                                        CS.out.steeringAngleDeg,
                                                        CC.latActive, self.params.ANGLE_LIMITS)
 
-            can_sends.append(changancan.create_1BA_command(self.packer, CS.sigs1ba, apply_angle, 1, self.counter_1ba))
+            can_sends.append(changancan.create_steering_control(self.packer, CS.sigs1ba, apply_angle, 1, self.counter_1ba))
         else:
             apply_angle = CS.out.steeringAngleDeg
             self.filtered_steering_angle = apply_angle
-            can_sends.append(changancan.create_1BA_command(self.packer, CS.sigs1ba, apply_angle, 0, self.counter_1ba))
+            can_sends.append(changancan.create_steering_control(self.packer, CS.sigs1ba, apply_angle, 0, self.counter_1ba))
 
         self.last_angle = apply_angle
 
@@ -113,17 +113,17 @@ class CarController(CarControllerBase):
             acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
             self.last_acctrq = acctrq
 
-            can_sends.append(changancan.create_244_command(self.packer, CS.sigs244, accel, self.counter_244, True, acctrq))
+            can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, accel, self.counter_244, True, acctrq))
 
         # 状态消息发送 (10Hz)
         if self.frame % 10 == 0:
-            can_sends.append(changancan.create_307_command(self.packer, CS.sigs307, self.counter_307, CS.out.cruiseState.speedCluster))
-            can_sends.append(changancan.create_31A_command(self.packer, CS.sigs31a, self.counter_31a, CC.longActive, CS.out.steeringPressed))
+            can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs307, self.counter_307, CS.out.cruiseState.speedCluster))
+            can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs31a, self.counter_31a, CC.longActive, CS.out.steeringPressed))
             self.counter_307 = (self.counter_307 + 1) % 16
             self.counter_31a = (self.counter_31a + 1) % 16
 
         # 17E 消息发送 (100Hz)
-        can_sends.append(changancan.create_17E_command(self.packer, CS.sigs17e, CC.latActive, self.frame % 16))
+        can_sends.append(changancan.create_eps_control(self.packer, CS.sigs17e, CC.latActive, self.frame % 16))
 
         self.counter_1ba = (self.counter_1ba + 1) % 16
         self.counter_244 = (self.counter_244 + 1) % 16
