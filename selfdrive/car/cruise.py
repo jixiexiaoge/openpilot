@@ -442,7 +442,11 @@ class VCruiseCarrot:
     return button_kph, button_type, self.long_pressed
 
   def _carrot_command(self, v_cruise_kph, button_type, long_pressed):
-    carrot_speed = self.params_memory.get_int("CarrotSpeed")
+    if button_type != 0:
+      self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
+      carrot_speed = 0
+    else:
+      carrot_speed = self.params_memory.get_int("CarrotSpeed")
     if carrot_speed != 0:
       if carrot_speed > 0:
         if self.smartSpeedControl in [1,3]:
