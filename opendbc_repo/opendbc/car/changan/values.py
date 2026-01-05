@@ -44,11 +44,11 @@ class ChangAnCarDocs(CarDocs):
 
 @dataclass
 class ChanganPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "changan_z6_pt"})
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "changan_z6_pt", Bus.cam: "changan_z6_pt"})
 
 @dataclass
 class QiyuanPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "changan_z6_pt"})
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: "changan_z6_pt", Bus.cam: "changan_z6_pt"})
 
 class CAR(Platforms):
   CHANGAN_Z6 = ChanganPlatformConfig(
