@@ -6,6 +6,11 @@ export NUMEXPR_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 
+export FINGERPRINT="CHANGAN_Z6"
+export SKIP_FW_QUERY="1"
+
+
+
 if [ -z "$AGNOS_VERSION" ]; then
   export AGNOS_VERSION="12.4"
 fi
