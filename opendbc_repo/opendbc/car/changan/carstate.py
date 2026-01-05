@@ -27,9 +27,16 @@ class CarState(CarStateBase):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
     if CP.carFingerprint == CAR.QIYUAN_A05:
-      self.shifter_values = can_define.dv["GW_331"]["TCU_GearForDisplay"]
+      try:
+        self.shifter_values = can_define.dv["GW_331"]["TCU_GearForDisplay"]
+      except KeyError:
+        self.shifter_values = {0: "P", 1: "R", 2: "N", 3: "D"}
     else:
-      self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
+      try:
+        self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
+      except KeyError:
+        self.shifter_values = {0: "P", 1: "R", 2: "N", 3: "D"}
+
     self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.
     self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
