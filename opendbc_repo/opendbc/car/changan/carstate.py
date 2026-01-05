@@ -145,8 +145,8 @@ class CarState(CarStateBase):
       ret.rightBlindspot = False
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker, ret.rightBlinker= self.update_blinker_from_stalk(200,
-                                                                      cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorLeft", 0) == 1,
-                                                                      cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorRight", 0) == 1)  # 左转向灯
+                                                                      cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorRight", 0) == 1,
+                                                                      cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorLeft", 0) == 1)  # 左转向灯
 
     ret.steeringTorque = cp.vl.get("GW_17E", {}).get("EPS_MeasuredTorsionBarTorque", 0) # 转向扭矩
     ret.steeringTorqueEps = cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0) # eps 转向扭矩
@@ -210,7 +210,7 @@ class CarState(CarStateBase):
     ret.genericToggle = False # 自动远光灯
     # ret.espDisabled = True # ESP 关闭
 
-    ret.stockAeb = cp_cam.vl.get("GW_244", {}).get("ACC_AEBCtrlType", 0) > 0 # 前碰撞刹车
+    #ret.stockAeb = cp_cam.vl.get("GW_244", {}).get("ACC_AEBCtrlType", 0) > 0 # 前碰撞刹车
 
     self.sigs244 = copy.copy(cp_cam.vl.get("GW_244", {}))
     self.sigs1ba = copy.copy(cp_cam.vl.get("GW_1BA", {}))
