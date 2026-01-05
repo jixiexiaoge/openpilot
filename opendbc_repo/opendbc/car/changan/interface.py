@@ -39,15 +39,15 @@ class CarInterface(CarInterfaceBase):
 
     # 调整转向参数以适应480度单边打满
     ret.steerRatio = 15.0
-    ret.steerMaxBP = [0.]
-    ret.steerMaxV = [480.]
-    ret.steerRateCost = 0.5
+    ret.lateralParams.torqueBP = [0]
+    ret.lateralParams.torqueV = [480]
+    # ret.steerRateCost = 0.5
 
     ret.enableBsm = True # 盲区检测
 
     ret.radarUnavailable = True
 
-    ret.experimentalLongitudinalAvailable = True
+    ret.alphaLongitudinalAvailable = True
 
     ret.openpilotLongitudinalControl = True
     ret.autoResumeSng = ret.openpilotLongitudinalControl
@@ -65,8 +65,8 @@ class CarInterface(CarInterfaceBase):
     tune.kiBP = [0., 5., 12., 20., 27.]
     tune.kiV = [0.3, 0.25, 0.2, 0.15, 0.1]  # 增加积分增益以减少稳态误差
     # 添加微分控制以减少超调
-    tune.kdBP = [0., 10., 20., 30.]
-    tune.kdV = [0.0, 0.1, 0.2, 0.3]  # 添加微分控制
+    # tune.kdBP = [0., 10., 20., 30.]
+    # tune.kdV = [0.0, 0.1, 0.2, 0.3]  # 添加微分控制
 
     # 调整停车和起步参数
     ret.vEgoStopping = 0.3  # 降低停车速度阈值
@@ -79,8 +79,8 @@ class CarInterface(CarInterfaceBase):
     ret.stopAccel = -0.3  # 降低停车减速度以使停车更平稳
     ret.longitudinalActuatorDelay = 0.6  # 降低纵向控制延迟
     # 添加加速度变化率限制
-    ret.accelRate = 0.5  # 降低加速度变化率
-    ret.decelRate = 0.5  # 降低减速度变化率
+    # ret.accelRate = 0.5  # 降低加速度变化率
+    # ret.decelRate = 0.5  # 降低减速度变化率
 
     return ret
 
