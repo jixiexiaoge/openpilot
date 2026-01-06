@@ -38,8 +38,8 @@ class CarInterface(CarInterfaceBase):
     ret.minSteerSpeed = 0
 
     # Lateral Tuning
-    ret.lateralParams.torqueBP = [0]
-    ret.lateralParams.torqueV = [480]
+    # ret.lateralParams.torqueBP = [0]
+    # ret.lateralParams.torqueV = [480]
 
     ret.centerToFront = ret.wheelbase * 0.44
 
