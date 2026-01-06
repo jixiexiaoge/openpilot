@@ -130,7 +130,7 @@ class CarrotSpeed:
     return abs(float(gy) - float(cy)) + abs(float(gx) - float(cx))
 
   # ---------------- public ----------------
-  def export_cells_around_with_here(self, lat: float, lon: float,
+  def export_cells_around(self, lat: float, lon: float,
                                     heading_deg: float,
                                     ring: int = 1, max_points: int = 64,
                                     lateral_m: float = 3.0) -> Tuple[str, float]:
@@ -204,7 +204,7 @@ class CarrotSpeed:
 
     return json.dumps({"pts": pts}, separators=(",", ":")), float(speed)
 
-  def export_cells_around(self, lat: float, lon: float,
+  def export_cells_around1(self, lat: float, lon: float,
                           heading_deg: float,
                           ring: int = 1, max_points: int = 64) -> str:
     gy0, gx0 = quantize_1e4(lat, lon)
