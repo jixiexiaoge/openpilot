@@ -158,12 +158,12 @@ static safety_config changan_init(uint16_t param) {
   };
 
   static RxCheck changan_rx_checks[] = {
-    {.msg = {{CHANGAN_STEER,    0, 8, .frequency = 100U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_EPS,      0, 8, .frequency = 100U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_CRZ_BTNS, 0, 8, .frequency = 10U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_SPEED,    0, 8, .frequency = 50U}, {CHANGAN_SPEED_ALT, 0, 8, .frequency = 50U}, { 0 }}},
-    {.msg = {{CHANGAN_GAS,      0, 8, .frequency = 50U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_BRAKE,    0, 8, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_STEER,    0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 100U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_EPS,      0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 100U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_CRZ_BTNS, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 10U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_SPEED,    0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_SPEED_ALT, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }}},
+    {.msg = {{CHANGAN_GAS,      0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_BRAKE,    0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }, { 0 }}},
   };
 
   UNUSED(param);
