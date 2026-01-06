@@ -130,31 +130,26 @@ class CarrotSpeed:
     return abs(float(gy) - float(cy)) + abs(float(gx) - float(cx))
 
   # ---------------- public ----------------
-  def export_cells_around(self, lat: float, lon: float,
+  def export_cells_around_with_here(self, lat: float, lon: float,
                                     heading_deg: float,
                                     ring: int = 1, max_points: int = 64,
-                                    lateral_m: float = 3.0) -> Tuple[str, float]:
-    """
-    - return: (json_string, speed_here)
-    - json_string: {"pts":[[lat,lon,v],...]}  # 표시용(주변 ring)
-    - speed_here: 제어용(내 위치 우선, 없으면 좌/우 lateral만)
-    - 앞/뒤 탐색 없음
-    """
+                                    lateral_m: float = 6.0) -> Tuple[str, float]:
     gy0, gx0 = quantize_1e4(lat, lon)
     b0 = heading_to_bucket(heading_deg, self.buckets)
     pts = []
 
-    def _pick_best_speed_at(gy: int, gx: int, ring_pick: int = 0) -> float:
+    def _pick_speed_at(lat0: float, lon0: float) -> float:
+      """해당 좌표의 셀(quantize)에서만(speed control용) speed 1개 선택. 없으면 0."""
+      gy, gx = quantize_1e4(lat0, lon0)
       best_v = 0.0
       best_d = 1e18
       best_bd = 999
 
-      cand_ids = self._near_ids_in_ring(gy, gx, ring_pick)
+      cand_ids = self._near_ids_in_ring(gy, gx, 0)  # ✅ 현재 셀만
       for eid in cand_ids:
         ev = self._events.get(eid)
         if not ev:
           continue
-
         bd = bucket_diff(b0, int(ev["b"]), self.buckets)
         if bd > self.bucket_tol:
           continue
@@ -168,7 +163,7 @@ class CarrotSpeed:
       return best_v
 
     with self._lock:
-      # 1) 표시용 pts: 주변 ring
+      # 1) 표시용 pts (주변 ring)
       cand_ids = self._near_ids_in_ring(gy0, gx0, ring)
       seen = set()
       for eid in cand_ids:
@@ -182,25 +177,28 @@ class CarrotSpeed:
         if bucket_diff(b0, int(ev["b"]), self.buckets) > self.bucket_tol:
           continue
 
-        # 표시용은 기존 방식 유지(+0.5)
+        # 표시용(기존 그대로)
         cell_lat = (float(ev["cy"]) + 0.5) * 1e-4
         cell_lon = (float(ev["cx"]) + 0.5) * 1e-4
         pts.append([cell_lat, cell_lon, float(ev["v"])])
         if len(pts) >= max_points:
           break
 
-      # 2) 제어용 speed: 내 위치(내 셀) 우선
-      speed = _pick_best_speed_at(gy0, gx0, ring_pick=0)
+      # 2) speed: 현재 위치 셀
+      speed = _pick_speed_at(lat, lon)
 
-      # 3) 없으면 좌/우(lateral)만 (차량 기준 좌/우)
+      # 3) speed가 0이면 좌/우 셀(heading 기준 lateral)에서만 가져오기
       if speed == 0.0 and lateral_m > 0.0:
-        # 좌: heading - 90, 우: heading + 90
-        for h in (heading_deg - 90.0, heading_deg + 90.0):
-          y, x = project_point(lat, lon, h, float(lateral_m))
-          gy, gx = quantize_1e4(y, x)
-          speed = _pick_best_speed_at(gy, gx, ring_pick=0)
-          if speed != 0.0:
-            break
+        # 좌 먼저, 그 다음 우
+        yL, xL = project_point(lat, lon, heading_deg - 90.0, lateral_m)
+        sL = _pick_speed_at(yL, xL)
+        if sL != 0.0:
+          speed = sL
+        else:
+          yR, xR = project_point(lat, lon, heading_deg + 90.0, lateral_m)
+          sR = _pick_speed_at(yR, xR)
+          if sR != 0.0:
+            speed = sR
 
     return json.dumps({"pts": pts}, separators=(",", ":")), float(speed)
 
@@ -296,53 +294,6 @@ class CarrotSpeed:
       # ev["b"] = int(b)
 
       self._dirty = True
-
-
-  def query_target(self, lat: float, lon: float, heading_deg: float, v_ego: float,
-                   lookahead_s: float = 2.0) -> float:
-    dist = max(0.0, float(v_ego) * float(lookahead_s))
-    return self.query_target_dist(lat, lon, heading_deg, dist)
-
-  def query_target_dist(self, lat: float, lon: float, heading_deg: float, dist: float) -> float:
-    b = heading_to_bucket(heading_deg, self.buckets)
-
-    cand_ds = [float(dist)]
-    for off in (3.0, -3.0):
-      d2 = float(dist) + off
-      if d2 >= 0.0:
-        cand_ds.append(d2)
-
-    best_eid = None
-    best_v = 0.0
-    best_d = 1e18
-    best_bd = 999
-
-    with self._lock:
-      for d in cand_ds:
-        y, x = project_point(lat, lon, heading_deg, d)
-        gy, gx = quantize_1e4(y, x)
-
-        cand_ids = self._near_ids_in_ring(gy, gx, self.neighbor_ring)
-        for eid in cand_ids:
-          ev = self._events.get(eid)
-          if not ev:
-            continue
-
-          bd = bucket_diff(b, int(ev["b"]), self.buckets)
-          if bd > self.bucket_tol:
-            continue
-
-          dd = self._grid_dist(gy, gx, float(ev["cy"]), float(ev["cx"]))
-
-          # ✅ 선택 기준: 거리 → 버킷차
-          if (dd < best_d) or (dd == best_d and bd < best_bd):
-            best_d = dd
-            best_bd = bd
-            best_eid = eid
-            best_v = float(ev["v"])
-
-    self._last_hit_eid = best_eid
-    return best_v if best_eid is not None else 0.0
 
   def invalidate_last_hit(self, window_s: float = 2.0, action: str = "clear") -> bool:
     """

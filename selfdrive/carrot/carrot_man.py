@@ -386,14 +386,16 @@ class CarrotMan:
     
     v_cruise_apply = max(min(CS.vCruise, v_ego_kph), 20)
     vt_last = self.params_memory.get_int("CarrotSpeed")
+    if vt_last != 0:
+      self.v_cruise_change = 0
     self.params_memory.put_int("CarrotSpeed", 0)
 
     now = time.monotonic()
     heading = self.carrot_serv.bearing #nPosAnglePhone
     lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
     #vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
-    viz_json, vt = carrot_speed.export_cells_around(lat, lon, heading, ring=4, max_points=64, lateral_m = 6.0)
-    if self.v_cruise_change != 0 and (vt_last != self._last_vt or vt_last == 0):
+    viz_json, vt = carrot_speed.export_cells_around_with_here(lat, lon, heading, ring=4, max_points=64, lateral_m = 6.0)
+    if self.v_cruise_change != 0:
       carrot_speed.add_sample(lat, lon, heading, v_cruise_apply if self.v_cruise_change > 0 else (- v_cruise_apply))
       if self.v_cruise_change > 0:
         self.v_cruise_change -= 1
