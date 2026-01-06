@@ -75,10 +75,10 @@ class CarState(CarStateBase):
 
     # Vehicle Speed
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      carspd = cp.vl.get("GW_17A", {}).get("ESP_VehicleSpeed", 0)
+      speed = cp.vl.get("GW_17A", {}).get("ESP_VehicleSpeed", 0)
     else:
       carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
-    speed = carspd if carspd <= 5 else ((carspd/0.98)+2)
+      speed = carspd if carspd <= 5 else ((carspd/0.98)+2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.vEgoCluster = ret.vEgo
