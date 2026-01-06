@@ -130,6 +130,79 @@ class CarrotSpeed:
     return abs(float(gy) - float(cy)) + abs(float(gx) - float(cx))
 
   # ---------------- public ----------------
+  def export_cells_around_with_here(self, lat: float, lon: float,
+                                    heading_deg: float,
+                                    ring: int = 1, max_points: int = 64,
+                                    lateral_m: float = 3.0) -> Tuple[str, float]:
+    """
+    - return: (json_string, speed_here)
+    - json_string: {"pts":[[lat,lon,v],...]}  # 표시용(주변 ring)
+    - speed_here: 제어용(내 위치 우선, 없으면 좌/우 lateral만)
+    - 앞/뒤 탐색 없음
+    """
+    gy0, gx0 = quantize_1e4(lat, lon)
+    b0 = heading_to_bucket(heading_deg, self.buckets)
+    pts = []
+
+    def _pick_best_speed_at(gy: int, gx: int, ring_pick: int = 0) -> float:
+      best_v = 0.0
+      best_d = 1e18
+      best_bd = 999
+
+      cand_ids = self._near_ids_in_ring(gy, gx, ring_pick)
+      for eid in cand_ids:
+        ev = self._events.get(eid)
+        if not ev:
+          continue
+
+        bd = bucket_diff(b0, int(ev["b"]), self.buckets)
+        if bd > self.bucket_tol:
+          continue
+
+        dd = self._grid_dist(gy, gx, float(ev["cy"]), float(ev["cx"]))
+        if (dd < best_d) or (dd == best_d and bd < best_bd):
+          best_d = dd
+          best_bd = bd
+          best_v = float(ev["v"])
+
+      return best_v
+
+    with self._lock:
+      # 1) 표시용 pts: 주변 ring
+      cand_ids = self._near_ids_in_ring(gy0, gx0, ring)
+      seen = set()
+      for eid in cand_ids:
+        if eid in seen:
+          continue
+        seen.add(eid)
+
+        ev = self._events.get(eid)
+        if not ev:
+          continue
+        if bucket_diff(b0, int(ev["b"]), self.buckets) > self.bucket_tol:
+          continue
+
+        # 표시용은 기존 방식 유지(+0.5)
+        cell_lat = (float(ev["cy"]) + 0.5) * 1e-4
+        cell_lon = (float(ev["cx"]) + 0.5) * 1e-4
+        pts.append([cell_lat, cell_lon, float(ev["v"])])
+        if len(pts) >= max_points:
+          break
+
+      # 2) 제어용 speed: 내 위치(내 셀) 우선
+      speed = _pick_best_speed_at(gy0, gx0, ring_pick=0)
+
+      # 3) 없으면 좌/우(lateral)만 (차량 기준 좌/우)
+      if speed == 0.0 and lateral_m > 0.0:
+        # 좌: heading - 90, 우: heading + 90
+        for h in (heading_deg - 90.0, heading_deg + 90.0):
+          y, x = project_point(lat, lon, h, float(lateral_m))
+          gy, gx = quantize_1e4(y, x)
+          speed = _pick_best_speed_at(gy, gx, ring_pick=0)
+          if speed != 0.0:
+            break
+
+    return json.dumps({"pts": pts}, separators=(",", ":")), float(speed)
 
   def export_cells_around(self, lat: float, lon: float,
                           heading_deg: float,

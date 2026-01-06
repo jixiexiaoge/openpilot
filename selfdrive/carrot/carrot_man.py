@@ -391,7 +391,8 @@ class CarrotMan:
     now = time.monotonic()
     heading = self.carrot_serv.bearing #nPosAnglePhone
     lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
-    vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    #vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    viz_json, vt = carrot_speed.export_cells_around(lat, lon, heading, ring=4, max_points=64, lateral_m = 6.0)
     if self.v_cruise_change != 0 and (vt_last != self._last_vt or vt_last == 0):
       carrot_speed.add_sample(lat, lon, heading, v_cruise_apply if self.v_cruise_change > 0 else (- v_cruise_apply))
       if self.v_cruise_change > 0:
@@ -415,7 +416,6 @@ class CarrotMan:
 
     if now - self._last_viz_t > 0.5: # 2Hz
         self._last_viz_t = now
-        viz_json = carrot_speed.export_cells_around(lat, lon, heading, ring=4, max_points=64)
         # 메모리 Params에 쓰는 게 좋음 (디스크 말고)
         self.params_memory.put_nonblocking("CarrotSpeedViz", viz_json)
 
