@@ -69,7 +69,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
        }
     }
 
-    generic_rx_checks((addr == CHANGAN_STEER));
+    generic_rx_checks(false);
   }
 }
 

@@ -75,6 +75,7 @@ class CarState(CarStateBase):
 
     # Vehicle Speed
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      # DBC 已经将信号转换为 kph，直接使用
       speed = cp.vl.get("GW_17A", {}).get("ESP_VehicleSpeed", 0)
     else:
       carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
