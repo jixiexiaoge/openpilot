@@ -460,6 +460,9 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
   ret = []
 
   if CP.flags & HyundaiFlags.CAMERA_SCC.value:
+    HDA_CntrlModSta = 0
+    if CS.lfahda_cluster_info is not None:
+      HDA_CntrlModSta = CS.lfahda_cluster_info["HDA_CntrlModSta"]
     if frame % 2 == 0:
       if CS.adrv_info_160 is not None:
         values = copy.copy(CS.adrv_info_160)
@@ -512,7 +515,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         values["TARGET_DISTANCE"] = int(hud_control.leadDistance)
 
         values["BACKGROUND"] = 6 if CS.paddle_button_prev > 0 else 1 if cruise_enabled else 3 if main_enabled else 7
-        values["CENTERLINE"] = 1 if lat_enabled else 0
+        values["CENTERLINE"] = 1 if HDA_CntrlModSta > 0 else 0 #lat_enabled else 0
         values["CAR_CIRCLE"] = 2 if hdp_active else 1 if cruise_enabled else 0
 
         values["NAV_ICON"] = 2 if nav_active else 0
@@ -606,9 +609,6 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         ret.append(packer.make_can_msg("CCNC_0x162", CAN.ECAN, values))
 
     if canfd_debug > 0:
-      HDA_CntrlModSta = 0
-      if CS.lfahda_cluster_info is not None:
-        HDA_CntrlModSta = CS.lfahda_cluster_info["HDA_CntrlModSta"]
       if HDA_CntrlModSta == 0:
         if frame % 500 in [10,20,30]:
           values = {
