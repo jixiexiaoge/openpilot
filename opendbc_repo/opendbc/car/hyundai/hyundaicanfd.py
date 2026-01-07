@@ -652,7 +652,31 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         ret.append(packer.make_can_msg("CCNC_0x162", CAN.ECAN, values))
 
     if canfd_debug > 0:
-      if frame % 20 == 0: # 아직 시험중..
+      if frame % 100 == 0:
+        values = {
+          'BYTE_1': 23,
+          'BYTE_2': 1,
+          'BYTE_3': 0,
+          'BYTE_4': 0,
+          'BYTE_5': 0,
+          'BYTE_6': 224,
+          'BYTE_7': 8,
+          'BYTE_8': 12,
+        }
+        ret.append(packer.make_can_msg("NEW_MSG_4BE", CAN.CAM, values))
+      elif frame % 100 == 2:
+        values = {
+          'BYTE_1': 0xff,
+          'BYTE_2': 0xff,
+          'BYTE_3': 0xff,
+          'BYTE_4': 0xff,
+          'BYTE_5': 0xff,
+          'BYTE_6': 0xff,
+          'BYTE_7': 0xff,
+          'BYTE_8': 0xff,
+        }
+        ret.append(packer.make_can_msg("NEW_MSG_4BE", CAN.CAM, values))
+      if False: #frame % 20 == 0: # 아직 시험중..
         if CS.hda_info_4a3 is not None:
           values = copy.copy(CS.hda_info_4a3)
           values["LinkClass"] = 1
