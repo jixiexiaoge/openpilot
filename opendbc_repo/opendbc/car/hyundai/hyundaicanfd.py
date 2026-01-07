@@ -636,19 +636,19 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
       if CS.lfahda_cluster_info is not None:
         HDA_CntrlModSta = CS.lfahda_cluster_info["HDA_CntrlModSta"]
       if HDA_CntrlModSta == 0:
-        if 0 < frame % 500 < 5:
+        if frame % 500 in [10,20,30]:
           values = {
             'BYTE_1': 0,
             'BYTE_2': 0,
-            'BYTE_3': 121,
-            'BYTE_4': 169,
-            'BYTE_5': 34,
-            'BYTE_6': 16,
-            'BYTE_7': 252,
-            'BYTE_8': 255,
+            'BYTE_3': 0x80,
+            'BYTE_4': 0x8A,
+            'BYTE_5': 0x32,
+            'BYTE_6': 0x30,
+            'BYTE_7': 0x01,
+            'BYTE_8': 0x00,
           }
           ret.append(packer.make_can_msg("NEW_MSG_4B9", CAN.CAM, values))
-        elif 10 < frame % 500 < 15:
+        elif frame % 500 in [40,50,60]:
           values = {
             'BYTE_1': 0xff,
             'BYTE_2': 0xff,
@@ -660,7 +660,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
             'BYTE_8': 0xff,
           }
           ret.append(packer.make_can_msg("NEW_MSG_4B9", CAN.CAM, values))
-      if canfd_debug > 1 and frame % 20 == 0: # 아직 시험중..
+      if False: #canfd_debug > 1 and frame % 20 == 0: # 아직 시험중..
         if CS.hda_info_4a3 is not None:
           values = copy.copy(CS.hda_info_4a3)
           values["LinkClass"] = 1
