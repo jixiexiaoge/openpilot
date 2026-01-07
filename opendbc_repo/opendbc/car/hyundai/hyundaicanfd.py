@@ -572,16 +572,6 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
         values = copy.copy(CS.adrv_info_1ea)
         #values["HDA_MODE1"] = 8
         #values["HDA_MODE2"] = 1
-        disp_corner_radar_emu = False
-        if disp_corner_radar_emu:
-          if values['LF_DETECT'] == 0 and hud_control.leadLeftDist > 0:
-            values['LF_DETECT'] = 3 if hud_control.leadLeftDist > 30 else 4
-            values['LF_DETECT_DISTANCE'] = hud_control.leadLeftDist
-            values['LF_DETECT_LATERAL'] = hud_control.leadLeftLat
-          if values['RF_DETECT'] == 0 and hud_control.leadRightDist > 0:
-            values['RF_DETECT'] = 3 if hud_control.leadRightDist > 30 else 4
-            values['RF_DETECT_DISTANCE'] = hud_control.leadRightDist
-            values['RF_DETECT_LATERAL'] = hud_control.leadRightLat
         if CC.leftBlinker:
           #values['LEFT_BLINK_HOLD'] = 1
           pass
@@ -599,24 +589,6 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           ff_type = 3 if hud_control.leadRadar == 1 else 13
           values["FF_DETECT"] = ff_type if hud_control.leadRelSpeed > -0.1 else ff_type + 1
           #values["FF_DETECT_LAT"] = - hud_control.leadDPath
-
-        if disp_corner_radar_emu:
-          if values['LF_DETECT'] == 0 and hud_control.leadLeftDist > 0:
-            values['LF_DETECT'] = 3 if hud_control.leadLeftDist > 30 else 4
-            values['LF_DETECT_DISTANCE'] = hud_control.leadLeftDist
-            values['LF_DETECT_LATERAL'] = hud_control.leadLeftLat
-          if values['RF_DETECT'] == 0 and hud_control.leadRightDist > 0:
-            values['RF_DETECT'] = 3 if hud_control.leadRightDist > 30 else 4
-            values['RF_DETECT_DISTANCE'] = hud_control.leadRightDist
-            values['RF_DETECT_LATERAL'] = hud_control.leadRightLat
-          if values['LR_DETECT'] == 0 and hud_control.leadLeftDist2 > 0:
-            values['LR_DETECT'] = 4
-            values['LR_DETECT_DISTANCE'] = 2
-            values['LR_DETECT_LATERAL'] = hud_control.leadLeftLat2
-          if values['RR_DETECT'] == 0 and hud_control.leadRightDist2 > 0:
-            values['RR_DETECT'] = 4
-            values['RR_DETECT_DISTANCE'] = 2
-            values['RR_DETECT_LATERAL'] = hud_control.leadRightLat2
 
         """
         values["FAULT_FCA"] = 0
