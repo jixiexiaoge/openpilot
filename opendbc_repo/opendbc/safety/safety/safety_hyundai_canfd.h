@@ -445,7 +445,7 @@ static int hyundai_canfd_fwd_hook(int bus_num, int addr) {
             break;
         }
     }
-    //if(addr == 0x4b9) bus_fwd = -1; // maybe corner rara disabler.
+    if(addr == 0x4b9) bus_fwd = -1; // maybe corner rara disabler.
   }
   if (bus_num == 1) {
       int i;
