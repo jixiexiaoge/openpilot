@@ -634,7 +634,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
     if canfd_debug > 0:
       HDA_CntrlModSta = 0
       if CS.lfahda_cluster_info is not None:
-        HDA_CntrlModSta = CS.lfaHda_cluster_info["HDA_CntrlModSta"]
+        HDA_CntrlModSta = CS.lfahda_cluster_info["HDA_CntrlModSta"]
       if HDA_CntrlModSta == 0:
         if 0 < frame % 500 < 5:
           values = {
