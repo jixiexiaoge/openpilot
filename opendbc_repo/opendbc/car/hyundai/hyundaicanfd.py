@@ -656,7 +656,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
           'BYTE_8': 0xff,
         }
         ret.append(packer.make_can_msg("NEW_MSG_4BE", CAN.CAM, values))
-      if False: #frame % 20 == 0: # 아직 시험중..
+      if canfd_debug > 1 and frame % 20 == 0: # 아직 시험중..
         if CS.hda_info_4a3 is not None:
           values = copy.copy(CS.hda_info_4a3)
           values["LinkClass"] = 1
