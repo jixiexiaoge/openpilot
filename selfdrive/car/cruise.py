@@ -602,9 +602,12 @@ class VCruiseCarrot:
         self._add_log("Lateral " + "enabled" if self._lat_enabled else "disabled")
 
     if self._paddle_mode > 0 and button_type in [ButtonType.paddleLeft, ButtonType.paddleRight]:  # paddle button
-      self._cruise_control(-2, -1, "Cruise off & Ready (paddle)")
-      if self._paddle_mode == 2:
-        self._paddle_decel_active = True
+      if self._paddle_mode == 3:
+        self.carrot_cruise_active = True
+      else:
+        self._cruise_control(-2, -1, "Cruise off & Ready (paddle)")
+        if self._paddle_mode == 2:
+          self._paddle_decel_active = True
     elif self._paddle_decel_active:
       if not CC.enabled:
         self._cruise_control(1, -1, "Cruise on (paddle decel)")
