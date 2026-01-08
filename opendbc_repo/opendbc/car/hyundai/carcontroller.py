@@ -175,7 +175,7 @@ class CarController(CarControllerBase):
 
       self.canfd_debug = params.get_int("CanfdDebug")
       self.camera_scc_params = params.get_int("HyundaiCameraSCC")
-      self.enable_corner_radar = self.params.get_int("EnableCornerRadar")
+      self.enable_corner_radar = params.get_int("EnableCornerRadar")
 
     actuators = CC.actuators
     hud_control = CC.hudControl
