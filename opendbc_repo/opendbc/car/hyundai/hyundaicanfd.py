@@ -476,13 +476,13 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control, disp_angle
 
       if CS.cruise_buttons_msg is not None:
         values = copy.copy(CS.cruise_buttons_msg)        
-        if CS.lfahda_cluster_info["HDA_LFA_SymSta"] == 0 and 0 < frame % 200 < 8:
+        if CS.lfahda_cluster_info["HDA_LFA_SymSta"] == 0 and 0 < frame % 200 < 12:
           values["LFA_BTN"] = 1
         else:
           values["LFA_BTN"] = 0
 
         if CS.MainMode_ACC:
-          if CS.ACCMode in [0, 4] and 10 < frame % 200 <= 16:
+          if CS.ACCMode in [0, 4] and 10 < frame % 200 < 22:
             values["CRUISE_BUTTONS"] = 2
         elif 10 < frame % 200 <= 16:
           values["ADAPTIVE_CRUISE_MAIN_BTN"] = 1
