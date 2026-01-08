@@ -510,8 +510,8 @@ class DrivingModeDetector:
 
         self.enter_count = 0
         self.exit_count = 0
-        self.enter_needed = 5   # 5프레임 연속이면 Safe 진입
-        self.exit_needed = 10   # 10프레임 연속이면 Normal 복귀
+        self.enter_needed = 3
+        self.exit_needed = 3
 
         self.distance_threshold = 12
         self.speed_threshold = 2
