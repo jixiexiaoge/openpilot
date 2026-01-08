@@ -507,23 +507,49 @@ class CarrotPlanner:
 class DrivingModeDetector:
     def __init__(self):
         self.congested = False
-        self.speed_threshold = 2      # (km/h)
-        self.accel_threshold = 1.5    # (m/s^2)
-        self.distance_threshold = 12  # (m)
-        self.lead_speed_exit_threshold = 35  # (km/h)
+
+        self.enter_count = 0
+        self.exit_count = 0
+        self.enter_needed = 5   # 5프레임 연속이면 Safe 진입
+        self.exit_needed = 10   # 10프레임 연속이면 Normal 복귀
+
+        self.distance_threshold = 12
+        self.speed_threshold = 2
+        self.accel_threshold = 1.5
+        self.lead_speed_exit_threshold = 35
 
     def update_data(self, my_speed, lead_speed, my_accel, lead_accel, distance):
-        # 1. 정체 조건: 앞차가 가까이 있고 정지된 상황
-        if distance <= self.distance_threshold and lead_speed <= self.speed_threshold:
-            self.congested = True
+        # ---- 진입 조건(OR로 묶기) ----
+        enter = (
+            (distance <= self.distance_threshold and lead_speed <= self.speed_threshold) or
+            (lead_speed < 5 and lead_accel < 0.2 and my_speed > 1.0)
+        )
 
-        # 1-1. 추가 정체 조건: 앞차가 매우 느리거나 사실상 멈춘 상태인데 나는 움직이고 있음
-        if lead_speed < 5 and lead_accel < 0.2 and my_speed > 1.0:
-            self.congested = True
+        # ---- 탈출 조건(더 보수적으로) ----
+        exit_ = (
+            (lead_accel > self.accel_threshold) or
+            (my_speed > self.lead_speed_exit_threshold) or
+            (distance >= 200)
+        )
 
-        # 2. 주행 조건: 앞차가 가속하거나 빠르게 이동하거나 충분히 멀어짐
-        if lead_accel > self.accel_threshold or my_speed > self.lead_speed_exit_threshold or distance >= 200:
+        # ---- 디바운스 로직 ----
+        if enter:
+            self.enter_count += 1
+        else:
+            self.enter_count = 0
+
+        if exit_:
+            self.exit_count += 1
+        else:
+            self.exit_count = 0
+
+        if not self.congested and self.enter_count >= self.enter_needed:
+            self.congested = True
+            self.exit_count = 0  # 진입 시 반대 카운터 리셋
+
+        if self.congested and self.exit_count >= self.exit_needed:
             self.congested = False
+            self.enter_count = 0
 
     def get_mode(self):
         return DrivingMode.Safe if self.congested else DrivingMode.Normal
