@@ -21,6 +21,10 @@ FW_QUERY_CONFIGS: dict[str, FwQueryConfig] = get_interface_attr('FW_QUERY_CONFIG
 VERSIONS = get_interface_attr('FW_VERSIONS', ignore_none=True)
 
 MODEL_TO_BRAND = {c: b for b, e in VERSIONS.items() for c in e}
+# Fall back to combined FW list so brands missing from VERSIONS (e.g. changan) still map to a config
+for brand, cars in FW_VERSIONS.items():
+  for car in cars:
+    MODEL_TO_BRAND.setdefault(car, brand)
 REQUESTS = [(brand, config, r) for brand, config in FW_QUERY_CONFIGS.items() for r in config.requests]
 
 T = TypeVar('T')
@@ -114,7 +118,14 @@ def match_fw_to_car_exact(live_fw_versions: LiveFwVersions, match_brand: str = N
                 is_brand(MODEL_TO_BRAND[c], match_brand)}
 
   for candidate, fws in candidates.items():
-    config = FW_QUERY_CONFIGS[MODEL_TO_BRAND[candidate]]
+    brand = MODEL_TO_BRAND[candidate]
+    if brand not in FW_QUERY_CONFIGS:
+      if log:
+        carlog.warning(f"Skipping {candidate}: brand '{brand}' has no FW query configuration")
+      invalid.add(candidate)
+      continue
+
+    config = FW_QUERY_CONFIGS[brand]
     for ecu, expected_versions in fws.items():
       expected_versions = expected_versions + extra_fw_versions.get(candidate, {}).get(ecu, [])
       ecu_type = ecu[0]
@@ -159,6 +170,11 @@ def match_fw_to_car(fw_versions: list[CarParams.CarFw], vin: str, allow_exact: b
       matches |= match_func(fw_versions_dict, match_brand=brand, log=log)
 
       # If specified and no matches so far, fall back to brand's fuzzy fingerprinting function
+      if brand not in FW_QUERY_CONFIGS:
+        if log:
+          carlog.warning(f"Skipping brand '{brand}': no FW query configuration")
+        continue
+
       config = FW_QUERY_CONFIGS[brand]
       if not exact_match and not len(matches) and config.match_fw_to_car_fuzzy is not None:
         matches |= config.match_fw_to_car_fuzzy(fw_versions_dict, vin, VERSIONS[brand])
@@ -269,6 +285,11 @@ def get_fw_versions(can_recv: CanRecvCallable, can_send: CanSendCallable, set_ob
   ecu_types = {}
 
   for brand, brand_versions in versions.items():
+    if brand not in FW_QUERY_CONFIGS:
+      if query_brand is None or query_brand == brand:
+         carlog.warning(f"Skipping brand '{brand}': no FW query configuration")
+      continue
+
     config = FW_QUERY_CONFIGS[brand]
     for ecu_type, addr, sub_addr in config.get_all_ecus(brand_versions):
       a = (brand, addr, sub_addr)

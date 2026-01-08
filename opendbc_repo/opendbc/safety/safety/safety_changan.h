@@ -11,6 +11,7 @@
 #define CHANGAN_WHEEL_SPEEDS     0x187 // WHEEL_SPEEDS
 #define CHANGAN_BRAKE_MODULE     0x196 // BRAKE_MODULE
 #define CHANGAN_BRAKE_ALT        0x1A6 // BRAKE_MODULE_ALT
+#define CHANGAN_GAS_ALT          0x1C6 // GAS_PEDAL_ALT
 #define CHANGAN_ACC_CONTROL      0x244 // ACC_CONTROL
 #define CHANGAN_ACC_HUD          0x307 // ACC_HUD
 #define CHANGAN_ACC_STATE        0x31A // ACC_STATE
@@ -63,9 +64,12 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
     if (addr == CHANGAN_BRAKE_ALT) {
        // Signal: BRAKE_PRESSED
-       if ((GET_BYTE(to_push, 0) & 0x1U) != 0) {
-         brake_pressed = true;
-       }
+       brake_pressed = (GET_BYTE(to_push, 0) & 0x1U) != 0;
+    }
+
+    if (addr == CHANGAN_GAS_ALT) {
+       // Signal: GAS_PEDAL_USER
+       gas_pressed = GET_BYTE(to_push, 0) > 0U;
     }
 
     generic_rx_checks(false);
@@ -133,12 +137,12 @@ static int changan_fwd_hook(int bus, int addr) {
 
 static safety_config changan_init(uint16_t param) {
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_LKA, 0, 8},
+    {CHANGAN_STEER_LKA, 0, 32},
     {CHANGAN_MFS_BUTTONS, 0, 8},
     {CHANGAN_STEER_TORQUE, 0, 8},
-    {CHANGAN_ACC_CONTROL, 0, 8},
-    {CHANGAN_ACC_HUD, 0, 8},
-    {CHANGAN_ACC_STATE, 0, 8}
+    {CHANGAN_ACC_CONTROL, 0, 32},
+    {CHANGAN_ACC_HUD, 0, 64},
+    {CHANGAN_ACC_STATE, 0, 64}
   };
 
   static RxCheck changan_rx_checks[] = {
@@ -146,7 +150,7 @@ static safety_config changan_init(uint16_t param) {
     {.msg = {{CHANGAN_STEER_TORQUE,  0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_MFS_BUTTONS,   0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 10U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_VEHICLE_SPEED, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_WHEEL_SPEEDS, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }}},
-    {.msg = {{CHANGAN_BRAKE_MODULE,  0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_BRAKE_MODULE,  0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_BRAKE_ALT, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_GAS_ALT, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}}},
   };
 
   UNUSED(param);

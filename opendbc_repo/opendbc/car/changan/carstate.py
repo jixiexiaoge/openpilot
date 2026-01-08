@@ -73,8 +73,8 @@ class CarState(CarStateBase):
     ret.rightBlindspot = False
 
     # Lights
-    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 1
-    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 2
+    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_INDICATOR_LEFT"] == 1
+    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_INDICATOR_RIGHT"] == 1
     ret.genericToggle = False
 
     # Steering
@@ -138,9 +138,8 @@ class CarState(CarStateBase):
     # Snapshot signals for controller
     self.sigs["ACC_CONTROL"] = copy.copy(cp_cam.vl["ACC_CONTROL"])
     self.sigs["STEERING_LKA"] = copy.copy(cp_cam.vl["STEERING_LKA"])
-    self.sigs["STEER_TORQUE_SENSOR"] = copy.copy(cp.vl["STEER_TORQUE_SENSOR"])
-    self.sigs["ACC_HUD"] = copy.copy(cp_cam.vl["ACC_HUD"])
     self.sigs["ACC_STATE"] = copy.copy(cp_cam.vl["ACC_STATE"])
+    self.sigs["STEER_TORQUE_SENSOR"] = copy.copy(cp.vl["STEER_TORQUE_SENSOR"])
 
     return ret
 
@@ -152,7 +151,6 @@ class CarState(CarStateBase):
       ("STEER_TORQUE_SENSOR", 100),
       ("STEER_TORQUE_SENSOR_2", 100),
       ("STEER_ANGLE_SENSOR", 100),
-      ("BRAKE_MODULE", 100),
       ("MFS_BUTTONS", 25),
       ("GEAR_PACKET", 10),
       ("EPS_STATUS", 50),
@@ -167,6 +165,7 @@ class CarState(CarStateBase):
     else:
       pt_messages += [
         ("WHEEL_SPEEDS", 100),
+        ("BRAKE_MODULE", 100),
       ]
 
     cam_messages = [
