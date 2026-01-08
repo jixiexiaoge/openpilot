@@ -491,7 +491,7 @@ class RadarD:
     elif (track is None) and ready and (lead_msg.prob > .5):
         lead_dict = self.vision_tracks[index].get_lead(md)
 
-    if self.enable_corner_radar > 0:
+    if self.enable_corner_radar > 1:
       lead_dict = self.corner_radar(CS, lead_dict)
 
     if low_speed_override:
