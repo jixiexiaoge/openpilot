@@ -136,6 +136,8 @@ def get_default_params():
     ("TFollowGap3", "140"),
     ("TFollowGap4", "160"),
     ("DynamicTFollow", "0"),
+    ("SpeedBasedTFollow", "0"),
+    ("SpeedBasedTFollowGap", "100"),
     ("AChangeCostStarting", "10"),
     ("TrafficStopDistanceAdjust", "400"),
     ("DynamicTFollowLC", "100"),

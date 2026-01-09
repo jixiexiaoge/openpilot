@@ -101,6 +101,12 @@ class CarrotPlanner:
 
     self.dynamicTFollow = 0.0
     self.dynamicTFollowLC = 0.0
+    self.speedBasedTFollow = 0
+    self.speedBasedTFollowGap = 1.0  # 기준 Gap (100km/h에서 이 값 사용)
+    self.speedFactorFiltered = 1.0
+    self._speedBasedTFollow_prev = 0  # 토글 감지용
+    self._last_tau = 2.0
+    self.v_ego = 0.0
 
     self.cruiseMaxVals0 = 1.6
     self.cruiseMaxVals1 = 1.6
@@ -159,6 +165,8 @@ class CarrotPlanner:
       self.tFollowGap4 = self.params.get_float("TFollowGap4") / 100.
       self.dynamicTFollow = self.params.get_float("DynamicTFollow") / 100.
       self.dynamicTFollowLC = self.params.get_float("DynamicTFollowLC") / 100.
+      self.speedBasedTFollow = self.params.get_int("SpeedBasedTFollow")
+      self.speedBasedTFollowGap = self.params.get_float("SpeedBasedTFollowGap") / 100.
     elif self.params_count == 30:
       self.cruiseMaxVals0 = self.params.get_float("CruiseMaxVals0") / 100.
       self.cruiseMaxVals1 = self.params.get_float("CruiseMaxVals1") / 100.
@@ -184,6 +192,55 @@ class CarrotPlanner:
     return np.interp(v_ego, A_CRUISE_MAX_BP_CARROT, cruiseMaxVals) * factor
 
   def get_T_FOLLOW(self, personality=log.LongitudinalPersonality.standard):
+    # 속도 기반 차간거리 조절 (SpeedBasedTFollow > 0 일 때)
+    if self.speedBasedTFollow > 0:
+      v_ego_kph = self.v_ego * CV.MS_TO_KPH
+
+      # 기준 Gap 사용
+      base_gap = self.speedBasedTFollowGap
+
+      # 속도별 배율 계산 (100km/h 기준점)
+      speed_factor_raw = np.interp(
+        v_ego_kph,
+        [0,    30,   60,   80,   100,  120,  140],
+        [0.30, 0.45, 0.60, 0.80, 1.00, 1.14, 1.25]
+      )
+
+      # SpeedBasedTFollow 토글(OFF->ON) 시 필터 상태 초기화
+      if self._speedBasedTFollow_prev <= 0:
+        self.speedFactorFiltered = speed_factor_raw
+        self._last_tau = 2.0
+      self._speedBasedTFollow_prev = self.speedBasedTFollow
+
+      # 비대칭 저역통과 필터
+      DEADBAND = 0.01
+      if speed_factor_raw < self.speedFactorFiltered - DEADBAND:
+        TAU = 5.0  # 감속 시 느린 필터
+      elif speed_factor_raw > self.speedFactorFiltered + DEADBAND:
+        TAU = 2.0  # 가속 시 빠른 필터
+      else:
+        TAU = getattr(self, '_last_tau', 2.0)
+      self._last_tau = TAU
+
+      alpha = DT_MDL / (TAU + DT_MDL)
+      self.speedFactorFiltered = alpha * speed_factor_raw + (1 - alpha) * self.speedFactorFiltered
+      self.speedFactorFiltered = float(np.clip(self.speedFactorFiltered, 0.25, 1.5))
+
+      # 강도 적용
+      blend = self.speedBasedTFollow / 100.0
+      final_factor = 1.0 + blend * (self.speedFactorFiltered - 1.0)
+
+      # 최종 t_follow
+      t_follow = base_gap * final_factor
+      t_follow = max(t_follow, np.interp(v_ego_kph, [0, 30, 60, 80], [0.25, 0.30, 0.50, 0.70]))
+      t_follow = min(t_follow, 2.5)
+
+      self.jerk_factor = 1.0 if self.myDrivingMode == DrivingMode.Safe else 0.7
+      return t_follow
+
+    # OFF일 때 prev 리셋
+    self._speedBasedTFollow_prev = 0
+
     if personality==log.LongitudinalPersonality.moreRelaxed:
       self.jerk_factor = 1.0
       return self.tFollowGap4
@@ -346,6 +403,7 @@ class CarrotPlanner:
     self.comfort_brake = self.comfortBrake
 
     v_ego = carstate.vEgo
+    self.v_ego = v_ego  # get_T_FOLLOW()에서 사용
     a_ego = carstate.aEgo
     v_ego_kph = v_ego * CV.MS_TO_KPH
     v_ego_cluster = carstate.vEgoCluster

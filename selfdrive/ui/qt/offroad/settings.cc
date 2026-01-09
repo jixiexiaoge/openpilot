@@ -676,6 +676,8 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   cruiseToggles->addItem(new CValueControl("TFollowGap3", tr("GAP3: Apply TFollow (160)x0.01s"), "", 70, 300, 5));
   cruiseToggles->addItem(new CValueControl("TFollowGap4", tr("GAP4: Apply TFollow (180)x0.01s"), "", 70, 300, 5));
   cruiseToggles->addItem(new CValueControl("DynamicTFollow", tr("Dynamic GAP control"), "", 0, 100, 5));
+  cruiseToggles->addItem(new CValueControl("SpeedBasedTFollow", tr("Speed-based GAP control"), tr("Low speed=short, High speed=long. Recommend DynamicTFollow=0"), 0, 100, 5));
+  cruiseToggles->addItem(new CValueControl("SpeedBasedTFollowGap", tr("Speed-based GAP: Base TFollow(100)x0.01s"), tr("Base gap for speed-based control. Applied at 100km/h"), 100, 200, 5));
   cruiseToggles->addItem(new CValueControl("DynamicTFollowLC", tr("Dynamic GAP control (LaneChange)"), "", 0, 100, 5));
   cruiseToggles->addItem(new CValueControl("MyDrivingMode", tr("DRIVEMODE: Select"), tr("1:ECO,2:SAFE,3:NORMAL,4:HIGH"), 1, 4, 1));
   cruiseToggles->addItem(new CValueControl("MyDrivingModeAuto", tr("DRIVEMODE: Auto"), tr("NORMAL mode only"), 0, 1, 1));
