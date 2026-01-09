@@ -129,7 +129,6 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
       {5., 25., 25.},
       {0.5, 0.25, 0.25}      // 5.0 deg/s at 100Hz
     },
-    .frequency = 100U,
   };
 
   bool tx = true;
