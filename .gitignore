@@ -105,3 +105,10 @@ Pipfile
 .history
 .ionide
 .vs
+
+# Dev notes
+todo_dev/
+
+# Claude Code
+.claude/
+CLAUDE.md
