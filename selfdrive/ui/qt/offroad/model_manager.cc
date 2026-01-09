@@ -865,8 +865,8 @@ bool ModelManagerDialog::isValidModelUrl(const QString &url) {
 }
 
 bool ModelManagerDialog::isValidModelId(const QString &id) {
-  // 허용: 영문, 숫자, 밑줄, 하이픈만
-  static QRegularExpression validPattern("^[a-zA-Z0-9_-]+$");
+  // 허용: 영문, 숫자, 밑줄, 하이픈, 공백
+  static QRegularExpression validPattern("^[a-zA-Z0-9_ -]+$");
   if (!validPattern.match(id).hasMatch()) return false;
 
   // 경로 탈출 차단
