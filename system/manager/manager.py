@@ -360,8 +360,97 @@ def manager_thread() -> None:
     if shutdown:
       break
 
+def compile_pending_model() -> None:
+  """Check for pending model compilation and compile if needed"""
+  from pathlib import Path
+  import subprocess
+  import shutil
+
+  MODELS_TMP_DIR = Path("/data/models_tmp")
+  MODELS_DIR = Path("/data/models")
+  MODELS_BACKUP_DIR = Path("/data/models_backup")
+
+  if not MODELS_TMP_DIR.exists():
+    return
+
+  # Check if ONNX files exist
+  vision_onnx = MODELS_TMP_DIR / "driving_vision.onnx"
+  policy_onnx = MODELS_TMP_DIR / "driving_policy.onnx"
+
+  if not vision_onnx.exists() or not policy_onnx.exists():
+    cloudlog.warning("model_compile: ONNX files not found, cleaning up")
+    shutil.rmtree(MODELS_TMP_DIR, ignore_errors=True)
+    return
+
+  cloudlog.warning("model_compile: Found pending model, starting compilation...")
+
+  params = Params()
+  model_name = params.get("PendingModelName", encoding='utf-8')
+  if not model_name:
+    cloudlog.warning("model_compile: PendingModelName is empty, cleaning up")
+    shutil.rmtree(MODELS_TMP_DIR, ignore_errors=True)
+    return
+
+  try:
+    openpilot_dir = "/data/openpilot"
+    metadata_script = f"{openpilot_dir}/selfdrive/modeld/get_model_metadata.py"
+    compile_script = f"{openpilot_dir}/tinygrad_repo/examples/openpilot/compile3.py"
+
+    env = os.environ.copy()
+    env["DEV"] = "QCOM"
+    env["FLOAT16"] = "1"
+
+    for model in ["driving_vision", "driving_policy"]:
+      onnx_path = str(MODELS_TMP_DIR / f"{model}.onnx")
+      pkl_path = str(MODELS_TMP_DIR / f"{model}_tinygrad.pkl")
+      meta_path = str(MODELS_TMP_DIR / f"{model}_metadata.pkl")
+
+      cloudlog.warning(f"model_compile: Generating metadata for {model}")
+      result = subprocess.run(["python3", metadata_script, onnx_path, meta_path],
+                              cwd=openpilot_dir, capture_output=True)
+      if result.returncode != 0:
+        raise Exception(f"Metadata failed: {result.stderr.decode()}")
+
+      cloudlog.warning(f"model_compile: Compiling {model} with tinygrad")
+      result = subprocess.run(["python3", compile_script, onnx_path, pkl_path],
+                              cwd=openpilot_dir, env=env, capture_output=True)
+      if result.returncode != 0:
+        raise Exception(f"Compile failed: {result.stderr.decode()}")
+
+    # Install: backup → swap → cleanup
+    cloudlog.warning("model_compile: Installing model...")
+
+    if MODELS_BACKUP_DIR.exists():
+      shutil.rmtree(MODELS_BACKUP_DIR)
+
+    if MODELS_DIR.exists():
+      MODELS_DIR.rename(MODELS_BACKUP_DIR)
+
+    MODELS_TMP_DIR.rename(MODELS_DIR)
+
+    if MODELS_BACKUP_DIR.exists():
+      shutil.rmtree(MODELS_BACKUP_DIR)
+
+    params.put("DrivingModelName", model_name)
+    params.remove("PendingModelName")
+
+    cloudlog.warning(f"model_compile: Successfully installed {model_name}")
+
+  except Exception as e:
+    cloudlog.error(f"model_compile: Failed - {e}")
+    shutil.rmtree(MODELS_TMP_DIR, ignore_errors=True)
+    # 백업에서 기존 모델 복원
+    if MODELS_BACKUP_DIR.exists() and not MODELS_DIR.exists():
+      MODELS_BACKUP_DIR.rename(MODELS_DIR)
+      cloudlog.warning("model_compile: Restored previous model from backup")
+    params.remove("PendingModelName")
+
+
 def main() -> None:
   manager_init()
+
+  # Check for pending model compilation
+  compile_pending_model()
   print(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
   os.system(f"python ../../opendbc/car/hyundai/values.py > {Params().get_param_path()}/SupportedCars")
   os.system(f"python ../../opendbc/car/gm/values.py > {Params().get_param_path()}/SupportedCars_gm")
