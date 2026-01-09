@@ -521,7 +521,7 @@ class DrivingModeDetector:
     def update_data(self, my_speed, lead_speed, my_accel, lead_accel, distance):
         # ---- 진입 조건(OR로 묶기) ----
         enter = (
-            (distance <= self.distance_threshold and lead_speed <= self.speed_threshold) or
+            (0 < distance <= self.distance_threshold and lead_speed <= self.speed_threshold) or
             (lead_speed < 5 and lead_accel < 0.2 and my_speed > 1.0 and distance > 0)
         )
 
