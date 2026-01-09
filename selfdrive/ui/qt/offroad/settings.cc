@@ -7,6 +7,9 @@
 
 #include <QDebug>
 #include <QProcess>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 
 #include "common/watchdog.h"
 #include "common/util.h"
@@ -17,6 +20,7 @@
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/offroad/developer_panel.h"
 #include "selfdrive/ui/qt/offroad/firehose.h"
+#include "selfdrive/ui/qt/offroad/model_manager.h"
 
 TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
   // param, title, desc, icon
@@ -821,6 +825,47 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   });
 
   startToggles->addItem(selectCarBtn);
+
+  // 모델 선택 버튼
+  QString currentModelName = QString::fromStdString(Params().get("DrivingModelName")).trimmed();
+  auto hasValidCustomModel = []() {
+    static const QStringList requiredFiles = {
+      "driving_vision_tinygrad.pkl",
+      "driving_policy_tinygrad.pkl",
+      "driving_vision_metadata.pkl",
+      "driving_policy_metadata.pkl",
+    };
+    for (const QString &filename : requiredFiles) {
+      QFileInfo fi("/data/models/" + filename);
+      if (!fi.exists() || fi.size() <= 0) return false;
+    }
+    return true;
+  };
+  bool hasCustomModel = hasValidCustomModel();
+  QString modelBtnText = (hasCustomModel && !currentModelName.isEmpty()) ? currentModelName : tr("Default Model");
+
+  QPushButton* selectModelBtn = new QPushButton(tr("Driving Model: ") + modelBtnText);
+  selectModelBtn->setObjectName("selectModelBtn");
+  selectModelBtn->setStyleSheet(R"(
+    QPushButton {
+      margin-top: 20px; margin-bottom: 20px; padding: 10px; height: 120px; border-radius: 15px;
+      color: #FFFFFF; background-color: #2CE22C;
+    }
+    QPushButton:pressed {
+      background-color: #24FF24;
+    }
+  )");
+  connect(selectModelBtn, &QPushButton::clicked, [=]() {
+    ModelManagerDialog dialog(this);
+    dialog.exec();
+    // 버튼 텍스트 업데이트
+    QString updatedModelName = QString::fromStdString(Params().get("DrivingModelName")).trimmed();
+    bool updatedHasCustomModel = hasValidCustomModel();
+    QString updatedText = (updatedHasCustomModel && !updatedModelName.isEmpty()) ? updatedModelName : tr("Default Model");
+    selectModelBtn->setText(tr("Driving Model: ") + updatedText);
+  });
+  startToggles->addItem(selectModelBtn);
+
   startToggles->addItem(new CValueControl("HyundaiCameraSCC", tr("HYUNDAI: CAMERA SCC"), tr("1:Connect the SCC's CAN line to CAM, 2:Sync Cruise state, 3:StockLong"), 0, 3, 1));
   startToggles->addItem(new CValueControl("CanfdHDA2", tr("CANFD: HDA2 mode"), tr("1:HDA2,2:HDA2+BSM"), 0, 2, 1));
   startToggles->addItem(new CValueControl("EnableRadarTracks", tr("Enable Radar Track"), tr("1:Enable RadarTrack, -1,2:Disable use HKG SCC radar at all times"), -1, 3, 1));

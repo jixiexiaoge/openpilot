@@ -9,6 +9,8 @@
 #include <QJsonValue>
 #include <QJsonArray>
 
+#include "selfdrive/ui/qt/offroad/model_manager.h"
+
 //#define __TEST
 //#define __UI_TEST
 
@@ -3003,7 +3005,11 @@ public:
 
         // bottom_left
         QString gitBranch = QString::fromStdString(params.get("GitBranch"));
-        sprintf(bottom_left, "%s", gitBranch.toStdString().c_str());
+        QString drivingModelName = QString::fromStdString(params.get("DrivingModelName"));
+        if (drivingModelName.isEmpty()) {
+            drivingModelName = DEFAULT_MODEL_NAME;
+        }
+        sprintf(bottom_left, "%s (%s)", gitBranch.toStdString().c_str(), drivingModelName.toStdString().c_str());
 
         // bottom_right
         Params params_memory = Params("/dev/shm/params");

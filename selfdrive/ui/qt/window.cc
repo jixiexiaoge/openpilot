@@ -1,8 +1,11 @@
 #include "selfdrive/ui/qt/window.h"
 
+#include <QApplication>
+#include <QDialog>
 #include <QFontDatabase>
 
 #include "system/hardware/hw.h"
+#include "selfdrive/ui/qt/offroad/model_manager.h"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   main_layout = new QStackedLayout(this);
@@ -39,6 +42,20 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     }
   });
   QObject::connect(device(), &Device::interactiveTimeout, [=]() {
+    // 모달 다이얼로그가 열려 있으면 자동 복귀 비활성화 (모델 다운로드 등)
+    bool dialog_open = (QApplication::activeModalWidget() != nullptr);
+    if (!dialog_open) {
+      for (QWidget *w : QApplication::topLevelWidgets()) {
+        if (w != nullptr && w->isVisible() && qobject_cast<QDialog*>(w) != nullptr) {
+          dialog_open = true;
+          break;
+        }
+      }
+    }
+    if (dialog_open) {
+      device()->resetInteractiveTimeout();
+      return;
+    }
     if (main_layout->currentWidget() == settingsWindow) {
       closeSettings();
     }

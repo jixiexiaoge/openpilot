@@ -303,4 +303,8 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"NNFFModelName", CLEAR_ON_OFFROAD_TRANSITION},
 
     {"HardwareC3xLite", PERSISTENT},
+
+    // Model Selector
+    {"DrivingModelName", PERSISTENT},  // 현재 사용 중인 모델 이름
+    {"PendingModelName", PERSISTENT},  // 다운로드 후 컴파일 대기 중인 모델 이름
 };
