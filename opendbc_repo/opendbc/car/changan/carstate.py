@@ -73,8 +73,8 @@ class CarState(CarStateBase):
     ret.rightBlindspot = False
 
     # Lights
-    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_INDICATOR_LEFT"] == 1
-    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_INDICATOR_RIGHT"] == 1
+    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 1
+    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 2
     ret.genericToggle = False
 
     # Steering

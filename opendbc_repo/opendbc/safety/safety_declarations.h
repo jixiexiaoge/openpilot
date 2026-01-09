@@ -8,7 +8,8 @@
 #define GET_FLAG(value, mask) (((__typeof__(mask))(value) & (mask)) == (mask)) // cppcheck-suppress misra-c2012-1.2; allow __typeof__
 
 #define BUILD_SAFETY_CFG(rx, tx) ((safety_config){(rx), (sizeof((rx)) / sizeof((rx)[0])), \
-                                                  (tx), (sizeof((tx)) / sizeof((tx)[0]))})
+                                                  (tx), (sizeof((tx)) / sizeof((tx)[0])), \
+                                                  false})
 #define SET_RX_CHECKS(rx, config) \
   do { \
     (config).rx_checks = (rx); \
@@ -49,6 +50,8 @@ typedef struct {
   int addr;
   int bus;
   int len;
+  bool check_relay;              // if true, trigger relay malfunction if existence on destination bus and block forwarding to destination bus
+  bool disable_static_blocking;  // if true, static blocking is disabled so safety mode can dynamically handle it (e.g. selective AEB pass-through)
 } CanMsg;
 
 typedef enum {
@@ -89,6 +92,8 @@ typedef struct {
   const struct lookup_t angle_rate_down_lookup;
   const int max_angle_error;             // used to limit error between meas and cmd while enabled
   const float angle_error_min_speed;     // minimum speed to start limiting angle error
+
+  const uint32_t frequency;              // Hz
 
   const bool angle_is_curvature;         // if true, we can apply max lateral acceleration limits
   const bool enforce_angle_error;        // enables max_angle_error check
@@ -151,6 +156,7 @@ typedef struct {
   int rx_checks_len;
   const CanMsg *tx_msgs;
   int tx_msgs_len;
+  bool disable_forwarding;
 } safety_config;
 
 typedef uint32_t (*get_checksum_t)(const CANPacket_t *to_push);

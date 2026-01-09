@@ -20,6 +20,47 @@
 #define CHANGAN_MAIN 0
 #define CHANGAN_CAM  2
 
+static uint8_t changan_crc8_lut[256];
+
+static uint32_t changan_get_checksum(const CANPacket_t *to_push) {
+  int len = GET_LEN(to_push);
+  return (uint32_t)GET_BYTE(to_push, len - 1);
+}
+
+static uint32_t changan_compute_checksum(const CANPacket_t *to_push) {
+  int len = GET_LEN(to_push);
+  uint8_t crc = 0xFF;
+  for (int i = 0; i < (len - 1); i++) {
+    crc = changan_crc8_lut[crc ^ GET_BYTE(to_push, i)];
+  }
+  return (uint32_t)(crc ^ 0xFF);
+}
+
+static uint8_t changan_get_counter(const CANPacket_t *to_push) {
+  int addr = GET_ADDR(to_push);
+  uint8_t counter = 0;
+  if (addr == CHANGAN_STEER_TORQUE) {
+    counter = GET_BYTE(to_push, 6) & 0xFU; // 51|4@0+
+  } else if (addr == CHANGAN_STEER_LKA) {
+    counter = (GET_BYTE(to_push, 3) >> 7) | ((GET_BYTE(to_push, 4) & 0x7) << 1); // 31|4@0+
+    // Note: 31|4 Big Endian is bits 31, 30, 29, 28.
+    // In Byte 3 (bits 31-24), it's bit 31 (mask 0x80).
+    // In Byte 4 (bits 23-16), it's bits 23, 22, 21? Wait.
+    // 31|4@0+ Motorola:
+    // start_bit 31 is Byte 3, Bit 7.
+    // bits are 31, 30, 29, 28. These are all in Byte 3.
+    // Wait, 31|4@0+ is Byte 3, bits 7, 6, 5, 4.
+    counter = (GET_BYTE(to_push, 3) >> 4) & 0xFU;
+  } else if (addr == CHANGAN_ACC_CONTROL) {
+    counter = (GET_BYTE(to_push, 3) >> 4) & 0xFU; // 31|4@0+
+  } else if (addr == CHANGAN_ACC_HUD) {
+    counter = (GET_BYTE(to_push, 1) >> 4) & 0xFU; // 15|4@0+
+  } else if (addr == CHANGAN_ACC_STATE) {
+    counter = (GET_BYTE(to_push, 1) >> 4) & 0xFU; // 15|4@0+
+  }
+  return counter;
+}
+
 static void changan_rx_hook(const CANPacket_t *to_push) {
   if (GET_BUS(to_push) == CHANGAN_MAIN) {
     int addr = GET_ADDR(to_push);
@@ -88,6 +129,7 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
       {5., 25., 25.},
       {0.5, 0.25, 0.25}      // 5.0 deg/s at 100Hz
     },
+    .frequency = 100U,
   };
 
   bool tx = true;
@@ -137,23 +179,24 @@ static int changan_fwd_hook(int bus, int addr) {
 
 static safety_config changan_init(uint16_t param) {
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_LKA, 0, 32},
+    {CHANGAN_STEER_LKA, 0, 8},
     {CHANGAN_MFS_BUTTONS, 0, 8},
     {CHANGAN_STEER_TORQUE, 0, 8},
-    {CHANGAN_ACC_CONTROL, 0, 32},
-    {CHANGAN_ACC_HUD, 0, 64},
-    {CHANGAN_ACC_STATE, 0, 64}
+    {CHANGAN_ACC_CONTROL, 0, 8},
+    {CHANGAN_ACC_HUD, 0, 8},
+    {CHANGAN_ACC_STATE, 0, 8}
   };
 
   static RxCheck changan_rx_checks[] = {
     {.msg = {{CHANGAN_STEER_ANGLE,   0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 100U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_STEER_TORQUE,  0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 100U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_STEER_TORQUE,  0, 8, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_MFS_BUTTONS,   0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 10U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_VEHICLE_SPEED, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_WHEEL_SPEEDS, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, { 0 }}},
     {.msg = {{CHANGAN_BRAKE_MODULE,  0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_BRAKE_ALT, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}, {CHANGAN_GAS_ALT, 0, 8, .ignore_checksum = true, .ignore_counter = true, .frequency = 50U}}},
   };
 
   UNUSED(param);
+  gen_crc_lookup_table_8(0x1D, changan_crc8_lut);
   return BUILD_SAFETY_CFG(changan_rx_checks, CHANGAN_TX_MSGS);
 }
 
@@ -162,4 +205,7 @@ const safety_hooks changan_hooks = {
   .rx = changan_rx_hook,
   .tx = changan_tx_hook,
   .fwd = changan_fwd_hook,
+  .get_checksum = changan_get_checksum,
+  .compute_checksum = changan_compute_checksum,
+  .get_counter = changan_get_counter,
 };
