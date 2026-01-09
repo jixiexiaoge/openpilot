@@ -37,19 +37,67 @@ from openpilot.selfdrive.modeld.runners.tinygrad_helpers import qcom_tensor_from
 PROCESS_NAME = "selfdrive.modeld.modeld"
 SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 
-VISION_PKL_PATH = Path(__file__).parent / 'models/driving_vision_tinygrad.pkl'
-POLICY_PKL_PATH = Path(__file__).parent / 'models/driving_policy_tinygrad.pkl'
-VISION_METADATA_PATH = Path(__file__).parent / 'models/driving_vision_metadata.pkl'
-POLICY_METADATA_PATH = Path(__file__).parent / 'models/driving_policy_metadata.pkl'
+# 커스텀 모델 경로
+CUSTOM_MODEL_PATH = Path('/data/models')
+
+# 모델에 필요한 필수 파일 목록
+REQUIRED_MODEL_FILES = [
+    'driving_vision_tinygrad.pkl',
+    'driving_policy_tinygrad.pkl',
+    'driving_vision_metadata.pkl',
+    'driving_policy_metadata.pkl',
+]
+
+def validate_model_files(base: Path) -> bool:
+    """모델 디렉토리의 4개 필수 파일 모두 존재하는지 검증"""
+    for filename in REQUIRED_MODEL_FILES:
+        filepath = base / filename
+        if not filepath.exists():
+            cloudlog.warning(f"Model file missing: {filepath}")
+            return False
+        if filepath.stat().st_size == 0:
+            cloudlog.warning(f"Model file empty: {filepath}")
+            return False
+    return True
+
+def get_model_paths():
+    """커스텀 모델 폴더가 유효하면 사용, 아니면 기본 모델"""
+    default_base = Path(__file__).parent / 'models'
+
+    # /data/models/ 폴더에 유효한 모델이 있으면 사용
+    if CUSTOM_MODEL_PATH.exists() and validate_model_files(CUSTOM_MODEL_PATH):
+        cloudlog.info(f"Using custom model from {CUSTOM_MODEL_PATH}")
+        base = CUSTOM_MODEL_PATH
+    else:
+        cloudlog.info("Using default built-in model")
+        base = default_base
+
+    return {
+        'vision_pkl': base / 'driving_vision_tinygrad.pkl',
+        'policy_pkl': base / 'driving_policy_tinygrad.pkl',
+        'vision_meta': base / 'driving_vision_metadata.pkl',
+        'policy_meta': base / 'driving_policy_metadata.pkl',
+    }
+
+# 프로세스 시작 시 경로 결정 (한 번만 호출)
+MODEL_PATHS = get_model_paths()
+VISION_PKL_PATH = MODEL_PATHS['vision_pkl']
+POLICY_PKL_PATH = MODEL_PATHS['policy_pkl']
+VISION_METADATA_PATH = MODEL_PATHS['vision_meta']
+POLICY_METADATA_PATH = MODEL_PATHS['policy_meta']
 
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
 MIN_LAT_CONTROL_SPEED = 0.3
+RECOVERY_POWER = 1.0  # planplus 차선 복귀 강도 (높을수록 적극적으로 차선 중심 복귀, 너무 높으면 핑퐁)
 
 
 def get_action_from_model(model_output: dict[str, np.ndarray], prev_action: log.ModelDataV2.Action,
                           lat_action_t: float, long_action_t: float, v_ego: float, lat_smooth_seconds: float, vEgoStopping: float) -> log.ModelDataV2.Action:
     plan = model_output['plan'][0]
+    # planplus가 있으면 plan에 합산 (차선 복귀 보정)
+    if 'planplus' in model_output:
+      plan = plan + RECOVERY_POWER * model_output['planplus'][0]
     desired_accel, should_stop, _, desired_velocity_now = get_accel_from_plan(plan[:,Plan.VELOCITY][:,0],
                                                      plan[:,Plan.ACCELERATION][:,0],
                                                      ModelConstants.T_IDXS,
@@ -146,6 +194,11 @@ class ModelState:
   output: np.ndarray
   prev_desire: np.ndarray  # for tracking the rising edge of the pulse
 
+  @property
+  def desire_key(self) -> str:
+    """desire로 시작하는 키를 동적으로 찾음 (desire, desire_pulse 등)"""
+    return next(key for key in self.numpy_inputs if key.startswith('desire'))
+
   def __init__(self, context: CLContext):
     with open(VISION_METADATA_PATH, 'rb') as f:
       vision_metadata = pickle.load(f)
@@ -165,8 +218,10 @@ class ModelState:
 
     # policy inputs
     self.numpy_inputs = {k: np.zeros(self.policy_input_shapes[k], dtype=np.float32) for k in self.policy_input_shapes}
+    cloudlog.info(f"Using desire key: {self.desire_key}")
+
     self.full_input_queues = InputQueues(ModelConstants.MODEL_CONTEXT_FREQ, ModelConstants.MODEL_RUN_FREQ, ModelConstants.N_FRAMES)
-    for k in ['desire_pulse', 'features_buffer']:
+    for k in [self.desire_key, 'features_buffer']:
       self.full_input_queues.update_dtypes_and_shapes({k: self.numpy_inputs[k].dtype}, {k: self.numpy_inputs[k].shape})
     self.full_input_queues.reset()
 
