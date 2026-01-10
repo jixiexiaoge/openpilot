@@ -64,24 +64,15 @@ def create_eps_control(packer, values, active, counter):
 
 def create_acc_control(packer, values, accel, counter, enabled, acctrq):
   values = values.copy()
-  brake_value = 0
-  if accel < -0.1:
-    if accel < -1.5:
-      brake_value = 1
-    else:
-      brake_value = 1 if accel < -0.5 else 0
-
   values.update({
     "ACCEL_CMD": accel,
     "COUNTER": counter,
     "ACCEL_ACTIVE": 3 if enabled else 2,
     "ACCEL_REQUEST": acctrq,
-    "ACC_BRAKE_ACTIVE": brake_value,
     "ACC_MODE": 1 if enabled else 0,
   })
   dat = packer.make_can_msg("ACC_CONTROL", 0, values)[1]
-  values["CHECKSUM_1"] = crc_calculate_crc8(dat[:7])
-  values["CHECKSUM_2"] = crc_calculate_crc8(dat[8:15])
+  values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
   return packer.make_can_msg("ACC_CONTROL", 0, values)
 
 def create_acc_set_speed(packer, values, counter, speed):
@@ -89,26 +80,20 @@ def create_acc_set_speed(packer, values, counter, speed):
   values.update({
     "COUNTER": counter,
     "SET_SPEED": speed,
+    "DISTANCE_LEVEL": 3, # Default distance
   })
-  dat = packer.make_can_msg("ACC_HUD", 0, values)[1]
-  values["CHECKSUM_1"] = crc_calculate_crc8(dat[:7])
-  values["CHECKSUM_2"] = crc_calculate_crc8(dat[8:15])
-  values["CHECKSUM_3"] = crc_calculate_crc8(dat[16:23])
-  values["CHECKSUM_4"] = crc_calculate_crc8(dat[24:31])
-  return packer.make_can_msg("ACC_HUD", 0, values)
+  dat = packer.make_can_msg("DISTANCE_LEVEL", 0, values)[1]
+  values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
+  return packer.make_can_msg("DISTANCE_LEVEL", 0, values)
 
 def create_acc_hud(packer, values, counter, enabled, steering_pressed):
   values = values.copy()
   values.update({
     "COUNTER": counter,
     "ACC_IACC_HWA_ENABLE": enabled,
-    "STEER_PRESSED": 3 if enabled else 0, # Carrot use 3 if enabled else 0
-    "ACC_FAULT": 1, # Placeholder for constant 1 in carrot
-    "ACC_IACC_HWA_MODE": 2 if enabled else 0, # Carrot style
+    "STEER_PRESSED": 1 if steering_pressed else 0, # DBC has 1 bit now
+    "ACC_IACC_HWA_MODE": 2 if enabled else 0,
   })
   dat = packer.make_can_msg("ACC_STATE", 0, values)[1]
-  values["CHECKSUM_1"] = crc_calculate_crc8(dat[:7])
-  values["CHECKSUM_2"] = crc_calculate_crc8(dat[8:15])
-  values["CHECKSUM_3"] = crc_calculate_crc8(dat[16:23])
-  values["CHECKSUM_4"] = crc_calculate_crc8(dat[24:31])
+  values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
   return packer.make_can_msg("ACC_STATE", 0, values)

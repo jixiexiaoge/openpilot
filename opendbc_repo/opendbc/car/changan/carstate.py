@@ -37,7 +37,7 @@ class CarState(CarStateBase):
       "STEERING_LKA": {},
       "ACC_CONTROL": {},
       "STEER_TORQUE_SENSOR": {},
-      "ACC_HUD": {},
+      "DISTANCE_LEVEL": {},
       "ACC_STATE": {},
     }
 
@@ -73,8 +73,8 @@ class CarState(CarStateBase):
     ret.rightBlindspot = False
 
     # Lights
-    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 1
-    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS"] == 2
+    ret.leftBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS_L"] == 1
+    ret.rightBlinker = cp.vl["BODY_CONTROL_STATE_2"]["TURN_SIGNALS_R"] == 1
     ret.genericToggle = False
 
     # Steering
@@ -99,7 +99,7 @@ class CarState(CarStateBase):
     ret.parkingBrake = False
 
     # Cruise Control Logic (Hardcoded software cruise logic from mpCode)
-    self.iacc_enable_switch_button_pressed = cp.vl["MFS_BUTTONS"]["CRUISE_ENABLE_BUTTON"]
+    self.iacc_enable_switch_button_pressed = cp.vl["ACC_BUTTONS"]["ACC_BUTTONS"]
     self.iacc_enable_switch_button_rising_edge = self.iacc_enable_switch_button_pressed == 1 and self.iacc_enable_switch_button_prev == 0
 
     if self.cruiseEnable and (self.iacc_enable_switch_button_rising_edge or ret.brakePressed):
@@ -112,15 +112,15 @@ class CarState(CarStateBase):
     if self.cruiseEnable and not self.cruiseEnablePrev:
       self.cruiseSpeed = speed if self.cruiseSpeed == 0 else self.cruiseSpeed
 
-    if cp.vl["MFS_BUTTONS"]["RES_PLUS_BUTTON"] == 1 and self.buttonPlus == 0 and self.cruiseEnable:
+    if cp.vl["ACC_BUTTONS"]["RES_PLUS_BUTTON"] == 1 and self.buttonPlus == 0 and self.cruiseEnable:
       self.cruiseSpeed = ((self.cruiseSpeed // 5) + 1) * 5
 
-    if cp.vl["MFS_BUTTONS"]["SET_MINUS_BUTTON"] == 1 and self.buttonReduce == 0 and self.cruiseEnable:
+    if cp.vl["ACC_BUTTONS"]["SET_MINUS_BUTTON"] == 1 and self.buttonReduce == 0 and self.cruiseEnable:
       self.cruiseSpeed = max((((self.cruiseSpeed // 5) - 1) * 5), 0)
 
     self.cruiseEnablePrev = self.cruiseEnable
-    self.buttonPlus = cp.vl["MFS_BUTTONS"]["RES_PLUS_BUTTON"]
-    self.buttonReduce = cp.vl["MFS_BUTTONS"]["SET_MINUS_BUTTON"]
+    self.buttonPlus = cp.vl["ACC_BUTTONS"]["RES_PLUS_BUTTON"]
+    self.buttonReduce = cp.vl["ACC_BUTTONS"]["SET_MINUS_BUTTON"]
 
     # Cruise State
     ret.cruiseState.available = cp_cam.vl["ACC_STATE"]["ACC_IACC_HWA_ENABLE"] == 1
@@ -151,7 +151,7 @@ class CarState(CarStateBase):
       ("STEER_TORQUE_SENSOR", 100),
       ("STEER_TORQUE_SENSOR_2", 100),
       ("STEER_ANGLE_SENSOR", 100),
-      ("MFS_BUTTONS", 25),
+      ("ACC_BUTTONS", 25),
       ("GEAR_PACKET", 10),
       ("EPS_STATUS", 50),
     ]
@@ -171,7 +171,7 @@ class CarState(CarStateBase):
     cam_messages = [
       ("STEERING_LKA", 100),
       ("ACC_CONTROL", 50),
-      ("ACC_HUD", 10),
+      ("DISTANCE_LEVEL", 10),
       ("ACC_STATE", 10),
     ]
 

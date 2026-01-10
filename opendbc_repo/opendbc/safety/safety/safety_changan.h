@@ -40,23 +40,16 @@ static uint8_t changan_get_counter(const CANPacket_t *to_push) {
   int addr = GET_ADDR(to_push);
   uint8_t counter = 0;
   if (addr == CHANGAN_STEER_TORQUE) {
-    counter = GET_BYTE(to_push, 6) & 0xFU; // 51|4@0+
+    counter = GET_BYTE(to_push, 6) & 0xFU; // 51|4@0+ (low nibble of byte 6)
   } else if (addr == CHANGAN_STEER_LKA) {
-    counter = (GET_BYTE(to_push, 3) >> 7) | ((GET_BYTE(to_push, 4) & 0x7) << 1); // 31|4@0+
-    // Note: 31|4 Big Endian is bits 31, 30, 29, 28.
-    // In Byte 3 (bits 31-24), it's bit 31 (mask 0x80).
-    // In Byte 4 (bits 23-16), it's bits 23, 22, 21? Wait.
-    // 31|4@0+ Motorola:
-    // start_bit 31 is Byte 3, Bit 7.
-    // bits are 31, 30, 29, 28. These are all in Byte 3.
-    // Wait, 31|4@0+ is Byte 3, bits 7, 6, 5, 4.
-    counter = (GET_BYTE(to_push, 3) >> 4) & 0xFU;
+    counter = GET_BYTE(to_push, 3) >> 4; // 31|4@0+ (high nibble of byte 3)
   } else if (addr == CHANGAN_ACC_CONTROL) {
-    counter = (GET_BYTE(to_push, 3) >> 4) & 0xFU; // 31|4@0+
+    counter = GET_BYTE(to_push, 3) >> 4; // 31|4@0+ (high nibble of byte 3)
   } else if (addr == CHANGAN_ACC_HUD) {
-    counter = (GET_BYTE(to_push, 1) >> 4) & 0xFU; // 15|4@0+
+    counter = GET_BYTE(to_push, 1) >> 4; // 15|4@0+ (high nibble of byte 1)
   } else if (addr == CHANGAN_ACC_STATE) {
-    counter = (GET_BYTE(to_push, 1) >> 4) & 0xFU; // 15|4@0+
+    counter = GET_BYTE(to_push, 1) >> 4; // 15|4@0+ (high nibble of byte 1)
+  } else {
   }
   return counter;
 }
@@ -67,40 +60,34 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
     if (addr == CHANGAN_VEHICLE_SPEED || addr == CHANGAN_WHEEL_SPEEDS) {
       // Signal: VEHICLE_SPEED or WHEEL_SPEED_FL
-      // Both are Big Endian, 7|16@0+, factor 0.01
-      int speed = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      UPDATE_VEHICLE_SPEED(speed * 0.01 / 3.6);
+      // Both are Big Endian, 39|16@0+, factor 0.05 (updated from 0.01)
+      int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 5);
+      UPDATE_VEHICLE_SPEED(speed * 0.05 / 3.6);
     }
 
     if (addr == CHANGAN_STEER_ANGLE) {
       // Signal: STEER_ANGLE, factor: 0.1, Big Endian 7|16@0-
       int angle_meas_new = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      // Handle signed
-      if (angle_meas_new > 0x7FFF) {
-        angle_meas_new -= 0x10000;
-      }
+      angle_meas_new = to_signed(angle_meas_new, 16);
       update_sample(&angle_meas, angle_meas_new);
     }
 
     if (addr == CHANGAN_STEER_TORQUE) {
-      // Signal: STEER_TORQUE_DRIVER, factor: 1.0, Big Endian 7|16@0-
+      // Signal: STEER_TORQUE_DRIVER, factor: 0.01, Big Endian 7|16@0-
       int torque_driver_new = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      if (torque_driver_new > 0x7FFF) {
-        torque_driver_new -= 0x10000;
-      }
+      torque_driver_new = to_signed(torque_driver_new, 16);
       update_sample(&torque_driver, torque_driver_new);
     }
 
     if (addr == CHANGAN_MFS_BUTTONS) {
-      // Signal: CRUISE_ENABLE_BUTTON
+      // Signal: ACC_BUTTONS at bit 0 (7|1@0+)
       bool cruise_engaged = (GET_BYTE(to_push, 0) & 0x1U) != 0;
       pcm_cruise_check(cruise_engaged);
     }
 
     if (addr == CHANGAN_BRAKE_MODULE) {
-      // Signal: BRAKE_PRESSED
-      brake_pressed = (GET_BYTE(to_push, 0) & 0x1U) != 0;
-      gas_pressed = GET_BYTE(to_push, 1) > 0U; // GAS_PEDAL_USER at byte 1 (15|8@0+)
+      // Message 0x196 is now GAS_PEDAL_USER
+      gas_pressed = (GET_BYTE(to_push, 0) & 0x1U) != 0;
     }
 
     if (addr == CHANGAN_BRAKE_ALT) {
@@ -109,7 +96,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
     }
 
     if (addr == CHANGAN_GAS_ALT) {
-       // Signal: GAS_PEDAL_USER
+       // Signal: GAS_PEDAL_USER (7|8@0+) is Byte 0
        gas_pressed = GET_BYTE(to_push, 0) > 0U;
     }
 

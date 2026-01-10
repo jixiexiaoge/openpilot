@@ -97,7 +97,7 @@ class CarController(CarControllerBase):
 
     # HUD & State (10Hz)
     if self.frame % 10 == 0:
-      can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["ACC_HUD"], (self.frame // 10) % 16, CS.out.cruiseState.speedCluster))
+      can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["DISTANCE_LEVEL"], (self.frame // 10) % 16, CS.out.cruiseState.speedCluster))
       can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs["ACC_STATE"], (self.frame // 10) % 16, CC.longActive, CS.out.steeringPressed))
 
     # EPS Control (100Hz)
