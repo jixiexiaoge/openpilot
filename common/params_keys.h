@@ -303,6 +303,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"NNFFModelName", CLEAR_ON_OFFROAD_TRANSITION},
 
     {"HardwareC3xLite", PERSISTENT},
+    {"ShareData", PERSISTENT},
 
     // Model Selector
     {"DrivingModelName", PERSISTENT},  // 현재 사용 중인 모델 이름
