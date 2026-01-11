@@ -27,7 +27,7 @@ class CarController(CarControllerBase):
     actuators = CC.actuators
 
     if self.first_start:
-      if "ACC_CONTROL" in CS.sigs:
+      if "GW_244" in CS.sigs:
         self.first_start = False
 
     # Emergency turn detection logic
@@ -61,11 +61,11 @@ class CarController(CarControllerBase):
                                                  CS.out.steeringAngleDeg,
                                                  CC.latActive, self.params.ANGLE_LIMITS)
 
-      can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["STEERING_LKA"], apply_angle, 1, (self.frame // 1) % 16))
+      can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["GW_1BA"], apply_angle, 1, (self.frame // 1) % 16))
     else:
       apply_angle = CS.out.steeringAngleDeg
       self.filtered_steering_angle = apply_angle
-      can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["STEERING_LKA"], apply_angle, 0, (self.frame // 1) % 16))
+      can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["GW_1BA"], apply_angle, 0, (self.frame // 1) % 16))
 
     self.last_angle = apply_angle
 
@@ -93,15 +93,15 @@ class CarController(CarControllerBase):
       acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
       self.last_acctrq = acctrq
 
-      can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["ACC_CONTROL"], accel, (self.frame // 1) % 16, True, acctrq))
+      can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["GW_244"], accel, (self.frame // 1) % 16, True, acctrq))
 
     # HUD & State (10Hz)
     if self.frame % 10 == 0:
-      can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["DISTANCE_LEVEL"], (self.frame // 10) % 16, CS.out.cruiseState.speedCluster))
-      can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs["ACC_STATE"], (self.frame // 10) % 16, CC.longActive, CS.out.steeringPressed))
+      can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["GW_307"], (self.frame // 10) % 16, CS.out.cruiseState.speedCluster))
+      can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs["GW_31A"], (self.frame // 10) % 16, CC.longActive, CS.out.steeringPressed))
 
     # EPS Control (100Hz)
-    can_sends.append(changancan.create_eps_control(self.packer, CS.sigs["STEER_TORQUE_SENSOR"], CC.latActive, self.frame % 16))
+    can_sends.append(changancan.create_eps_control(self.packer, CS.sigs["GW_17E"], CC.latActive, self.frame % 16))
 
     self.frame += 1
     return CC.actuators.as_builder(), can_sends
