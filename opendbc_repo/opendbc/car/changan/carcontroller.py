@@ -89,8 +89,8 @@ class CarController(CarControllerBase):
       # ACCTRQ calculation (Critical for Changan)
       speed_kph = CS.out.vEgoRaw * 3.6
       offset, gain = (500, 50) if speed_kph > 10 else (400, 50)
-      base_acctrq = (offset + int(abs(accel) / 0.05) * gain) - 5000
-      acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
+      base_acctrq = (offset + int(abs(accel) / 0.02) * gain) - 5000
+      acctrq = np.clip(base_acctrq, self.last_acctrq - 200, self.last_acctrq + 50)
       self.last_acctrq = acctrq
 
       can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["GW_244"], accel, (self.frame // 1) % 16, True, acctrq))

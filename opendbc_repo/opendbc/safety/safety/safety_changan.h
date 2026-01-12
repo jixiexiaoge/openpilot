@@ -6,16 +6,13 @@
 #define CHANGAN_STEER_ANGLE      0x180 // STEER_ANGLE_SENSOR
 #define CHANGAN_STEER_LKA        0x1BA // STEERING_LKA
 #define CHANGAN_STEER_TORQUE     0x17E // STEER_TORQUE_SENSOR
-#define CHANGAN_VEHICLE_SPEED    0x17A // VEHICLE_SPEED
 #define CHANGAN_WHEEL_SPEEDS     0x187 // WHEEL_SPEEDS
 #define CHANGAN_BRAKE_MODULE     0x196 // BRAKE_MODULE
-#define CHANGAN_BRAKE_ALT        0x1A6 // BRAKE_MODULE_ALT
-#define CHANGAN_GAS_ALT          0x1C6 // GAS_PEDAL_ALT
 #define CHANGAN_ACC_CONTROL      0x244 // ACC_CONTROL
-#define CHANGAN_ACC_BUTTONS      0x28C // ACC_BUTTONS
+#define CHANGAN_ACC_BUTTONS      0x652 // ACC_BUTTONS
 #define CHANGAN_ACC_HUD          0x307 // DISTANCE_LEVEL (formerly ACC_HUD)
 #define CHANGAN_ACC_STATE        0x31A // ACC_STATE
-#define CHANGAN_EPS_STATUS       0x24F // EPS_STATUS
+#define CHANGAN_EPS_STATUS       0x591 // EPS_STATUS
 #define CHANGAN_GEAR             0x338 // GEAR_PACKET
 #define CHANGAN_BODY_STATE       0x50  // BODY_CONTROL_STATE
 #define CHANGAN_BODY_STATE_2     0x28B // BODY_CONTROL_STATE_2
@@ -47,7 +44,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
   if (GET_BUS(to_push) == CHANGAN_MAIN) {
     int addr = GET_ADDR(to_push);
 
-    if (addr == CHANGAN_VEHICLE_SPEED || addr == CHANGAN_WHEEL_SPEEDS) {
+    if (addr == CHANGAN_WHEEL_SPEEDS) {
       // Signal: VEHICLE_SPEED or WHEEL_SPEED_FL
       // Both are Big Endian, 39|16@0+, factor 0.05 (updated from 0.01)
       // Byte 4 is MSB, Byte 5 is LSB in openpilot's big-endian interpretation of bits
@@ -93,16 +90,6 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
       if (brake_pressed) {
         pcm_cruise_check(false);
       }
-    }
-
-    if (addr == CHANGAN_BRAKE_ALT) {
-       // Signal: BRAKE_PRESSED
-       brake_pressed = (GET_BYTE(to_push, 0) & 0x1U) != 0;
-    }
-
-    if (addr == CHANGAN_GAS_ALT) {
-       // Signal: GAS_PEDAL_USER (7|8@0+) is Byte 0
-       gas_pressed = GET_BYTE(to_push, 0) > 0U;
     }
 
     generic_rx_checks(false);
@@ -173,19 +160,18 @@ static int changan_fwd_hook(int bus, int addr) {
 
 static safety_config changan_init(uint16_t param) {
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_LKA, 0, 32},
-    {CHANGAN_ACC_BUTTONS, 0, 8},
-    {CHANGAN_STEER_TORQUE, 0, 8},
-    {CHANGAN_ACC_CONTROL, 0, 32},
-    {CHANGAN_ACC_HUD, 0, 64},
-    {CHANGAN_ACC_STATE, 0, 64}
+    {CHANGAN_STEER_LKA,   CHANGAN_MAIN, 32},
+    {CHANGAN_ACC_CONTROL, CHANGAN_MAIN, 32},
+    {CHANGAN_ACC_HUD,     CHANGAN_CAM,  64},
+    {CHANGAN_ACC_STATE,   CHANGAN_CAM,  64},
+    {CHANGAN_STEER_TORQUE,CHANGAN_MAIN, 8},
   };
 
   static RxCheck changan_rx_checks[] = {
     {.msg = {{CHANGAN_STEER_ANGLE,   CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_STEER_TORQUE,  CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_ACC_BUTTONS,   CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 25U}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_VEHICLE_SPEED, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_ACC_BUTTONS,   CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 50U}, { 0 }, { 0 }}},
+    {.msg = {{CHANGAN_WHEEL_SPEEDS,  CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_BRAKE_MODULE,  CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 50U}, { 0 }, { 0 }}},
     {.msg = {{CHANGAN_ACC_STATE,     CHANGAN_CAM, 64, .max_counter = 15U, .frequency = 10U}, { 0 }, { 0 }}},
   };

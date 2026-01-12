@@ -17,6 +17,8 @@ class CarControllerParams:
   ACCEL_MAX = 2.0
   ACCEL_MIN = -3.5
 
+  STEER_DELTA_UP = 10
+  STEER_DELTA_DOWN = 20
   STEER_STEP = 1
   STEER_MAX = 480
   STEER_ERROR_MAX = 650

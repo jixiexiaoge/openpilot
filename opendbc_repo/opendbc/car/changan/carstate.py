@@ -144,7 +144,7 @@ class CarState(CarStateBase):
       ("EPS_368", 100),
       ("GW_180", 100),
       ("EPS_591", 50),
-      ("GW_MFS_IACC", 50),
+      ("GW_MFS_IACC", 25),
       ("GW_338", 50),
     ]
 
@@ -156,8 +156,8 @@ class CarState(CarStateBase):
     cam_messages = [
       ("GW_1BA", 50),
       ("GW_244", 50),
-      ("GW_307", 10),
-      ("GW_31A", 10),
+      ("GW_307", 20),
+      ("GW_31A", 20),
     ]
 
     return {

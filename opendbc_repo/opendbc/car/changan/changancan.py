@@ -75,7 +75,7 @@ def create_acc_control(packer, values, accel, counter, enabled, acctrq):
     "COUNTER": counter,
     "ACC_MODE": 1 if enabled else 0,
     "ACCEL_ACTIVE": 3 if enabled else 2,
-    "ACCEL_REQUEST": acctrq,
+    "ACCEL_REQUEST": 1 if enabled else 0,
   })
 
   # ACC_CONTROL (580) has inconsistent naming in DBC: COUNTER1/CHECKSUM1 vs COUNTER_2/CHECKSUM_2
