@@ -3,19 +3,19 @@
 #include "safety_declarations.h"
 
 // CAN msgs we care about
-#define CHANGAN_STEER_ANGLE      0x180 // STEER_ANGLE
-#define CHANGAN_STEER_COMMAND    0x1BA // STEER_COMMAND
-#define CHANGAN_STEER_TORQUE     0x17E // STEER_TORQUE
-#define CHANGAN_WHEEL_SPEEDS     0x187 // WHEEL_SPEEDS
-#define CHANGAN_PEDAL_DATA       0x196 // PEDAL_DATA
-#define CHANGAN_ACC_COMMAND      0x244 // ACC_COMMAND
-#define CHANGAN_CRUISE_BUTTONS   0x652 // CRUISE_BUTTONS
-#define CHANGAN_ACC_HUD          0x307 // ACC_HUD
-#define CHANGAN_ADAS_INFO        0x31A // ADAS_INFO
-#define CHANGAN_EPS_INFO         0x591 // EPS_INFO
-#define CHANGAN_GEAR             0x338 // GEAR
-#define CHANGAN_SEATBELT         0x50  // SEATBELT
-#define CHANGAN_BODY_INFO        0x28B // BODY_INFO
+#define CHANGAN_STEER_ANGLE      0x180 // GW_180
+#define CHANGAN_STEER_COMMAND    0x1BA // GW_1BA
+#define CHANGAN_STEER_TORQUE     0x17E // GW_17E
+#define CHANGAN_WHEEL_SPEEDS     0x187 // GW_187
+#define CHANGAN_PEDAL_DATA       0x196 // GW_196
+#define CHANGAN_ACC_COMMAND      0x244 // GW_244
+#define CHANGAN_CRUISE_BUTTONS   0x652 // GW_MFS_IACC
+#define CHANGAN_ACC_HUD          0x307 // GW_307
+#define CHANGAN_ADAS_INFO        0x31A // GW_31A
+#define CHANGAN_EPS_INFO         0x591 // EPS_591
+#define CHANGAN_GEAR             0x338 // GW_338
+#define CHANGAN_GW_50            0x50  // GW_50 (Seatbelt)
+#define CHANGAN_BODY_INFO        0x28B // GW_28B
 
 // CAN bus numbers
 #define CHANGAN_MAIN 0
@@ -45,30 +45,28 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
     int addr = GET_ADDR(to_push);
 
     if (addr == CHANGAN_WHEEL_SPEEDS) {
-      // Signal: WHEEL_SPEED_FL
-      // Big Endian, 39|16@0+, factor 0.05
+      // Signal: WHEEL_SPEED_FL (39|16@0+, factor 0.05)
       int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 5);
       UPDATE_VEHICLE_SPEED(speed * 0.05 / 3.6);
     }
 
     if (addr == CHANGAN_STEER_ANGLE) {
-      // Signal: STEER_ANGLE, factor: 0.1, Big Endian 7|16@0-
+      // Signal: STEER_ANGLE (7|16@0-, factor 0.1)
       int angle_meas_new = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
       angle_meas_new = to_signed(angle_meas_new, 16);
       update_sample(&angle_meas, angle_meas_new);
     }
 
     if (addr == CHANGAN_STEER_TORQUE) {
-      // Signal: STEER_TORQUE_DRIVER, factor: 0.01, Big Endian 7|16@0-
+      // Signal: STEER_TORQUE_DRIVER (7|16@0-, factor 0.001)
       int torque_driver_new = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
       torque_driver_new = to_signed(torque_driver_new, 16);
       update_sample(&torque_driver, torque_driver_new);
     }
 
     if (addr == CHANGAN_CRUISE_BUTTONS) {
-      // Signal: CRZ_MAIN at bit 0 (0|1@0+)
-      // Signal: CRZ_CANCEL at bit 1 (1|1@0+)
-
+      // Signal: GW_MFS_ACC at bit 0 (0|1@0+)
+      // Signal: GW_MFS_Cancel at bit 1 (1|1@0+)
       bool main_button = (GET_BYTE(to_push, 0) & 0x1U) != 0;
       bool cancel_button = (GET_BYTE(to_push, 0) & 0x2U) != 0;
       static bool main_button_prev = false;
@@ -83,9 +81,9 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
     }
 
     if (addr == CHANGAN_PEDAL_DATA) {
-      // Signal: BRAKE_PRESSED at 54|1, GAS_PEDAL at 20|1
-      brake_pressed = (GET_BYTE(to_push, 6) & 0x40U) != 0; // Bit 54 is Byte 6, Bit 6
-      gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0;   // Bit 20 is Byte 2, Bit 4
+      // Signal: BRAKE_PRESSED at 54 (Byte 6, bit 6), GAS_PEDAL_USER at 20 (Byte 2, bit 4)
+      brake_pressed = (GET_BYTE(to_push, 6) & 0x40U) != 0;
+      gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0;
       if (brake_pressed) {
         pcm_cruise_check(false);
       }
@@ -115,10 +113,9 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
 
   if (bus == CHANGAN_MAIN) {
     if (addr == CHANGAN_STEER_COMMAND) {
+      // Signal: STEER_ANGLE_CMD (7|16@0-)
       int desired_angle = (GET_BYTE(to_send, 0) << 8) | GET_BYTE(to_send, 1);
-      if (desired_angle > 0x7FFF) {
-        desired_angle -= 0x10000;
-      }
+      desired_angle = to_signed(desired_angle, 16);
 
       if (steer_angle_cmd_checks(desired_angle, controls_allowed, CHANGAN_STEERING_LIMITS)) {
         tx = false;
@@ -139,6 +136,7 @@ static int changan_fwd_hook(int bus, int addr) {
   if (bus == CHANGAN_MAIN) {
     bus_fwd = CHANGAN_CAM;
   } else if (bus == CHANGAN_CAM) {
+    // Block control signals if we are re-sending them from openpilot
     bool block = (addr == CHANGAN_STEER_COMMAND) || (addr == CHANGAN_CRUISE_BUTTONS) ||
                  (addr == CHANGAN_ACC_COMMAND) || (addr == CHANGAN_ACC_HUD) || (addr == CHANGAN_ADAS_INFO) ||
                  (addr == CHANGAN_STEER_TORQUE);

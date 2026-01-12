@@ -40,33 +40,33 @@ def crc_calculate_crc8(data):
 
 def create_steering_control(packer, values, angle, active, counter):
   values.update({
-    "STEER_ANGLE": angle,
+    "STEER_ANGLE_CMD": angle,
     "STEER_REQUEST": active,
     "COUNTER": counter,
     "COUNTER_1": counter,
     "COUNTER_2": counter,
     "COUNTER_3": counter,
-    "STEER_MAX_ANGLE": 9.50,
-    "STEER_MIN_ANGLE": -9.50,
+    "STEER_LIMIT_UP": 9.50,
+    "STEER_LIMIT_DOWN": -9.50,
   })
   for i in range(4):
-    dat = packer.make_can_msg("STEER_COMMAND", 0, values)[1]
+    dat = packer.make_can_msg("GW_1BA", 0, values)[1]
     if i == 0:
       values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
     else:
       values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("STEER_COMMAND", 0, values)
+  return packer.make_can_msg("GW_1BA", 0, values)
 
 def create_eps_control(packer, values, active, counter):
   values = values.copy()
   status_val = 1 if active else 0
   values.update({
-    "LKAS_STATE": status_val,
+    "LKA_STATE": status_val,
     "COUNTER": counter,
   })
-  dat = packer.make_can_msg("STEER_TORQUE", 0, values)[1]
+  dat = packer.make_can_msg("GW_17E", 0, values)[1]
   values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
-  return packer.make_can_msg("STEER_TORQUE", 0, values)
+  return packer.make_can_msg("GW_17E", 0, values)
 
 def create_acc_control(packer, values, accel, counter, enabled, acctrq):
   values = values.copy()
@@ -82,47 +82,46 @@ def create_acc_control(packer, values, accel, counter, enabled, acctrq):
   })
 
   for i in range(4):
-    dat = packer.make_can_msg("ACC_COMMAND", 0, values)[1]
+    dat = packer.make_can_msg("GW_244", 0, values)[1]
     if i == 0:
       values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
     else:
       values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("ACC_COMMAND", 0, values)
+  return packer.make_can_msg("GW_244", 0, values)
 
 def create_acc_set_speed(packer, values, counter, speed):
   values = values.copy()
   values.update({
-    "COUNTER": counter,
+    "COUNTER_1": counter,
     "SET_SPEED": int(min(max(speed // 20, 0), 7)),
     "DISTANCE_LEVEL": 3,
   })
-  for i in range(1, 8):
+  for i in range(2, 9):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(8):
-    dat = packer.make_can_msg("ACC_HUD", 0, values)[1]
+    dat = packer.make_can_msg("GW_307", 0, values)[1]
     if i == 0:
-      values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
+      values["CHECKSUM_1"] = crc_calculate_crc8(dat[0:7])
     else:
-      values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("ACC_HUD", 0, values)
+      values[f"CHECKSUM_{i+1}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
+  return packer.make_can_msg("GW_307", 0, values)
 
 def create_acc_hud(packer, values, counter, enabled, steering_pressed):
   values = values.copy()
   values.update({
     "COUNTER": counter,
-    "COUNTER_1": counter,
-    "COUNTER_2": counter,
-    "COUNTER_3": counter,
     "ACC_IACC_HWA_ENABLE": enabled,
     "STEER_PRESSED": 1 if steering_pressed else 0,
     "ACC_IACC_HWA_MODE": 2 if enabled else 0,
   })
+  for i in range(1, 8):
+    values[f"COUNTER_{i}"] = counter
 
-  for i in range(4):
-    dat = packer.make_can_msg("ADAS_INFO", 0, values)[1]
+  for i in range(8):
+    dat = packer.make_can_msg("GW_31A", 0, values)[1]
     if i == 0:
       values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
     else:
       values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("ADAS_INFO", 0, values)
+  return packer.make_can_msg("GW_31A", 0, values)
