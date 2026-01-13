@@ -38,8 +38,8 @@ BO_ 80 GW_50: 8 XXX
  SG_ SRS_CopilotBuckleSwitchStatus : 12|1@0+ (1,0) [0|1] "" XXX
  SG_ SRS_DriverBuckleSwitchStatus : 14|1@0+ (1,0) [0|1] "" XXX
 
-BO_ 368 GW_170: 8 XXX
- SG_ EPS_ActualTorsionBarTorq : 23|16@0+ (0.001,-5.533) [0|250] "" XXX
+BO_ 368 GW_170: 8 ESP
+ SG_ EPS_ActualTorsionBarTorq : 23|16@0- (0.001,-5.533) [0|250] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -55,22 +55,33 @@ BO_ 384 GW_180: 8 XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 388 NEW_MSG_184: 8 XXX
+
 BO_ 391 GW_187: 8 XXX
  SG_ ESP_VehicleSpeed : 39|16@0+ (0.05,0) [0|65535] "km/h" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 392 NEW_MSG_188: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
+
 BO_ 406 GW_196: 8 XXX
  SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
- SG_ EMS_BrakePedalStatus : 54|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
+ SG_ EMS_BrakePedalStatus : 54|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 422 NEW_MSG_1A6: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
+
+BO_ 438 NEW_MSG_1B6: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 442 GW_1BA: 32 XXX
  SG_ ACC_SteeringAngleSub_1BA : 7|16@0- (0.1,0) [-500|500] "deg" XXX
  SG_ ACC_SteeringAngleReq_1BA : 23|1@0+ (1,0) [0|1] "" XXX
- SG_ STEER_LIMIT_UP : 39|8@0+ (0.1,0) [0|25.5] "" XXX
- SG_ STEER_LIMIT_DOWN : 47|8@0+ (0.1,0) [-25.5|0] "" XXX
+ SG_ STEER_LIMIT : 39|8@0+ (0.1,0) [0|25.5] "deg" XXX
+ SG_ STEER_STATUS : 47|8@0+ (1,0) [0|255] "" XXX
  SG_ ACC_RollingCounter_1BA : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_1 : 115|4@0+ (1,0) [0|15] "" XXX
@@ -80,22 +91,31 @@ BO_ 442 GW_1BA: 32 XXX
  SG_ COUNTER_3 : 243|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 255|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 518 NEW_MSG_206: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
+
+BO_ 520 NEW_MSG_208: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
+
 BO_ 580 GW_244: 32 XXX
- SG_ ACC_Acceleration_24E : 7|16@0- (0.001,0) [-10|10] "m/s2" XXX
+ SG_ ACC_Acceleration_24E : 7|16@0- (0.001,-25.6) [-10|10] "m/s2" XXX
  SG_ ACC_AEBCtrlType : 34|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_FCWPreWarning : 35|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_ACCEnable : 44|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_RollingCounter_24E : 51|4@0+ (1,0) [0|15] "" XXX
- SG_ ACC_ACCMode : 53|3@0+ (1,0) [0|7] "" XXX
- SG_ ACC_ACCEnable : 54|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_ACCMode : 54|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_ACCReq : 55|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
- SG_ sig_099 : 64|16@0+ (1,0) [0|65535] "" XXX
+ SG_ sig_099 : 103|16@0- (0.001,0) [-32|32] "" XXX
  SG_ COUNTER_1 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 127|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_2 : 179|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_2 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_3 : 243|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 255|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 588 NEW_MSG_24C: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 591 EPS_591: 8 XXX
  SG_ EPS_FAILED : 0|1@0+ (1,0) [0|1] "" XXX
@@ -114,11 +134,12 @@ BO_ 652 GW_28C: 8 XXX
  SG_ GW_MFS_Cancle_switch_signal : 1|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_RESPlus_switch_signal : 2|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_SETReduce_switch_signal : 3|1@0+ (1,0) [0|1] "" XXX
+ SG_ GW_MFS_ACCenable_switch_signal : 12|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 775 GW_307: 64 XXX
- SG_ ACC_SetSpeed : 7|16@0+ (0.0078125,-2) [0|65535] "" XXX
+ SG_ ACC_SetSpeed : 7|16@0+ (0.00625,0) [0|250] "" XXX
  SG_ ACC_DistanceLevel : 17|2@0+ (1,0) [0|3] "" XXX
  SG_ ACC_RollingCounter_35E : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
@@ -138,13 +159,16 @@ BO_ 775 GW_307: 64 XXX
  SG_ CHECKSUM_8 : 511|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 794 GW_31A: 64 XXX
- SG_ STEER_PRESSED : 1|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_IACCHWAEnable : 2|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_IACCHWAMode : 9|2@0+ (1,0) [0|3] "" XXX
+ SG_ Lead_Distance : 7|16@0+ (0.0002777,0) [0|65535] "" XXX
+ SG_ Lead_Detected : 22|1@0+ (1,0) [0|1] "" XXX
+ SG_ Lead_RelSpeed : 31|8@0+ (1,0) [0|255] "" XXX
  SG_ ACC_RollingCounter_36D : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
+ SG_ STEER_PRESSED : 96|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER_2 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_2 : 127|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_IACCHWAEnable : 136|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWAMode : 150|2@0+ (1,0) [0|3] "" XXX
  SG_ COUNTER_3 : 179|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_4 : 243|4@0+ (1,0) [0|15] "" XXX
@@ -158,10 +182,16 @@ BO_ 794 GW_31A: 64 XXX
  SG_ COUNTER_8 : 499|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_8 : 511|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 801 NEW_MSG_321: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
+
 BO_ 824 GW_338: 8 XXX
  SG_ TCU_GearForDisplay : 39|4@0+ (1,-7) [0|15] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 999 NEW_MSG_3E7: 8 XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78,0) [0|65535] "" XXX
 
 CM_ SG_ 384 SAS_SteeringAngle "1";
 VAL_ 824 TCU_GearForDisplay 2 "N" 1 "R" 3 "D" 0 "P";

@@ -17,9 +17,9 @@ class CarController(CarControllerBase):
     self.last_acctrq = -5000
     self.first_start = True
 
-    self.steering_smoothing_factor = 0.3
+    self.steering_smoothing_factor = self.params.STEERING_SMOOTHING_FACTOR
     self.filtered_steering_angle = 0.0
-    self.max_steering_angle = 130.0 # From reference
+    self.max_steering_angle = self.params.MAX_STEERING_ANGLE
 
     self.emergency_turn_active = False
     self.emergency_turn_counter = 0
@@ -38,7 +38,7 @@ class CarController(CarControllerBase):
     steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
     self.last_steering_angle = current_steering_angle
 
-    is_emergency_turn = (abs(current_steering_angle) > 35.0 or steering_rate > 60.0 or abs(current_steering_angle) > 40.0)
+    is_emergency_turn = (abs(current_steering_angle) > 35.0 or steering_rate > 60.0)
     if is_emergency_turn:
       self.emergency_turn_counter += 1
       if self.emergency_turn_counter > 3:
@@ -92,13 +92,16 @@ class CarController(CarControllerBase):
       acctrq = -5000
       accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
-      # Acceleration mapping from reference
+      # Acceleration mapping from reference - Enhanced granularity
       speed_kph = CS.out.vEgoRaw * 3.6
-      if speed_kph > 110: offset, gain = 1000, 120
-      elif speed_kph > 90: offset, gain = 700, 100
-      elif speed_kph > 70: offset, gain = 700, 80
-      elif speed_kph > 50: offset, gain = 700, 60
-      else: offset, gain = 500, 50
+      if speed_kph > 130: offset, gain = 1100, 130
+      elif speed_kph > 110: offset, gain = 1000, 120
+      elif speed_kph > 90: offset, gain = 900, 110
+      elif speed_kph > 70: offset, gain = 800, 100
+      elif speed_kph > 50: offset, gain = 750, 80
+      elif speed_kph > 30: offset, gain = 600, 60
+      elif speed_kph > 10: offset, gain = 500, 50
+      else: offset, gain = 400, 50
 
       if accel > 0:
         base_acctrq = (offset + int(abs(accel) / 0.05) * gain) - 5000

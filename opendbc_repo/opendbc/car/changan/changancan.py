@@ -46,8 +46,8 @@ def create_steering_control(packer, values, angle, active, counter):
     "COUNTER_1": counter,
     "COUNTER_2": counter,
     "COUNTER_3": counter,
-    "STEER_LIMIT_UP": 9.50,
-    "STEER_LIMIT_DOWN": -9.50,
+    "STEER_LIMIT": 9.50,
+    "STEER_STATUS": 0,
   })
   for i in range(4):
     dat = packer.make_can_msg("GW_1BA", 0, values)[1]
