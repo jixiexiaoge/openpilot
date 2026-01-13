@@ -377,9 +377,9 @@ SConscript(['third_party/SConscript'])
 
 SConscript(['selfdrive/SConscript'])
 
-if Dir('#tools/cabana/').exists():
+if Dir('#tools/cabana/').exists() and GetOption('extras'):
   SConscript(['tools/replay/SConscript'])
-  if arch in ["larch64", "x86_64"]:
+  if arch != "larch64":
     SConscript(['tools/cabana/SConscript'])
 
 external_sconscript = GetOption('external_sconscript')
