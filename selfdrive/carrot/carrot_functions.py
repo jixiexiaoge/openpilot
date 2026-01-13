@@ -101,12 +101,16 @@ class CarrotPlanner:
 
     self.dynamicTFollow = 0.0
     self.dynamicTFollowLC = 0.0
+    # SpeedBasedTFollow (ms-x 방식)
     self.speedBasedTFollow = 0
     self.speedBasedTFollowGap = 1.0  # 기준 Gap (100km/h에서 이 값 사용)
     self.speedFactorFiltered = 1.0
     self._speedBasedTFollow_prev = 0  # 토글 감지용
     self._last_tau = 2.0
     self.v_ego = 0.0
+    # EnableSpeedTF (ajouatom 방식)
+    self.enableSpeedTF = 0
+    self.personality = 1
 
     self.cruiseMaxVals0 = 1.6
     self.cruiseMaxVals1 = 1.6
@@ -169,6 +173,7 @@ class CarrotPlanner:
       self.dynamicTFollowLC = self.params.get_float("DynamicTFollowLC") / 100.
       self.speedBasedTFollow = self.params.get_int("SpeedBasedTFollow")
       self.speedBasedTFollowGap = self.params.get_float("SpeedBasedTFollowGap") / 100.
+      self.enableSpeedTF = self.params.get_int("EnableSpeedTF")
     elif self.params_count == 30:
       self.cruiseMaxVals0 = self.params.get_float("CruiseMaxVals0") / 100.
       self.cruiseMaxVals1 = self.params.get_float("CruiseMaxVals1") / 100.
@@ -193,10 +198,10 @@ class CarrotPlanner:
     factor = self.myHighModeFactor if self.myDrivingMode == DrivingMode.High else self.mySafeFactor
     return np.interp(v_ego, A_CRUISE_MAX_BP_CARROT, cruiseMaxVals) * factor
 
-  def get_T_FOLLOW(self, personality=log.LongitudinalPersonality.standard):
-    # 속도 기반 차간거리 조절 (SpeedBasedTFollow > 0 일 때)
+  def get_T_FOLLOW(self, personality=log.LongitudinalPersonality.standard, v_ego=0):
+    # 1순위: SpeedBasedTFollow (ms-x 방식) - 세밀한 속도 기반 + 필터링
     if self.speedBasedTFollow > 0:
-      v_ego_kph = self.v_ego * CV.MS_TO_KPH
+      v_ego_kph = (v_ego if v_ego > 0 else self.v_ego) * CV.MS_TO_KPH
 
       # 기준 Gap 사용
       base_gap = self.speedBasedTFollowGap
@@ -243,20 +248,38 @@ class CarrotPlanner:
     # OFF일 때 prev 리셋
     self._speedBasedTFollow_prev = 0
 
-    if personality==log.LongitudinalPersonality.moreRelaxed:
-      self.jerk_factor = 1.0
-      return self.tFollowGap4
-    elif personality==log.LongitudinalPersonality.relaxed:
-      self.jerk_factor = 1.0
-      return self.tFollowGap3
-    elif personality==log.LongitudinalPersonality.standard:
-      self.jerk_factor = 1.0 if self.myDrivingMode == DrivingMode.Safe else 0.7
-      return self.tFollowGap2
-    elif personality==log.LongitudinalPersonality.aggressive:
-      self.jerk_factor = 1.0 if self.myDrivingMode == DrivingMode.Safe else 0.5
-      return self.tFollowGap1
+    # 2순위: EnableSpeedTF (ajouatom 방식) - 자동 단계 선택 or 비율 감소
+    if self.enableSpeedTF < 0:
+      v_kph = v_ego * CV.MS_TO_KPH
+      tf = np.interp(v_kph, [0, 40, 80, 120], [self.tFollowGap1, self.tFollowGap2, self.tFollowGap3, self.tFollowGap4])
+      self.jerk_factor = np.interp(v_ego * CV.MS_TO_KPH, [0, 40, 80, 120], [1.0, 0.7, 0.5, 0.5])
+      personality = int(np.clip(np.digitize(v_kph, [40, 80, 120], right=False), 0, 3))
+      if self.personality != personality:
+        self.params.put_int_nonblocking("LongitudinalPersonality", personality)
+        self.personality = personality
+      return tf
     else:
-      raise NotImplementedError("Longitudinal personality not supported")
+      tf = 1.0
+      if personality==log.LongitudinalPersonality.moreRelaxed:
+        self.jerk_factor = 1.0
+        tf = self.tFollowGap4
+      elif personality==log.LongitudinalPersonality.relaxed:
+        self.jerk_factor = 1.0
+        tf = self.tFollowGap3
+      elif personality==log.LongitudinalPersonality.standard:
+        self.jerk_factor = 1.0 if self.myDrivingMode == DrivingMode.Safe else 0.7
+        tf = self.tFollowGap2
+      elif personality==log.LongitudinalPersonality.aggressive:
+        self.jerk_factor = 1.0 if self.myDrivingMode == DrivingMode.Safe else 0.5
+        tf = self.tFollowGap1
+      else:
+        raise NotImplementedError("Longitudinal personality not supported")
+      if self.enableSpeedTF > 0:
+        reduce = self.enableSpeedTF * 0.01
+        s = np.clip(v_ego * CV.MS_TO_KPH / 100, 0, 1.0)
+        scale = (1.0 - reduce) + reduce * s
+        tf = tf * scale
+      return tf
 
   def _update_model_desire(self, sm):
     meta = sm['modelV2'].meta
