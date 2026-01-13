@@ -39,7 +39,7 @@ BO_ 80 GW_50: 8 XXX
  SG_ SRS_DriverBuckleSwitchStatus : 14|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 368 GW_170: 8 ESP
- SG_ EPS_ActualTorsionBarTorq : 23|16@0- (0.001,-5.533) [0|250] "" XXX
+ SG_ EPS_ActualTorsionBarTorq : 31|16@0- (0.001,0) [0|65535] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -130,11 +130,11 @@ BO_ 651 GW_28B: 8 XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 652 GW_28C: 8 XXX
- SG_ GW_MFS_IACCenable_switch_signal : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ GW_MFS_ACCenable_switch_signal : 0|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_Cancle_switch_signal : 1|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_RESPlus_switch_signal : 2|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_SETReduce_switch_signal : 3|1@0+ (1,0) [0|1] "" XXX
- SG_ GW_MFS_ACCenable_switch_signal : 12|1@0+ (1,0) [0|1] "" XXX
+ SG_ GW_MFS_IACCenable_switch_signal : 12|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -162,13 +162,13 @@ BO_ 794 GW_31A: 64 XXX
  SG_ Lead_Distance : 7|16@0+ (0.0002777,0) [0|65535] "" XXX
  SG_ Lead_Detected : 22|1@0+ (1,0) [0|1] "" XXX
  SG_ Lead_RelSpeed : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_IACCHWAMode : 45|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_RollingCounter_36D : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_IACCHWAEnable : 68|1@0+ (1,0) [0|1] "" XXX
  SG_ STEER_PRESSED : 96|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER_2 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_2 : 127|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_IACCHWAEnable : 136|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_IACCHWAMode : 150|2@0+ (1,0) [0|3] "" XXX
  SG_ COUNTER_3 : 179|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_4 : 243|4@0+ (1,0) [0|15] "" XXX

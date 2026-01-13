@@ -23,10 +23,10 @@ class CarState(CarStateBase):
     self.cruiseSpeed = 0
     self.buttonPlus = 0
     self.buttonReduce = 0
-    self.acc_enable_pressed_prev = False
+    self.iacc_pressed_prev = False
     self.plus_pressed_prev = False
     self.minus_pressed_prev = False
-    self.acc_enable_button_counter = 0
+    self.iacc_button_counter = 0
     self.plus_button_counter = 0
     self.minus_button_counter = 0
 
@@ -95,28 +95,28 @@ class CarState(CarStateBase):
 
     # Cruise Control Logic (GW_28C) - Debounced
     buttons = cp.vl.get("GW_28C", {})
-    acc_enable_button = buttons.get("GW_MFS_ACCenable_switch_signal", 0)
+    iacc_button = buttons.get("GW_MFS_IACCenable_switch_signal", 0)
     plus_button = buttons.get("GW_MFS_RESPlus_switch_signal", 0)
     minus_button = buttons.get("GW_MFS_SETReduce_switch_signal", 0)
 
     # Debounce counters
-    self.acc_enable_button_counter = self.acc_enable_button_counter + 1 if acc_enable_button == 1 else 0
+    self.iacc_button_counter = self.iacc_button_counter + 1 if iacc_button == 1 else 0
     self.plus_button_counter = self.plus_button_counter + 1 if plus_button == 1 else 0
     self.minus_button_counter = self.minus_button_counter + 1 if minus_button == 1 else 0
 
     # Current debounced states
-    acc_enable_pressed = self.acc_enable_button_counter >= 2
+    iacc_pressed = self.iacc_button_counter >= 2
     plus_pressed = self.plus_button_counter >= 2
     minus_pressed = self.minus_button_counter >= 2
 
     # Rising edge detection
-    acc_enable_rising_edge = acc_enable_pressed and not self.acc_enable_pressed_prev
+    iacc_rising_edge = iacc_pressed and not self.iacc_pressed_prev
     plus_rising_edge = plus_pressed and not self.plus_pressed_prev
     minus_rising_edge = minus_pressed and not self.minus_pressed_prev
 
-    if self.cruiseEnable and (acc_enable_rising_edge or ret.brakePressed):
+    if self.cruiseEnable and (iacc_rising_edge or ret.brakePressed):
       self.cruiseEnable = False
-    elif not self.cruiseEnable and acc_enable_rising_edge:
+    elif not self.cruiseEnable and iacc_rising_edge:
       self.cruiseEnable = True
 
     if self.cruiseEnable and not self.cruiseEnablePrev:
@@ -128,7 +128,7 @@ class CarState(CarStateBase):
       if minus_rising_edge:
         self.cruiseSpeed = max(((self.cruiseSpeed // 5) - 1) * 5, 0)
 
-    self.acc_enable_pressed_prev = acc_enable_pressed
+    self.iacc_pressed_prev = iacc_pressed
     self.plus_pressed_prev = plus_pressed
     self.minus_pressed_prev = minus_pressed
     self.cruiseEnablePrev = self.cruiseEnable
@@ -138,10 +138,13 @@ class CarState(CarStateBase):
     ret.cruiseState.available = cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAEnable", 0) == 1
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
+    # Lead Vehicle Data from HUD Message
+    #ret.radarDistance = cp_cam.vl.get("GW_31A", {}).get("Lead_Distance", 0)
+
     # Faults
-    # ACC_ACCMode is 2-bit in DBC (0: Off, 1: Ready, 2: Active, 3: Fault)
-    ret.accFaulted = cp_cam.vl.get("GW_244", {}).get("ACC_ACCMode", 0) == 3 or \
-                     cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAMode", 0) == 3
+    # ACC_ACCMode is 3-bit in DBC (0: Off, 1: Ready, 2: Active, 7: Fault)
+    ret.accFaulted = cp_cam.vl.get("GW_244", {}).get("ACC_ACCMode", 0) == 7 or \
+                     cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAMode", 0) == 7
     ret.steerFaultTemporary = False # As per reference: "去除方向机故障提示"
 
     ret.stockFcw = cp_cam.vl.get("GW_244", {}).get("ACC_FCWPreWarning", 0) == 1

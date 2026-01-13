@@ -11,3 +11,6 @@ if [ -z "$AGNOS_VERSION" ]; then
 fi
 
 export STAGING_ROOT="/data/safe_staging"
+
+export FINGERPRINT="CHANGAN_Z6"
+export SKIP_FW_QUERY="1"
