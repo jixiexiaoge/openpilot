@@ -107,7 +107,6 @@ class CarrotPlanner:
     self.speedFactorFiltered = 1.0
     self._speedBasedTFollow_prev = 0  # 토글 감지용
     self._last_tau = 2.0
-    self.v_ego = 0.0
     # EnableSpeedTF (ajouatom 방식)
     self.enableSpeedTF = 0
     self.personality = 1
@@ -201,7 +200,7 @@ class CarrotPlanner:
   def get_T_FOLLOW(self, personality=log.LongitudinalPersonality.standard, v_ego=0):
     # 1순위: SpeedBasedTFollow (ms-x 방식) - 세밀한 속도 기반 + 필터링
     if self.speedBasedTFollow > 0:
-      v_ego_kph = (v_ego if v_ego > 0 else self.v_ego) * CV.MS_TO_KPH
+      v_ego_kph = v_ego * CV.MS_TO_KPH
 
       # 기준 Gap 사용
       base_gap = self.speedBasedTFollowGap
@@ -428,7 +427,6 @@ class CarrotPlanner:
     self.comfort_brake = self.comfortBrake
 
     v_ego = carstate.vEgo
-    self.v_ego = v_ego  # get_T_FOLLOW()에서 사용
     a_ego = carstate.aEgo
     v_ego_kph = v_ego * CV.MS_TO_KPH
     v_ego_cluster = carstate.vEgoCluster
