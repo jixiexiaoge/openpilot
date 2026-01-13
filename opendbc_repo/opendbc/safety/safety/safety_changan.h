@@ -9,7 +9,7 @@
 #define CHANGAN_WHEEL_SPEEDS     0x187 // GW_187
 #define CHANGAN_PEDAL_DATA       0x196 // GW_196
 #define CHANGAN_ACC_COMMAND      0x244 // GW_244
-#define CHANGAN_CRUISE_BUTTONS   0x28C // GW_28C (Decimal 652)
+#define CHANGAN_CRUISE_BUTTONS   0x652 // GW_28C (Decimal 652)
 #define CHANGAN_ACC_HUD          0x307 // GW_307
 #define CHANGAN_ADAS_INFO        0x31A // GW_31A
 #define CHANGAN_EPS_INFO         0x591 // EPS_591
