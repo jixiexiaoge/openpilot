@@ -39,6 +39,7 @@ def crc_calculate_crc8(data):
 
 
 def create_steering_control(packer, values, angle, active, counter):
+  values = values.copy()
   values.update({
     "STEER_ANGLE_CMD": angle,
     "STEER_REQUEST": active,
@@ -51,17 +52,14 @@ def create_steering_control(packer, values, angle, active, counter):
   })
   for i in range(4):
     dat = packer.make_can_msg("GW_1BA", 0, values)[1]
-    if i == 0:
-      values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
-    else:
-      values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
+    name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
+    values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
   return packer.make_can_msg("GW_1BA", 0, values)
 
 def create_eps_control(packer, values, active, counter):
   values = values.copy()
-  status_val = 1 if active else 0
   values.update({
-    "LKA_STATE": status_val,
+    "LKA_STATE": 1 if active else 0,
     "COUNTER": counter,
   })
   dat = packer.make_can_msg("GW_17E", 0, values)[1]
@@ -83,29 +81,25 @@ def create_acc_control(packer, values, accel, counter, enabled, acctrq):
 
   for i in range(4):
     dat = packer.make_can_msg("GW_244", 0, values)[1]
-    if i == 0:
-      values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
-    else:
-      values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
+    name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
+    values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
   return packer.make_can_msg("GW_244", 0, values)
 
 def create_acc_set_speed(packer, values, counter, speed):
   values = values.copy()
   values.update({
-    "COUNTER_1": counter,
-    "SET_SPEED": int(min(max(speed // 20, 0), 7)),
+    "COUNTER": counter,
+    "SET_SPEED": speed,
     "DISTANCE_LEVEL": 3,
   })
-  for i in range(2, 9):
+  for i in range(1, 8):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(8):
-    dat = packer.make_can_msg("GW_307", 0, values)[1]
-    if i == 0:
-      values["CHECKSUM_1"] = crc_calculate_crc8(dat[0:7])
-    else:
-      values[f"CHECKSUM_{i+1}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("GW_307", 0, values)
+    dat = packer.make_can_msg("GW_307", 2, values)[1]
+    name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
+    values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
+  return packer.make_can_msg("GW_307", 2, values)
 
 def create_acc_hud(packer, values, counter, enabled, steering_pressed):
   values = values.copy()
@@ -119,9 +113,7 @@ def create_acc_hud(packer, values, counter, enabled, steering_pressed):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(8):
-    dat = packer.make_can_msg("GW_31A", 0, values)[1]
-    if i == 0:
-      values["CHECKSUM"] = crc_calculate_crc8(dat[0:7])
-    else:
-      values[f"CHECKSUM_{i}"] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("GW_31A", 0, values)
+    dat = packer.make_can_msg("GW_31A", 2, values)[1]
+    name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
+    values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
+  return packer.make_can_msg("GW_31A", 2, values)

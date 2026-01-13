@@ -51,7 +51,7 @@ BO_ 382 GW_17E: 8 XXX
 
 BO_ 384 GW_180: 8 XXX
  SG_ STEER_ANGLE : 7|16@0- (0.1,0) [-476|476] "deg" XXX
- SG_ STEER_RATE : 23|16@0+ (1,0) [0|65535] "" XXX
+ SG_ STEER_RATE : 23|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -148,22 +148,22 @@ BO_ 794 GW_31A: 64 XXX
  SG_ STEER_PRESSED : 6|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_IACC_HWA_ENABLE : 7|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_IACC_HWA_MODE : 15|2@0+ (1,0) [0|3] "" XXX
- SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_1 : 115|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_1 : 127|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_2 : 179|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_2 : 191|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_3 : 243|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_3 : 255|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_4 : 307|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_4 : 319|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_5 : 371|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_5 : 383|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_6 : 435|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_6 : 447|8@0+ (1,0) [0|255] "" XXX
- SG_ COUNTER_7 : 499|4@0+ (1,0) [0|15] "" XXX
- SG_ CHECKSUM_7 : 511|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_1 : 51|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_2 : 115|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_2 : 127|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_3 : 179|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_3 : 191|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_4 : 243|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_4 : 255|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_5 : 307|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_5 : 319|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_6 : 371|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_6 : 383|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_7 : 435|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_7 : 447|8@0+ (1,0) [0|255] "" XXX
+ SG_ COUNTER_8 : 499|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM_8 : 511|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 824 GW_338: 8 XXX
  SG_ TCU_GearForDisplay : 39|4@0+ (1,-7) [0|15] "" XXX
