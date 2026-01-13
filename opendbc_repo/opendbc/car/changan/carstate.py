@@ -29,7 +29,7 @@ class CarState(CarStateBase):
     self.steeringPressedMax = 6
     self.steeringPressedMin = 1
 
-    # Custom counters and signals for controller
+    # Storage for snapshots and counters
     self.sigs = {
       "GW_1BA": {},
       "GW_244": {},
@@ -37,16 +37,24 @@ class CarState(CarStateBase):
       "GW_307": {},
       "GW_31A": {},
     }
+    self.counter_1ba = 0
+    self.counter_244 = 0
+    self.counter_17e = 0
+    self.counter_307 = 0
+    self.counter_31a = 0
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
     ret = structs.CarState()
 
-    # Vehicle Speed
-    carspd = cp.vl.get("GW_187", {}).get("WHEEL_SPEED_FL", 0)
+    # Door / Seatbelt
+    ret.doorOpen = any([cp.vl.get("GW_28B", {}).get("BCM_DriverDoorStatus", 0)])
+    ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SRS_DriverBuckleSwitchStatus", 0) == 1
+    ret.parkingBrake = False
 
-    # Carrot speed calculation
+    # Vehicle Speed
+    carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
@@ -54,40 +62,35 @@ class CarState(CarStateBase):
     ret.standstill = abs(ret.vEgoRaw) < 0.1
 
     # Gas, Brake, Gear
-    ret.brakePressed = cp.vl.get("GW_196", {}).get("BRAKE_PRESSED", 0) != 0
-    ret.gasPressed = False # Forcing false to bypass noEntry 13
-    # ret.gasPressed = cp.vl.get("GW_196", {}).get("GAS_PEDAL_USER", 0) != 0
+    ret.brakePressed = cp.vl.get("GW_196", {}).get("EMS_BrakePedalStatus", 0) != 0
+    ret.gasPressed = cp.vl.get("GW_196", {}).get("EMS_RealAccPedal", 0) != 0
 
     can_gear = cp.vl.get("GW_338", {}).get("TCU_GearForDisplay", 0)
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
 
     # Lights
-    ret.leftBlinker = cp.vl.get("GW_28B", {}).get("TURN_SIGNALS_L", 0) == 1
-    ret.rightBlinker = cp.vl.get("GW_28B", {}).get("TURN_SIGNALS_R", 0) == 1
-    ret.genericToggle = False
+    ret.leftBlinker = cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorLeft", 0) == 1
+    ret.rightBlinker = cp.vl.get("GW_28B", {}).get("BCM_TurnIndicatorRight", 0) == 1
 
     # Steering
     ret.steeringAngleOffsetDeg = 0
-    ret.steeringAngleDeg = cp.vl.get("GW_180", {}).get("STEER_ANGLE", 0)
-    ret.steeringRateDeg = cp.vl.get("GW_180", {}).get("STEER_RATE", 0)
-    ret.steeringTorque = cp.vl.get("GW_17E", {}).get("STEER_TORQUE_DRIVER", 0)
-    ret.steeringTorqueEps = cp.vl.get("EPS_368", {}).get("STEER_TORQUE_EPS", 0) * self.eps_torque_scale
+    ret.steeringAngleDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngle", 0)
+    ret.steeringRateDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngleSpeed", 0)
+    ret.steeringTorque = cp.vl.get("GW_17E", {}).get("EPS_MeasuredTorsionBarTorque", 0)
+    ret.steeringTorqueEps = cp.vl.get("GW_172", {}).get("EPS_ActualTorsionBarTorq", 0) * self.eps_torque_scale
 
-    # Steering Pressed Logic (Relaxed to avoid noEntry 14)
-    ret.steeringPressed = False
+    # Steering Pressed Logic
     if cp_cam.vl.get("GW_31A", {}).get("STEER_PRESSED", 0) == 1:
-      ret.steeringPressed = True
+      self.steeringPressed = True
     elif abs(ret.steeringTorque) > self.steeringPressedMax:
-      ret.steeringPressed = True
+      self.steeringPressed = True
+    elif abs(ret.steeringTorque) < self.steeringPressedMin:
+      self.steeringPressed = False
+    ret.steeringPressed = self.steeringPressed
 
-    # Doors / Seatbelt
-    ret.doorOpen = any([cp.vl.get("GW_28B", {}).get("DOOR_OPEN_FL", 0)])
-    ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SEATBELT_DRIVER_UNLATCHED", 0) == 1
-    ret.parkingBrake = False
-
-    # Cruise Control Logic
-    self.cruise_buttons = cp.vl.get("GW_MFS_IACC", {})
-    iacc_button = self.cruise_buttons.get("GW_MFS_ACC", 0)
+    # Cruise Control Logic (GW_28C)
+    buttons = cp.vl.get("GW_28C", {})
+    iacc_button = buttons.get("GW_MFS_IACCenable_switch_signal", 0)
     iacc_button_rising_edge = (iacc_button == 1 and self.iacc_enable_switch_button_prev == 0)
 
     if self.cruiseEnable and (iacc_button_rising_edge or ret.brakePressed):
@@ -98,60 +101,68 @@ class CarState(CarStateBase):
     self.iacc_enable_switch_button_prev = iacc_button
 
     if self.cruiseEnable and not self.cruiseEnablePrev:
-      self.cruiseSpeed = max(ret.vEgo * CV.MS_TO_KPH, 30.0) if self.cruiseSpeed == 0 else self.cruiseSpeed
+      self.cruiseSpeed = max(speed, 30.0) if self.cruiseSpeed == 0 else self.cruiseSpeed
 
     if self.cruiseEnable:
-      if self.cruise_buttons.get("GW_MFS_RESPlus", 0) == 1 and self.buttonPlus == 0:
+      if buttons.get("GW_MFS_RESPlus_switch_signal", 0) == 1 and self.buttonPlus == 0:
         self.cruiseSpeed = ((self.cruiseSpeed // 5) + 1) * 5
-      if self.cruise_buttons.get("GW_MFS_SETReduce", 0) == 1 and self.buttonReduce == 0:
+      if buttons.get("GW_MFS_SETReduce_switch_signal", 0) == 1 and self.buttonReduce == 0:
         self.cruiseSpeed = max(((self.cruiseSpeed // 5) - 1) * 5, 0)
 
-    self.buttonPlus = self.cruise_buttons.get("GW_MFS_RESPlus", 0)
-    self.buttonReduce = self.cruise_buttons.get("GW_MFS_SETReduce", 0)
+    self.buttonPlus = buttons.get("GW_MFS_RESPlus_switch_signal", 0)
+    self.buttonReduce = buttons.get("GW_MFS_SETReduce_switch_signal", 0)
     self.cruiseEnablePrev = self.cruiseEnable
 
-    # Cruise State
+    # Cruise State Output
     ret.cruiseState.enabled = self.cruiseEnable
-    ret.cruiseState.available = True
+    ret.cruiseState.available = cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAEnable", 0) == 1
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
-    # Faults / Alerts
-    ret.accFaulted = False
-    ret.steerFaultTemporary = cp.vl.get("EPS_591", {}).get("EPS_FAILED", 0) != 0 or \
-                               cp.vl.get("GW_17E", {}).get("LKA_STATE", 0) == 2
+    # Faults
+    ret.accFaulted = cp_cam.vl.get("GW_244", {}).get("ACC_ACCMode", 0) == 7 or \
+                     cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAMode", 0) == 7
+    ret.steerFaultTemporary = False # As per reference: "去除方向机故障提示"
 
-    # Snapshot signals for controller
-    if "GW_244" in cp_cam.vl: self.sigs["GW_244"] = copy.copy(cp_cam.vl["GW_244"])
-    if "GW_1BA" in cp_cam.vl: self.sigs["GW_1BA"] = copy.copy(cp_cam.vl["GW_1BA"])
-    if "GW_307" in cp_cam.vl: self.sigs["GW_307"] = copy.copy(cp_cam.vl["GW_307"])
-    if "GW_31A" in cp_cam.vl: self.sigs["GW_31A"] = copy.copy(cp_cam.vl["GW_31A"])
-    if "GW_17E" in cp.vl: self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
+    # Snapshots for Controller
+    for msg in ["GW_1BA", "GW_244", "GW_307", "GW_31A"]:
+      if msg in cp_cam.vl:
+        self.sigs[msg] = copy.copy(cp_cam.vl[msg])
+    if "GW_17E" in cp.vl:
+      self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
+
+    # Rolling Counters
+    self.counter_1ba = cp_cam.vl.get("GW_1BA", {}).get("ACC_RollingCounter_1BA", 0)
+    self.counter_244 = cp_cam.vl.get("GW_244", {}).get("ACC_RollingCounter_24E", 0)
+    self.counter_17e = cp.vl.get("GW_17E", {}).get("EPS_RollingCounter_17E", 0)
+    self.counter_307 = cp_cam.vl.get("GW_307", {}).get("ACC_RollingCounter_35E", 0)
+    self.counter_31a = cp_cam.vl.get("GW_31A", {}).get("ACC_RollingCounter_36D", 0)
 
     return ret
 
   @staticmethod
   def get_can_parsers(CP):
     pt_messages = [
-      ("GW_50", 1),         # Relaxed to 1Hz
-      ("GW_28B", 10),      # Relaxed
-      ("GW_17E", 50),      # Relaxed
-      ("EPS_368", 50),
-      ("GW_180", 50),
-      ("EPS_591", 20),
-      ("GW_MFS_IACC", 10),
+      ("GW_50", 2),
+      ("GW_28B", 25),
+      ("GW_17E", 100),
+      ("GW_180", 100),
+      ("GW_187", 100),
+      ("GW_196", 100),
+      ("GW_28C", 25),
       ("GW_338", 10),
-      ("GW_187", 50),
-      ("GW_196", 20),
+      ("GW_172", 100),
+      ("EPS_591", 20),
+      ("EPS_368", 50),
     ]
 
     cam_messages = [
-      ("GW_1BA", 20),
-      ("GW_244", 20),
-      ("GW_307", 5),
-      ("GW_31A", 5),
+      ("GW_1BA", 100),
+      ("GW_244", 50),
+      ("GW_307", 10),
+      ("GW_31A", 10),
     ]
 
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
-      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.cam], cam_messages, 2),
+      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
     }
