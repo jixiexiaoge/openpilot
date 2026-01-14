@@ -9,7 +9,20 @@ from opendbc.car.interfaces import CarStateBase
 from opendbc.car.changan.values import CAR, DBC, STEER_THRESHOLD, EPS_SCALE
 from opendbc.car import Bus, structs
 
+
 SteerControlType = structs.CarParams.SteerControlType
+
+# These steering fault definitions seem to be common across LKA (torque) and LTA (angle):
+# - high steer rate fault: goes to 21 or 25 for 1 frame, then 9 for 2 seconds
+# - lka/lta msg drop out: goes to 9 then 11 for a combined total of 2 seconds, then 3.
+#     if using the other control command, goes directly to 3 after 1.5 seconds
+# - initializing: LTA can report 0 as long as STEER_TORQUE_SENSOR->STEER_ANGLE_INITIALIZING is 1,
+#     and is a catch-all for LKA
+TEMP_STEER_FAULTS = (0, 9, 11, 21, 25)
+# - lka/lta msg drop out: 3 (recoverable)
+# - prolonged high driver torque: 17 (permanent)
+PERM_STEER_FAULTS = (3, 17)
+
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -63,25 +76,15 @@ class CarState(CarStateBase):
     self.iacc_enable_switch_button_prev = 0
     self.iacc_enable_switch_button_rising_edge = False
 
-    # 新增：急弯检测相关参数
-    self.steering_angle_threshold = 30.0  # 急弯角度阈值
-    self.steering_rate_threshold = 50.0   # 急弯转向速率阈值
-    self.emergency_turn_active = False     # 急弯激活标志
-    self.last_steering_angle = 0.0
-    self.steering_rate = 0.0
-    # 新增：自动IACC触发相关参数
-    self.auto_iacc_triggered = False  # 是否已经自动触发过IACC
-    self.last_speed_below_50 = time.time()  # 最后一次速度低于50的时间戳
-    self.speed_stable_start_time = 0  # 速度稳定在50以上的开始时间
 
   def update(self, can_parsers) -> structs.CarState: # type: ignore
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
     ret = structs.CarState()
 
-    ret.doorOpen = any([cp.vl["GW_28B"]["BCM_DriverDoorStatus"]])
-    ret.seatbeltUnlatched = cp.vl["GW_50"]["SRS_DriverBuckleSwitchStatus"] == 1
-    ret.parkingBrake = False
+    ret.doorOpen = any([cp.vl["GW_28B"]["BCM_DriverDoorStatus"]]) # 门开
+    ret.seatbeltUnlatched = cp.vl["GW_50"]["SRS_DriverBuckleSwitchStatus"] == 1 # 安全带
+    ret.parkingBrake = False # 手刹 无相应can报文
 
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       carspd = cp.vl["GW_17A"]["ESP_VehicleSpeed"]
@@ -90,119 +93,57 @@ class CarState(CarStateBase):
     speed = carspd if carspd <= 5 else ((carspd/0.98)+2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-    ret.vEgoCluster = ret.vEgo
-   
-   # 新增：速度达到50KM/H时自动模拟按下IACC键
-    current_speed_kmh = speed  # speed已经是km/h单位
-    
-    # 检查速度是否达到50KM/H且稳定
-    if current_speed_kmh >= 50:
-        if self.speed_stable_start_time == 0:
-            # 第一次达到50，记录开始时间
-            self.speed_stable_start_time = time.time()
-        elif time.time() - self.speed_stable_start_time >= 2.0:  # 稳定2秒
-            # 触发条件：速度≥50KM/H、巡航未启用、未触发过自动IACC
-            if (not self.cruiseEnable and 
-                not self.auto_iacc_triggered and
-                not self.emergency_turn_active):  # 急弯时不触发
-                
-                print(f"速度达到{current_speed_kmh:.1f}KM/H，自动启用IACC")
-                
-                # 统一处理：模拟IACC按键按下（上升沿）
-                self.iacc_enable_switch_button_pressed = 1
-                self.iacc_enable_switch_button_prev = 0
-                self.iacc_enable_switch_button_rising_edge = True
-                
-                # 触发巡航启用逻辑
-                if not self.cruiseEnable and self.iacc_enable_switch_button_rising_edge:
-                    self.cruiseEnable = True
-                
-                self.auto_iacc_triggered = True
-                self.cruiseSpeed = current_speed_kmh  # 设置巡航速度为当前速度
-    else:
-        # 速度低于50，重置稳定计时器
-        self.speed_stable_start_time = 0
-        
-        # 重置触发条件：当速度低于45KM/H时允许再次触发
-        if current_speed_kmh < 45:
-            self.auto_iacc_triggered = False
-            self.last_speed_below_50 = time.time()
+    # ret.vEgoCluster = ret.vEgo * 1.015  # minimum of all the cars 仪表显示速度
+    ret.vEgoCluster = ret.vEgo  # minimum of all the cars 仪表显示速度
 
-    ret.standstill = abs(ret.vEgoRaw) < 1e-3
+    ret.standstill = abs(ret.vEgoRaw) < 1e-3 # 车辆停止
 
     ret.steeringAngleOffsetDeg = 0
-    ret.steeringAngleDeg = cp.vl["GW_180"]["SAS_SteeringAngle"]
-    ret.steeringRateDeg = cp.vl["GW_180"]["SAS_SteeringAngleSpeed"]
-    
-    # 新增：急弯检测逻辑
-    current_steering_angle = ret.steeringAngleDeg
-    self.steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
-    self.last_steering_angle = current_steering_angle
-    
-    # 检测急弯条件
-    is_emergency_turn = (abs(current_steering_angle) > self.steering_angle_threshold or 
-                        self.steering_rate > self.steering_rate_threshold)
-    
-    if is_emergency_turn and not self.emergency_turn_active:
-        self.emergency_turn_active = True
-        print(f"急弯模式激活: 角度{current_steering_angle:.1f}°, 速率{self.steering_rate:.1f}°/s")
-    elif not is_emergency_turn and self.emergency_turn_active:
-        self.emergency_turn_active = False
-        print("急弯模式关闭")
+    ret.steeringAngleDeg = cp.vl["GW_180"]["SAS_SteeringAngle"] # 方向盘角度
+    ret.steeringRateDeg = cp.vl["GW_180"]["SAS_SteeringAngleSpeed"] # 方向盘速率
 
     if self.CP.carFingerprint == CAR.QIYUAN_A05:
-      can_gear = int(cp.vl["GW_331"]["TCU_GearForDisplay"])
-      ret.brakePressed = cp.vl["GW_17D"]["PCU_BrkPedlSts"] != 0
-      ret.gasPressed = cp.vl["GW_17D"]["PCU_RealAccPedl"] != 0
+      can_gear = int(cp.vl["GW_331"]["TCU_GearForDisplay"]) # 档位
+      ret.brakePressed = cp.vl["GW_17D"]["PCU_BrkPedlSts"] != 0 # 刹车
+      ret.gasPressed = cp.vl["GW_17D"]["PCU_RealAccPedl"] != 0 # 油门踏板开度
       self.steeringPressedMax = 1.5
       self.steeringPressedMin = 0.5
       ret.leftBlindspot = (cp.vl["GW_2A4"]["LCDAR_Left_BSD_LCAAlert"] == 1) or (cp.vl["GW_2A4"]["LCDAR_Left_BSD_LCAAlert"] == 2)
       ret.rightBlindspot = (cp.vl["GW_2A4"]["LCDAR_BSD_LCAAlert"] == 1) or (cp.vl["GW_2A4"]["LCDAR_BSD_LCAAlert"] == 2)
     elif self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"])
-      ret.brakePressed = cp.vl["GW_1A6"]["EMS_BrakePedalStatus"] != 0
-      ret.gasPressed = cp.vl["GW_1C6"]["EMS_RealAccPedal"] != 0
+      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"]) # 档位
+      ret.brakePressed = cp.vl["GW_1A6"]["EMS_BrakePedalStatus"] != 0 # 刹车
+      ret.gasPressed = cp.vl["GW_1C6"]["EMS_RealAccPedal"] != 0 # 油门踏板开度
       self.steeringPressedMin = 1
       self.steeringPressedMax = 3
       ret.leftBlindspot = False
       ret.rightBlindspot = False
     else:
-      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"])
-      ret.brakePressed = cp.vl["GW_196"]["EMS_BrakePedalStatus"] != 0
-      ret.gasPressed = cp.vl["GW_196"]["EMS_RealAccPedal"] != 0
+      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"]) # 档位
+      ret.brakePressed = cp.vl["GW_196"]["EMS_BrakePedalStatus"] != 0 # 刹车
+      ret.gasPressed = cp.vl["GW_196"]["EMS_RealAccPedal"] != 0 # 油门踏板开度
       self.steeringPressedMin = 1
       self.steeringPressedMax = 6
       ret.leftBlindspot = False
       ret.rightBlindspot = False
-      
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker, ret.rightBlinker= self.update_blinker_from_stalk(200,
                                                                       cp.vl["GW_28B"]["BCM_TurnIndicatorLeft"] == 1,
-                                                                      cp.vl["GW_28B"]["BCM_TurnIndicatorRight"] == 1)
+                                                                      cp.vl["GW_28B"]["BCM_TurnIndicatorRight"] == 1)  # 左转向灯
 
-    ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"]
-    ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"]
-    
-    # 修改：去除方向机故障提示
-    # 原代码：ret.steerFaultTemporary = cp.vl["GW_24F"]["EPS_EPSFailed"] != 0 or cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] == 2
-    # 改为：始终返回False，去除故障提示
-    ret.steerFaultTemporary = False
-    
-    # 急弯时放宽转向压力检测阈值
-    if self.emergency_turn_active:
-        emergency_steering_pressed_max = self.steeringPressedMax * 1.5  # 提高50%阈值
-        emergency_steering_pressed_min = self.steeringPressedMin * 0.7   # 降低30%阈值
-    else:
-        emergency_steering_pressed_max = self.steeringPressedMax
-        emergency_steering_pressed_min = self.steeringPressedMin
-
+    ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"] # 转向扭矩
+    ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"] # eps 转向扭矩
+    # we could use the override bit from dbc, but it's triggered at too high torque values
     if self.steeringPressed:
-      if abs(ret.steeringTorque) < emergency_steering_pressed_min and abs(ret.steeringAngleDeg) < 90:
+      if abs(ret.steeringTorque) < self.steeringPressedMin and abs(ret.steeringAngleDeg) < 90:
         self.steeringPressed = False
     else:
-      if abs(ret.steeringTorque) > emergency_steering_pressed_max:
+      if abs(ret.steeringTorque) > self.steeringPressedMax:
         self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
+
+    # Check EPS LKA/LTA fault status
+    ret.steerFaultTemporary = cp.vl["GW_24F"]["EPS_EPSFailed"] != 0 or cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] == 2  # 转向故障
 
     if self.CP.carFingerprint == CAR.QIYUAN_A05:
       if cp.vl["GW_28C"]["GW_MFS_IACCenable_switch_signal"] == 1:
@@ -221,10 +162,8 @@ class CarState(CarStateBase):
       self.iacc_enable_switch_button_prev = self.iacc_enable_switch_button_pressed
 
     if self.cruiseEnable and not self.cruiseEnablePrev:
-      #记忆上次巡航速度
-        #self.cruiseSpeed = speed if self.cruiseSpeed == 0 else self.cruiseSpeed
-        #适时速度激活
-        self.cruiseSpeed = speed
+      self.cruiseSpeed = speed if self.cruiseSpeed == 0 else self.cruiseSpeed
+
     if cp.vl["GW_28C"]["GW_MFS_RESPlus_switch_signal"] == 1 and self.buttonPlus == 0 and self.cruiseEnable:
       self.cruiseSpeed = ((self.cruiseSpeed // 5) + 1) * 5
 
@@ -236,20 +175,25 @@ class CarState(CarStateBase):
     self.buttonReduce = cp.vl["GW_28C"]["GW_MFS_SETReduce_switch_signal"]
 
     ret.accFaulted = cp_cam.vl["GW_244"]["ACC_ACCMode"] == 7 or cp_cam.vl["GW_31A"]["ACC_IACCHWAMode"] == 7
-    ret.cruiseState.available = cp_cam.vl["GW_31A"]["ACC_IACCHWAEnable"] == 1
+    ret.cruiseState.available = cp_cam.vl["GW_31A"]["ACC_IACCHWAEnable"] == 1 # 巡航状态 可用
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
     cluster_set_speed = self.cruiseSpeed
 
+    # UI_SET_SPEED is always non-zero when main is on, hide until first enable
     if ret.cruiseState.speed != 0:
-      ret.cruiseState.speedCluster = cluster_set_speed* CV.KPH_TO_MS
+      ret.cruiseState.speedCluster = cluster_set_speed* CV.KPH_TO_MS # 巡航仪表显示速度
 
-    ret.stockFcw = cp_cam.vl["GW_244"]["ACC_FCWPreWarning"] == 1
+    ret.stockFcw = cp_cam.vl["GW_244"]["ACC_FCWPreWarning"] == 1  # 前碰撞预警
 
-    ret.cruiseState.standstill = ret.standstill
+    # ignore standstill state in certain vehicles, since pcm allows to restart with just an acceleration request
+    ret.cruiseState.standstill = ret.standstill # 巡航状态 停止
+
     ret.cruiseState.enabled = self.cruiseEnable
 
-    ret.genericToggle = False
-    ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0
+    ret.genericToggle = False # 自动远光灯
+    # ret.espDisabled = True # ESP 关闭
+
+    ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0 # 前碰撞刹车
 
     self.sigs244 = copy.copy(cp_cam.vl["GW_244"])
     self.sigs1ba = copy.copy(cp_cam.vl["GW_1BA"])
@@ -262,6 +206,7 @@ class CarState(CarStateBase):
     self.counter_307 = (cp_cam.vl["GW_307"]["ACC_RollingCounter_35E"])
     self.counter_31a = (cp_cam.vl["GW_31A"]["ACC_RollingCounter_36D"])
 
+    # distance button is wired to the ACC module (camera or radar)
     self.prev_distance_button = self.distance_button
     self.distance_button = cp_cam.vl["GW_307"]["ACC_DistanceLevel"]
 
@@ -306,6 +251,7 @@ class CarState(CarStateBase):
         ("GW_196", 100),
       ]
 
+
     cam_messages = [
       ("GW_1BA", 100),
       ("GW_244", 50),
@@ -317,3 +263,4 @@ class CarState(CarStateBase):
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, 0),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, 2),
     }
+

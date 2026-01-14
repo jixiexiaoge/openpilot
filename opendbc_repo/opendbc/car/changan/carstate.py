@@ -12,7 +12,7 @@ class CarState(CarStateBase):
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
     self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
 
-    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 1000.
+    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.
     self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
@@ -31,8 +31,12 @@ class CarState(CarStateBase):
     self.minus_button_counter = 0
 
     self.steeringPressed = False
-    self.steeringPressedMax = 6
-    self.steeringPressedMin = 1
+    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      self.steeringPressedMax = 3
+      self.steeringPressedMin = 1
+    else:
+      self.steeringPressedMax = 6
+      self.steeringPressedMin = 1
 
     # Storage for snapshots and counters
     self.sigs = {
@@ -59,7 +63,15 @@ class CarState(CarStateBase):
     ret.parkingBrake = False
 
     # Vehicle Speed
-    carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
+    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      carspd = cp.vl.get("GW_17A", {}).get("ESP_VehicleSpeed", 0)
+      if carspd == 0:
+        carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
+    else:
+      carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
+    # fallback to generic VEHICLE_SPEED message if present
+    if carspd == 0:
+      carspd = cp.vl.get("VEHICLE_SPEED", {}).get("VEHICLE_SPEED", 0)
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
@@ -67,8 +79,15 @@ class CarState(CarStateBase):
     ret.standstill = abs(ret.vEgoRaw) < 0.1
 
     # Gas, Brake, Gear
-    ret.brakePressed = cp.vl.get("GW_196", {}).get("EMS_BrakePedalStatus", 0) != 0
-    ret.gasPressed = cp.vl.get("GW_196", {}).get("EMS_RealAccPedal", 0) != 0
+    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      # prefer IDD-specific messages when available
+      brake_idd = cp.vl.get("GW_1A6", {}).get("BRAKE_PRESSED", None)
+      ret.brakePressed = (brake_idd == 1) if brake_idd is not None else (cp.vl.get("GW_196", {}).get("EMS_BrakePedalStatus", 0) != 0)
+      gas_idd = cp.vl.get("GW_1C6", {}).get("EMS_RealAccPedal", None)
+      ret.gasPressed = (gas_idd != 0) if gas_idd is not None else (cp.vl.get("GW_196", {}).get("EMS_RealAccPedal", 0) != 0)
+    else:
+      ret.brakePressed = cp.vl.get("GW_196", {}).get("EMS_BrakePedalStatus", 0) != 0
+      ret.gasPressed = cp.vl.get("GW_196", {}).get("EMS_RealAccPedal", 0) != 0
 
     can_gear = cp.vl.get("GW_338", {}).get("TCU_GearForDisplay", 0)
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
@@ -82,7 +101,7 @@ class CarState(CarStateBase):
     ret.steeringAngleDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngle", 0)
     ret.steeringRateDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngleSpeed", 0)
     ret.steeringTorque = cp.vl.get("GW_17E", {}).get("EPS_MeasuredTorsionBarTorque", 0)
-    ret.steeringTorqueEps = (cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0) - 5533) * self.eps_torque_scale
+    ret.steeringTorqueEps = (cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0)) * self.eps_torque_scale
 
     # Steering Pressed Logic
     if cp_cam.vl.get("GW_31A", {}).get("STEER_PRESSED", 0) == 1:
@@ -134,9 +153,9 @@ class CarState(CarStateBase):
     self.cruiseEnablePrev = self.cruiseEnable
 
     # Cruise State Output
-    acc_enable = cp_cam.vl.get("GW_244", {}).get("ACC_ACCEnable", 0)
+    acc_enable = cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAEnable", 0)
     ret.cruiseState.enabled = self.cruiseEnable
-    ret.cruiseState.available = acc_enable == 0
+    ret.cruiseState.available = acc_enable == 1
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
     # Lead Vehicle Data from HUD Message
@@ -174,12 +193,23 @@ class CarState(CarStateBase):
       ("GW_28B", 25),
       ("GW_17E", 100),
       ("GW_180", 100),
-      ("GW_187", 100),
-      ("GW_196", 100),
+      ("VEHICLE_SPEED", 100),
       ("GW_28C", 25),
       ("GW_338", 10),
       ("GW_170", 100),
     ]
+
+    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      pt_messages += [
+        ("GW_17A", 100),
+        ("GW_1A6", 100),
+        ("GW_1C6", 100),
+      ]
+    else:
+      pt_messages += [
+        ("GW_187", 100),
+        ("GW_196", 100),
+      ]
 
     cam_messages = [
       ("GW_1BA", 100),
