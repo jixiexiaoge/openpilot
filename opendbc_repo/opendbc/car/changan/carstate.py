@@ -12,7 +12,7 @@ class CarState(CarStateBase):
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
     self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
 
-    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.
+    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 1000.
     self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
@@ -82,7 +82,7 @@ class CarState(CarStateBase):
     ret.steeringAngleDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngle", 0)
     ret.steeringRateDeg = cp.vl.get("GW_180", {}).get("SAS_SteeringAngleSpeed", 0)
     ret.steeringTorque = cp.vl.get("GW_17E", {}).get("EPS_MeasuredTorsionBarTorque", 0)
-    ret.steeringTorqueEps = cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0) * self.eps_torque_scale
+    ret.steeringTorqueEps = (cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0) - 5533) * self.eps_torque_scale
 
     # Steering Pressed Logic
     if cp_cam.vl.get("GW_31A", {}).get("STEER_PRESSED", 0) == 1:
