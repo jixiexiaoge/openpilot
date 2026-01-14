@@ -65,7 +65,7 @@ def create_eps_control(packer, values, active, counter):
   values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
   return packer.make_can_msg("GW_17E", 2, values)
 
-def create_acc_control(packer, values, accel, counter, enabled, acctrq):
+def create_acc_control(packer, values, accel, counter, enabled, acctrq, acc_enable):
   values = values.copy()
   values.update({
     "ACC_Acceleration_24E": accel,
@@ -74,7 +74,7 @@ def create_acc_control(packer, values, accel, counter, enabled, acctrq):
     "COUNTER_2": counter,
     "COUNTER_3": counter,
     "ACC_ACCMode": 1 if enabled else 0,
-    "ACC_ACCEnable": 1 if enabled else 0,
+    "ACC_ACCEnable": acc_enable,
     "ACC_ACCReq": 1 if enabled else 0,
     "sig_099": acctrq,
   })

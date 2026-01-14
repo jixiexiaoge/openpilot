@@ -108,7 +108,8 @@ class CarController(CarControllerBase):
         acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
 
       self.last_acctrq = acctrq
-      can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["GW_244"], accel, CS.counter_244, CC.longActive, acctrq))
+      acc_enable_value = 1 if CC.longActive else 0
+      can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["GW_244"], accel, CS.counter_244, CC.longActive, acctrq, acc_enable_value))
 
     # HUD & Set Speed (10Hz)
     if self.frame % 10 == 0:

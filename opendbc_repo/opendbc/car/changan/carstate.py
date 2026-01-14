@@ -134,8 +134,9 @@ class CarState(CarStateBase):
     self.cruiseEnablePrev = self.cruiseEnable
 
     # Cruise State Output
+    acc_enable = cp_cam.vl.get("GW_244", {}).get("ACC_ACCEnable", 0)
     ret.cruiseState.enabled = self.cruiseEnable
-    ret.cruiseState.available = cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAEnable", 0) == 1
+    ret.cruiseState.available = acc_enable == 0
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
     # Lead Vehicle Data from HUD Message
