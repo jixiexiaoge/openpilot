@@ -246,8 +246,6 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"TFollowGap3", PERSISTENT},
     {"TFollowGap4", PERSISTENT},
     {"DynamicTFollow", PERSISTENT},
-    {"SpeedBasedTFollow", PERSISTENT},
-    {"SpeedBasedTFollowGap", PERSISTENT},
     {"DynamicTFollowLC", PERSISTENT},
     {"EnableSpeedTF", PERSISTENT},
     {"AChangeCostStarting", PERSISTENT},

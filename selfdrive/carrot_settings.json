@@ -1589,32 +1589,6 @@
       "unit": 5
     },
     {
-      "group": "차량간격",
-      "name": "SpeedBasedTFollow",
-      "title": "속도 기반 차간거리 조절(0)",
-      "descr": "저속에서 짧게, 고속에서 길게 자동 조절. DynamicTFollow=0 권장 [토스기능]",
-      "egroup": "FDIST",
-      "etitle": "Speed-based TFollow",
-      "edescr": "Shorter at low speed, longer at high speed. Recommend DynamicTFollow=0 [Toss]",
-      "min": 0,
-      "max": 100,
-      "default": 0,
-      "unit": 5
-    },
-    {
-      "group": "차량간격",
-      "name": "SpeedBasedTFollowGap",
-      "title": "속도기반 기준 Gap(100)x0.01초",
-      "descr": "속도기반 차간거리 조절 기준값. 100km/h에서 이 값 적용 [토스기능]",
-      "egroup": "FDIST",
-      "etitle": "Speed-based Base Gap(100)x0.01s",
-      "edescr": "Base gap for speed-based control. Applied at 100km/h [Toss]",
-      "min": 100,
-      "max": 200,
-      "default": 100,
-      "unit": 5
-    },
-    {
       "group": "감속제어",
       "name": "AutoCurveSpeedLowerLimit",
       "title": "커브속도 최저속도(30)",
