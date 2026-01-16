@@ -48,7 +48,7 @@ BO_ 378 VEHICLE_SPEED: 8 XXX
  SG_ VEHICLE_SPEED : 39|16@0+ (0.05,0) [0|250] "km/h" XXX
 
 BO_ 382 GW_17E: 8 XXX
- SG_ EPS_MeasuredTorsionBarTorque : 7|12@0+ (0.01,0) [0|4095] "" XXX
+ SG_ EPS_MeasuredTorsionBarTorque : 7|12@0+ (0.001,0) [0|4095] "" XXX
  SG_ EPS_RollingCounter_17E : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ EPS_LatCtrlAvailabilityStatus : 55|2@0+ (1,0) [0|3] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
@@ -70,23 +70,23 @@ BO_ 392 NEW_MSG_188: 8 XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 406 GW_196: 8 XXX
- SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
  SG_ BRAKE_PRESSED : 0|1@0+ (1,0) [0|1] "" XXX
  SG_ GAS_PEDAL_USER : 15|8@0+ (1,0) [0|0] "" XXX
+ SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ EMS_BrakePedalStatus : 54|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 422 NEW_MSG_1A6: 8 XXX
- SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
  SG_ BRAKE_PRESSED : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
  SG_ BRAKE : 31|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 438 NEW_MSG_1B6: 8 XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 442 GW_1BA: 32 XXX
- SG_ ACC_SteeringAngleSub_1BA : 7|16@0- (0.1,0) [-500|500] "deg" XXX
+ SG_ ACC_SteeringAngleSub_1BA : 7|16@0+ (0.1,0) [-500|500] "deg" XXX
  SG_ ACC_SteeringAngleReq_1BA : 23|1@0+ (1,0) [0|1] "" XXX
  SG_ STEER_LIMIT : 39|8@0+ (0.1,0) [0|25.5] "deg" XXX
  SG_ STEER_STATUS : 47|8@0+ (1,0) [0|255] "" XXX
@@ -148,7 +148,7 @@ BO_ 652 GW_28C: 8 XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 775 GW_307: 64 XXX
- SG_ ACC_SetSpeed : 7|16@0+ (0.00625,0) [0|250] "" XXX
+ SG_ ACC_SetSpeed : 7|16@0+ (0.0078125,0) [0|250] "" XXX
  SG_ ACC_DistanceLevel : 17|2@0+ (1,0) [0|3] "" XXX
  SG_ ACC_RollingCounter_35E : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
