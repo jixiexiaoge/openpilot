@@ -2,7 +2,7 @@
 from opendbc.car import get_safety_config, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarInterfaceBase
-from opendbc.car.changan.values import CarControllerParams
+from opendbc.car.changan.values import CarControllerParams, ChanganFlags
 from opendbc.car.changan.carcontroller import CarController
 from opendbc.car.changan.carstate import CarState
 from opendbc.car.changan.radar_interface import RadarInterface
@@ -31,38 +31,37 @@ class CarInterface(CarInterfaceBase):
     ret.enableBsm = True
 
     # Steering
-    ret.steerActuatorDelay = 0.08  # 降低转向延迟以提高响应速度
-    ret.steerLimitTimer = 0.5  # 增加转向限制时间，使转向持续时间更长
+    ret.steerActuatorDelay = 0.1  # Matches reference 0.1
+    ret.steerLimitTimer = 0.8  # Matches reference 0.8
     ret.steerControlType = structs.CarParams.SteerControlType.angle
     ret.steerRatio = 15.0
-    ret.minSteerSpeed = 0
-
-    # Lateral Tuning
-    # ret.lateralParams.torqueBP = [0]
-    # ret.lateralParams.torqueV = [480]
+    ret.minSteerSpeed = 0.1  # Matches reference 0.1
 
     ret.centerToFront = ret.wheelbase * 0.44
 
     # Longitudinal
     ret.openpilotLongitudinalControl = True
     ret.autoResumeSng = ret.openpilotLongitudinalControl
-    ret.alphaLongitudinalAvailable = True
+    ret.alphaLongitudinalAvailable = alpha_long
     ret.minEnableSpeed = -1.
-    ret.longitudinalActuatorDelay = 0.6  # 降低纵向控制延迟
+    ret.longitudinalActuatorDelay = 0.35  # Matches reference 0.35
 
-    ret.vEgoStopping = 0.3  # 降低停车速度阈值
-    ret.vEgoStarting = 0.3  # 降低起步速度阈值
-    ret.stoppingDecelRate = 0.15  # 降低停车减速率，使停车更平稳
+    # iDD specific tweaks
+    if ret.flags & ChanganFlags.IDD:
+      ret.longitudinalActuatorDelay = 0.2  # iDD might have faster response
+
+    ret.vEgoStopping = 0.25  # Matches reference 0.25
+    ret.vEgoStarting = 0.25  # Matches reference 0.25
+    ret.stoppingDecelRate = 0.3  # Matches reference 0.3
     ret.startingState = True
-    ret.startAccel = 0.5  # 提高起步加速度
-    ret.stopAccel = -0.3  # 降低停车减速度以使停车更平稳
+    ret.startAccel = 0.8  # Matches reference 0.8
+    ret.stopAccel = -0.35  # Matches reference -0.35
 
     # Longitudinal Tuning
     tune = ret.longitudinalTuning
     tune.kpBP = [0., 5., 20., 40.]
-    tune.kpV = [1.2, 1.0, 0.7, 0.5]  # 提高低速响应性，降低高速敏感度
+    tune.kpV = [1.2, 1.0, 0.7, 0.5]
     tune.kiBP = [0., 5., 12., 20., 27.]
-    tune.kiV = [0.3, 0.25, 0.2, 0.15, 0.1]  # 增加积分增益
+    tune.kiV = [0.3, 0.25, 0.2, 0.15, 0.1]
 
     return ret
-

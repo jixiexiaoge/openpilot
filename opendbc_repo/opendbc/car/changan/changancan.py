@@ -37,8 +37,8 @@ def crc_calculate_crc8(data):
     crc = crc8_tab[crc ^ byte]
   return crc ^ 0xFF
 
-def create_steering_control(packer, values, angle, active, counter):
-  values = values.copy()
+def create_steering_control(packer, msg, angle, active, counter):
+  values = {s: msg[s] for s in msg} if msg else {}
   values.update({
     "ACC_SteeringAngleSub_1BA": angle,
     "ACC_SteeringAngleReq_1BA": active,
@@ -55,8 +55,8 @@ def create_steering_control(packer, values, angle, active, counter):
     values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
   return packer.make_can_msg("GW_1BA", 0, values)
 
-def create_eps_control(packer, values, active, counter):
-  values = values.copy()
+def create_eps_control(packer, msg, active, counter):
+  values = {s: msg[s] for s in msg} if msg else {}
   values.update({
     "EPS_LatCtrlAvailabilityStatus": 1 if active else 0,
     "EPS_RollingCounter_17E": counter,
@@ -65,16 +65,22 @@ def create_eps_control(packer, values, active, counter):
   values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
   return packer.make_can_msg("GW_17E", 2, values)
 
-def create_acc_control(packer, values, accel, counter, enabled, acctrq, acc_enable):
-  values = values.copy()
+def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
+  values = {s: msg[s] for s in msg} if msg else {}
+
+  # Mapping from reference
+  brake_value = 0
+  if accel < -0.1:
+    brake_value = 1 if accel < -0.5 else 0
+
   values.update({
     "ACC_Acceleration_24E": accel,
     "ACC_RollingCounter_24E": counter,
     "COUNTER_1": counter,
     "COUNTER_2": counter,
     "COUNTER_3": counter,
-    "ACC_ACCMode": 1 if enabled else 0,
-    "ACC_ACCEnable": acc_enable,
+    "ACC_ACCMode": 3 if enabled else 2, # From reference sig_091
+    "ACC_ACCEnable": 1 if enabled else 0,
     "ACC_ACCReq": 1 if enabled else 0,
     "sig_099": acctrq,
   })
@@ -85,8 +91,8 @@ def create_acc_control(packer, values, accel, counter, enabled, acctrq, acc_enab
     values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
   return packer.make_can_msg("GW_244", 0, values)
 
-def create_acc_set_speed(packer, values, counter, speed):
-  values = values.copy()
+def create_acc_set_speed(packer, msg, counter, speed):
+  values = {s: msg[s] for s in msg} if msg else {}
   values.update({
     "ACC_SetSpeed": speed,
     "ACC_DistanceLevel": 3,
@@ -96,15 +102,15 @@ def create_acc_set_speed(packer, values, counter, speed):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(1, 9):
-    dat = packer.make_can_msg("GW_307", 2, values)[1]
+    dat = packer.make_can_msg("GW_307", 0, values)[1] # Reference uses Bus 0 for 307
     name = f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[(i-1)*8 : (i-1)*8 + 7])
-  return packer.make_can_msg("GW_307", 2, values)
+  return packer.make_can_msg("GW_307", 0, values)
 
-def create_acc_hud(packer, values, counter, enabled, steering_pressed):
-  values = values.copy()
+def create_acc_hud(packer, msg, counter, enabled, steering_pressed):
+  values = {s: msg[s] for s in msg} if msg else {}
   values.update({
-    "ACC_IACCHWAEnable": enabled,
+    "ACC_IACCHWAEnable": 1 if enabled else 0,
     "STEER_PRESSED": 1 if steering_pressed else 0,
     "ACC_IACCHWAMode": 2 if enabled else 0,
     "ACC_RollingCounter_36D": counter,
@@ -113,7 +119,7 @@ def create_acc_hud(packer, values, counter, enabled, steering_pressed):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(1, 9):
-    dat = packer.make_can_msg("GW_31A", 2, values)[1]
+    dat = packer.make_can_msg("GW_31A", 0, values)[1] # Reference uses Bus 0 for 31A
     name = f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[(i-1)*8 : (i-1)*8 + 7])
-  return packer.make_can_msg("GW_31A", 2, values)
+  return packer.make_can_msg("GW_31A", 0, values)

@@ -4,6 +4,12 @@ from opendbc.car.docs_definitions import CarDocs
 
 Ecu = structs.CarParams.Ecu
 
+from enum import IntFlag
+
+class ChanganFlags(IntFlag):
+  # Detected flags
+  IDD = 1
+
 class CarControllerParams:
   ACCEL_MAX = 2.0
   ACCEL_MIN = -3.5
@@ -29,8 +35,9 @@ class CAR(Platforms):
   )
   CHANGAN_Z6_IDD = PlatformConfig(
     [CarDocs("Changan Z6 iDD", package="All")],
-    CarSpecs(mass=2205, wheelbase=2.80, steerRatio=15.0, tireStiffnessFactor=0.444),
-    DbcDict({Bus.pt: "changan_z6_pt", Bus.cam: "changan_z6_pt"}),
+    CHANGAN_Z6.specs,
+    CHANGAN_Z6.dbc_dict,
+    flags=ChanganFlags.IDD,
   )
 
 STEER_THRESHOLD = 10

@@ -77,13 +77,10 @@ BO_ 406 GW_196: 8 XXX
  SG_ EMS_BrakePedalStatus : 54|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
-BO_ 422 NEW_MSG_1A6: 8 XXX
+BO_ 422 GW_1A6: 8 XXX
  SG_ BRAKE_PRESSED : 0|1@0+ (1,0) [0|1] "" XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
  SG_ BRAKE : 31|8@0+ (1,0) [0|255] "" XXX
-
-BO_ 438 NEW_MSG_1B6: 8 XXX
- SG_ NEW_SIGNAL_1 : 7|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 442 GW_1BA: 32 XXX
  SG_ ACC_SteeringAngleSub_1BA : 7|16@0+ (0.1,0) [-500|500] "deg" XXX
@@ -98,6 +95,11 @@ BO_ 442 GW_1BA: 32 XXX
  SG_ CHECKSUM_2 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_3 : 243|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 255|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 454 GW_1C6: 8 XXX
+ SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
+ SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 518 NEW_MSG_206: 8 XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX

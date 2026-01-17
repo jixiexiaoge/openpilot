@@ -4,7 +4,7 @@ from opendbc.car import Bus, DT_CTRL, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.common.filter_simple import FirstOrderFilter
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.changan.values import DBC, EPS_SCALE, CAR
+from opendbc.car.changan.values import DBC, EPS_SCALE, CAR, ChanganFlags
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -31,12 +31,19 @@ class CarState(CarStateBase):
     self.minus_button_counter = 0
 
     self.steeringPressed = False
-    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    if self.CP.flags & ChanganFlags.IDD:
       self.steeringPressedMax = 3
       self.steeringPressedMin = 1
     else:
       self.steeringPressedMax = 6
       self.steeringPressedMin = 1
+
+    # Emergency turn detection (from reference)
+    self.steering_angle_threshold = 30.0
+    self.steering_rate_threshold = 50.0
+    self.emergency_turn_active = False
+    self.last_steering_angle = 0.0
+    self.steering_rate = 0.0
 
     # Storage for snapshots and counters
     self.sigs = {
@@ -62,24 +69,24 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SRS_DriverBuckleSwitchStatus", 0) == 1
     ret.parkingBrake = False
 
-    # Vehicle Speed
-    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      carspd = cp.vl.get("GW_17A", {}).get("ESP_VehicleSpeed", 0)
+    # Vehicle Speed - With Fallbacks for IDD/Petrol
+    if self.CP.flags & ChanganFlags.IDD:
+      carspd = cp.vl.get("VEHICLE_SPEED", {}).get("VEHICLE_SPEED", 0)
       if carspd == 0:
         carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
     else:
       carspd = cp.vl.get("GW_187", {}).get("ESP_VehicleSpeed", 0)
-    # fallback to generic VEHICLE_SPEED message if present
-    if carspd == 0:
-      carspd = cp.vl.get("VEHICLE_SPEED", {}).get("VEHICLE_SPEED", 0)
+      if carspd == 0:
+        carspd = cp.vl.get("VEHICLE_SPEED", {}).get("VEHICLE_SPEED", 0)
+
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.vEgoCluster = ret.vEgo
     ret.standstill = abs(ret.vEgoRaw) < 0.1
 
-    # Gas, Brake, Gear
-    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    # Gas, Brake, Gear - With Variant Fallbacks
+    if self.CP.flags & ChanganFlags.IDD:
       # prefer IDD-specific messages when available
       brake_idd = cp.vl.get("GW_1A6", {}).get("BRAKE_PRESSED", None)
       ret.brakePressed = (brake_idd == 1) if brake_idd is not None else (cp.vl.get("GW_196", {}).get("EMS_BrakePedalStatus", 0) != 0)
@@ -103,7 +110,15 @@ class CarState(CarStateBase):
     ret.steeringTorque = cp.vl.get("GW_17E", {}).get("EPS_MeasuredTorsionBarTorque", 0)
     ret.steeringTorqueEps = (cp.vl.get("GW_170", {}).get("EPS_ActualTorsionBarTorq", 0)) * self.eps_torque_scale
 
-    # Steering Pressed Logic
+    # Emergency turn detection
+    current_steering_angle = ret.steeringAngleDeg
+    self.steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
+    self.last_steering_angle = current_steering_angle
+    is_emergency_turn = (abs(current_steering_angle) > self.steering_angle_threshold or
+                         self.steering_rate > self.steering_rate_threshold)
+    self.emergency_turn_active = is_emergency_turn
+
+    # Steering Pressed Logic (Incorporating Camera signal)
     if cp_cam.vl.get("GW_31A", {}).get("STEER_PRESSED", 0) == 1:
       self.steeringPressed = True
     elif abs(ret.steeringTorque) > self.steeringPressedMax:
@@ -158,14 +173,10 @@ class CarState(CarStateBase):
     ret.cruiseState.available = acc_enable == 1
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
-    # Lead Vehicle Data from HUD Message
-    #ret.radarDistance = cp_cam.vl.get("GW_31A", {}).get("Lead_Distance", 0)
-
     # Faults
-    # ACC_ACCMode is 3-bit in DBC (0: Off, 1: Ready, 2: Active, 7: Fault)
     ret.accFaulted = cp_cam.vl.get("GW_244", {}).get("ACC_ACCMode", 0) == 7 or \
                      cp_cam.vl.get("GW_31A", {}).get("ACC_IACCHWAMode", 0) == 7
-    ret.steerFaultTemporary = False # As per reference: "去除方向机故障提示"
+    ret.steerFaultTemporary = False
 
     ret.stockFcw = cp_cam.vl.get("GW_244", {}).get("ACC_FCWPreWarning", 0) == 1
     ret.stockAeb = cp_cam.vl.get("GW_244", {}).get("ACC_AEBCtrlType", 0) > 0
@@ -193,22 +204,18 @@ class CarState(CarStateBase):
       ("GW_28B", 25),
       ("GW_17E", 100),
       ("GW_180", 100),
-      ("VEHICLE_SPEED", 100),
       ("GW_28C", 25),
       ("GW_338", 10),
       ("GW_170", 100),
+      ("GW_187", 100), # Include always for fallbacks
+      ("GW_196", 100), # Include always for fallbacks
+      ("VEHICLE_SPEED", 100), # Include always for fallbacks
     ]
 
-    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    if CP.flags & ChanganFlags.IDD:
       pt_messages += [
-        ("GW_17A", 100),
         ("GW_1A6", 100),
         ("GW_1C6", 100),
-      ]
-    else:
-      pt_messages += [
-        ("GW_187", 100),
-        ("GW_196", 100),
       ]
 
     cam_messages = [
