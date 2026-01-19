@@ -37,11 +37,11 @@ class CarController(CarControllerBase):
 
     if self.first_start:
       if "GW_244" in CS.sigs:
-        self.counter_244 = CS.counter_244
-        self.counter_1ba = CS.counter_1ba
-        self.counter_17e = CS.counter_17e
-        self.counter_307 = CS.counter_307
-        self.counter_31a = CS.counter_31a
+        self.counter_244 = int(CS.counter_244) & 0xF
+        self.counter_1ba = int(CS.counter_1ba) & 0xF
+        self.counter_17e = int(CS.counter_17e) & 0xF
+        self.counter_307 = int(CS.counter_307) & 0xF
+        self.counter_31a = int(CS.counter_31a) & 0xF
         self.first_start = False
 
     # Advanced Emergency/Large Turn Logic
@@ -66,8 +66,9 @@ class CarController(CarControllerBase):
     can_sends = []
 
     # Increment counters manually as per reference for reliable control
-    self.counter_1ba = (self.counter_1ba + 1) & 0xF
-    self.counter_17e = (self.counter_17e + 1) & 0xF
+    # Ensure counters are integers before bitwise operations
+    self.counter_1ba = (int(self.counter_1ba) + 1) & 0xF
+    self.counter_17e = (int(self.counter_17e) + 1) & 0xF
 
     # Steering Control
     if CC.latActive and not CS.steeringPressed:
@@ -111,7 +112,7 @@ class CarController(CarControllerBase):
 
     # Longitudinal Control
     if self.frame % 2 == 0:
-      self.counter_244 = (self.counter_244 + 1) & 0xF
+      self.counter_244 = (int(self.counter_244) + 1) & 0xF
       acctrq = -5000
       accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
@@ -133,8 +134,8 @@ class CarController(CarControllerBase):
 
     # HUD & Set Speed (10Hz)
     if self.frame % 10 == 0:
-      self.counter_307 = (self.counter_307 + 1) & 0xF
-      self.counter_31a = (self.counter_31a + 1) & 0xF
+      self.counter_307 = (int(self.counter_307) + 1) & 0xF
+      self.counter_31a = (int(self.counter_31a) + 1) & 0xF
       cruise_speed_kph = CS.out.cruiseState.speed * CV.MS_TO_KPH
       can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["GW_307"], self.counter_307, cruise_speed_kph))
       can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs["GW_31A"], self.counter_31a, CC.longActive, CS.out.steeringPressed))

@@ -188,12 +188,12 @@ class CarState(CarStateBase):
     if "GW_17E" in cp.vl:
       self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
 
-    # Rolling Counters
-    self.counter_1ba = cp_cam.vl.get("GW_1BA", {}).get("ACC_RollingCounter_1BA", 0)
-    self.counter_244 = cp_cam.vl.get("GW_244", {}).get("ACC_RollingCounter_24E", 0)
-    self.counter_17e = cp.vl.get("GW_17E", {}).get("EPS_RollingCounter_17E", 0)
-    self.counter_307 = cp_cam.vl.get("GW_307", {}).get("ACC_RollingCounter_35E", 0)
-    self.counter_31a = cp_cam.vl.get("GW_31A", {}).get("ACC_RollingCounter_36D", 0)
+    # Rolling Counters - Cast to int to ensure proper type for bitwise operations
+    self.counter_1ba = int(cp_cam.vl.get("GW_1BA", {}).get("ACC_RollingCounter_1BA", 0))
+    self.counter_244 = int(cp_cam.vl.get("GW_244", {}).get("ACC_RollingCounter_24E", 0))
+    self.counter_17e = int(cp.vl.get("GW_17E", {}).get("EPS_RollingCounter_17E", 0))
+    self.counter_307 = int(cp_cam.vl.get("GW_307", {}).get("ACC_RollingCounter_35E", 0))
+    self.counter_31a = int(cp_cam.vl.get("GW_31A", {}).get("ACC_RollingCounter_36D", 0))
 
     return ret
 
