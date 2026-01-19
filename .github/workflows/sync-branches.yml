@@ -24,29 +24,10 @@ jobs:
           # ajouatom branches
           git remote add ajouatom https://github.com/ajouatom/openpilot.git
           git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom carrot2-v9 fetch failed"
-          git fetch ajouatom j-st2 --no-tags || echo "⚠️ ajouatom j-st2 fetch failed"
-
-          # dragonpilot community
-          git remote add dragonpilot https://github.com/dragonpilot-community/dragonpilot.git
-          git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
-
-          # frogpilot
-          git remote add frogpilot https://github.com/FrogAi/FrogPilot.git
-          git fetch frogpilot FrogPilot --no-tags || echo "⚠️ frogpilot fetch failed"
-
-          # mr-one (GitLab)
-          git remote add mrone https://jihulab.com/mr-one/openpilot.git
-          git fetch mrone vw-meb --no-tags || echo "⚠️ mr-one fetch failed"
-
-          # fishop (GitLab)
-          git remote add fishop https://jihulab.com/fishop/openpilot.git
-          git fetch fishop escc-cpv9 --no-tags || echo "⚠️ fishop fetch failed"
 
           # yysnet (Gitee)
-          git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
-          git fetch yysnet carrot2-v9 --no-tags || echo "⚠️ yysnet carrot2-v9 fetch failed"
-
-          # ===== NEW UPSTREAMS =====
+          #git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
+          #git fetch yysnet carrot2-v9 --no-tags || echo "⚠️ yysnet carrot2-v9 fetch failed"
 
           # commaai official release
           git remote add commaai https://github.com/commaai/openpilot.git
@@ -64,38 +45,7 @@ jobs:
           git checkout -B carrot2-v9 ajouatom/carrot2-v9 \
             && git push origin carrot2-v9 --force \
             || echo "⚠️ carrot2-v9 push skipped"
-
-          # git checkout -B j-st2 ajouatom/j-st2 \
-          #   && git push origin j-st2 --force \
-          #   || echo "⚠️ j-st2 push skipped"
-
-          # dragonpilot community
-          git checkout -B dragonpilot-pre-build dragonpilot/pre-build \
-            && git push origin dragonpilot-pre-build --force \
-            || echo "⚠️ dragonpilot-pre-build push skipped"
-
-          # frogpilot
-          # git checkout -B frogpilot frogpilot/FrogPilot \
-          #   && git push origin frogpilot --force \
-          #   || echo "⚠️ frogpilot push skipped"
-
-          # mr-one
-          # git checkout -B vw-meb mrone/vw-meb \
-          #   && git push origin vw-meb --force \
-          #   || echo "⚠️ vw-meb push skipped"
-
-          # fishop
-          # git checkout -B escc-cpv9 fishop/escc-cpv9 \
-          #   && git push origin escc-cpv9 --force \
-          #   || echo "⚠️ escc-cpv9 push skipped"
-
-          # yysnet carrot2-v9 → bydTang
-          #git checkout -B bydTang yysnet/carrot2-v9 \
-           # && git push origin bydTang --force \
-            #|| echo "⚠️ bydTang push skipped"
-
-          # ===== NEW PUSH TARGETS =====
-
+            
           # commaai release-tizi
           git checkout -B release-tizi commaai/release-tizi \
             && git push origin release-tizi --force \
