@@ -102,10 +102,10 @@ def create_acc_set_speed(packer, msg, counter, speed):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(1, 9):
-    dat = packer.make_can_msg("GW_307", 0, values)[1] # Reference uses Bus 0 for 307
+    dat = packer.make_can_msg("GW_307", 2, values)[1]
     name = f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[(i-1)*8 : (i-1)*8 + 7])
-  return packer.make_can_msg("GW_307", 0, values)
+  return packer.make_can_msg("GW_307", 2, values)
 
 def create_acc_hud(packer, msg, counter, enabled, steering_pressed):
   values = {s: msg[s] for s in msg} if msg else {}
@@ -119,7 +119,7 @@ def create_acc_hud(packer, msg, counter, enabled, steering_pressed):
     values[f"COUNTER_{i}"] = counter
 
   for i in range(1, 9):
-    dat = packer.make_can_msg("GW_31A", 0, values)[1] # Reference uses Bus 0 for 31A
+    dat = packer.make_can_msg("GW_31A", 2, values)[1]
     name = f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[(i-1)*8 : (i-1)*8 + 7])
-  return packer.make_can_msg("GW_31A", 0, values)
+  return packer.make_can_msg("GW_31A", 2, values)
