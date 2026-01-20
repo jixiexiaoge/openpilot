@@ -50,10 +50,10 @@ def create_steering_control(packer, msg, angle, active, counter):
     "STEER_STATUS": 0,
   })
   for i in range(4):
-    dat = packer.make_can_msg("GW_1BA", 0, values)[1]
+    dat = packer.make_can_msg("GW_1BA", 2, values)[1]
     name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("GW_1BA", 0, values)
+  return packer.make_can_msg("GW_1BA", 2, values)
 
 def create_eps_control(packer, msg, active, counter):
   values = {s: msg[s] for s in msg} if msg else {}
@@ -63,7 +63,7 @@ def create_eps_control(packer, msg, active, counter):
   })
   dat = packer.make_can_msg("GW_17E", 0, values)[1]
   values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
-  return packer.make_can_msg("GW_17E", 2, values)
+  return packer.make_can_msg("GW_17E", 0, values)
 
 def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
   values = {s: msg[s] for s in msg} if msg else {}
@@ -86,10 +86,10 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
   })
 
   for i in range(4):
-    dat = packer.make_can_msg("GW_244", 0, values)[1]
+    dat = packer.make_can_msg("GW_244", 2, values)[1]
     name = "CHECKSUM" if i == 0 else f"CHECKSUM_{i}"
     values[name] = crc_calculate_crc8(dat[i*8 : i*8 + 7])
-  return packer.make_can_msg("GW_244", 0, values)
+  return packer.make_can_msg("GW_244", 2, values)
 
 def create_acc_set_speed(packer, msg, counter, speed):
   values = {s: msg[s] for s in msg} if msg else {}

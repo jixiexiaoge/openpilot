@@ -209,11 +209,12 @@ class CarState(CarStateBase):
       ("GW_170", 100),
       ("GW_187", 100), # Include always for fallbacks
       ("GW_196", 100), # Include always for fallbacks
-      ("VEHICLE_SPEED", 100), # Include always for fallbacks
     ]
 
+    # Only subscribe to VEHICLE_SPEED when iDD flag is set, and at a conservative rate
     if CP.flags & ChanganFlags.IDD:
       pt_messages += [
+        ("VEHICLE_SPEED", 20),
         ("GW_1A6", 100),
         ("GW_1C6", 100),
       ]
