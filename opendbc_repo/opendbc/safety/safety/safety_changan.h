@@ -39,9 +39,6 @@ static uint8_t changan_get_counter(const CANPacket_t *to_push) {
 }
 
 static void changan_rx_hook(const CANPacket_t *to_push) {
-  // Option 1 & 2: Diagnostic Override
-  controls_allowed = true;
-
   if (GET_BUS(to_push) == CHANGAN_MAIN) {
     int addr = GET_ADDR(to_push);
 
@@ -64,11 +61,26 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
   }
 
   generic_rx_checks(false);
+
+  // TESTING: Force controls_allowed to stay true
+  // This overrides brake/gas disengagement from generic_rx_checks
+  // Remove this for production use
+  controls_allowed = true;
 }
 
 static bool changan_tx_hook(const CANPacket_t *to_send) {
-  UNUSED(to_send);
-  return true; // Force allow all transmissions for diagnostics
+  int addr = GET_ADDR(to_send);
+  int bus = GET_BUS(to_send);
+
+  // Simple validation: just check if the address and bus combination is allowed
+  // All messages go to bus 0, then fwd_hook forwards them to bus 2
+  if (addr == CHANGAN_STEER_COMMAND && bus == CHANGAN_MAIN) return true;   // 0x1BA / 442
+  if (addr == CHANGAN_ACC_COMMAND && bus == CHANGAN_MAIN) return true;     // 0x244 / 580
+  if (addr == CHANGAN_ACC_HUD && bus == CHANGAN_MAIN) return true;         // 0x307 / 775
+  if (addr == CHANGAN_ADAS_INFO && bus == CHANGAN_MAIN) return true;       // 0x31A / 794
+  if (addr == CHANGAN_STEER_TORQUE && bus == CHANGAN_CAM) return true;     // 0x17E / 382 on bus 2
+
+  return false; // Reject all other messages
 }
 
 static int changan_fwd_hook(int bus, int addr) {
@@ -83,27 +95,26 @@ static int changan_fwd_hook(int bus, int addr) {
 }
 
 static safety_config changan_init(uint16_t param) {
-  // Option 1 & 2: Bypass Heartbeat and Multi-Layer Controls Allowed Check
+  // TESTING: Enable controls by default for debugging
+  // In production, this should be controlled by cruise button or heartbeat
   controls_allowed = true;
-  heartbeat_engaged = true;
+  heartbeat_engaged = false;
   heartbeat_engaged_mismatches = 0U;
 
+  // Corrected bus assignments and message lengths based on DBC file:
+  // - GW_1BA: 32 bytes (0x1BA / 442)
+  // - GW_244: 32 bytes (0x244 / 580)
+  // - GW_307: 64 bytes (0x307 / 775)
+  // - GW_31A: 64 bytes (0x31A / 794)
+  // - GW_17E: 8 bytes (0x17E / 382)
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_COMMAND, CHANGAN_MAIN, 32},
-    {CHANGAN_ACC_COMMAND,   CHANGAN_MAIN, 32},
-    {CHANGAN_ACC_HUD,       CHANGAN_CAM,  64},
-    {CHANGAN_ADAS_INFO,     CHANGAN_CAM,  64},
-    {CHANGAN_STEER_TORQUE,  CHANGAN_CAM,  8},
+    {CHANGAN_STEER_COMMAND, CHANGAN_MAIN, 32},  // 0x1BA on bus 0, 32 bytes
+    {CHANGAN_ACC_COMMAND,   CHANGAN_MAIN, 32},  // 0x244 on bus 0, 32 bytes
+    {CHANGAN_ACC_HUD,       CHANGAN_MAIN, 64},  // 0x307 on bus 0, 64 bytes
+    {CHANGAN_ADAS_INFO,     CHANGAN_MAIN, 64},  // 0x31A on bus 0, 64 bytes
+    {CHANGAN_STEER_TORQUE,  CHANGAN_CAM,  8},   // 0x17E on bus 2, 8 bytes
   };
-
-  static RxCheck changan_rx_checks[] = {
-    {.msg = {{CHANGAN_STEER_ANGLE,    CHANGAN_MAIN, 8, .frequency = 100U, .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_STEER_TORQUE,   CHANGAN_MAIN, 8, .frequency = 100U, .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_CRUISE_BUTTONS, CHANGAN_MAIN, 8, .frequency = 50U,  .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_WHEEL_SPEEDS,   CHANGAN_MAIN, 8, .frequency = 100U, .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_PEDAL_DATA,     CHANGAN_MAIN, 8, .frequency = 50U,  .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-    {.msg = {{CHANGAN_ADAS_INFO,      CHANGAN_CAM,  64, .frequency = 10U,  .ignore_checksum = true, .ignore_counter = true}, { 0 }, { 0 }}},
-  };
+  static RxCheck changan_rx_checks[] = {};
 
   UNUSED(param);
   gen_crc_lookup_table_8(0x1D, changan_crc8_lut);

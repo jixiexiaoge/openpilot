@@ -31,11 +31,11 @@ class CarInterface(CarInterfaceBase):
     ret.enableBsm = True
 
     # Steering
-    ret.steerActuatorDelay = 0.1  # Matches reference 0.1
-    ret.steerLimitTimer = 0.8  # Matches reference 0.8
+    ret.steerActuatorDelay = 0.1
+    ret.steerLimitTimer = 0.8
     ret.steerControlType = structs.CarParams.SteerControlType.angle
     ret.steerRatio = 15.0
-    ret.minSteerSpeed = 0.1  # Matches reference 0.1
+    ret.minSteerSpeed = 0.1
 
     ret.centerToFront = ret.wheelbase * 0.44
 
@@ -44,18 +44,14 @@ class CarInterface(CarInterfaceBase):
     ret.autoResumeSng = ret.openpilotLongitudinalControl
     ret.alphaLongitudinalAvailable = alpha_long
     ret.minEnableSpeed = -1.
-    ret.longitudinalActuatorDelay = 0.35  # Matches reference 0.35
+    ret.longitudinalActuatorDelay = 0.35
 
-    # iDD specific tweaks
-    if ret.flags & ChanganFlags.IDD:
-      ret.longitudinalActuatorDelay = 0.2  # iDD might have faster response
-
-    ret.vEgoStopping = 0.25  # Matches reference 0.25
-    ret.vEgoStarting = 0.25  # Matches reference 0.25
-    ret.stoppingDecelRate = 0.3  # Matches reference 0.3
+    ret.vEgoStopping = 0.25
+    ret.vEgoStarting = 0.25
+    ret.stoppingDecelRate = 0.3
     ret.startingState = True
-    ret.startAccel = 0.8  # Matches reference 0.8
-    ret.stopAccel = -0.35  # Matches reference -0.35
+    ret.startAccel = 0.8
+    ret.stopAccel = -0.35
 
     # Longitudinal Tuning
     tune = ret.longitudinalTuning

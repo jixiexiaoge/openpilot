@@ -16,16 +16,20 @@ class CarControllerParams:
   STEER_STEP = 1
   STEER_MAX = 480
   STEER_ERROR_MAX = 650
-  MAX_STEERING_ANGLE = 130.0
+  MAX_STEERING_ANGLE = 480.0 # From reference
   STEERING_SMOOTHING_FACTOR = 0.3
   ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(
     480,
-    ([10, 40], [1.4, 1.4]),
-    ([10, 40], [1.4, 1.4]),
+    ([10, 50], [1.4, 1.4]), # Matches reference
+    ([10, 50], [1.4, 1.4]), # Matches reference
   )
   def __init__(self, CP):
-    self.STEER_DELTA_UP = 25 if CP.lateralTuning.which == 'torque' else 15
-    self.STEER_DELTA_DOWN = 30 if CP.lateralTuning.which == 'torque' else 35
+    if CP.lateralTuning.which == 'torque':
+      self.STEER_DELTA_UP = 15
+      self.STEER_DELTA_DOWN = 25
+    else:
+      self.STEER_DELTA_UP = 10
+      self.STEER_DELTA_DOWN = 25
 
 class CAR(Platforms):
   CHANGAN_Z6 = PlatformConfig(
@@ -40,7 +44,7 @@ class CAR(Platforms):
     flags=ChanganFlags.IDD,
   )
 
-STEER_THRESHOLD = 10
+STEER_THRESHOLD = 15 # Matches reference
 EPS_SCALE = defaultdict(lambda: 73)
 DBC = CAR.create_dbc_map()
 
