@@ -20,18 +20,19 @@
 #define CHANGAN_MAIN 0
 #define CHANGAN_CAM  2
 
-static uint8_t changan_crc8_lut[256];
+
 
 static uint32_t changan_get_checksum(const CANPacket_t *to_push) {
-  return (uint32_t)GET_BYTE(to_push, 7);
+  return (uint32_t)GET_BYTE(to_push, GET_LEN(to_push) - 1);
 }
 
 static uint32_t changan_compute_checksum(const CANPacket_t *to_push) {
-  uint8_t crc = 0xFF;
-  for (int i = 0; i < 7; i++) {
-    crc = changan_crc8_lut[crc ^ GET_BYTE(to_push, i)];
+  uint8_t checksum = 0U;
+  int len = GET_LEN(to_push);
+  for (int i = 0; i < (len - 1); i++) {
+    checksum ^= GET_BYTE(to_push, i);
   }
-  return (uint32_t)(crc ^ 0xFF);
+  return (uint32_t)checksum;
 }
 
 static uint8_t changan_get_counter(const CANPacket_t *to_push) {
@@ -58,14 +59,27 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
       torque_driver_new = to_signed(torque_driver_new, 16);
       update_sample(&torque_driver, torque_driver_new);
     }
+
+    if (addr == CHANGAN_PEDAL_DATA) {
+      brake_pressed = (GET_BYTE(to_push, 6) & 0x40) != 0; // Bit 54 (Byte 6, bit 6)
+      gas_pressed = (GET_BYTE(to_push, 2) & 0x10) != 0; // Bit 20 (Byte 2, bit 4)
+    }
+
+    if (addr == CHANGAN_CRUISE_BUTTONS) {
+      bool cancel = (GET_BYTE(to_push, 0) & 0x02) != 0; // Bit 1
+      bool resume = (GET_BYTE(to_push, 0) & 0x10) != 0; // Bit 4
+      bool iacc = (GET_BYTE(to_push, 1) & 0x10) != 0; // Bit 12 (Byte 1, bit 4)
+
+      if ((resume || iacc) && !controls_allowed) {
+        controls_allowed = true;
+      }
+      if (cancel && controls_allowed) {
+        controls_allowed = false;
+      }
+    }
   }
 
   generic_rx_checks(false);
-
-  // TESTING: Force controls_allowed to stay true
-  // This overrides brake/gas disengagement from generic_rx_checks
-  // Remove this for production use
-  controls_allowed = true;
 }
 
 static bool changan_tx_hook(const CANPacket_t *to_send) {
@@ -95,9 +109,7 @@ static int changan_fwd_hook(int bus, int addr) {
 }
 
 static safety_config changan_init(uint16_t param) {
-  // TESTING: Enable controls by default for debugging
-  // In production, this should be controlled by cruise button or heartbeat
-  controls_allowed = true;
+  controls_allowed = false;
   heartbeat_engaged = false;
   heartbeat_engaged_mismatches = 0U;
 
@@ -115,12 +127,12 @@ static safety_config changan_init(uint16_t param) {
     {CHANGAN_STEER_TORQUE,  CHANGAN_CAM,  8},   // 0x17E on bus 2, 8 bytes
   };
   static RxCheck changan_rx_checks[] = {
-  {.msg = {{CHANGAN_WHEEL_SPEEDS, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
-  {.msg = {{CHANGAN_PEDAL_DATA, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
-};
+    {.msg = {{CHANGAN_WHEEL_SPEEDS, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
+    {.msg = {{CHANGAN_PEDAL_DATA, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
+    {.msg = {{CHANGAN_CRUISE_BUTTONS, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 25U}, {0}, {0}}},
+  };
 
   UNUSED(param);
-  gen_crc_lookup_table_8(0x1D, changan_crc8_lut);
   return BUILD_SAFETY_CFG(changan_rx_checks, CHANGAN_TX_MSGS);
 }
 
