@@ -46,6 +46,8 @@ BO_ 368 GW_170: 8 ESP
 
 BO_ 378 VEHICLE_SPEED: 8 XXX
  SG_ VEHICLE_SPEED : 39|16@0+ (0.05,0) [0|250] "km/h" XXX
+ SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 382 GW_17E: 8 XXX
  SG_ EPS_MeasuredTorsionBarTorque : 7|12@0+ (0.001,0) [0|4095] "" XXX
@@ -81,10 +83,13 @@ BO_ 422 GW_1A6: 8 XXX
  SG_ BRAKE_PRESSED : 0|1@0+ (1,0) [0|1] "" XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78125,0) [0|65535] "" XXX
  SG_ BRAKE : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ EMS_BrakePedalStatus : 34|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_3 : 51|4@0+ (1,0) [0|15] "" XXX
+ SG_ NEW_SIGNAL_4 : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 442 GW_1BA: 32 XXX
- SG_ ACC_SteeringAngleSub_1BA : 7|16@0+ (0.1,0) [-500|500] "deg" XXX
  SG_ ACC_SteeringAngleReq_1BA : 23|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_SteeringAngleSub_1BA : 31|8@0- (0.1,6.2) [0|255] "" XXX
  SG_ STEER_LIMIT : 39|8@0+ (0.1,0) [0|25.5] "deg" XXX
  SG_ STEER_STATUS : 47|8@0+ (1,0) [0|255] "" XXX
  SG_ ACC_RollingCounter_1BA : 51|4@0+ (1,0) [0|15] "" XXX
@@ -97,7 +102,7 @@ BO_ 442 GW_1BA: 32 XXX
  SG_ CHECKSUM_3 : 255|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 454 GW_1C6: 8 XXX
- SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
+ SG_ EMS_RealAccPedal : 19|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -145,6 +150,7 @@ BO_ 652 GW_28C: 8 XXX
  SG_ GW_MFS_Cancle_switch_signal : 1|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_RESPlus_switch_signal : 4|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_SETReduce_switch_signal : 6|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_DistanceLevel : 8|1@0+ (1,0) [0|1] "" XXX
  SG_ GW_MFS_IACCenable_switch_signal : 12|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
@@ -208,4 +214,6 @@ BO_ 999 NEW_MSG_3E7: 8 XXX
  SG_ NEW_SIGNAL_1 : 7|16@0+ (0.78,0) [0|65535] "" XXX
 
 CM_ SG_ 384 SAS_SteeringAngle "1";
+CM_ SG_ 651 BCM_TurnIndicatorRight "right 2";
+CM_ SG_ 651 BCM_TurnIndicatorLeft "left 1";
 VAL_ 824 TCU_GearForDisplay 2 "N" 1 "R" 3 "D" 0 "P";

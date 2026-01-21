@@ -57,29 +57,34 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SRS_DriverBuckleSwitchStatus", 0) == 1
     ret.parkingBrake = False
 
-    # Vehicle Speed
+    # Vehicle Speed - Only use IDD VEHICLE_SPEED message
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       carspd = cp.vl["VEHICLE_SPEED"]["VEHICLE_SPEED"]
     else:
-      carspd = cp.vl["GW_187"]["ESP_VehicleSpeed"]
+      # Fallback - set to 0 if no IDD support
+      carspd = 0
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.vEgoCluster = ret.vEgo
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
-    # Gas, Brake, Gear
+    # Gas, Brake, Gear - Only use IDD messages
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      ret.brakePressed = cp.vl["GW_1A6"]["BRAKE_PRESSED"] != 0
+      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"])
+      ret.brakePressed = cp.vl["GW_1A6"]["EMS_BrakePedalStatus"] != 0
       ret.gasPressed = cp.vl["GW_1C6"]["EMS_RealAccPedal"] != 0
+      ret.leftBlindspot = False
+      ret.rightBlindspot = False
     else:
-      ret.brakePressed = cp.vl["GW_196"]["EMS_BrakePedalStatus"] != 0
-      ret.gasPressed = cp.vl["GW_196"]["EMS_RealAccPedal"] != 0
+      # Fallback values for non-IDD
+      can_gear = cp.vl["GW_338"]["TCU_GearForDisplay"]
+      ret.brakePressed = False
+      ret.gasPressed = False
+      ret.leftBlindspot = False
+      ret.rightBlindspot = False
 
-    can_gear = cp.vl["GW_338"]["TCU_GearForDisplay"]
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.leftBlindspot = False
-    ret.rightBlindspot = False
 
     # Lights
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(200,
@@ -93,7 +98,7 @@ class CarState(CarStateBase):
     ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"]
     ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"] * self.eps_torque_scale
 
-    # Steering Pressed Logic (Reference uses thresholds)
+    # Steering Pressed Logic
     if self.steeringPressed:
       if abs(ret.steeringTorque) < self.steeringPressedMin and abs(ret.steeringAngleDeg) < 90:
         self.steeringPressed = False
@@ -102,7 +107,7 @@ class CarState(CarStateBase):
         self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
 
-    # Cruise Control Logic - Rising Edge Toggle from Reference
+    # Cruise Control Logic
     buttons = cp.vl["GW_28C"]
     iacc_button = buttons["GW_MFS_IACCenable_switch_signal"]
     iacc_rising_edge = (iacc_button == 1 and not self.iacc_pressed_prev)
@@ -146,7 +151,7 @@ class CarState(CarStateBase):
     self.sigs["GW_31A"] = copy.copy(cp_cam.vl["GW_31A"])
     self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
 
-    # Rolling Counters
+    # Rolling Counters - Only handle working messages
     self.counter_1ba = int(cp_cam.vl["GW_1BA"]["ACC_RollingCounter_1BA"])
     self.counter_244 = int(cp_cam.vl["GW_244"]["ACC_RollingCounter_24E"])
     self.counter_17e = int(cp.vl["GW_17E"]["EPS_RollingCounter_17E"])
@@ -165,22 +170,22 @@ class CarState(CarStateBase):
       ("GW_28C", 25),
       ("GW_338", 10),
       ("GW_170", 100),
-      ("GW_187", 100), # Include always for fallbacks
-      ("GW_196", 100), # Include always for fallbacks
+      ("EPS_591", 100), # EPS fault status
     ]
 
+    # Only add IDD-specific messages when flag is set
     if CP.flags & ChanganFlags.IDD:
       pt_messages += [
-        ("GW_1A6", 100),
-        ("GW_1C6", 100),
-        ("VEHICLE_SPEED", 100),
+        ("GW_1A6", 100),  # IDD brake message
+        ("GW_1C6", 100),  # IDD gas pedal message
+        ("VEHICLE_SPEED", 100),  # IDD speed message
       ]
 
     cam_messages = [
-      ("GW_1BA", 100),
-      ("GW_244", 50),
-      ("GW_307", 10),
-      ("GW_31A", 10),
+      ("GW_1BA", 100),  # Steering control
+      ("GW_244", 50),   # ACC control
+      ("GW_307", 10),   # Set speed
+      ("GW_31A", 10),   # HUD display
     ]
 
     return {
