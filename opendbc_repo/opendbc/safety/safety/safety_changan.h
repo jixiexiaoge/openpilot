@@ -114,7 +114,10 @@ static safety_config changan_init(uint16_t param) {
     {CHANGAN_ADAS_INFO,     CHANGAN_MAIN, 64},  // 0x31A on bus 0, 64 bytes
     {CHANGAN_STEER_TORQUE,  CHANGAN_CAM,  8},   // 0x17E on bus 2, 8 bytes
   };
-  static RxCheck changan_rx_checks[] = {};
+  static RxCheck changan_rx_checks[] = {
+  {.msg = {{CHANGAN_WHEEL_SPEEDS, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
+  {.msg = {{CHANGAN_PEDAL_DATA, CHANGAN_MAIN, 8, .max_counter = 15U, .frequency = 100U}, {0}, {0}}},
+};
 
   UNUSED(param);
   gen_crc_lookup_table_8(0x1D, changan_crc8_lut);
