@@ -278,11 +278,12 @@ def create_steering_control(packer, msg, angle, active, counter):
     {
       "ACC_SteeringAngleSub_1BA": angle,
       "ACC_SteeringAngleReq_1BA": active,
-      "ACC_RollingCounter_1BA": counter,
+      "Counter_1BA": counter,
       "COUNTER_1": counter,
       "COUNTER_2": counter,
       "COUNTER_3": counter,
-      "STEER_LIMIT": 9.50,
+      "STEER_LIMIT_Down": 9.50,
+      "STEER_LIMIT_Up": 9.50,
       "STEER_STATUS": 0,
     }
   )
@@ -309,6 +310,15 @@ def create_eps_control(packer, msg, lat_active, counter):
 
 def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
   values = {s: msg[s] for s in msg} if msg else {}
+
+  # 改进刹车响应性 (Improved brake responsiveness from mpCode)
+  brake_value = 0
+  if accel < -0.1:
+    if accel < -1.5:
+      brake_value = 1
+    else:
+      brake_value = 1 if accel < -0.5 else 0
+
   values.update(
     {
       "ACC_Acceleration_24E": accel,
@@ -319,6 +329,7 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
       "ACC_ACCMode": 3 if enabled else 2,
       "ACC_ACCEnable": 1 if enabled else 0,
       "ACC_ACCReq": 1 if enabled else 0,
+      "ACC_AEBCtrlType": brake_value,
       "sig_099": acctrq,
     }
   )
@@ -334,9 +345,9 @@ def create_acc_set_speed(packer, msg, counter, speed):
   values = {s: msg[s] for s in msg} if msg else {}
   values.update(
     {
-      "ACC_SetSpeed": speed,
+      "vCruise": speed,
       "ACC_DistanceLevel": 3,
-      "ACC_RollingCounter_35E": counter,
+      "Counter_35E": counter,
     }
   )
   for i in range(2, 9):
@@ -358,10 +369,10 @@ def create_acc_hud(packer, msg, counter, enabled, steering_pressed):
   values = {s: msg[s] for s in msg} if msg else {}
   values.update(
     {
-      "ACC_IACCHWAEnable": 1 if enabled else 0,
-      "STEER_PRESSED": 1 if steering_pressed else 0,
-      "ACC_IACCHWAMode": 2 if enabled else 0,
-      "ACC_RollingCounter_36D": counter,
+      "cruiseState": 1 if enabled else 0,
+      "steeringPressed": 1 if steering_pressed else 0,
+      "ACC_IACCHWAMode": 3 if enabled else 0, # 完全开启而不是部分激活
+      "Counter_36D": counter,
     }
   )
   for i in range(2, 9):

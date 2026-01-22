@@ -11,7 +11,7 @@ class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
-    self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
+    self.shifter_values = can_define.dv["GEAR"]["gearShifter"] # 2车一致
 
     self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.0
     self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.0
@@ -22,9 +22,8 @@ class CarState(CarStateBase):
     self.cruiseEnable = False
     self.cruiseEnablePrev = False
     self.cruiseSpeed = 0
-    self.iacc_pressed_prev = 0
-    self.plus_pressed_prev = 0
-    self.minus_pressed_prev = 0
+    self.buttonPlus = 0
+    self.buttonReduce = 0
 
     self.steeringPressed = False
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
@@ -34,20 +33,23 @@ class CarState(CarStateBase):
       self.steeringPressedMin = 1
       self.steeringPressedMax = 6
 
-    self.sigs = {
-      "GW_1BA": {},
-      "GW_244": {},
-      "GW_17E": {},
-      "GW_307": {},
-      "GW_31A": {},
-    }
-    self.counter_1ba = 0
+    self.iacc_enable_switch_button_pressed = 0
+    self.iacc_enable_switch_button_prev = 0
+    self.iacc_enable_switch_button_rising_edge = False
+
+    self.sigs244 = {} # 加速度 ACC状态等
+    self.sigs1ba = {} # 方向盘控制
+    self.sigs17e = {} # 扭矩
+    self.sigs307 = {} # 巡航车速 跟车距离
+    self.sigs31a = {} # ACC_IACCHWAEnable 状态
     self.counter_244 = 0
+    self.counter_1ba = 0
     self.counter_17e = 0
     self.counter_307 = 0
     self.counter_31a = 0
-    self.counter_187 = 0
-    self.counter_196 = 0
+
+    self.prev_distance_button = 0
+    self.distance_button = 0
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -55,15 +57,15 @@ class CarState(CarStateBase):
     ret = structs.CarState()
 
     # Door / Seatbelt
-    ret.doorOpen = cp.vl.get("GW_28B", {}).get("BCM_DriverDoorStatus", 0) == 1
-    ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SRS_DriverBuckleSwitchStatus", 0) == 1
+    ret.doorOpen = cp.vl["GW_28B"]["doorOpen"] == 1 # 2车一致 0未开 1已开
+    ret.seatbeltUnlatched = cp.vl["GW_50"]["seatbeltUnlatched"] == 1 # 1未系 0已系
     ret.parkingBrake = False
 
     # Vehicle Speed
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      carspd = cp.vl["VEHICLE_SPEED"]["VEHICLE_SPEED"]
+      carspd = cp.vl["SPEED"]["wheelSpeeds"] # 区分车速
     else:
-      carspd = cp.vl["GW_187"]["ESP_VehicleSpeed"]
+      carspd = cp.vl["GW_187"]["ESP_VehicleSpeed"] #区分车速
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
@@ -72,30 +74,27 @@ class CarState(CarStateBase):
 
     # Gas, Brake, Gear
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      ret.brakePressed = cp.vl["GW_1A6"]["BRAKE_PRESSED"] != 0
-      ret.gasPressed = cp.vl["GW_1C6"]["EMS_RealAccPedal"] != 0
+      ret.brakePressed = cp.vl["GW_1A6"]["brakePressed"] != 0 # 区分油门刹车 1踩 0松
+      ret.gasPressed = cp.vl["GW_1A6"]["gasPressed"] != 0 # IDD may use same msg or GW_1C6 1踩 0松
     else:
-      ret.brakePressed = cp.vl["GW_196"]["EMS_BrakePedalStatus"] != 0
-      ret.gasPressed = cp.vl["GW_196"]["EMS_RealAccPedal"] != 0
+      ret.brakePressed = cp.vl["GW_196"]["brakePressed"] != 0 # 区分油门刹车 1踩 0松
+      ret.gasPressed = cp.vl["GW_196"]["gasPressed"] != 0 # IDD may use same msg or GW_1C6 1踩 0松
 
-    can_gear = cp.vl["GW_338"]["TCU_GearForDisplay"]
+    can_gear = int(cp.vl["GEAR"]["gearShifter"]) # 2车一致 复用
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.leftBlindspot = False
-    ret.rightBlindspot = False
+    ret.leftBlindspot = False   # 盲区
+    ret.rightBlindspot = False  # 盲区
 
     # Lights
-    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(
-      200, cp.vl["GW_28B"]["BCM_TurnIndicatorLeft"] == 1, cp.vl["GW_28B"]["BCM_TurnIndicatorRight"] == 1
-    )
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(200, cp.vl["GW_28B"]["leftBlinker"] == 1, cp.vl["GW_28B"]["rightBlinker"] == 2) # 左转1 右转2 点亮
 
     # Steering
     ret.steeringAngleOffsetDeg = 0
-    ret.steeringAngleDeg = cp.vl["GW_180"]["SAS_SteeringAngle"]
-    ret.steeringRateDeg = cp.vl["GW_180"]["SAS_SteeringAngleSpeed"]
-    ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"]
-    ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"] * self.eps_torque_scale
+    ret.steeringAngleDeg = cp.vl["GW_180"]["steeringAngleDeg"]   # 转向角度: 16位 (7|16), 范围: [-476, 476] 度 2车一致 OK
+    ret.steeringRateDeg = cp.vl["GW_180"]["SAS_SteeringAngleSpeed"] # 转向速率: 8位 (23|8), 范围: [0, 255] 度/秒 2车一致 OK
+    ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"] # 驾驶员扭矩 (扭杆): 12位 (7|12), 范围: [0, 4.095] Nm 2车一致 OK
+    ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"] * self.eps_torque_scale # EPS 实际转矩: 16位 (23|16), 范围: [-5533, 60002] 物理值  需要仔细确认
 
-    # Steering Pressed Logic (Reference uses thresholds)
     if self.steeringPressed:
       if abs(ret.steeringTorque) < self.steeringPressedMin and abs(ret.steeringAngleDeg) < 90:
         self.steeringPressed = False
@@ -104,55 +103,51 @@ class CarState(CarStateBase):
         self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
 
-    # Cruise Control Logic - Rising Edge Toggle from Reference
-    buttons = cp.vl["GW_28C"]
-    iacc_button = buttons["GW_MFS_IACCenable_switch_signal"]
-    iacc_rising_edge = iacc_button == 1 and not self.iacc_pressed_prev
+    # 巡航状态 (Cruise State) - 信任原车 PCM 状态
+    # 长安通过 GW_31A 或 GW_244 广播当前 ACC 状态
 
-    if self.cruiseEnable and (iacc_rising_edge or ret.brakePressed):
-      self.cruiseEnable = False
-    elif not self.cruiseEnable and iacc_rising_edge:
-      self.cruiseEnable = True
+    # 状态映射:
+    # ACC_ACCMode (GW_244) / ACC_IACCHWAMode (GW_31A)
+    # 2: Ready/Standby, 3: Active, 4: Override, 7: Fault
 
-    if self.cruiseEnable and not self.cruiseEnablePrev:
-      self.cruiseSpeed = speed if self.cruiseSpeed == 0 else self.cruiseSpeed
+    acc_mode = cp_cam.vl["GW_31A"]["ACC_IACCHWAMode"] if "ACC_IACCHWAMode" in cp_cam.vl["GW_31A"] else 0
+    ret.cruiseState.available = True # 只要没有故障，Openpilot 随时准备接管
+    ret.cruiseState.enabled = (acc_mode == 3) # 仅当原车进入 Active 模式时认为 Enabled
 
-    if self.cruiseEnable:
-      if buttons["GW_MFS_RESPlus_switch_signal"] == 1 and self.plus_pressed_prev == 0:
-        self.cruiseSpeed = ((self.cruiseSpeed // 5) + 1) * 5
-      if buttons["GW_MFS_SETReduce_switch_signal"] == 1 and self.minus_pressed_prev == 0:
-        self.cruiseSpeed = max(((self.cruiseSpeed // 5) - 1) * 5, 0)
+    # 巡航速度 (Set Speed)
+    # 尝试从 GW_307 读取仪表显示的设定速度
+    ret.cruiseState.speed = cp_cam.vl["GW_307"]["vCruise"] * CV.KPH_TO_MS if "vCruise" in cp_cam.vl["GW_307"] else 0
+    ret.cruiseState.standstill = ret.standstill
 
-    self.iacc_pressed_prev = iacc_button
-    self.plus_pressed_prev = buttons["GW_MFS_RESPlus_switch_signal"]
-    self.minus_pressed_prev = buttons["GW_MFS_SETReduce_switch_signal"]
-    self.cruiseEnablePrev = self.cruiseEnable
-
-    # Cruise State Output
-    ret.cruiseState.enabled = self.cruiseEnable
-    ret.cruiseState.available = cp_cam.vl["GW_31A"]["ACC_IACCHWAEnable"] == 1
-    ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
-
-    # Faults
+    # 系统故障与安全预警 (Faults & Safety)
+    # ACC 故障：当 ACC 或 IACC/HWA 模式为 7 时，判定为系统故障
     ret.accFaulted = cp_cam.vl["GW_244"]["ACC_ACCMode"] == 7 or cp_cam.vl["GW_31A"]["ACC_IACCHWAMode"] == 7
-    ret.steerFaultTemporary = cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] == 2
+    # 转向临时故障：EPS 的横向控制可用性状态。正常应为 1，若为 0 或 2 则判定为故障
+    ret.steerFaultTemporary = cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] != 1
+    ret.steerFaultPermanent = False
 
-    ret.stockFcw = cp_cam.vl["GW_244"]["ACC_FCWPreWarning"] == 1
-    ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0
+    # 原车 ADAS 状态透传
+    ret.stockFcw = cp_cam.vl["GW_244"]["ACC_FCWPreWarning"] == 1 # 前碰撞预警 (FCW) 状态 需确认
+    ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0    # 自动紧急制动 (AEB) 激活 需确认
+    ret.genericToggle = False
 
-    # Snapshots for Controller
-    self.sigs["GW_1BA"] = copy.copy(cp_cam.vl["GW_1BA"])
-    self.sigs["GW_244"] = copy.copy(cp_cam.vl["GW_244"])
-    self.sigs["GW_307"] = copy.copy(cp_cam.vl["GW_307"])
-    self.sigs["GW_31A"] = copy.copy(cp_cam.vl["GW_31A"])
-    self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
+    # 供控制器使用的信号快照 (用于同步计数器及保留原车不相关的状态位)
+    self.sigs244 = copy.copy(cp_cam.vl["GW_244"]) #加速度
+    self.sigs1ba = copy.copy(cp_cam.vl["GW_1BA"]) #方向盘
+    self.sigs17e = copy.copy(cp.vl["GW_17E"])
+    self.sigs307 = copy.copy(cp_cam.vl["GW_307"])
+    self.sigs31a = copy.copy(cp_cam.vl["GW_31A"])
 
-    # Rolling Counters
-    self.counter_1ba = int(cp_cam.vl["GW_1BA"]["ACC_RollingCounter_1BA"])
-    self.counter_244 = int(cp_cam.vl["GW_244"]["ACC_RollingCounter_24E"])
-    self.counter_17e = int(cp.vl["GW_17E"]["EPS_RollingCounter_17E"])
-    self.counter_307 = int(cp_cam.vl["GW_307"]["ACC_RollingCounter_35E"])
-    self.counter_31a = int(cp_cam.vl["GW_31A"]["ACC_RollingCounter_36D"])
+    # 滚动计数器提取 (用于在控制器中步进及同步序列号)
+    self.counter_244 = cp_cam.vl["GW_244"]["ACC_RollingCounter_24E"]
+    self.counter_1ba = cp_cam.vl["GW_1BA"]["Counter_1BA"]
+    self.counter_17e = cp.vl["GW_17E"]["EPS_RollingCounter_17E"]
+    self.counter_307 = cp_cam.vl["GW_307"]["Counter_35E"]
+    self.counter_31a = cp_cam.vl["GW_31A"]["Counter_36D"]
+
+    # 跟车距离按钮状态采集与追踪
+    self.prev_distance_button = self.distance_button
+    self.distance_button = cp_cam.vl["GW_307"]["ACC_DistanceLevel"]
 
     return ret
 
@@ -160,28 +155,31 @@ class CarState(CarStateBase):
   def get_can_parsers(CP):
     pt_messages = [
       ("GW_50", 2),
-      ("GW_28B", 25),
+      ("GW_170", 100),
       ("GW_17E", 100),
       ("GW_180", 100),
-      ("GW_28C", 25),
-      ("GW_338", 10),
-      ("GW_170", 100),
-      ("GW_187", 100),  # Include always for fallbacks
-      ("GW_196", 100),  # Include always for fallbacks
+      ("GW_24F", 50),
+      ("GW_28B", 25),
+      ("buttonEvents", 25),
+      ("GEAR", 10),
     ]
 
-    if CP.flags & ChanganFlags.IDD:
+    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       pt_messages += [
+        ("SPEED", 100),
         ("GW_1A6", 100),
-        ("GW_1C6", 100),
-        ("VEHICLE_SPEED", 100),
+      ]
+    else: #Z6
+      pt_messages += [
+        ("GW_187", 100), #Z6 车速
+        ("GW_196", 100), #Z6 踏板
       ]
 
     cam_messages = [
       ("GW_1BA", 100),
       ("GW_244", 50),
       ("GW_307", 10),
-      ("GW_31A", 10),
+      ("GW_31A", 100),
     ]
 
     return {

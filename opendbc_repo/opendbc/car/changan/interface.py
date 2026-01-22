@@ -14,19 +14,14 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
-    # 动态调整加速和减速限制，根据车速提供更合适的控制
-    if current_speed < 10 * CV.KPH_TO_MS:  # 低速区域
-      return CarControllerParams.ACCEL_MIN, min(CarControllerParams.ACCEL_MAX * 1.2, 2.5)  # 低速提供更强加速能力
-    elif current_speed > 80 * CV.KPH_TO_MS:  # 高速区域
-      return max(CarControllerParams.ACCEL_MIN * 0.8, -4.5), CarControllerParams.ACCEL_MAX * 0.8  # 高速降低加减速强度
-    else:  # 中速区域
-      return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
+    return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
 
   @staticmethod
-  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
+  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, experimental_long, docs) -> structs.CarParams:
     ret.brand = "changan"
-    ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.changan)]
+    ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.changan, sum(ret.flags))]
     ret.transmissionType = structs.CarParams.TransmissionType.automatic
+    # Radar is present but not used for fusion yet
     ret.radarUnavailable = True
     ret.enableBsm = True
 
@@ -40,9 +35,15 @@ class CarInterface(CarInterfaceBase):
     ret.centerToFront = ret.wheelbase * 0.44
 
     # Longitudinal
+    ret.experimentalLongitudinalAvailable = True
     ret.openpilotLongitudinalControl = True
     ret.autoResumeSng = ret.openpilotLongitudinalControl
-    ret.alphaLongitudinalAvailable = alpha_long
+
+    # 启用 Alpha 纵向模型 (End-to-End Longitudinal) 如果 experimental_long=True
+    if experimental_long:
+      ret.longitudinalTuning.kpV = [0.0]
+      ret.longitudinalTuning.kiV = [0.0]
+
     ret.minEnableSpeed = -1.
     ret.longitudinalActuatorDelay = 0.35
 
@@ -53,7 +54,8 @@ class CarInterface(CarInterfaceBase):
     ret.startAccel = 0.8
     ret.stopAccel = -0.35
 
-    # Longitudinal Tuning
+    # Longitudinal Tuning (PID)
+    # 只有在非 E2E 模式下生效
     tune = ret.longitudinalTuning
     tune.kpBP = [0., 5., 20., 40.]
     tune.kpV = [1.2, 1.0, 0.7, 0.5]
