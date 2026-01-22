@@ -6,9 +6,7 @@ import numpy as np
 #import subprocess
 #from openpilot.common.time_helpers import system_time_valid
 #from openpilot.common.swaglog import cloudlog
-
-from opendbc.can.can_define import CANDefine
-from opendbc.can.parser import CANParser
+from opendbc.can import CANDefine,CANParser
 
 from opendbc.car.common.conversions import Conversions as CV
 #from opendbc.car.common.numpy_fast import mean

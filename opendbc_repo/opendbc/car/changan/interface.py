@@ -17,9 +17,12 @@ class CarInterface(CarInterfaceBase):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
 
   @staticmethod
-  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, experimental_long, docs) -> structs.CarParams:
+  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
+
     ret.brand = "changan"
-    ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.changan, sum(ret.flags))]
+    ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.changan)]
+
+
     ret.transmissionType = structs.CarParams.TransmissionType.automatic
     # Radar is present but not used for fusion yet
     ret.radarUnavailable = True
@@ -35,14 +38,14 @@ class CarInterface(CarInterfaceBase):
     ret.centerToFront = ret.wheelbase * 0.44
 
     # Longitudinal
-    ret.experimentalLongitudinalAvailable = True
-    ret.openpilotLongitudinalControl = True
-    ret.autoResumeSng = ret.openpilotLongitudinalControl
+    #ret.alphaLongitudinalAvailable = True
+    #ret.openpilotLongitudinalControl = True
+    #ret.autoResumeSng = ret.openpilotLongitudinalControl
 
     # 启用 Alpha 纵向模型 (End-to-End Longitudinal) 如果 experimental_long=True
-    if experimental_long:
-      ret.longitudinalTuning.kpV = [0.0]
-      ret.longitudinalTuning.kiV = [0.0]
+    #if experimental_long:
+    #  ret.longitudinalTuning.kpV = [0.0]
+    #  ret.longitudinalTuning.kiV = [0.0]
 
     ret.minEnableSpeed = -1.
     ret.longitudinalActuatorDelay = 0.35
