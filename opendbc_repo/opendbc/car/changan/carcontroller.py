@@ -7,6 +7,7 @@ from opendbc.car.changan.values import CarControllerParams
 from openpilot.common.realtime import DT_CTRL
 from openpilot.common.conversions import Conversions as CV
 
+
 class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
     super().__init__(dbc_names, CP)
@@ -58,12 +59,10 @@ class CarController(CarControllerBase):
         if "GW_196" in CS.sigs:
           self.counter_196 = int(CS.counter_196) & 0xF
 
-        # Proper initialization of steering angles to current state
         self.last_angle = CS.out.steeringAngleDeg
         self.filtered_steering_angle = CS.out.steeringAngleDeg
         self.first_start = False
 
-    # Advanced Emergency/Large Turn Logic
     current_steering_angle = CS.out.steeringAngleDeg
     steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
     self.last_steering_angle = current_steering_angle
@@ -82,52 +81,41 @@ class CarController(CarControllerBase):
       if self.emergency_turn_timeout <= 0:
         self.emergency_turn_active = False
 
-    # *** control msgs ***
     can_sends = []
 
-    # Increment counters manually as per reference
     self.counter_1ba = (int(self.counter_1ba) + 1) & 0xF
     self.counter_17e = (int(self.counter_17e) + 1) & 0xF
 
-    # Lateral Control
-    # Startup Protection: Disable lateral control for the first 100 frames (~1 second)
-    # Also ensure we have valid data before allowing any control
     lat_active = CC.latActive and not CS.steeringPressed and self.frame >= 100 and not self.first_start
 
     if lat_active:
       apply_angle = actuators.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
-      # Angular rate limit based on speed
-      apply_angle = apply_std_steer_angle_limits(apply_angle, self.last_angle, CS.out.vEgoRaw,
-                                                 CS.out.steeringAngleDeg + CS.out.steeringAngleOffsetDeg,
-                                                 CC.latActive, self.params.ANGLE_LIMITS)
-      # 放宽转向角度变化限制，从±7度改为±30度 (from reference)
+      apply_angle = apply_std_steer_angle_limits(
+        apply_angle, self.last_angle, CS.out.vEgoRaw, CS.out.steeringAngleDeg + CS.out.steeringAngleOffsetDeg, CC.latActive, self.params.ANGLE_LIMITS
+      )
       apply_angle = np.clip(apply_angle, CS.out.steeringAngleDeg - 30, CS.out.steeringAngleDeg + 30)
 
-      # From reference 1interface.py: apply steering angle protection logic near 480 deg limit
       max_change = 5 if abs(CS.out.steeringAngleDeg) > 450 else 15
       angle_diff = apply_angle - self.last_angle
       if abs(angle_diff) > max_change:
         apply_angle = self.last_angle + max_change * (1 if angle_diff > 0 else -1)
       apply_angle = np.clip(apply_angle, -480, 480)
 
-      print(f"Steer - Target: {actuators.steeringAngleDeg:.1f}°, Cmd: {apply_angle:.1f}°, Curr: {CS.out.steeringAngleDeg:.1f}°")
       can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["GW_1BA"], apply_angle, 1, self.counter_1ba))
     else:
-      # When inactive, always command the current measured steering angle
-      # This prevents any unintended steering movement
       apply_angle = self.last_angle if not self.first_start else 0.0
       can_sends.append(changancan.create_steering_control(self.packer, CS.sigs["GW_1BA"], apply_angle, 0, self.counter_1ba))
 
     self.last_angle = apply_angle
 
-    # EPS Control (100Hz)
-    can_sends.append(changancan.create_eps_control(self.packer, CS.sigs["GW_17E"], CC.longActive, self.counter_17e))
+    can_sends.append(changancan.create_eps_control(self.packer, CS.sigs["GW_17E"], lat_active, self.counter_17e))
 
-    # Longitudinal Control (50Hz)
     if self.frame % 2 == 0:
       self.counter_244 = (int(self.counter_244) + 1) & 0xF
       acctrq = -5000
       accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
+
+      self.last_speed = CS.out.vEgoRaw * CV.MS_TO_KPH
 
       if accel < 0:
         self.expected_daccel = accel
@@ -143,26 +131,32 @@ class CarController(CarControllerBase):
           accel = -0.4
         accel = max(accel, -3.5)
 
-        if CS.out.vEgoRaw * CV.MS_TO_KPH == 0 and self.last_speed > 0 and CC.hudControl.leadVisible and CC.hudControl.leadDistance > 0:
-          self.stop_lead_distance = CC.hudControl.leadDistance
-        if self.stop_lead_distance != 0 and CS.out.vEgoRaw * CV.MS_TO_KPH == 0 and self.last_speed == 0 and CC.hudControl.leadVisible and CC.hudControl.leadDistance - self.stop_lead_distance > 1:
+        if self.last_speed == 0 and CC.hudControl.leadVisible and CC.hudControl.leadDistance > 0:
+          if self.stop_lead_distance == 0:
+            self.stop_lead_distance = CC.hudControl.leadDistance
+        if self.stop_lead_distance != 0 and self.last_speed == 0 and CC.hudControl.leadVisible and CC.hudControl.leadDistance - self.stop_lead_distance > 1:
           accel = 0.5
 
-      if CS.out.vEgoRaw * CV.MS_TO_KPH > 0:
+      if self.last_speed > 0:
         self.stop_lead_distance = 0
 
       if accel > 0:
-        speed_kph = CS.out.vEgoRaw * CV.MS_TO_KPH
-        if speed_kph > 110: offset, gain = 1100, 150
-        elif speed_kph > 90: offset, gain = 800, 120
-        elif speed_kph > 70: offset, gain = 800, 100
-        elif speed_kph > 50: offset, gain = 800, 80
-        elif speed_kph > 10: offset, gain = 500, 50
-        else: offset, gain = 400, 50
+        speed_kph = self.last_speed
+        if speed_kph > 110:
+          offset, gain = 1100, 150
+        elif speed_kph > 90:
+          offset, gain = 800, 120
+        elif speed_kph > 70:
+          offset, gain = 800, 100
+        elif speed_kph > 50:
+          offset, gain = 800, 80
+        elif speed_kph > 10:
+          offset, gain = 500, 50
+        else:
+          offset, gain = 400, 50
 
         base_acctrq = (offset + int(abs(accel) / 0.05) * gain) - 5000
 
-        # Dynamic slope compensation
         self.expected_accel = accel
         self.actual_accel_filtered = 0.9 * self.actual_accel_filtered + 0.1 * CS.out.aEgo
         if self.actual_accel_filtered < self.expected_accel * 0.8:
@@ -175,18 +169,15 @@ class CarController(CarControllerBase):
         base_acctrq = min(base_acctrq, -10)
         acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
 
-      self.last_speed = CS.out.vEgoRaw * CV.MS_TO_KPH
       accel = int(accel / 0.05) * 0.05
       self.last_apply_accel = accel
       self.last_acctrq = acctrq
 
       can_sends.append(changancan.create_acc_control(self.packer, CS.sigs["GW_244"], accel, self.counter_244, CC.longActive, acctrq))
 
-    # HUD & Set Speed (10Hz)
     if self.frame % 10 == 0:
       self.counter_307 = (int(self.counter_307) + 1) & 0xF
       self.counter_31a = (int(self.counter_31a) + 1) & 0xF
-      # Use speedCluster from CS if available, or just vEgo for now
       cruise_speed_kph = CS.out.cruiseState.speed * CV.MS_TO_KPH
       can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs["GW_307"], self.counter_307, cruise_speed_kph))
       can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs["GW_31A"], self.counter_31a, CC.longActive, CS.out.steeringPressed))

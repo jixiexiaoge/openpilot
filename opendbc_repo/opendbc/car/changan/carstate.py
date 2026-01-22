@@ -6,15 +6,16 @@ from opendbc.car.common.filter_simple import FirstOrderFilter
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.changan.values import DBC, EPS_SCALE, CAR, ChanganFlags
 
+
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
     self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
 
-    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.
-    self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
-    self.cluster_min_speed = CV.KPH_TO_MS / 2.
+    self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.0
+    self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.0
+    self.cluster_min_speed = CV.KPH_TO_MS / 2.0
 
     self.angle_offset = FirstOrderFilter(None, 60.0, DT_CTRL, initialized=False)
 
@@ -33,7 +34,6 @@ class CarState(CarStateBase):
       self.steeringPressedMin = 1
       self.steeringPressedMax = 6
 
-    # Storage for snapshots and counters
     self.sigs = {
       "GW_1BA": {},
       "GW_244": {},
@@ -46,6 +46,8 @@ class CarState(CarStateBase):
     self.counter_17e = 0
     self.counter_307 = 0
     self.counter_31a = 0
+    self.counter_187 = 0
+    self.counter_196 = 0
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -53,43 +55,38 @@ class CarState(CarStateBase):
     ret = structs.CarState()
 
     # Door / Seatbelt
-    ret.doorOpen = any([cp.vl.get("GW_28B", {}).get("BCM_DriverDoorStatus", 0)])
+    ret.doorOpen = cp.vl.get("GW_28B", {}).get("BCM_DriverDoorStatus", 0) == 1
     ret.seatbeltUnlatched = cp.vl.get("GW_50", {}).get("SRS_DriverBuckleSwitchStatus", 0) == 1
     ret.parkingBrake = False
 
-    # Vehicle Speed - Only use IDD VEHICLE_SPEED message
+    # Vehicle Speed
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       carspd = cp.vl["VEHICLE_SPEED"]["VEHICLE_SPEED"]
     else:
-      # Fallback - set to 0 if no IDD support
-      carspd = 0
+      carspd = cp.vl["GW_187"]["ESP_VehicleSpeed"]
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.vEgoCluster = ret.vEgo
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
-    # Gas, Brake, Gear - Only use IDD messages
+    # Gas, Brake, Gear
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      can_gear = int(cp.vl["GW_338"]["TCU_GearForDisplay"])
-      ret.brakePressed = cp.vl["GW_1A6"]["EMS_BrakePedalStatus"] != 0
+      ret.brakePressed = cp.vl["GW_1A6"]["BRAKE_PRESSED"] != 0
       ret.gasPressed = cp.vl["GW_1C6"]["EMS_RealAccPedal"] != 0
-      ret.leftBlindspot = False
-      ret.rightBlindspot = False
     else:
-      # Fallback values for non-IDD
-      can_gear = cp.vl["GW_338"]["TCU_GearForDisplay"]
-      ret.brakePressed = False
-      ret.gasPressed = False
-      ret.leftBlindspot = False
-      ret.rightBlindspot = False
+      ret.brakePressed = cp.vl["GW_196"]["EMS_BrakePedalStatus"] != 0
+      ret.gasPressed = cp.vl["GW_196"]["EMS_RealAccPedal"] != 0
 
+    can_gear = cp.vl["GW_338"]["TCU_GearForDisplay"]
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
+    ret.leftBlindspot = False
+    ret.rightBlindspot = False
 
     # Lights
-    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(200,
-                                                                       cp.vl["GW_28B"]["BCM_TurnIndicatorLeft"] == 1,
-                                                                       cp.vl["GW_28B"]["BCM_TurnIndicatorRight"] == 1)
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(
+      200, cp.vl["GW_28B"]["BCM_TurnIndicatorLeft"] == 1, cp.vl["GW_28B"]["BCM_TurnIndicatorRight"] == 1
+    )
 
     # Steering
     ret.steeringAngleOffsetDeg = 0
@@ -98,7 +95,7 @@ class CarState(CarStateBase):
     ret.steeringTorque = cp.vl["GW_17E"]["EPS_MeasuredTorsionBarTorque"]
     ret.steeringTorqueEps = cp.vl["GW_170"]["EPS_ActualTorsionBarTorq"] * self.eps_torque_scale
 
-    # Steering Pressed Logic
+    # Steering Pressed Logic (Reference uses thresholds)
     if self.steeringPressed:
       if abs(ret.steeringTorque) < self.steeringPressedMin and abs(ret.steeringAngleDeg) < 90:
         self.steeringPressed = False
@@ -107,10 +104,10 @@ class CarState(CarStateBase):
         self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
 
-    # Cruise Control Logic
+    # Cruise Control Logic - Rising Edge Toggle from Reference
     buttons = cp.vl["GW_28C"]
     iacc_button = buttons["GW_MFS_IACCenable_switch_signal"]
-    iacc_rising_edge = (iacc_button == 1 and not self.iacc_pressed_prev)
+    iacc_rising_edge = iacc_button == 1 and not self.iacc_pressed_prev
 
     if self.cruiseEnable and (iacc_rising_edge or ret.brakePressed):
       self.cruiseEnable = False
@@ -137,9 +134,8 @@ class CarState(CarStateBase):
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
 
     # Faults
-    ret.accFaulted = cp_cam.vl["GW_244"]["ACC_ACCMode"] == 7 or \
-                     cp_cam.vl["GW_31A"]["ACC_IACCHWAMode"] == 7
-    ret.steerFaultTemporary = cp.vl["EPS_591"]["EPS_FAILED"] != 0 or cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] == 2
+    ret.accFaulted = cp_cam.vl["GW_244"]["ACC_ACCMode"] == 7 or cp_cam.vl["GW_31A"]["ACC_IACCHWAMode"] == 7
+    ret.steerFaultTemporary = cp.vl["GW_17E"]["EPS_LatCtrlAvailabilityStatus"] == 2
 
     ret.stockFcw = cp_cam.vl["GW_244"]["ACC_FCWPreWarning"] == 1
     ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0
@@ -151,7 +147,7 @@ class CarState(CarStateBase):
     self.sigs["GW_31A"] = copy.copy(cp_cam.vl["GW_31A"])
     self.sigs["GW_17E"] = copy.copy(cp.vl["GW_17E"])
 
-    # Rolling Counters - Only handle working messages
+    # Rolling Counters
     self.counter_1ba = int(cp_cam.vl["GW_1BA"]["ACC_RollingCounter_1BA"])
     self.counter_244 = int(cp_cam.vl["GW_244"]["ACC_RollingCounter_24E"])
     self.counter_17e = int(cp.vl["GW_17E"]["EPS_RollingCounter_17E"])
@@ -170,22 +166,22 @@ class CarState(CarStateBase):
       ("GW_28C", 25),
       ("GW_338", 10),
       ("GW_170", 100),
-      ("EPS_591", 100), # EPS fault status
+      ("GW_187", 100),  # Include always for fallbacks
+      ("GW_196", 100),  # Include always for fallbacks
     ]
 
-    # Only add IDD-specific messages when flag is set
     if CP.flags & ChanganFlags.IDD:
       pt_messages += [
-        ("GW_1A6", 100),  # IDD brake message
-        ("GW_1C6", 100),  # IDD gas pedal message
-        ("VEHICLE_SPEED", 100),  # IDD speed message
+        ("GW_1A6", 100),
+        ("GW_1C6", 100),
+        ("VEHICLE_SPEED", 100),
       ]
 
     cam_messages = [
-      ("GW_1BA", 100),  # Steering control
-      ("GW_244", 50),   # ACC control
-      ("GW_307", 10),   # Set speed
-      ("GW_31A", 10),   # HUD display
+      ("GW_1BA", 100),
+      ("GW_244", 50),
+      ("GW_307", 10),
+      ("GW_31A", 10),
     ]
 
     return {
