@@ -57,7 +57,7 @@ class CAR(Platforms):
     [ChangAnCarDocs("Changan Z6 iDD")],
     CHANGAN_Z6.specs,
     CHANGAN_Z6.dbc_dict,
-    flags=ChanganFlags.IDD,
+    flags=ChanganFlags.CHANGAN_Z6_IDD,
   )
 
 
