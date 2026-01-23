@@ -1,5 +1,5 @@
 import copy
-from opendbc.can import CANDefine, CANParser
+from opendbc.can.parser import CANParser, CANDefine
 from opendbc.car import Bus, DT_CTRL, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.common.filter_simple import FirstOrderFilter

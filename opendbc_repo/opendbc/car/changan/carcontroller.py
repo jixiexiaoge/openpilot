@@ -85,8 +85,8 @@ class CarController(CarControllerBase):
 
       # 应用标准速率限制
       apply_angle = apply_std_steer_angle_limits(
-        apply_angle, self.last_angle, CS.out.vEgoRaw,
-        self.params.ANGLE_LIMITS
+        apply_angle, self.last_angle, CS.out.vEgoRaw, CS.out.steeringAngleDeg,
+        lat_active, self.params.ANGLE_LIMITS
       )
       # CAN 协议层面的硬限位 (480度)
       apply_angle = np.clip(apply_angle, -self.params.MAX_STEERING_ANGLE, self.params.MAX_STEERING_ANGLE)

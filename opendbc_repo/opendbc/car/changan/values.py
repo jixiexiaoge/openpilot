@@ -15,6 +15,7 @@ PEDAL_TRANSITION = 10. * CV.MPH_TO_MS
 class ChanganFlags(IntFlag):
   CHANGAN_Z6 = 1
   CHANGAN_Z6_IDD = 2
+  IDD = 2  # 这一行是关键修复
   QIYUAN_A05 = 4
 
 
@@ -24,12 +25,12 @@ class CarControllerParams:
   STEER_STEP = 1
   STEER_MAX = 480
   STEER_ERROR_MAX = 650
-  MAX_STEERING_ANGLE = 480.0  # From reference
+  MAX_STEERING_ANGLE = 480.0
   STEERING_SMOOTHING_FACTOR = 0.3
   ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(
     480,
-    ([10, 50], [1.4, 1.4]),  # Matches reference
-    ([10, 50], [1.4, 1.4]),  # Matches reference
+    ([10, 50], [1.4, 1.4]),
+    ([10, 50], [1.4, 1.4]),
   )
 
   def __init__(self, CP):
@@ -57,11 +58,11 @@ class CAR(Platforms):
     [ChangAnCarDocs("Changan Z6 iDD")],
     CHANGAN_Z6.specs,
     CHANGAN_Z6.dbc_dict,
-    flags=ChanganFlags.CHANGAN_Z6_IDD,
+    flags=ChanganFlags.IDD,  # 现在这行应该不会报错
   )
 
 
-STEER_THRESHOLD = 15  # Matches reference
+STEER_THRESHOLD = 15
 EPS_SCALE = defaultdict(lambda: 73)
 DBC = CAR.create_dbc_map()
 
