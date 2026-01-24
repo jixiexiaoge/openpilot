@@ -95,11 +95,14 @@ class CarController(CarControllerBase):
 
     self.last_angle = apply_angle
 
-    # 就算不激活横向，也要发送 1BA 消息以保持心跳（Active=0）
-    can_sends.append(changancan.create_steering_control(self.packer, CS.sigs1ba, apply_angle, lat_active, self.counter_1ba))
+    # 只有在收到原车信号后才转发
+    if CS.sigs1ba:
+      # 就算不激活横向，也要发送 1BA 消息以保持心跳（Active=0）
+      can_sends.append(changancan.create_steering_control(self.packer, CS.sigs1ba, apply_angle, lat_active, self.counter_1ba))
 
-    # 发送 EPS 状态维持 (17E)
-    can_sends.append(changancan.create_eps_control(self.packer, CS.sigs17e, lat_active, self.counter_17e))
+    if CS.sigs17e:
+      # 发送 EPS 状态维持 (17E)
+      can_sends.append(changancan.create_eps_control(self.packer, CS.sigs17e, lat_active, self.counter_17e))
 
     # 2. 纵向控制 (Longitudinal Control)
     if self.frame % 2 == 0:
@@ -110,23 +113,27 @@ class CarController(CarControllerBase):
       accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
       # 简单的扭矩映射 (如有必要保留基础映射逻辑)
-      acctrq = -5000 # Default
+      # 只有在收到原车信号后才转发，避免发送空报文触发 AEB 报警
+      if CS.sigs244:
+        # mirror original bits if they exist
+        acctrq = CS.sigs244.get("sig_099", -5000)
 
-      # 只有在启用时长发控制，否则发空/默认
-      if CC.longActive:
-        can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, accel, self.counter_244, CC.longActive, acctrq))
-      else:
-        # 发送非激活状态的 ACC 消息，保持计数器同步
-        can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, 0.0, self.counter_244, False, -5000))
+        # 只有在启用时长发控制，否则发空/默认
+        if CC.longActive:
+          can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, accel, self.counter_244, CC.longActive, acctrq))
+        else:
+          # 发送从摄像头发出的原版状态，避免掉线
+          can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, 0.0, self.counter_244, False, acctrq))
 
     # 3. HUD 控制 (10Hz)
     if self.frame % 10 == 0:
       self.counter_307 = (self.counter_307 + 1) & 0xF
       self.counter_31a = (self.counter_31a + 1) & 0xF
 
-      cruise_speed_kph = CS.out.cruiseState.speed * CV.MS_TO_KPH
-      can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs307, self.counter_307, cruise_speed_kph))
-      can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs31a, self.counter_31a, CC.longActive, CS.out.steeringPressed))
+      if CS.sigs307 and CS.sigs31a:
+        cruise_speed_kph = CS.out.cruiseState.speed * CV.MS_TO_KPH
+        can_sends.append(changancan.create_acc_set_speed(self.packer, CS.sigs307, self.counter_307, cruise_speed_kph))
+        can_sends.append(changancan.create_acc_hud(self.packer, CS.sigs31a, self.counter_31a, CC.longActive, CS.out.steeringPressed))
 
     new_actuators = actuators.as_builder()
     new_actuators.steeringAngleDeg = float(self.last_angle)

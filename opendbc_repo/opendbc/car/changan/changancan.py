@@ -303,21 +303,13 @@ def create_eps_control(packer, msg, lat_active, counter):
       "EPS_RollingCounter_17E": counter,
     }
   )
-  dat = packer.make_can_msg("GW_17E", 2, values)[1]
+  dat = packer.make_can_msg("GW_17E", 0, values)[1]
   values["CHECKSUM"] = crc_calculate_crc8(dat[:7])
-  return packer.make_can_msg("GW_17E", 2, values)
+  return packer.make_can_msg("GW_17E", 0, values)
 
 
 def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
   values = {s: msg[s] for s in msg} if msg else {}
-
-  # 改进刹车响应性 (Improved brake responsiveness from mpCode)
-  brake_value = 0
-  if accel < -0.1:
-    if accel < -1.5:
-      brake_value = 1
-    else:
-      brake_value = 1 if accel < -0.5 else 0
 
   values.update(
     {
@@ -329,7 +321,6 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
       "ACC_ACCMode": 3 if enabled else 2,
       "ACC_ACCEnable": 1 if enabled else 0,
       "ACC_ACCReq": 1 if enabled else 0,
-      "ACC_AEBCtrlType": brake_value,
       "sig_099": acctrq,
     }
   )
