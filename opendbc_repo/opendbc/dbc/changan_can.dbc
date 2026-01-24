@@ -112,7 +112,7 @@ BO_ 580 GW_244: 32 XXX
  SG_ ACC_ACCMode : 54|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_ACCReq : 55|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
- SG_ sig_099 : 103|16@0- (0.001,0) [-32|32] "" XXX
+ SG_ sig_099 : 103|16@0+ (1,0) [-32|32] "" XXX
  SG_ COUNTER_1 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 127|8@0+ (1,0) [0|255] "" XXX
 
@@ -154,13 +154,13 @@ BO_ 775 GW_307: 64 XXX
  SG_ CHECKSUM_4 : 255|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 794 GW_31A: 64 XXX
- SG_ ACC_IACCHWAMode : 45|3@0+ (1,0) [0|7] "" XXX
  SG_ Counter_36D : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
  SG_ cruiseState : 68|1@0+ (1,0) [0|1] "" XXX
  SG_ steeringPressed : 96|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER_2 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_2 : 127|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_IACCHWAMode : 135|3@0+ (1,0) [0|7] "" XXX
  SG_ COUNTER_3 : 179|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_4 : 243|4@0+ (1,0) [0|15] "" XXX
