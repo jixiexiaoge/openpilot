@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from opendbc.car import get_safety_config, structs
+from opendbc.car import Bus, get_safety_config, structs
 from opendbc.car.common.conversions import Conversions as CV
-from opendbc.car.changan.values import CarControllerParams, ChanganFlags
+from opendbc.car.changan.values import CarControllerParams, ChanganFlags, ChanganSafetyFlags, EPS_SCALE, NO_STOP_TIMER_CAR
 from opendbc.car.changan.carcontroller import CarController
 from opendbc.car.changan.carstate import CarState
 from opendbc.car.changan.radar_interface import RadarInterface
@@ -21,23 +21,34 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
     ret.brand = "changan"
+
+    # Safety configuration with proper parameter passing
     ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.changan)]
+    ret.safetyConfigs[0].safetyParam = EPS_SCALE[candidate]
+
+    # Add IDD variant flag to safety param if this is a hybrid model
+    if ret.flags & ChanganFlags.IDD:
+      ret.safetyConfigs[0].safetyParam |= ChanganSafetyFlags.IDD_VARIANT.value
 
     ret.transmissionType = structs.CarParams.TransmissionType.automatic
-    # Radar is present but not used for fusion yet
+
+    # Radar integration
     ret.radarUnavailable = True
     ret.enableBsm = True
 
-    # Steering
+    # Lateral control configuration
+    ret.steerControlType = structs.CarParams.SteerControlType.angle
     ret.steerActuatorDelay = 0.1
     ret.steerLimitTimer = 0.8
-    ret.steerControlType = structs.CarParams.SteerControlType.angle
     ret.steerRatio = 15.0
     ret.minSteerSpeed = 0.1
 
     ret.centerToFront = ret.wheelbase * 0.44
 
-    # Longitudinal
+    # Longitudinal control configuration
+    ret.openpilotLongitudinalControl = True
+    ret.pcmCruise = False
+    ret.autoResumeSng = candidate in NO_STOP_TIMER_CAR
     ret.minEnableSpeed = -1.
     ret.longitudinalActuatorDelay = 0.35
 

@@ -1,3 +1,17 @@
+"""CarController for Changan vehicles.
+
+Handles CAN message generation for vehicle control including:
+- Lateral control (angle-based steering commands @ 100Hz)
+- Longitudinal control (acceleration/deceleration @ 50Hz with dynamic torque mapping)
+- HUD updates (cruise speed and status icons @ 10Hz)
+
+Features:
+- Dynamic torque mapping based on speed for smooth power delivery
+- Slope compensation for uphill/downhill driving
+- Stop-and-go functionality with lead vehicle tracking
+- Counter synchronization with stock ECU messages
+"""
+
 import numpy as np
 from opendbc.can.packer import CANPacker
 from opendbc.car import Bus, apply_std_steer_angle_limits, structs

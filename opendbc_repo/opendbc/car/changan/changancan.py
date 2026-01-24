@@ -1,10 +1,27 @@
+"""CAN message creation functions for Changan vehicles.
+
+This module handles CAN message packing for Changan Z6/Z6 iDD control messages.
+All messages use SAE J1850 CRC8 checksums that must match panda safety implementation.
+"""
+
 import numpy as np
 
+
 def crc_calculate_crc8(data):
-  """
-  计算 SAE J1850 标准的 CRC8 校验码
-  Poly: 0x1D (x8 + x4 + x3 + x2 + 1), Init: 0xFF, Final XOR: 0xFF
-  该算法必须与 Panda 固件中的计算逻辑 100% 对齐，否则会导致 Controls Mismatch
+  """Calculate SAE J1850 CRC8 checksum.
+
+  Polynomial: 0x1D (x8 + x4 + x3 + x2 + 1)
+  Initial value: 0xFF
+  Final XOR: 0xFF
+
+  This implementation must exactly match the panda firmware checksum calculation
+  to avoid "Controls Mismatch" errors.
+
+  Args:
+    data: Bytes to calculate checksum over (typically first 7 bytes of message)
+
+  Returns:
+    CRC8 checksum byte
   """
   crc = 0xFF
   for byte in data:
