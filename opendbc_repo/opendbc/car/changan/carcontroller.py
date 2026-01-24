@@ -112,18 +112,17 @@ class CarController(CarControllerBase):
       # 如果需要精细调优，应该去调整 interface.py 中的 PID/MPC 参数
       accel = np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX)
 
-      # 简单的扭矩映射 (如有必要保留基础映射逻辑)
-      # 只有在收到原车信号后才转发，避免发送空报文触发 AEB 报警
+      # 即使没收到信号也发控制位（带安全初值），防止 AEB 报错
+      # 若 CS.sigs244 有值则镜像其中的安全状态位，否则发默认 Ready(2)
       if CS.sigs244:
-        # mirror original bits if they exist
         acctrq = CS.sigs244.get("sig_099", -5000)
-
-        # 只有在启用时长发控制，否则发空/默认
         if CC.longActive:
           can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, accel, self.counter_244, CC.longActive, acctrq))
         else:
-          # 发送从摄像头发出的原版状态，避免掉线
           can_sends.append(changancan.create_acc_control(self.packer, CS.sigs244, 0.0, self.counter_244, False, acctrq))
+      else:
+        # 兜底发送：模式 2 (Ready)，不请求加速度
+        can_sends.append(changancan.create_acc_control(self.packer, {}, 0.0, self.counter_244, False, -5000))
 
     # 3. HUD 控制 (10Hz)
     if self.frame % 10 == 0:

@@ -103,13 +103,20 @@ class CarState(CarStateBase):
         self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
 
-    # 巡航状态 (Cruise State) - 采用 Button 切换逻辑 (Match Carrot fork)
-    button_iacc = cp.vl["buttonEvents"]["Button_iACC"]
+    # 巡航状态 (Cruise State) - 兼容多总线获取 IACC 按钮信号
+    button_iacc = 0
+    if "Button_iACC" in cp.vl["buttonEvents"]:
+      button_iacc = cp.vl["buttonEvents"]["Button_iACC"]
+    if button_iacc == 0 and "Button_iACC" in cp_cam.vl["buttonEvents"]:
+      button_iacc = cp_cam.vl["buttonEvents"]["Button_iACC"]
+
     self.iacc_enable_switch_button_rising_edge = (button_iacc == 1 and self.iacc_enable_switch_button_prev == 0)
     self.iacc_enable_switch_button_prev = button_iacc
 
-    if self.iacc_enable_switch_button_rising_edge or (ret.brakePressed and self.cruiseEnable):
-      self.cruiseEnable = not self.cruiseEnable if self.iacc_enable_switch_button_rising_edge else False
+    if self.iacc_enable_switch_button_rising_edge:
+      self.cruiseEnable = not self.cruiseEnable
+    elif ret.brakePressed:
+      self.cruiseEnable = False
 
     ret.cruiseState.available = True
     ret.cruiseState.enabled = self.cruiseEnable
@@ -126,14 +133,14 @@ class CarState(CarStateBase):
     ret.stockAeb = cp_cam.vl["GW_244"]["ACC_AEBCtrlType"] > 0
     ret.genericToggle = False
 
-    # 供控制器使用的信号快照 (确保包含 AEB 状态)
+    # 供控制器使用的信号快照 (对齐 DBC 内部命名)
     self.sigs244 = copy.copy(cp_cam.vl["GW_244"])
     self.sigs1ba = copy.copy(cp_cam.vl["GW_1BA"])
     self.sigs17e = copy.copy(cp.vl["GW_17E"])
     self.sigs307 = copy.copy(cp_cam.vl["GW_307"])
     self.sigs31a = copy.copy(cp_cam.vl["GW_31A"])
 
-    # 滚动计数器提取
+    # 滚动计数器提取 (严格遵循 changan_can.dbc)
     self.counter_244 = cp_cam.vl["GW_244"]["ACC_RollingCounter_24E"]
     self.counter_1ba = cp_cam.vl["GW_1BA"]["Counter_1BA"]
     self.counter_17e = cp.vl["GW_17E"]["EPS_RollingCounter_17E"]
@@ -149,25 +156,25 @@ class CarState(CarStateBase):
   @staticmethod
   def get_can_parsers(CP):
     pt_messages = [
-      ("GW_50", 2),
+      ("GW_50", 1),
       ("GW_170", 100),
-      ("GW_17E", 100),
+      ("GW_17E", 50),
       ("GW_180", 100),
-      ("GW_24F", 50),
-      ("GW_28B", 25),
-      ("buttonEvents", 25),
+      ("GW_24F", 20),
+      ("GW_28B", 10),
+      ("buttonEvents", 10),
       ("GEAR", 10),
     ]
 
     if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       pt_messages += [
-        ("SPEED", 100),
-        ("GW_1A6", 100),
+        ("SPEED", 50),
+        ("GW_1A6", 50),
       ]
     else: #Z6
       pt_messages += [
-        ("GW_187", 100),
-        ("GW_196", 100),
+        ("GW_187", 50),
+        ("GW_196", 50),
       ]
 
     cam_messages = [
@@ -175,6 +182,7 @@ class CarState(CarStateBase):
       ("GW_244", 50),
       ("GW_307", 10),
       ("GW_31A", 10),
+      ("buttonEvents", 10),
     ]
 
     return {

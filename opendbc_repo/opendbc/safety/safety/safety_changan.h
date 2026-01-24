@@ -66,17 +66,24 @@ static uint32_t changan_compute_checksum(const CANPacket_t *to_push) {
   if (addr == 0x180 || addr == 0x17E || addr == 0x187 || addr == 0x17A ||
       addr == 0x196 || addr == 0x1A6 || addr == 0x244 || addr == 0x28C ||
       addr == 0x307 || addr == 0x31A || addr == 0x1BA) {
-    uint8_t checksum = 0xFFU;
+    uint8_t crc = 0xFFU;
     for (int i = 0; i < 7; i++) {
-      checksum = changan_crc8_tab[checksum ^ GET_BYTE(to_push, i)];
+      crc ^= GET_BYTE(to_push, i);
+      for (int b = 0; b < 8; b++) {
+        if ((crc & 0x80U) != 0U) {
+          crc = (uint8_t)((crc << 1) ^ 0x1DU);
+        } else {
+          crc <<= 1;
+        }
+      }
     }
-    return (uint32_t)(checksum ^ 0xFFU);
+    return (uint32_t)(crc ^ 0xFFU);
   }
   return 0;
 }
 
 static uint8_t changan_get_counter(const CANPacket_t *to_push) {
-  // Counter is usually bits 51-48 for many msgs (Byte 6 bits 3-0)
+  // Counter is typically 4 bits in various positions, usually 51-48
   return GET_BYTE(to_push, 6) & 0x0FU;
 }
 
@@ -86,34 +93,31 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
   // 1. ADAS Main switch (0x31A)
   if (bus == 2 && addr == CHANGAN_ADAS_INFO) {
-    // Mode logic: Bit 45-43 (Byte 5 bits 5-3). mask 0x38.
     changan_acc_main_on = (GET_BYTE(to_push, 5) & 0x38U) != 0U;
   }
 
   // 2. Cruise buttons (0x28C)
   if ((bus == 0 || bus == 2) && addr == CHANGAN_CRUISE_BUTTONS) {
-    uint16_t b = (GET_BYTE(to_push, 1) << 8) | GET_BYTE(to_push, 0);
+    uint16_t b = (uint16_t)((GET_BYTE(to_push, 1) << 8) | GET_BYTE(to_push, 0));
 
-    // Motorola Mask: RES+ bit 4 (0x10), SET- bit 6 (0x40), Cancel bit 1 (0x02), iACC bit 12 (0x1000)
-    bool res = (b & 0x0010U) != 0U;
-    bool set = (b & 0x0040U) != 0U;
-    bool cancel = (b & 0x0002U) != 0U;
-    bool iacc = (b & 0x1000U) != 0U;
+    // Bit Masks: RES+: bit 4 (0x10); SET-: bit 6 (0x40); Cancel: bit 1 (0x02); iACC: bit 12 (Byte 1 bit 4 -> 0x1000)
+    uint16_t current_button = (b & 0x1052U);
 
-    bool any_on = res || set || iacc;
-    if (any_on && (changan_cruise_button_prev == 0)) {
+    bool btn_trigger = ((current_button & 0x1050U) != 0U) && ((changan_cruise_button_prev & 0x1050U) == 0U);
+
+    if (btn_trigger) {
       controls_allowed = true;
     }
-    if (cancel) {
+    if ((current_button & 0x0002U) != 0U) {
       controls_allowed = false;
     }
-    changan_cruise_button_prev = (res ? 0x0010 : 0) | (set ? 0x0040 : 0) | (iacc ? 0x1000 : 0);
+    changan_cruise_button_prev = current_button;
   }
 
-  // 3. Vehicle state
+  // 3. Vehicle state parsing (Wheels, SAS, Pedals same as previous)
   if (bus == 0) {
     if (addr == CHANGAN_WHEEL_SPEEDS) {
-      int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 5);
+      int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 3);
       UPDATE_VEHICLE_SPEED(speed * 0.05 / 3.6);
     }
     if (addr == CHANGAN_STEER_ANGLE) {
@@ -128,7 +132,7 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
   if (bus == 2) {
     if (addr == CHANGAN_IDD_WHEEL_SPEEDS) {
-      int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 5);
+      int speed = (GET_BYTE(to_push, 4) << 8) | GET_BYTE(to_push, 3);
       UPDATE_VEHICLE_SPEED(speed * 0.05 / 3.6);
     }
     if (addr == CHANGAN_IDD_PEDAL_DATA) {
