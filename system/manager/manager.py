@@ -218,7 +218,7 @@ def compile_pending_model() -> None:
   cloudlog.warning("model_compile: Found pending model, starting compilation...")
 
   params = Params()
-  model_name = params.get("PendingModelName", encoding='utf-8')
+  model_name = params.get("PendingModelName")
   if not model_name:
     cloudlog.warning("model_compile: PendingModelName is empty, cleaning up")
     shutil.rmtree(MODELS_TMP_DIR, ignore_errors=True)
