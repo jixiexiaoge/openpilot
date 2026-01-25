@@ -337,6 +337,6 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ShareData", {PERSISTENT, INT, "0"}},
 
     // Model Selector
-    {"DrivingModelName", PERSISTENT},  // 현재 사용 중인 모델 이름
-    {"PendingModelName", PERSISTENT},  // 다운로드 후 컴파일 대기 중인 모델 이름
+    {"DrivingModelName", {PERSISTENT, STRING}},  // 현재 사용 중인 모델 이름
+    {"PendingModelName", {PERSISTENT, STRING}},  // 다운로드 후 컴파일 대기 중인 모델 이름
 };
