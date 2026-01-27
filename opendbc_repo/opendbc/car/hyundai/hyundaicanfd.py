@@ -307,7 +307,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
     a_val, a_raw = 0, 0
   else:
     a_raw = accel
-    a_val = np.clip(accel, accel_last - jn, accel_last + jn)
+    a_val = accel #np.clip(accel, accel_last - jn, accel_last + jn)
 
   values = copy.copy(CS.cruise_info)
   values.pop("COUNTER", None)
@@ -491,10 +491,10 @@ def _make_ccnc_values___(values, CS, lat_active, frame, hud_control, lane_line =
         values['LANE_CHANGING'] = 4 # 오른쪽 화살표 + 바닥
 
   if corner_radar:
-    if values['LF_DETECT'] == 4 and values['LF_DETECT_DISTANCE'] != 0:  values['LF_DETECT'] = 2
-    if values['RF_DETECT'] == 4 and values['RF_DETECT_DISTANCE'] != 0:  values['RF_DETECT'] = 2
-    if values['LR_DETECT'] == 4 and values['LR_DETECT_DISTANCE'] != 0:  values['LR_DETECT'] = 2
-    if values['RR_DETECT'] == 4 and values['RR_DETECT_DISTANCE'] != 0:  values['RR_DETECT'] = 2
+    if values['LF_DETECT'] >= 4 and values['LF_DETECT_DISTANCE'] != 0:  values['LF_DETECT'] = 1
+    if values['RF_DETECT'] >= 4 and values['RF_DETECT_DISTANCE'] != 0:  values['RF_DETECT'] = 1
+    if values['LR_DETECT'] >= 4 and values['LR_DETECT_DISTANCE'] != 0:  values['LR_DETECT'] = 1
+    if values['RR_DETECT'] >= 4 and values['RR_DETECT_DISTANCE'] != 0:  values['RR_DETECT'] = 1
 
     disp_dist = 30.0
     min_dist = 14.0
