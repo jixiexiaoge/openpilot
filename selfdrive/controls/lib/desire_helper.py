@@ -257,6 +257,8 @@ class DesireHelper:
 
   def _check_desire_state(self, modeldata, carstate, maneuver_type):
     desire_state = modeldata.meta.desireState
+    orientation_rate = abs(modeldata.orientationRate.z[5])
+    orientation_rate_future = abs(modeldata.orientationRate.z[15])
     # turnLeft + turnRight 확률
     self.turn_desire_state = (desire_state[1] + desire_state[2]) > 0.1
 
@@ -266,7 +268,7 @@ class DesireHelper:
     #  self.desire_disable_count = max(0, self.desire_disable_count - 1)
 
     # steeringAngle 너무 크면 turn 자체를 일정 시간 막기
-    if abs(carstate.steeringAngleDeg) > 80:
+    if maneuver_type == "turn" and abs(carstate.steeringAngleDeg) > 80 and orientation_rate_future < orientation_rate:
       self.turn_disable_count = int(10.0 / DT_MDL)
     else:
       self.turn_disable_count = max(0, self.turn_disable_count - 1)

@@ -230,20 +230,38 @@ BO_ 373 TCS: 24 XXX
  SG_ NEW_SIGNAL_4 : 24|7@1+ (1,0) [0|127] "" XXX
  SG_ NEW_SIGNAL_9 : 31|1@0+ (1,0) [0|1] "" XXX
  SG_ aBasis : 32|11@1+ (0.01,-10.23) [0|7] "m/s^2" XXX
+ SG_ NEW_SIGNAL_1 : 47|5@0+ (1,0) [0|31] "" XXX
  SG_ ACCEL_REF_ACC : 48|11@1- (1,0) [0|1023] "" XXX
- SG_ EQUIP_MAYBE : 64|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_2 : 63|5@0+ (1,0) [0|31] "" XXX
+ SG_ SCC_OptTyp : 64|2@1+ (1,0) [0|0] "" AWD,EMS,FR_CMR,HCU,H_U_MM,TCU,VCU,vBDM
  SG_ ACCEnable : 67|2@0+ (1,0) [0|3] "" XXX
  SG_ ACC_REQ : 68|1@0+ (1,0) [0|1] "" XXX
- SG_ NEW_SIGNAL_5 : 72|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_3 : 69|1@0+ (1,0) [0|1] "" XXX
+ SG_ SCC_ReqLimSta : 70|2@1+ (1,0) [0|0] "" ADAS_DRV,AWD,Dummy,EMS,FR_CMR,H_U_MM,TCU,vBDM
+ SG_ ESC_StdStillVal : 72|2@1+ (1,0) [0|3] "" ADAS_DRV,AWD,Dummy,EMS,FR_CMR,H_U_MM,TCU,vBDM
  SG_ BrakeLight : 74|2@1+ (1,0) [0|3] "" XXX
- SG_ NEW_SIGNAL_3 : 76|1@0+ (1,0) [0|1] "" XXX
- SG_ NEW_SIGNAL_1 : 80|1@0+ (1,0) [0|1] "" XXX
+ SG_ ESC_DclEnblReq : 76|2@1+ (1,0) [0|3] "" AWD,Dummy,EMS,FR_CMR,H_U_MM,TCU,vBDM
+ SG_ NEW_SIGNAL_5 : 79|2@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_21 : 80|1@0+ (1,0) [0|1] "" XXX
  SG_ DriverBraking : 81|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_20 : 82|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_11 : 83|1@0+ (1,0) [0|1] "" XXX
  SG_ DriverBrakingLowSens : 84|1@1+ (1,0) [0|1] "" XXX
- SG_ AEB_EQUIP_MAYBE : 96|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_10 : 85|1@0+ (1,0) [0|1] "" XXX
+ SG_ ESC_PrkBrkActvSta : 86|2@1+ (1,0) [0|3] "" ADAS_DRV,AWD,Dummy,EMS,FR_CMR,H_U_MM,RR_C_RDR,TCU,vBDM
+ SG_ NEW_SIGNAL_12 : 95|8@0+ (1,0) [0|255] "" XXX
+ SG_ FCA_EquipSta : 96|2@1+ (1,0) [0|3] "" ADAS_DRV,FR_CMR,H_U_MM,vBDM
+ SG_ FCA_AvlblSta : 98|2@1+ (1,0) [0|3] "" ADAS_DRV,AFCU_DRV,CLU,Dummy,FR_CMR,H_U_MM,vBDM
+ SG_ NEW_SIGNAL_13 : 103|4@0+ (1,0) [0|15] "" XXX
+ SG_ NEW_SIGNAL_14 : 111|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_15 : 119|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_16 : 127|8@0+ (1,0) [0|255] "" XXX
  SG_ NEW_SIGNAL_6 : 128|4@1+ (1,0) [0|15] "" XXX
+ SG_ NEW_SIGNAL_17 : 133|2@0+ (1,0) [0|3] "" XXX
  SG_ NEW_SIGNAL_7 : 135|2@0+ (1,0) [0|3] "" XXX
  SG_ PROBABLY_EQUIP : 136|2@1+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_18 : 143|6@0+ (1,0) [0|63] "" XXX
+ SG_ NEW_SIGNAL_19 : 151|8@0+ (1,0) [0|255] "" XXX
  SG_ NEW_SIGNAL_8 : 183|16@0+ (1,0) [0|65535] "" XXX
 
 BO_ 352 ADRV_0x160: 16 ADRV
@@ -510,8 +528,18 @@ BO_ 480 LFAHDA_CLUSTER: 16 FR_CMR
 BO_ 490 ADRV_0x1ea: 32 ADRV
  SG_ CHECKSUM : 0|16@1+ (1,0) [0|65535] "" XXX
  SG_ COUNTER : 16|8@1+ (1,0) [0|255] "" XXX
- SG_ HDA_MODE1 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_4 : 25|2@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_3 : 26|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_2 : 27|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 28|1@0+ (1,0) [0|1] "" XXX
+ SG_ LEFT_BLINK_HOLD : 29|1@0+ (1,0) [0|1] "" XXX
+ SG_ RIGHT_BLINK_HOLD : 30|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_5 : 31|1@0+ (1,0) [0|1] "" XXX
  SG_ HDA_MODE2 : 32|3@1+ (1,0) [0|3] "" XXX
+ SG_ LANE_LEFT : 36|2@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_6 : 39|3@0+ (1,0) [0|7] "" XXX
+ SG_ LANE_RIGHT : 41|2@0+ (1,0) [0|3] "" XXX
+ SG_ LANE_CHANGING : 45|3@0+ (1,0) [0|1] "" XXX
  SG_ LF_DETECT_DISTANCE : 46|11@1+ (0.1,0) [0|2047] "" XXX
  SG_ LF_DETECT_LATERAL : 70|7@0+ (0.1,0) [0|127] "" XXX
  SG_ LF_DETECT : 74|3@0+ (1,0) [0|7] "" XXX
@@ -519,17 +547,18 @@ BO_ 490 ADRV_0x1ea: 32 ADRV
  SG_ RF_DETECT_LATERAL : 94|7@0+ (0.1,0) [0|127] "" XXX
  SG_ RF_DETECT : 98|3@0+ (1,0) [0|7] "" XXX
  SG_ SET_ME_FF : 120|8@1+ (1,0) [0|255] "" XXX
- SG_ CORNER_LR_DIST : 138|9@1+ (0.1,0) [0|511] "m" XXX
- SG_ CORNER_LR_DETECT : 152|6@1+ (1,0) [0|63] "" XXX
- SG_ CORNER_LR_SIG : 160|1@0+ (1,0) [0|1] "" XXX
- SG_ CORNER_RR_DIST : 162|9@1+ (0.1,0) [0|511] "m" XXX
- SG_ CORNER_RR_DETECT : 172|6@1+ (1,0) [0|63] "" XXX
- SG_ CORNER_RR_SIG : 184|1@0+ (1,0) [0|1] "" XXX
- SG_ NEW_SIGNAL_5 : 205|1@0+ (1,0) [0|1] "" XXX
- SG_ AUTOLANECHANGE_CONFIRM_MSG_MAYBE : 207|2@0+ (1,0) [0|3] "" XXX
- SG_ NEW_SIGNAL_2 : 208|5@1+ (1,0) [0|31] "" XXX
- SG_ NEW_SIGNAL_3 : 239|8@0+ (1,0) [0|255] "" XXX
- SG_ NEW_SIGNAL_1 : 247|8@0+ (1,0) [0|255] "" XXX
+ SG_ LR_DETECT_DISTANCE : 139|8@1+ (0.1,0) [0|511] "m" XXX
+ SG_ LR_DETECT_LATERAL : 152|6@1+ (0.1,0) [0|63] "" XXX
+ SG_ LR_DETECT : 162|3@0+ (1,0) [0|1] "" XXX
+ SG_ RR_DETECT_DISTANCE : 163|8@1+ (0.1,0) [0|511] "m" XXX
+ SG_ RR_DETECT_LATERAL : 172|6@1+ (0.1,0) [0|63] "" XXX
+ SG_ RR_DETECT : 186|3@0+ (1,0) [0|1] "" XXX
+ SG_ AUTOLANECHANGE_MSG : 207|4@0+ (1,0) [0|3] "" XXX
+ SG_ LANELINE_CURVATURE : 208|4@1+ (1,0) [0|31] "" XXX
+ SG_ LANELINE_CURVATURE_DIRECTION : 212|1@0+ (1,0) [0|1] "" XXX
+ SG_ LANELINE_LEFT_POSITION : 239|8@0+ (1,0) [0|255] "" XXX
+ SG_ LANELINE_RIGHT_POSITION : 247|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_7 : 248|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 507 CAM_0x1fb: 32 CAMERA
  SG_ CHECKSUM : 0|16@1+ (1,0) [0|65535] "" XXX
@@ -541,7 +570,9 @@ BO_ 512 ADRV_0x200: 8 ADRV
  SG_ SET_ME_E1 : 24|8@1+ (1,0) [0|255] "" XXX
  SG_ TauGapSet : 32|3@1+ (1,0) [0|7] "" XXX
  SG_ NEW_SIGNAL_2 : 35|2@1+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_1 : 39|3@0+ (1,0) [0|7] "" XXX
  SG_ TauGapSet_ : 42|3@0+ (1,0) [0|31] "" XXX
+ SG_ NEW_SIGNAL_3 : 47|5@0+ (1,0) [0|31] "" XXX
 
 BO_ 513 RADAR_0x201: 32 FRONT_RADAR
  SG_ CHECKSUM : 0|16@1+ (1,0) [0|65535] "" XXX
@@ -854,6 +885,26 @@ BO_ 1204 NEW_MSG_4B4: 8 XXX
  SG_ NEW_SIGNAL_5 : 55|8@0+ (1,0) [0|255] "" XXX
  SG_ NEW_SIGNAL_6 : 63|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 1209 NEW_MSG_4B9: 8 XXX
+ SG_ BYTE_1 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_2 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_3 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_4 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_5 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_6 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_7 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_8 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 1214 NEW_MSG_4BE: 8 XXX
+ SG_ BYTE_1 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_2 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_3 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_4 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_5 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_6 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_7 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ BYTE_8 : 63|8@0+ (1,0) [0|255] "" XXX
+
 BO_ 1259 LOCAL_TIME2: 8 XXX
  SG_ HOURS : 15|5@0+ (1,0) [0|31] "" XXX
  SG_ MINUTES : 21|6@0+ (1,0) [0|63] "" XXX
@@ -979,6 +1030,13 @@ VAL_ 354 FAULT_ESS 0 "HIDDEN" 1 "CHECK_EMERGENCY_STOPPING_FUNCTION" 2 "EMERGENCY
 
 VAL_ 362 BLINKER_CONTROL 1 "hazards" 2 "hazards button backlight" 3 "left blinkers" 4 "right blinkers";
 VAL_ 373 ACCEnable 0 "SCC ready" 1 "SCC temp fault" 2 "SCC permanent fault" 3 "SCC permanent fault, communication issue";
+VAL_ 373 SCC_OptTyp 0 "SCC is not equipped" 1 "SCC is equipped" 2 "Not used" 3 "Error Indicator" ;
+VAL_ 373 SCC_ReqLimSta 0 "No request" 1 "Limited No Limitation" 2 "Acceleration Limited" 3 "Deceleration Limited" ;
+VAL_ 373 ESC_StdStillVal 0 "No stand still detected" 1 "stand still detected" 2 "Not used" 3 "Error Indicator" ;
+VAL_ 373 ESC_DclEnblReq 0 "Disable deceleration control" 1 "Enable deceleration control" 2 "Not used" 3 "Error Indicator" ;
+VAL_ 373 ESC_PrkBrkActvSta 0 "Parking brake is not activated" 1 "Parking brake is activated" 2 "Not used" 3 "Error Indicator" ;
+VAL_ 373 FCA_EquipSta 0 "FCA is not equipped" 1 "FCA is equipped" 2 "Not used" 3 "Error Indicator" ;
+VAL_ 373 FCA_AvlblSta 0 "Available" 1 "Temporarily not available" 2 "Permanently not available" 3 "FCA Communication Error" ;
 VAL_ 416 ACCMode 0 "off" 1 "enabled" 2 "driver_override" 3 "off_maybe_fault" 4 "cancelled" ;
 VAL_ 426 CRUISE_BUTTONS 0 "none" 1 "res_accel" 2 "set_decel" 3 "gap_distance" 4 "pause_resume" ;
 VAL_ 463 CRUISE_BUTTONS 0 "none" 1 "res_accel" 2 "set_decel" 3 "gap_distance" 4 "pause_resume" ;
@@ -994,6 +1052,16 @@ VAL_ 480 HDA_LFA_SymSta 0 "Off" 1 "Gray" 2 "Green" 3 "Green blink" ;
 VAL_ 480 HDA_LFA_WrnSnd 0 "Off " 1 "Additional Warning Sound" 2 "Reserved" 3 "Error indicator" ;
 VAL_ 480 HDA_InfoPUDis1 0 "No Pop-up" 1 "System Automatic off (LFA)" 2 "System Automatic off (HDA)" 3 "Reserved" 4 "Reserved" 5 "Reserved" 6 "Not Used" 7 "Error Indicator" ;
 VAL_ 480 HDA_TDMRMDclReq 0 "Not automatically deactivated state of LFA (default)" 1 "Automatically deactivated state of LFA" 2 "Reserved" 3 "Reserved" ;
+VAL_ 490 HDA_MODE2 1 "Lane change icon gray" 2 "lane green + lane change icon green" 3 "lane green + lane change icon green (both blinking)" 4 "lane white + lane change icon white (both blinking rapidly)" 5 "Lane Change Assist system check warning";
+VAL_ 490 LANE_LEFT 0 "IDLE" 1 "ON_SOURCE" 2 "ON_TARGET";
+VAL_ 490 LANE_RIGHT 0 "IDLE" 1 "ON_SOURCE" 2 "ON_TARGET";
+VAL_ 490 LANE_CHANGING 0 "IDLE" 1 "LEFT_CHECK" 3 "LEFT_CHANGING" 2 "RIGHT_CHECK" 4 "RIGHT_CHANGING";
+VAL_ 490 LF_DETECT 0 "none" 1 "gray" 2 "white" 3 "white" 4 "hide";
+VAL_ 490 RF_DETECT 0 "none" 1 "gray" 2 "white" 3 "white" 4 "hide";
+VAL_ 490 LR_DETECT 0 "none" 1 "gray" 2 "white" 3 "white" 4 "hide";
+VAL_ 490 RR_DETECT 0 "none" 1 "gray" 2 "white" 3 "white" 4 "hide";
+VAL_ 490 AUTOLANECHANGE_MSG 1 "Check surrounding conditions" 2 "Operating conditions not met" 3 "Analyzing driving lane" 4 "Sharp curve ahead" 5 "Current lane is too narrow" 6 "Not an operational section" 7 "Hazard lights are on" 8 "Vehicle speed is too low" 9 "Please hold the steering wheel" 10 "Not an operable lane" 11 "Steering input detected" 12 "Press the OK button to activate lane change assist";
+VAL_ 490 LANELINE_CURVATURE_DIRECTION 0 "LEFT" 1 "RIGHT";
 VAL_ 676 LEFT_LANE_LINE 0 "Not Detected" 1 "Low Confidence" 2 "Medium Confidence" 3 "High Confidence";
 VAL_ 676 RIGHT_LANE_LINE 0 "Not Detected" 1 "Low Confidence" 2 "Medium Confidence" 3 "High Confidence";
 VAL_ 736 MSLA_STATUS 0 "disabled" 1 "active" 2 "paused";

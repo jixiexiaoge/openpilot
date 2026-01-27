@@ -1,3 +1,12 @@
+Carrot2-v9 (2026-01-xx)
+========================
+* WMI model
+* Activate corner radar(HDA2)
+* fix Angle Steering(HKG car)
+* Keep blinker while LaneChange
+* Speed based TF adjustment
+* Sorento HEV 4WD(Niro HEV), Long bug fix.
+
 Carrot2-v9 (2025-12-06)
 ========================
 * DarkSouls model

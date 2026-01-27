@@ -316,9 +316,9 @@ def main(demo=False):
       vEgoStopping = params.get_float("VEgoStopping") * 0.01
       
     if custom_lat_delay > 0.0:
-      lat_delay = custom_lat_delay + lat_smooth_seconds
+      lat_delay = custom_lat_delay + lat_smooth_seconds + 0.1
     else:
-      lat_delay = sm["liveDelay"].lateralDelay + lat_smooth_seconds
+      lat_delay = sm["liveDelay"].lateralDelay + lat_smooth_seconds + 0.1
 
     # Keep receiving frames until we are at least 1 frame ahead of previous extra frame
     while meta_main.timestamp_sof < meta_extra.timestamp_sof + 25000000:

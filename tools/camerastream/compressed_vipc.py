@@ -112,8 +112,15 @@ class CompressedVipc:
     os.environ["ZMQ"] = "1"
     messaging.reset_context()
     sm = messaging.SubMaster([ENCODE_SOCKETS[s] for s in vision_streams], addr=addr)
+    print("waiting for:", [ENCODE_SOCKETS[s] for s in vision_streams])
+    print("initial recv_frame:", sm.recv_frame)
+    import time
+    t0 = time.time()
     while min(sm.recv_frame.values()) == 0:
       sm.update(100)
+      if time.time() - t0 > 1.0:
+        print("still waiting, recv_frame:", sm.recv_frame)
+        t0 = time.time()
     os.environ.pop("ZMQ")
     messaging.reset_context()
 

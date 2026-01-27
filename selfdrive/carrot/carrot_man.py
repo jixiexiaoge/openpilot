@@ -263,7 +263,7 @@ class CarrotMan:
     frame = 0
     self.save_toggle_values()
 
-    carrot_speed = CarrotSpeed(neighbor_ring=2)
+    carrot_speed = CarrotSpeed(neighbor_ring=3)
     self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
 
     rk = Ratekeeper(20, print_delay_threshold=None)
@@ -276,6 +276,7 @@ class CarrotMan:
     self.v_cruise_change = 0
     self._last_vt = 0.0
     self.gas_pressed_count = 0
+    self.brake_pressed_count = 0
     self._last_viz_t = 0.0
 
     while self.is_running:
@@ -352,6 +353,8 @@ class CarrotMan:
       CC = self.sm['carControl']
       v_ego = CS.vEgo
       a_ego = CS.aEgo
+      if CS.brakePressed:
+        self.brake_pressed_count = 200
       gas_pressed = CS.gasPressed
       v_ego_kph = v_ego * 3.6
       if gas_pressed:
@@ -380,12 +383,18 @@ class CarrotMan:
     else:
       self.v_cruise_change = 0
       return
+    
     v_cruise_apply = max(min(CS.vCruise, v_ego_kph), 20)
+    vt_last = self.params_memory.get_int("CarrotSpeed")
+    if vt_last != 0:
+      self.v_cruise_change = 0
+    self.params_memory.put_int("CarrotSpeed", 0)
 
     now = time.monotonic()
     heading = self.carrot_serv.bearing #nPosAnglePhone
     lat, lon = self.carrot_serv.vpPosPointLat, self.carrot_serv.vpPosPointLon #self.carrot_serv.estimate_position(self.carrot_serv.phone_latitude, self.carrot_serv.phone_longitude, heading, v_ego, now - self.carrot_serv.last_update_gps_time_phone)
-    vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    #vt = carrot_speed.query_target_dist(lat, lon, heading, 0.0)
+    viz_json, vt = carrot_speed.export_cells_around_with_here(lat, lon, heading, ring=4, max_points=64, lateral_m = 6.0)
     if self.v_cruise_change != 0:
       carrot_speed.add_sample(lat, lon, heading, v_cruise_apply if self.v_cruise_change > 0 else (- v_cruise_apply))
       if self.v_cruise_change > 0:
@@ -393,20 +402,22 @@ class CarrotMan:
       if self.v_cruise_change < 0:
         self.v_cruise_change += 1
     else:
-      if self.gas_pressed_count > 0:
+      if self.brake_pressed_count > 0:
+        pass
+      elif self.gas_pressed_count > 0:
         vt = max(vt, v_cruise_apply)
         carrot_speed.add_sample(lat, lon, heading, vt)
-
-      self.params_memory.put_int_nonblocking("CarrotSpeed", int(vt))
+      else:
+        self.params_memory.put_int_nonblocking("CarrotSpeed", int(vt))
 
     self._last_vt = vt
     if gas_pressed and a_ego < -0.5: #self._last_vt < 0.0:
       carrot_speed.invalidate_last_hit(window_s=2.0, action="clear")
     self.gas_pressed_count = max(0, self.gas_pressed_count - 1)
+    self.brake_pressed_count = max(0, self.brake_pressed_count - 1)
 
     if now - self._last_viz_t > 0.5: # 2Hz
         self._last_viz_t = now
-        viz_json = carrot_speed.export_cells_around(lat, lon, heading, ring=2, max_points=64)
         # 메모리 Params에 쓰는 게 좋음 (디스크 말고)
         self.params_memory.put_nonblocking("CarrotSpeedViz", viz_json)
 
@@ -522,7 +533,7 @@ class CarrotMan:
 
   def make_send_message(self):
     msg = {}
-    msg['Carrot2'] = self.params.get("Version").decode('utf-8')
+    msg['Carrot2'] = self.params.get("Version")
     isOnroad = self.params.get_bool("IsOnroad")
     msg['IsOnroad'] = isOnroad
     msg['CarrotRouteActive'] = self.navi_points_active
@@ -726,16 +737,16 @@ class CarrotMan:
     if car_selected is None:
       car_selected = "none"
     else:
-      car_selected = car_selected.decode('utf-8')
+      car_selected = car_selected
 
-    git_branch = Params().get("GitBranch").decode('utf-8')
+    git_branch = Params().get("GitBranch")
     try:
       ftp.mkd(git_branch)
     except Exception as e:
       print(f"Directory creation failed: {e}")
     ftp.cwd(git_branch)
 
-    directory = car_selected + " " + Params().get("DongleId").decode('utf-8')
+    directory = car_selected + " " + Params().get("DongleId")
     current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
     filename = tmux_why + "-" + current_time + "-" + git_branch + ".txt"
 

@@ -121,7 +121,7 @@ class CarState(CarStateBase):
     #self.lf_lateral = 0
     #self.rf_lateral = 0
 
-    fingerprints_str = Params().get("FingerPrints", encoding='utf-8')
+    fingerprints_str = Params().get("FingerPrints")
     fingerprints = ast.literal_eval(fingerprints_str)
     #print("fingerprints =", fingerprints)
     ecu_disabled = False
@@ -542,8 +542,19 @@ class CarState(CarStateBase):
         if not corner:
           ret.leftLongDist = self.adrv_info_1ea["LF_DETECT_DISTANCE"]
           ret.rightLongDist = self.adrv_info_1ea["RF_DETECT_DISTANCE"]
+          self.lr_distance = self.adrv_info_1ea["LR_DETECT_DISTANCE"]
+          self.rr_distance = self.adrv_info_1ea["RR_DETECT_DISTANCE"]
           ret.leftLatDist = self.adrv_info_1ea["LF_DETECT_LATERAL"]
           ret.rightLatDist = self.adrv_info_1ea["RF_DETECT_LATERAL"]
+          corner = True
+      if corner:
+        left_block = True if 0 < ret.leftLongDist < 7.0 or 0 < self.lr_distance < 7.0 else False
+        right_block = True if 0 < ret.rightLongDist < 7.0 or 0 < self.rr_distance < 7.0 else False
+        if left_block:
+          ret.leftBlindspot = True
+        if right_block:
+          ret.rightBlindspot = True
+        
       self.adrv_info_160 = cp_cam.vl["ADRV_0x160"] if self.ADRV_0x160 else None
 
       self.hda_info_4a3 = cp.vl["HDA_INFO_4A3"] if self.HDA_INFO_4A3 else None

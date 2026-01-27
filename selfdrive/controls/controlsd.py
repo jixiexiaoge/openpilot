@@ -151,21 +151,20 @@ class Controls:
     if steer_actuator_delay == 0.0:
       steer_actuator_delay = self.sm['liveDelay'].lateralDelay 
     
+    def smooth_value(val, prev_val, tau):
+      alpha = 1 - np.exp(-DT_CTRL / tau) if tau > 0 else 1
+      return alpha * val + (1 - alpha) * prev_val
+
     if not CC.latActive:
       new_desired_curvature = self.curvature
     elif self.lanefull_mode_enabled:
       if len(lat_plan.curvatures) == 0:
         new_desired_curvature = self.curvature
       else:
-        def smooth_value(val, prev_val, tau):
-          alpha = 1 - np.exp(-DT_CTRL / tau) if tau > 0 else 1
-          return alpha * val + (1 - alpha) * prev_val
-
         curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay + lat_smooth_seconds, lat_plan.distances)
-
         new_desired_curvature = smooth_value(curvature, self.desired_curvature, lat_smooth_seconds)
-    else:
-      new_desired_curvature = model_v2.action.desiredCurvature
+    else:      
+      new_desired_curvature = smooth_value(model_v2.action.desiredCurvature, self.desired_curvature, 0.1)
 
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
 
@@ -187,41 +186,6 @@ class Controls:
         setattr(actuators, p, 0.0)
 
     return CC, lac_log
-
-
-  def _update_side(self, side: str, leads2, road_edge, bsd_state, hudControl):
-      def ema(prev, curr, a=0.02):
-        return curr if prev is None else prev * (1 - a) + curr * a
-
-      def set_hud(side_cap, name, val):
-        setattr(hudControl, f"lead{side_cap}{name}", float(val if val is not None else 0.0))
-        
-      st = self.side_state[side]
-      if road_edge <= 2.0 or not leads2:
-        st["main"] = {"dRel": None, "lat": None}
-        st["sub"]  = {"dRel": None, "lat": None}
-        if not bsd_state:
-          return
-
-      lead_main = leads2[0] if len(leads2) > 0 else None
-      side_cap = side.capitalize()
-
-      if bsd_state:
-        set_hud(side_cap, "Dist2", 1)
-        set_hud(side_cap, "Lat2",  3.2)
-      # 첫 번째가 10m 이내라면 sub 업데이트 + 두 번째를 main으로
-      elif len(leads2) > 1 and lead_main.dRel < 10:
-        st["sub"]["dRel"] = ema(st["sub"]["dRel"], lead_main.dRel)
-        st["sub"]["lat"]  = ema(st["sub"]["lat"],  abs(lead_main.dPath))
-        set_hud(side_cap, "Dist2", st["sub"]["dRel"])
-        set_hud(side_cap, "Lat2",  st["sub"]["lat"])
-        lead_main = leads2[1]
-
-      if len(leads2) > 0:
-        st["main"]["dRel"] = ema(st["main"]["dRel"], lead_main.dRel)
-        st["main"]["lat"]  = ema(st["main"]["lat"],  abs(lead_main.dPath))
-        set_hud(side_cap, "Dist", st["main"]["dRel"])
-        set_hud(side_cap, "Lat",  st["main"]["lat"])
 
   def publish(self, CC, lac_log):
     CS = self.sm['carState']
@@ -282,10 +246,26 @@ class Controls:
     hudControl.leadDPath = leadOne.dPath
 
     meta = self.sm['modelV2'].meta
-    hudControl.modelDesire = 1 if meta.desire == log.Desire.turnLeft else 2 if meta.desire == log.Desire.turnRight else 0
-
-    self._update_side("left",  radarState.leadsLeft2,  meta.distanceToRoadEdgeLeft,  CS.leftBlindspot, hudControl)
-    self._update_side("right", radarState.leadsRight2, meta.distanceToRoadEdgeRight, CS.rightBlindspot, hudControl)
+    if False: # command
+      desire_map = {
+        log.Desire.turnLeft: 1,
+        log.Desire.turnRight: 2,
+        log.Desire.laneChangeLeft: 3,
+        log.Desire.laneChangeRight: 4,
+      }
+      hudControl.modelDesire = desire_map.get(meta.desire, 0)
+    else: # model.
+      hud_desire = 0
+      if len(meta.desireState) > 4:
+        if meta.desireState[1] > 0.1:
+          hud_desire = 1   # turnLeft
+        elif meta.desireState[2] > 0.1:
+          hud_desire = 2   # turnRight
+        elif meta.desireState[3] > 0.1:
+          hud_desire = 3   # laneChangeLeft
+        elif meta.desireState[4] > 0.1:
+          hud_desire = 4   # laneChangeRight
+      hudControl.modelDesire = hud_desire
 
     hudControl.rightLaneVisible = True
     hudControl.leftLaneVisible = True

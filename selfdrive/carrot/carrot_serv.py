@@ -219,12 +219,12 @@ class CarrotServ:
 
     # 读取语言设置：优先使用 LanguageSetting，与 UI 保持一致；回退读取可能存在的 "lang"
     try:
-      lang_val = self.params.get('LanguageSetting', encoding='utf8') or self.params.get('lang', encoding='utf8')
+      lang_val = self.params.get('LanguageSetting') or self.params.get('lang')
     except Exception:
       lang_val = None
     if isinstance(lang_val, bytes):
       try:
-        lang_val = lang_val.decode('utf8')
+        lang_val = lang_val
       except Exception:
         lang_val = None
     if lang_val == "main_ko":
@@ -659,15 +659,15 @@ class CarrotServ:
     gps_updated_navi = (now - self.last_update_gps_time_navi) < 3
 
     bearing = self.nPosAngle
-    if gps_updated_phone:
-      self.bearing_offset = 0.0
+    if gps_updated_navi:
+      bearing = self.nPosAngle
+    elif gps_updated_phone:
+      bearing = self.nPosAnglePhone
     elif self.gps_valid:
       bearing = self.nPosAngle = gps.bearingDeg
-      if self.gps_valid:
-        self.bearing_offset = 0.0
-      elif self.active_carrot > 0:
-        bearing = self.nPosAnglePhone
-        self.bearing_offset = 0.0
+
+    self.bearing_offset = 0.0
+    # TODO:  여기서 bearing 보정로직 추가 필요함. CC.orientationNED[2]를 이용하여.
 
     #print(f"bearing = {bearing:.1f}, posA=={self.nPosAngle:.1f}, posP=={self.nPosAnglePhone:.1f}, offset={self.bearing_offset:.1f}, {gps_updated_phone}, {gps_updated_navi}")
     gpsDelayTimeAdjust = 0.0
@@ -676,7 +676,7 @@ class CarrotServ:
 
     external_gps_update_timedout = not (gps_updated_phone or gps_updated_navi)
     #print(f"gps_valid = {self.gps_valid}, bearing = {bearing:.1f}, pos = {location.positionGeodetic.value[0]:.6f}, {location.positionGeodetic.value[1]:.6f}")
-    if self.gps_valid and external_gps_update_timedout:    # 내부GPS가 자동하고 carrotman으로부터 gps신호가 없는경우
+    if self.gps_valid and external_gps_update_timedout:    # 내부GPS가 작동하고 carrotman으로부터 gps신호가 없는경우
       self.vpPosPointLatNavi = gps.latitude
       self.vpPosPointLonNavi = gps.longitude
       self.last_calculate_gps_time = now #sm.recv_time[llk]

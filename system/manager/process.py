@@ -197,7 +197,6 @@ class NativeProcess(ManagerProcess):
     self.watchdog_seen = False
     self.shutting_down = False
 
-
 class PythonProcess(ManagerProcess):
   def __init__(self, name, module, should_run, enabled=True, sigkill=False, watchdog_max_dt=None):
     self.name = name
@@ -256,7 +255,7 @@ class DaemonProcess(ManagerProcess):
     if self.params is None:
       self.params = Params()
 
-    pid = self.params.get(self.param_name, encoding='utf-8')
+    pid = self.params.get(self.param_name)
     if pid is not None:
       try:
         os.kill(int(pid), 0)
@@ -275,7 +274,7 @@ class DaemonProcess(ManagerProcess):
                                stderr=open('/dev/null', 'w'),
                                preexec_fn=os.setpgrp)
 
-    self.params.put(self.param_name, str(proc.pid))
+    self.params.put(self.param_name, proc.pid)
 
   def stop(self, retry=True, block=True, sig=None) -> None:
     pass

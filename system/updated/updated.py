@@ -61,10 +61,10 @@ class WaitTimeHelper:
 
 def write_time_to_param(params, param) -> None:
   t = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
-  params.put(param, t.isoformat().encode('utf8'))
+  params.put(param, t)
 
 def read_time_from_param(params, param) -> datetime.datetime | None:
-  t = params.get(param, encoding='utf8')
+  t = params.get(param)
   try:
     return datetime.datetime.fromisoformat(t)
   except (TypeError, ValueError):
@@ -242,7 +242,7 @@ class Updater:
 
   @property
   def target_branch(self) -> str:
-    b: str | None = self.params.get("UpdaterTargetBranch", encoding='utf-8')
+    b: str | None = self.params.get("UpdaterTargetBranch")
     if b is None:
       b = self.get_branch(BASEDIR)
     return b
@@ -272,7 +272,7 @@ class Updater:
     return run(["git", "rev-parse", "HEAD"], path).rstrip()
 
   def set_params(self, update_success: bool, failed_count: int, exception: str | None) -> None:
-    self.params.put("UpdateFailedCount", str(failed_count))
+    self.params.put("UpdateFailedCount", failed_count)
     self.params.put("UpdaterTargetBranch", self.target_branch)
 
     self.params.put_bool("UpdaterFetchAvailable", self.update_available)
@@ -429,8 +429,8 @@ def main() -> None:
       cloudlog.event("update installed")
 
     if not params.get("InstallDate"):
-      t = datetime.datetime.now(datetime.UTC).replace(tzinfo=None).isoformat()
-      params.put("InstallDate", t.encode('utf8'))
+      t = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+      params.put("InstallDate", t)
 
     updater = Updater()
     update_failed_count = 0 # TODO: Load from param?

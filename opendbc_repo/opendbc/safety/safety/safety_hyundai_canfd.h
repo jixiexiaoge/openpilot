@@ -84,6 +84,9 @@ const CanMsg HYUNDAI_CANFD_HDA2_LONG_TX_MSGS[] = {
   {506, 2, 32}, // CLUSTER_SPEED_LIMIT
   {234, 2, 24}, // MDPS
   {687, 2, 8}, // STEER_TOUCH_2AF
+
+  {0x4BE, 2, 8}, // NEW_MSG_4BE (may be corner radar enabler x)
+  {0x4B9, 2, 8}, // NEW_MSG_4B9 (may be corner radar enabler)
 };
 
 const CanMsg HYUNDAI_CANFD_HDA1_TX_MSGS[] = {
@@ -442,6 +445,7 @@ static int hyundai_canfd_fwd_hook(int bus_num, int addr) {
             break;
         }
     }
+    if(addr == 0x4b9) bus_fwd = -1; // maybe corner rara disabler.
   }
   if (bus_num == 1) {
       int i;

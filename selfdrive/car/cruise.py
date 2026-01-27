@@ -442,7 +442,11 @@ class VCruiseCarrot:
     return button_kph, button_type, self.long_pressed
 
   def _carrot_command(self, v_cruise_kph, button_type, long_pressed):
-    carrot_speed = self.params_memory.get_int("CarrotSpeed")
+    if button_type != 0:
+      self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
+      carrot_speed = 0
+    else:
+      carrot_speed = self.params_memory.get_int("CarrotSpeed")
     if carrot_speed != 0:
       if carrot_speed > 0:
         if self.smartSpeedControl in [1,3]:
@@ -454,7 +458,7 @@ class VCruiseCarrot:
         #  v_cruise_kph = max(-carrot_speed, v_cruise_kph)
         elif self.smartSpeedControl == 2:
           v_cruise_kph = min(-carrot_speed, v_cruise_kph)
-      self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
+      #self.params_memory.put_int_nonblocking("CarrotSpeed", 0)
       self._add_log(f"Carrot speed set to {v_cruise_kph}")
     if self.carrot_cmd_index_last != self.carrot_cmd_index:
       self.carrot_cmd_index_last = self.carrot_cmd_index
@@ -598,9 +602,12 @@ class VCruiseCarrot:
         self._add_log("Lateral " + "enabled" if self._lat_enabled else "disabled")
 
     if self._paddle_mode > 0 and button_type in [ButtonType.paddleLeft, ButtonType.paddleRight]:  # paddle button
-      self._cruise_control(-2, -1, "Cruise off & Ready (paddle)")
-      if self._paddle_mode == 2:
-        self._paddle_decel_active = True
+      if self._paddle_mode == 3:
+        self.carrot_cruise_active = True
+      else:
+        self._cruise_control(-2, -1, "Cruise off & Ready (paddle)")
+        if self._paddle_mode == 2:
+          self._paddle_decel_active = True
     elif self._paddle_decel_active:
       if not CC.enabled:
         self._cruise_control(1, -1, "Cruise on (paddle decel)")
@@ -726,10 +733,10 @@ class VCruiseCarrot:
       elif self.v_ego_kph_set < 30:
         self._cruise_control(-1, 0, "Cruise off (gas speed)")
       elif self.xState == 3:
-        v_cruise_kph = self.v_ego_kph_set
+        v_cruise_kph = min(self.v_ego_kph_set, v_cruise_kph)
         self._cruise_control(-1, 3, "Cruise off (traffic sign)")
       elif self.v_ego_kph_set >= self.autoGasTokSpeed and not CC.enabled:
-        v_cruise_kph = self.v_ego_kph_set
+        v_cruise_kph = min(self.v_ego_kph_set, v_cruise_kph)
         self._cruise_control(1, -1 if self.aTarget > 0.0 else 0, "Cruise on (gas pressed)")
     elif self._brake_pressed_count == -1 and self._soft_hold_active == 0:
       if self.v_ego_kph_set > self.autoGasTokSpeed:
