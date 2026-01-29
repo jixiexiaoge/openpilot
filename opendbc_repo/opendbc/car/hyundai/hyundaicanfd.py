@@ -440,6 +440,8 @@ def create_tcs_messages(packer, CAN, CS):
   if CS.tcs_info_373 is not None:
     values = copy.copy(CS.tcs_info_373)
     values["DriverBraking"] = 0
+    values["NEW_SIGNAL_20"] = 0
+    values["NEW_SIGNAL_11"] = 0
     values["DriverBrakingLowSens"] = 0
     #values["NEW_SIGNAL_1"] = 0 # accel과 관련..  옆두부 꺼지는것과 관련? 확인필요
     #values["ACC_REQ"] = 1 # 옆두부 꺼지는것과 관련? 확인필요.. 항상 켜지게함..
