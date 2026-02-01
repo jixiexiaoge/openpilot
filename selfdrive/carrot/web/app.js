@@ -743,6 +743,10 @@ bindOnce("btnRestoreSettings", async () => {
 
 async function loadBranchesAndShow() {
   showPage("branch", true);
+  if (!branchMeta || !branchList) {
+    alert("Branch DOM missing (branchMeta / branchList)");
+    return;
+  }
   branchMeta.textContent = "loading...";
   branchList.innerHTML = "";
   BRANCHES = [];
