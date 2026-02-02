@@ -236,11 +236,14 @@
       <!-- Server State (기존 유지) -->
       <div class="card" style="margin:12px 0 0 0;">
         <h4 style="margin:0 0 8px 0;">WebRTC</h4>
-        <div class="muted" id="rtcStatus">connecting...</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div class="muted" id="rtcStatus">connecting...</div>
+          <button id="btnRtcFs" class="smallBtn">Full</button>
+        </div>
         <div style="height:8px;"></div>
 
         <!-- wrapper 추가 (relative) -->
-        <div style="position:relative;">
+        <div id="rtcWrap" style="position:relative;">
           <video id="rtcVideo"
                  class="rtcVideo"
                  autoplay playsinline muted style="display:none;">
