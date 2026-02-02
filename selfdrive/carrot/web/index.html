@@ -198,6 +198,25 @@
         padding: 10px 12px;
       }
     }
+
+    .rtcVideo {
+      width: 100%;
+      border-radius: 14px;
+      background: #000;
+      display: none;
+      object-fit: contain;
+      /* 세로모드 기본: 너무 작게 안 만들고 싶으면 제한 안 둬도 됨 */
+    }
+
+    @media (orientation: landscape) {
+      .rtcVideo {
+        max-height: 40vh; /* 35~50vh 사이에서 취향 */
+        width: auto; /* 가로모드에서 “폭 100%” 강제 안 함 */
+        max-width: 100%;
+        margin: 0 auto;
+        display: none; /* JS가 display 토글하니 유지 */
+      }
+    }
   </style>
 </head>
 
@@ -223,10 +242,8 @@
         <!-- wrapper 추가 (relative) -->
         <div style="position:relative;">
           <video id="rtcVideo"
-                 autoplay
-                 playsinline
-                 muted
-                 style="width:100%; border-radius:14px; background:#000; display:none;">
+                 class="rtcVideo"
+                 autoplay playsinline muted>
           </video>
 
           <div id="speedOverlay"
@@ -333,85 +350,85 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- TOOLS -->
-  <div id="pageTools" class="card" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <h3 style="margin:0 0 8px 0;">Tools</h3>
-      <button id="btnToolsBack" class="btn">Back</button>
-    </div>
-
-    <div class="muted" id="toolsMeta">-</div>
-    <div style="height:10px;"></div>
-
-    <!-- Git / Update -->
-    <div class="card" style="margin:0 0 12px 0;">
-      <h4 style="margin:0 0 10px 0;">Git Commands</h4>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="btnGitPull" class="btn">git pull</button>
-        <button id="btnGitSync" class="btn">git sync</button>
-        <button id="btnGitReset" class="btn">git reset</button>
-        <button id="btnGitBranch" class="btn">change branch</button>
+    <!-- TOOLS -->
+    <div id="pageTools" class="card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 style="margin:0 0 8px 0;">Tools</h3>
+        <button id="btnToolsBack" class="btn">Back</button>
       </div>
 
-      <div class="muted" style="margin-top:10px;">
-        * reset/branch는 위험할 수 있으니 confirm 뜹니다.
-      </div>
-    </div>
+      <div class="muted" id="toolsMeta">-</div>
+      <div style="height:10px;"></div>
 
-    <!-- System / User -->
-    <div class="card" style="margin:0;">
-      <h4 style="margin:0 0 10px 0;">User / System</h4>
+      <!-- Git / Update -->
+      <div class="card" style="margin:0 0 12px 0;">
+        <h4 style="margin:0 0 10px 0;">Git Commands</h4>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button id="btnSendTmuxLog" class="btn">tmux log</button>
-        <button id="btnDeleteVideos" class="btn">delete all videos</button>
-        <button id="btnDeleteLogs" class="btn">delete all logs</button>
-        <button id="btnReboot" class="btn">reboot</button>
-      </div>
-
-      <div class="muted" style="margin-top:10px;">
-        * delete/reboot는 confirm 후 실행합니다.
-      </div>
-
-      <!-- Backup / Restore -->
-      <div class="card">
-        <div class="backupRow">
-          <button id="btnBackupSettings" class="btn">backup settings</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnGitPull" class="btn">git pull</button>
+          <button id="btnGitSync" class="btn">git sync</button>
+          <button id="btnGitReset" class="btn">git reset</button>
+          <button id="btnGitBranch" class="btn">change branch</button>
         </div>
 
-        <div class="restoreRow">
-          <input id="restoreFile" type="file" accept="application/json" />
-          <button id="btnRestoreSettings" class="btn">restore settings</button>
-        </div>
-
-        <div class="muted">
-          * restore 후 reboot 권장
+        <div class="muted" style="margin-top:10px;">
+          * reset/branch는 위험할 수 있으니 confirm 뜹니다.
         </div>
       </div>
 
-      <div style="height:12px;"></div>
-
-      <!-- output -->
+      <!-- System / User -->
       <div class="card" style="margin:0;">
-        <h4 style="margin:0 0 8px 0;">Output</h4>
-        <pre id="toolsOut" class="pill" style="display:block; padding:10px; border-radius:14px; min-height:120px;">-</pre>
+        <h4 style="margin:0 0 10px 0;">User / System</h4>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="btnSendTmuxLog" class="btn">tmux log</button>
+          <button id="btnDeleteVideos" class="btn">delete all videos</button>
+          <button id="btnDeleteLogs" class="btn">delete all logs</button>
+          <button id="btnReboot" class="btn">reboot</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px;">
+          * delete/reboot는 confirm 후 실행합니다.
+        </div>
+
+        <!-- Backup / Restore -->
+        <div class="card">
+          <div class="backupRow">
+            <button id="btnBackupSettings" class="btn">backup settings</button>
+          </div>
+
+          <div class="restoreRow">
+            <input id="restoreFile" type="file" accept="application/json" />
+            <button id="btnRestoreSettings" class="btn">restore settings</button>
+          </div>
+
+          <div class="muted">
+            * restore 후 reboot 권장
+          </div>
+        </div>
+
+        <div style="height:12px;"></div>
+
+        <!-- output -->
+        <div class="card" style="margin:0;">
+          <h4 style="margin:0 0 8px 0;">Output</h4>
+          <pre id="toolsOut" class="pill" style="display:block; padding:10px; border-radius:14px; min-height:120px;">-</pre>
+        </div>
       </div>
     </div>
-  </div>
-  <!-- BRANCH SELECT -->
-  <div id="pageBranch" class="card" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <h3 id="branchTitle" style="margin:0 0 8px 0; cursor:pointer;">Branch Select</h3>
-      <button id="btnBackBranch" class="btn">Back</button>
+    <!-- BRANCH SELECT -->
+    <div id="pageBranch" class="card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <h3 id="branchTitle" style="margin:0 0 8px 0; cursor:pointer;">Branch Select</h3>
+        <button id="btnBackBranch" class="btn">Back</button>
+      </div>
+
+      <div class="muted" id="branchMeta">-</div>
+      <div style="height:10px;"></div>
+
+      <div id="branchList"></div>
     </div>
-
-    <div class="muted" id="branchMeta">-</div>
-    <div style="height:10px;"></div>
-
-    <div id="branchList"></div>
   </div>
 
   <script src="/app.js"></script>
