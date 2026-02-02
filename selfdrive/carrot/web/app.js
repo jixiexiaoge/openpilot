@@ -993,6 +993,52 @@ function rtcInitAuto() {
     if (!document.hidden) rtcConnectOnce().catch(() => {});
   });
 }
+const btnRtcFs = document.getElementById("btnRtcFs");
+const rtcVideoEl = document.getElementById("rtcVideo");
+const rtcWrap = document.getElementById("rtcWrap");
+
+// 유저 제스처에서만 호출되도록: 버튼 클릭 / 비디오 탭 이벤트에서만 실행
+async function rtcToggleFullscreen() {
+  const target = rtcWrap || rtcVideoEl;
+
+  // 이미 풀스크린이면 종료
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fsEl) {
+    if (document.exitFullscreen) await document.exitFullscreen().catch(()=>{});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    return;
+  }
+
+  // 1) 표준 Fullscreen API (대부분의 크롬/안드/데스크탑)
+  if (target.requestFullscreen) {
+    await target.requestFullscreen().catch(()=>{});
+    return;
+  }
+
+  // 2) Safari (일부는 webkitRequestFullscreen)
+  if (target.webkitRequestFullscreen) {
+    target.webkitRequestFullscreen();
+    return;
+  }
+
+  // 3) iOS Safari: video 전용 전체화면 (가장 잘 먹힘)
+  //    (주의: iOS는 inline 재생/정책 때문에 이 방법이 더 안정적)
+  if (target.webkitEnterFullscreen) {
+    target.webkitEnterFullscreen();
+    return;
+  }
+
+  alert("Fullscreen not supported on this browser.");
+}
+
+// 버튼
+if (btnRtcFs) btnRtcFs.onclick = rtcToggleFullscreen;
+
+// 비디오 탭(원하면)
+if (rtcVideoEl) {
+  rtcVideoEl.style.cursor = "pointer";
+  rtcVideoEl.addEventListener("click", rtcToggleFullscreen);
+}
 
 let CAR_WS = null;
 let CAR_WS_RETRY_T = null;
