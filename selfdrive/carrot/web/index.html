@@ -214,7 +214,7 @@
         width: auto; /* 가로모드에서 “폭 100%” 강제 안 함 */
         max-width: 100%;
         margin: 0 auto;
-        display: none; /* JS가 display 토글하니 유지 */
+        display: block;
       }
     }
   </style>
@@ -243,7 +243,7 @@
         <div style="position:relative;">
           <video id="rtcVideo"
                  class="rtcVideo"
-                 autoplay playsinline muted>
+                 autoplay playsinline muted style="display:none;">
           </video>
 
           <div id="speedOverlay"
