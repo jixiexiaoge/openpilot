@@ -1005,6 +1005,18 @@ function carWsScheduleReconnect(ms = 1000) {
   }, ms);
 }
 
+function speedOverlaySet(kmh) {
+  const el = document.getElementById("speedOverlay");
+  if (!el) return;
+  el.textContent = `${kmh.toFixed(0)} km/h`;
+}
+
+function speedOverlayShow(on) {
+  const el = document.getElementById("speedOverlay");
+  if (!el) return;
+  el.style.display = on ? "" : "none";
+}
+
 function carWsConnect() {
   // 이미 살아있으면 패스
   if (CAR_WS && (CAR_WS.readyState === WebSocket.OPEN || CAR_WS.readyState === WebSocket.CONNECTING)) return;
