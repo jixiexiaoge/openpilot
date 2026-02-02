@@ -899,7 +899,7 @@ async function rtcConnectOnce() {
       }
 
       v.srcObject = stream;
-      v.style.display = "";
+      v.style.display = "block";
       try { await v.play(); } catch(e) { console.log("[RTC] play() failed", e); }
       rtcStatusSet("track: " + ev.track.kind);
       rtcDisarmTrackTimeout();
