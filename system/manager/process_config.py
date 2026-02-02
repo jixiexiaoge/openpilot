@@ -79,7 +79,7 @@ def enable_xiaoge_data(started, params, CP: car.CarParams) -> bool:
   return params.get_bool("ShareData")
 
 def enable_webrtc(started, params, CP: car.CarParams) -> bool:
-  return False
+  return True
 
 def c3x_lite(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and params.get_bool("HardwareC3xLite")
