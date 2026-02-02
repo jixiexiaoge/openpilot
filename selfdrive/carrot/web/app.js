@@ -821,6 +821,8 @@ async function rtcDisconnect() {
   RTC_PC = null;
   const v = document.getElementById("rtcVideo");
   if (v) { v.srcObject = null; v.style.display = "none"; }
+  const rtcCard = document.getElementById("rtcCard");
+  rtcCard.style.display = "none";
 
   speedOverlayShow(false);
   await carWsDisconnect();
@@ -890,6 +892,7 @@ async function rtcConnectOnce() {
     pc.addTransceiver("video", { direction: "recvonly" });
 
     pc.ontrack = async (ev) => {
+      const rtcCard = document.getElementById("rtcCard");
       const v = document.getElementById("rtcVideo");
       if (!v) return;
 
@@ -900,6 +903,7 @@ async function rtcConnectOnce() {
 
       v.srcObject = stream;
       v.style.display = "block";
+      rtcCard.style.display = "block";
       try { await v.play(); } catch(e) { console.log("[RTC] play() failed", e); }
       rtcStatusSet("track: " + ev.track.kind);
       rtcDisarmTrackTimeout();
