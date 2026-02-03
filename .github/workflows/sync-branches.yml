@@ -24,34 +24,28 @@ jobs:
           # ajouatom branches
           git remote add ajouatom https://github.com/ajouatom/openpilot.git
           git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom carrot2-v9 fetch failed"
+          git fetch ajouatom o-cd210 --no-tags || echo "⚠️ ajouatom o-cd210 fetch failed"
+          git fetch ajouatom o-wmi --no-tags || echo "⚠️ ajouatom o-wmi fetch failed"
 
           # yysnet (Gitee)
           #git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
           #git fetch yysnet carrot2-v9 --no-tags || echo "⚠️ yysnet carrot2-v9 fetch failed"
 
-          # commaai official release
-          git remote add commaai https://github.com/commaai/openpilot.git
-          git fetch commaai release-tizi --no-tags || echo "⚠️ commaai release-tizi fetch failed"
-
-          # dragonpilot official
-          git remote add dragonpilot-official https://github.com/dragonpilot/dragonpilot.git
-          git fetch dragonpilot-official 0.10.3-ody --no-tags || echo "⚠️ dragonpilot 0.10.3-ody fetch failed"
-
       - name: Push branches to your repository
         run: |
           set +e
 
-          # ajouatom
+          # ajouatom carrot2-v9
           git checkout -B carrot2-v9 ajouatom/carrot2-v9 \
             && git push origin carrot2-v9 --force \
             || echo "⚠️ carrot2-v9 push skipped"
             
-          # commaai release-tizi
-          git checkout -B release-tizi commaai/release-tizi \
-            && git push origin release-tizi --force \
-            || echo "⚠️ release-tizi push skipped"
+          # ajouatom o-cd210
+          git checkout -B o-cd210 ajouatom/o-cd210 \
+            && git push origin o-cd210 --force \
+            || echo "⚠️ o-cd210 push skipped"
 
-          # dragonpilot 0.10.3-ody
-          git checkout -B dragonpilot-0.10.3-ody dragonpilot-official/0.10.3-ody \
-            && git push origin dragonpilot-0.10.3-ody --force \
-            || echo "⚠️ dragonpilot-0.10.3-ody push skipped"
+          # ajouatom o-wmi
+          git checkout -B o-wmi ajouatom/o-wmi \
+            && git push origin o-wmi --force \
+            || echo "⚠️ o-wmi push skipped"
