@@ -280,8 +280,8 @@ async def handle_cors_preflight(request):
     return await request.app['handler'](request)
 
 def webrtcd_thread(host: str, port: int, debug: bool):
-  #logging.basicConfig(level=logging.CRITICAL, handlers=[logging.StreamHandler()])
-  logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()])
+  logging.basicConfig(level=logging.CRITICAL, handlers=[logging.StreamHandler()])
+  #logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()])
   logging_level = logging.DEBUG if debug else logging.INFO
   logging.getLogger("WebRTCStream").setLevel(logging_level)
   logging.getLogger("webrtcd").setLevel(logging_level)
