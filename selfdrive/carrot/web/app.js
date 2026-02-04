@@ -77,6 +77,7 @@ function showPage(page, pushHistory = false) {
 
   if (page === "home") {
     loadCurrentCar().catch(() => {});
+    updateQuickLink().catch(() => {});
   }
 
   if (page === "setting") {
@@ -1137,7 +1138,7 @@ async function updateQuickLink() {
 function startAll() {
   showPage("home", false);
   rtcInitAuto();
-  updateQuickLink()
+  updateQuickLink().catch(() => {});
 
   setInterval(() => {
     const v = document.getElementById("rtcVideo");
