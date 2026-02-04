@@ -69,8 +69,9 @@ async def log_mw(request, handler):
     resp = await handler(request)
     return resp
   finally:
-    dt = (time.time() - t0) * 1000
-    print(f"[REQ] {ip} {request.method} {request.path_qs} {dt:.1f}ms UA={ua[:80]}")
+    #dt = (time.time() - t0) * 1000
+    #print(f"[REQ] {ip} {request.method} {request.path_qs} {dt:.1f}ms UA={ua[:80]}")
+    pass
 
 
 WEBRTCD_URL = "http://127.0.0.1:5001/stream"
