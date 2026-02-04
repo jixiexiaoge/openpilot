@@ -15,6 +15,8 @@ from ftplib import FTP
 from cereal import log
 import urllib.request
 import urllib.error
+import ssl
+
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.params import Params
@@ -291,7 +293,8 @@ class CarrotMan:
       )
 
       try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        ctx = ssl._create_unverified_context()
+        with urllib.request.urlopen(req, timeout=timeout_s, context=ctx) as resp:
           body = resp.read().decode("utf-8", errors="replace")
           # 서버가 {"ok":true} 같은 JSON을 주는 경우가 많음
           return (200 <= resp.status < 300), body
