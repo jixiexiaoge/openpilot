@@ -205,11 +205,20 @@ class CarrotPlanner:
                                   [self.tFollowGap1, self.tFollowGap2, self.tFollowGap3, self.tFollowGap4]))
 
       self.jerk_factor = float(np.interp(v_kph, bp, [1.0, 0.7, 0.5, 0.5]))
+      """
       personality = int(np.clip(np.digitize(v_kph, bp[1:], right=False), 0, 3))
-
       if self.params_count % 100 == 0:
         self.params.put_int_nonblocking("LongitudinalPersonality", personality)
         self.personality = personality
+      """
+      if personality == log.LongitudinalPersonality.moreRelaxed:
+        tf_target *= 1.0
+      elif personality == log.LongitudinalPersonality.relaxed:
+        tf_target *= 1.1
+      elif personality == log.LongitudinalPersonality.standard:
+        tf_target *= 1.2
+      elif personality == log.LongitudinalPersonality.aggressive:
+        tf_target *= 1.3
 
     else:
       tf_target = 1.0
