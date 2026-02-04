@@ -1109,25 +1109,28 @@ async function carWsDisconnect() {
 }
 
 async function updateQuickLink() {
-  if (!quickLink) return;
+  const el = document.getElementById("quickLink");
+  if (!el) return;
 
   try {
+    // Params에서 GithubUsername 읽기 (네 코드에 bulkGet이 이미 있음)
     const v = await bulkGet(["GithubUsername"]);
     const githubId = (v["GithubUsername"] || "").trim();
+
     if (!githubId) {
-      quickLink.style.display = "none";
+      el.style.display = "none";
       return;
     }
 
-    const url = "https://shind0.synology.me/carrot/go/?id=" + encodeURIComponent(githubId);
-    quickLink.href = url;
-    quickLink.style.display = "";
-    // 원하면 버튼 텍스트도 표시:
-    // quickLink.textContent = "Open: " + githubId;
+    const url = `https://shind0.synology.me/carrot/go/?id=${encodeURIComponent(githubId)}`;
+    el.href = url;
+    el.textContent = url;      //  화면에 URL 자체 표시
+    el.style.display = "";
   } catch (e) {
-    quickLink.style.display = "none";
+    el.style.display = "none";
   }
 }
+
 
 
 
