@@ -355,7 +355,7 @@ class CarrotMan:
         if carrot_speed_active_count > 0:
           self.carrot_speed_serv(carrot_speed, frame)
 
-        if frame % 20 * 30 == 0:
+        if frame % (20 * 30) == 0:
           ok, msg = self.register_my_ip()
           print(f"[heartbeat] ok: {ok}, msg: {msg}")
         if frame % 20 == 0 or remote_addr is not None:
