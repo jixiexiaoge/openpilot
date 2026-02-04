@@ -1137,7 +1137,7 @@ async function updateQuickLink() {
 function startAll() {
   showPage("home", false);
   rtcInitAuto();
-  updateQuickLink().catch(()=>{});
+  updateQuickLink()
 
   setInterval(() => {
     const v = document.getElementById("rtcVideo");
