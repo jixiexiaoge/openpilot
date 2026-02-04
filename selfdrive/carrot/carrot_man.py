@@ -282,6 +282,7 @@ class CarrotMan:
       #  payload.update(extra)
 
       data = json.dumps(payload).encode("utf-8")
+      print(data)
       req = urllib.request.Request(
         url=url,
         data=data,
@@ -352,7 +353,8 @@ class CarrotMan:
           self.carrot_speed_serv(carrot_speed, frame)
 
         if frame % 20 * 30 == 0:
-          self.register_my_ip()
+          ok, msg = self.register_my_ip()
+          print(f"[heartbeat] ok: {ok}, msg: {msg}")
         if frame % 20 == 0 or remote_addr is not None:
           try:
             self.broadcast_ip = self.get_broadcast_address() if remote_addr is None else remote_addr[0]
