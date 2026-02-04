@@ -1114,23 +1114,25 @@ async function updateQuickLink() {
   if (!el) return;
 
   try {
-    // Params에서 GithubUsername 읽기 (네 코드에 bulkGet이 이미 있음)
     const v = await bulkGet(["GithubUsername"]);
     const githubId = (v["GithubUsername"] || "").trim();
 
     if (!githubId) {
       el.style.display = "none";
+      console.log("[QuickLink] no github id:");
       return;
     }
 
     const url = `https://shind0.synology.me/carrot/go/?id=${encodeURIComponent(githubId)}`;
     el.href = url;
-    el.textContent = url;      //  화면에 URL 자체 표시
+    el.textContent = url;
     el.style.display = "";
   } catch (e) {
+    console.log("[QuickLink] failed:", e);
     el.style.display = "none";
   }
 }
+
 
 
 
