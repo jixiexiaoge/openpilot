@@ -1118,8 +1118,8 @@ async function updateQuickLink() {
     const githubId = (v["GithubUsername"] || "").trim();
 
     if (!githubId) {
-      el.style.display = "none";
-      console.log("[QuickLink] no github id:");
+      el.style.display = "";
+      el.textContent = "GithubUsername empty (bulkGet ok)";
       return;
     }
 
@@ -1128,10 +1128,13 @@ async function updateQuickLink() {
     el.textContent = url;
     el.style.display = "";
   } catch (e) {
+    el.style.display = "";
+    el.removeAttribute("href");
+    el.textContent = "QuickLink error: " + (e?.message || e);
     console.log("[QuickLink] failed:", e);
-    el.style.display = "none";
   }
 }
+
 
 
 
