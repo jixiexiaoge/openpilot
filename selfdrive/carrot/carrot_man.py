@@ -262,12 +262,13 @@ class CarrotMan:
     try:
       token = "12345678"
       local_ip = self.get_local_ip()
-      version = self.param.get("Version")
+      version = self.params.get("Version")
       github_id = self.params.get("GithubUsername")
       port = 7000
       is_onroad = self.params.get_bool("IsOnroad")
       ts = int(time.time())
       url = "https://shind0.synology.me/carrot/api_heartbeat.php"
+      timeout_s = 3.5
       payload = {
         "github_id": github_id,
         "token": token,
