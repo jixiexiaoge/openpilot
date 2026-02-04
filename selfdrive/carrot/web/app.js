@@ -59,6 +59,9 @@ const btnBackBranch = document.getElementById("btnBackBranch");
 const branchMeta = document.getElementById("branchMeta");
 const branchList = document.getElementById("branchList");
 
+// Quick Link
+const quickLink = document.getElementById("quickLink");
+
 btnBackBranch.onclick = () => history.back();
 branchTitle.onclick = () => history.back();
 
@@ -1105,12 +1108,33 @@ async function carWsDisconnect() {
   CAR_WS = null;
 }
 
+async function updateQuickLink() {
+  if (!quickLink) return;
+
+  try {
+    const v = await bulkGet(["GithubUsername"]);
+    const githubId = (v["GithubUsername"] || "").trim();
+    if (!githubId) {
+      quickLink.style.display = "none";
+      return;
+    }
+
+    const url = "https://shind0.synology.me/carrot/go/?id=" + encodeURIComponent(githubId);
+    quickLink.href = url;
+    quickLink.style.display = "";
+    // 원하면 버튼 텍스트도 표시:
+    // quickLink.textContent = "Open: " + githubId;
+  } catch (e) {
+    quickLink.style.display = "none";
+  }
+}
 
 
 
 function startAll() {
   showPage("home", false);
   rtcInitAuto();
+  updateQuickLink().catch(()=>{});
 
   setInterval(() => {
     const v = document.getElementById("rtcVideo");
