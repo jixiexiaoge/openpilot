@@ -849,6 +849,8 @@ def main():
   if not os.path.exists(_settings_cache["path"]):
     print(f"[WARN] settings file not found: {_settings_cache['path']}")
 
+    import logging
+  logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
   web.run_app(make_app(), host=args.host, port=args.port)
 
 
