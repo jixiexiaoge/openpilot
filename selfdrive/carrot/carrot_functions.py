@@ -212,13 +212,13 @@ class CarrotPlanner:
         self.personality = personality
       """
       if personality == log.LongitudinalPersonality.moreRelaxed:
-        tf_target *= 1.0
-      elif personality == log.LongitudinalPersonality.relaxed:
-        tf_target *= 1.1
-      elif personality == log.LongitudinalPersonality.standard:
-        tf_target *= 1.2
-      elif personality == log.LongitudinalPersonality.aggressive:
         tf_target *= 1.3
+      elif personality == log.LongitudinalPersonality.relaxed:
+        tf_target *= 1.2
+      elif personality == log.LongitudinalPersonality.standard:
+        tf_target *= 1.1
+      elif personality == log.LongitudinalPersonality.aggressive:
+        tf_target *= 1.0
 
     else:
       tf_target = 1.0
