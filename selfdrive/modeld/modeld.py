@@ -256,7 +256,7 @@ class ModelState:
       self.off_policy_output = np.zeros(off_policy_output_size, dtype=np.float32)
       cloudlog.info(f"Off-policy model loaded: output_size={off_policy_output_size}")
 
-    self.parser = Parser(has_off_policy=self.has_off_policy)
+    self.parser = Parser()
 
     with open(VISION_PKL_PATH, "rb") as f:
       self.vision_run = pickle.load(f)

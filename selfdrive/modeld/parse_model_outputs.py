@@ -18,9 +18,8 @@ def softmax(x, axis=-1):
   return x
 
 class Parser:
-  def __init__(self, ignore_missing=False, has_off_policy=False):
+  def __init__(self, ignore_missing=False):
     self.ignore_missing = ignore_missing
-    self.has_off_policy = has_off_policy
 
   def check_missing(self, outs, name):
     missing = name not in outs
@@ -108,22 +107,29 @@ class Parser:
     self.parse_mdn('pose', outs, in_N=0, out_N=0, out_shape=(ModelConstants.POSE_WIDTH,))
     self.parse_mdn('wide_from_device_euler', outs, in_N=0, out_N=0, out_shape=(ModelConstants.WIDE_FROM_DEVICE_WIDTH,))
     self.parse_mdn('road_transform', outs, in_N=0, out_N=0, out_shape=(ModelConstants.POSE_WIDTH,))
-    if not self.has_off_policy:
-      # off-policy 모델이 없으면 기존대로 vision에서 파싱
+    # 아래 출력은 모델 아키텍처에 따라 vision 또는 off-policy/policy에 있을 수 있음
+    # metadata의 output_slices에 존재하는 것만 파싱
+    if 'lane_lines' in outs:
       self.parse_mdn('lane_lines', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_LANE_LINES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
+    if 'road_edges' in outs:
       self.parse_mdn('road_edges', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_ROAD_EDGES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
+    if 'lane_lines_prob' in outs:
       self.parse_binary_crossentropy('lane_lines_prob', outs)
+    if 'desire_pred' in outs:
       self.parse_categorical_crossentropy('desire_pred', outs, out_shape=(ModelConstants.DESIRE_PRED_LEN,ModelConstants.DESIRE_PRED_WIDTH))
+    if 'meta' in outs:
       self.parse_binary_crossentropy('meta', outs)
-      # lead가 vision output에 있으면 파싱 (12세대 모델)
-      self._parse_lead_if_exists(outs)
+    self._parse_lead_if_exists(outs)
     return outs
 
   def parse_off_policy_outputs(self, outs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     """off-policy 모델 출력 파싱 (lane_lines, road_edges, lead 등)"""
-    self.parse_mdn('lane_lines', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_LANE_LINES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
-    self.parse_mdn('road_edges', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_ROAD_EDGES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
-    self.parse_binary_crossentropy('lane_lines_prob', outs)
+    if 'lane_lines' in outs:
+      self.parse_mdn('lane_lines', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_LANE_LINES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
+    if 'road_edges' in outs:
+      self.parse_mdn('road_edges', outs, in_N=0, out_N=0, out_shape=(ModelConstants.NUM_ROAD_EDGES,ModelConstants.IDX_N,ModelConstants.LANE_LINES_WIDTH))
+    if 'lane_lines_prob' in outs:
+      self.parse_binary_crossentropy('lane_lines_prob', outs)
     self._parse_lead_if_exists(outs)
     return outs
 
@@ -135,9 +141,10 @@ class Parser:
     if 'planplus' in outs:
       self.parse_mdn('planplus', outs, in_N=plan_in_N, out_N=plan_out_N, out_shape=(ModelConstants.IDX_N, ModelConstants.PLAN_WIDTH))
     self.parse_categorical_crossentropy('desire_state', outs, out_shape=(ModelConstants.DESIRE_PRED_WIDTH,))
-    if self.has_off_policy:
-      # off-policy 모델이 있으면 desire_pred, meta는 policy에서 파싱
+    # desire_pred, meta가 policy output에 있으면 파싱 (3-모델 아키텍처)
+    if 'desire_pred' in outs:
       self.parse_categorical_crossentropy('desire_pred', outs, out_shape=(ModelConstants.DESIRE_PRED_LEN,ModelConstants.DESIRE_PRED_WIDTH))
+    if 'meta' in outs:
       self.parse_binary_crossentropy('meta', outs)
     # lead가 policy output에 있으면 파싱 (11세대 모델, DTRv6 등)
     self._parse_lead_if_exists(outs)
@@ -145,7 +152,5 @@ class Parser:
 
   def parse_outputs(self, outs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
     outs = self.parse_vision_outputs(outs)
-    if self.has_off_policy:
-      outs = self.parse_off_policy_outputs(outs)
     outs = self.parse_policy_outputs(outs)
     return outs
