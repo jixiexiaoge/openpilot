@@ -993,7 +993,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           values["ALERTS_3"] = 0
           values["SOUNDS_3"] = 0
 
-        if values["ALERTS_5"] in [1, 2, 4, 5]:
+        if values["ALERTS_5"] in [1, 2, 3, 4, 5]:
           values["ALERTS_5"] = 0
 
         if values["ALERTS_5"] in [11] and CS.softHoldActive == 0:
