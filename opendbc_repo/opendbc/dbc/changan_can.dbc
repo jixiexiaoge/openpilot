@@ -333,7 +333,7 @@ CM_ SG_ 651 leftBlinker "1 left";
 CM_ SG_ 651 doorOpen "0 open";
 CM_ BO_ 652 "GW_28C";
 CM_ BO_ 824 "gear info";
-VAL_ 824 gearShifter 2 "N" 1 "R" 3 "D" 0 "P";
+VAL_ 824 TCU_GearForDisplay 2 "N" 1 "R" 3 "D" 0 "P";
 
 BO_ 381 GW_17D: 8 XXX
  SG_ PCU_BrkPedlSts : 0|1@0+ (1,0) [0|1] "" XXX

@@ -12,16 +12,13 @@
 #define CHANGAN_IDD_WHEEL_SPEEDS 0x17A  // GW_17A - Vehicle speed (Z6 iDD)
 #define CHANGAN_PEDAL_DATA       0x196  // GW_196 - Brake/gas pedal (Z6)
 #define CHANGAN_IDD_PEDAL_DATA   0x1A6  // GW_1A6 - Brake/gas pedal (Z6 iDD)
-#define CHANGAN_A05_PEDAL_DATA   0x17D  // GW_17D - Brake/gas pedal (QIYUAN A05)
 #define CHANGAN_ACC_COMMAND      0x244  // GW_244 - ACC acceleration control
 #define CHANGAN_CRUISE_BUTTONS   0x28C  // GW_28C - Cruise control buttons
 #define CHANGAN_ADAS_INFO        0x31A  // GW_31A - ADAS HUD information
 #define CHANGAN_CRUISE_SPEED     0x307  // GW_307 - Cruise speed setting
 #define CHANGAN_GEAR_Z6          0x338  // GW_338 - Gear position (Z6/Z6 iDD)
-#define CHANGAN_GEAR_A05         0x331  // GW_331 - Gear position (QIYUAN A05)
 #define CHANGAN_DOOR_STATUS      0x28B  // GW_28B - Door and blinker status
 #define CHANGAN_SEATBELT         0x50   // GW_50 - Seatbelt status
-#define CHANGAN_BSD_A05          0x2A4  // GW_2A4 - Blind spot detection (A05)
 
 // Angle steering limits
 static const AngleSteeringLimits CHANGAN_STEER_LIMITS = {
@@ -31,10 +28,9 @@ static const AngleSteeringLimits CHANGAN_STEER_LIMITS = {
   .angle_rate_down_lookup = { .x = {0, 5, 15}, .y = {5, 3.5, 0.4} },
   .max_angle_error = 100,  // 10 degrees
   .angle_error_min_speed = 5.0,  // m/s
-  .frequency = 100,  // Hz
+  .angle_is_curvature = false,
   .enforce_angle_error = true,
   .inactive_angle_is_zero = false,
-  .angle_is_curvature = false,
 };
 
 // Longitudinal limits
@@ -55,7 +51,6 @@ static const LongitudinalLimits CHANGAN_LONG_LIMITS = {
 // Safety parameters
 static uint16_t changan_eps_scale = 73;  // Default EPS scale (1-100%)
 static bool changan_idd_variant = false;  // Hybrid (iDD) variant flag
-static bool changan_a05_variant = false;  // QIYUAN A05 variant flag
 
 static uint16_t changan_cruise_button_prev = 0U;
 static bool changan_cruise_engaged = false;
@@ -171,12 +166,6 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
     gas_pressed = (GET_BYTE(to_push, 2) & 0x01U) != 0U;
   }
 
-  if (changan_a05_variant && addr == CHANGAN_A05_PEDAL_DATA && bus == 0) {
-    // QIYUAN A05: PCU_BrkPedlSts at bit 0, PCU_RealAccPedl at bit 20
-    brake_pressed = (GET_BYTE(to_push, 0) & 0x01U) != 0U;
-    gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0U;
-  }
-
   // Brake press disables cruise
   if (brake_pressed && !brake_pressed_prev) {
     controls_allowed = false;
@@ -235,11 +224,14 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
     desired_accel = to_signed(desired_accel, 16);
     desired_accel = desired_accel / 5;  // Convert to 0.01 m/s² scale for check
 
-    // ACC_ACCReq at bit 98 (byte 12, bit 2)
-    bool acc_req = (GET_BYTE(to_send, 12) & 0x04U) != 0U;
+    // ACC_ACCMode at bits 39-41 (byte 4, bits 7-5 and byte 5, bit 0)
+    // Mode: 0=Off, 1=Standby, 2=Ready, 3=Active
+    // We check mode >= 2 (Ready or Active) to determine if ACC is engaged
+    uint8_t acc_mode = (GET_BYTE(to_send, 4) >> 7) | ((GET_BYTE(to_send, 5) & 0x03U) << 1);
+    bool acc_engaged = (acc_mode >= 2U);
 
     // Check if controls are allowed
-    if (acc_req && !controls_allowed) {
+    if (acc_engaged && !controls_allowed) {
       tx = false;
     }
 
@@ -285,9 +277,7 @@ static safety_config changan_init(uint16_t param) {
 
   // Extract variant flags from upper bits
   // Bit 8: iDD variant (Z6 iDD)
-  // Bit 9: A05 variant (QIYUAN A05)
   changan_idd_variant = (param & 0x100U) != 0U;
-  changan_a05_variant = (param & 0x200U) != 0U;
 
   // Generate CRC8 lookup table for SAE J1850
   gen_crc_lookup_table_8(0x1D, changan_crc8_lut);
@@ -299,11 +289,11 @@ static safety_config changan_init(uint16_t param) {
 
   // TX messages allowed on CAM-CAN (bus 2)
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_COMMAND, 2, 8, .check_relay = true},
-    {CHANGAN_ACC_COMMAND, 2, 32, .check_relay = true},
-    {CHANGAN_STEER_TORQUE, 2, 8, .check_relay = false},
-    {CHANGAN_CRUISE_SPEED, 2, 64, .check_relay = false},
-    {CHANGAN_ADAS_INFO, 2, 64, .check_relay = false},
+    {CHANGAN_STEER_COMMAND, 2, 8},
+    {CHANGAN_ACC_COMMAND, 2, 32},
+    {CHANGAN_STEER_TORQUE, 2, 8},
+    {CHANGAN_CRUISE_SPEED, 2, 64},
+    {CHANGAN_ADAS_INFO, 2, 64},
   };
 
   // RX checks for critical messages
@@ -317,8 +307,7 @@ static safety_config changan_init(uint16_t param) {
              {CHANGAN_IDD_WHEEL_SPEEDS, 0, 8, .frequency = 100U}, {0}}},
     // Pedal data messages - support all variants (50-100Hz) - checksum and counter validated
     {.msg = {{CHANGAN_PEDAL_DATA, 0, 8, .frequency = 100U},
-             {CHANGAN_IDD_PEDAL_DATA, 0, 8, .frequency = 100U},
-             {CHANGAN_A05_PEDAL_DATA, 0, 8, .frequency = 100U}}},
+             {CHANGAN_IDD_PEDAL_DATA, 0, 8, .frequency = 100U}, {0}}},
     // EPS torque and status (100Hz) - checksum and counter validated
     {.msg = {{CHANGAN_STEER_TORQUE, 0, 8, .frequency = 100U}, {0}, {0}}},
     // Stock ACC command for relay malfunction detection (50Hz on CAM bus)

@@ -22,8 +22,7 @@ class ChanganFlags(IntFlag):
   """Platform-specific feature flags."""
   CHANGAN_Z6 = 1
   CHANGAN_Z6_IDD = 2
-  IDD = 2  # 这一行是关键修复
-  QIYUAN_A05 = 4
+  IDD = 2  # Alias for Z6_IDD hybrid variant
 
 
 class CarControllerParams:
@@ -92,7 +91,7 @@ class CAR(Platforms):
     [ChangAnCarDocs("Changan Z6 iDD")],
     CHANGAN_Z6.specs,
     CHANGAN_Z6.dbc_dict,
-    flags=ChanganFlags.IDD,  # 现在这行应该不会报错
+    flags=ChanganFlags.IDD,
   )
 
 

@@ -21,11 +21,18 @@ class CarState(CarStateBase):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
 
-    # Gear shifter values - support different variants
-    if CP.carFingerprint == CAR.QIYUAN_A05:
-      self.shifter_values = can_define.dv["GW_331"]["TCU_GearForDisplay"]
-    else:
+    # Gear shifter values - Z6 and Z6 iDD use GW_338
+    # Use defensive programming to handle missing DBC definitions
+    try:
       self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
+    except KeyError:
+      # Fallback: create default gear values if DBC definition is missing
+      self.shifter_values = {
+        0: "park",
+        1: "reverse",
+        2: "neutral",
+        3: "drive",
+      }
 
     self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.0
 
@@ -37,13 +44,10 @@ class CarState(CarStateBase):
 
     self.steeringPressed = False
     # Steering pressure thresholds vary by variant
-    if CP.carFingerprint == CAR.QIYUAN_A05:
-      self.steeringPressedMin = 0.5
-      self.steeringPressedMax = 1.5
-    elif CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       self.steeringPressedMin = 1.0
       self.steeringPressedMax = 3.0
-    else:
+    else:  # CHANGAN_Z6
       self.steeringPressedMin = 1.0
       self.steeringPressedMax = 6.0
 
@@ -102,11 +106,11 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = safe_get(cp, "GW_50", "seatbeltUnlatched") == 1
     ret.parkingBrake = False
 
-    # 2. 车辆速度 (兼容 Z6/Z6 iDD/A05)
+    # 2. 车辆速度 (兼容 Z6/Z6 iDD)
     carspd = 0
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       carspd = safe_get(cp, "GW_17A", "ESP_VehicleSpeed", 0)
-    else:
+    else:  # CHANGAN_Z6
       carspd = safe_get(cp, "GW_187", "ESP_VehicleSpeed", 0)
 
     # Speed correction for accuracy (from mpCode analysis)
@@ -116,21 +120,15 @@ class CarState(CarStateBase):
     ret.vEgoCluster = ret.vEgo
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
-    # 3. 档位识别 (支持不同车型)
-    if self.CP.carFingerprint == CAR.QIYUAN_A05:
-      can_gear = int(safe_get(cp, "GW_331", "TCU_GearForDisplay", 0))
-    else:
-      can_gear = int(safe_get(cp, "GW_338", "TCU_GearForDisplay", 0))
+    # 3. 档位识别 (Z6 and Z6 iDD use GW_338)
+    can_gear = int(safe_get(cp, "GW_338", "TCU_GearForDisplay", 0))
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
 
-    # 4. 踏板信号 (自适应 Z6/Z6 iDD/A05)
-    if self.CP.carFingerprint == CAR.QIYUAN_A05:
-      ret.brakePressed = safe_get(cp, "GW_17D", "PCU_BrkPedlSts") != 0
-      ret.gasPressed = safe_get(cp, "GW_17D", "PCU_RealAccPedl") != 0
-    elif self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    # 4. 踏板信号 (自适应 Z6/Z6 iDD)
+    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       ret.brakePressed = safe_get(cp, "GW_1A6", "EMS_BrakePedalStatus") != 0
       ret.gasPressed = safe_get(cp, "GW_1C6", "EMS_RealAccPedal") != 0
-    else:
+    else:  # CHANGAN_Z6
       ret.brakePressed = safe_get(cp, "GW_196", "EMS_BrakePedalStatus") != 0
       ret.gasPressed = safe_get(cp, "GW_196", "EMS_RealAccPedal") != 0
 
@@ -153,29 +151,18 @@ class CarState(CarStateBase):
     ret.steerFaultTemporary = False
 
     # 6. 按键激活与限速控制 (from mpCode analysis)
-    # Different logic for A05 vs Z6 variants
-    if self.CP.carFingerprint == CAR.QIYUAN_A05:
-      # A05: Simple toggle on iACC button
-      btn_iacc = safe_get(cp, "GW_28C", "GW_MFS_IACCenable_switch_signal", 0)
-      btn_cancel = safe_get(cp, "GW_28C", "GW_MFS_Cancle_switch_signal", 0)
+    # Z6/Z6 iDD: Rising edge detection
+    btn_iacc = safe_get(cp, "GW_28C", "GW_MFS_IACCenable_switch_signal", 0)
+    btn_cancel = safe_get(cp, "GW_28C", "GW_MFS_Cancle_switch_signal", 0)
 
-      if btn_iacc == 1:
-        self.cruiseEnable = True
-      if btn_cancel == 1 or ret.brakePressed:
-        self.cruiseEnable = False
-    else:
-      # Z6/Z6 iDD: Rising edge detection
-      btn_iacc = safe_get(cp, "GW_28C", "GW_MFS_IACCenable_switch_signal", 0)
-      btn_cancel = safe_get(cp, "GW_28C", "GW_MFS_Cancle_switch_signal", 0)
+    self.iacc_enable_switch_button_rising_edge = (btn_iacc == 1 and self.iacc_enable_switch_button_prev == 0)
 
-      self.iacc_enable_switch_button_rising_edge = (btn_iacc == 1 and self.iacc_enable_switch_button_prev == 0)
+    if self.cruiseEnable and (self.iacc_enable_switch_button_rising_edge or ret.brakePressed):
+      self.cruiseEnable = False
+    elif not self.cruiseEnable and self.iacc_enable_switch_button_rising_edge:
+      self.cruiseEnable = True
 
-      if self.cruiseEnable and (self.iacc_enable_switch_button_rising_edge or ret.brakePressed):
-        self.cruiseEnable = False
-      elif not self.cruiseEnable and self.iacc_enable_switch_button_rising_edge:
-        self.cruiseEnable = True
-
-      self.iacc_enable_switch_button_prev = btn_iacc
+    self.iacc_enable_switch_button_prev = btn_iacc
 
     # Initialize cruise speed on activation
     if self.cruiseEnable and not self.cruiseEnablePrev:
@@ -204,15 +191,9 @@ class CarState(CarStateBase):
     ret.stockFcw = safe_get(cp_cam, "GW_244", "ACC_FCWPreWarning") == 1
     ret.stockAeb = safe_get(cp_cam, "GW_244", "ACC_AEBCtrlType") > 0
 
-    # Blind spot detection (A05 only)
-    if self.CP.carFingerprint == CAR.QIYUAN_A05:
-      ret.leftBlindspot = (safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert") == 1) or \
-                          (safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert") == 2)
-      ret.rightBlindspot = (safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert") == 1) or \
-                           (safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert") == 2)
-    else:
-      ret.leftBlindspot = False
-      ret.rightBlindspot = False
+    # Blind spot detection not available on Z6/Z6 iDD
+    ret.leftBlindspot = False
+    ret.rightBlindspot = False
 
     # Blinkers
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(
@@ -251,14 +232,7 @@ class CarState(CarStateBase):
     ]
 
     # Variant-specific messages
-    if CP.carFingerprint == CAR.QIYUAN_A05:
-      pt_messages += [
-        ("GW_187", 100),  # Speed
-        ("GW_17D", 100),  # Pedals (A05)
-        ("GW_331", 10),   # Gear (A05)
-        ("GW_2A4", 20),   # Blind spot (A05)
-      ]
-    elif CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       pt_messages += [
         ("GW_17A", 100),  # Speed (iDD)
         ("GW_1A6", 100),  # Brake pedal (iDD)
