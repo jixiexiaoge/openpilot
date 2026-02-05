@@ -20,7 +20,13 @@ class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint][Bus.pt])
-    self.shifter_values = can_define.dv["GEAR"]["gearShifter"]
+
+    # Gear shifter values - support different variants
+    if CP.carFingerprint == CAR.QIYUAN_A05:
+      self.shifter_values = can_define.dv["GW_331"]["TCU_GearForDisplay"]
+    else:
+      self.shifter_values = can_define.dv["GW_338"]["TCU_GearForDisplay"]
+
     self.eps_torque_scale = EPS_SCALE[CP.carFingerprint] / 100.0
 
     self.cruiseEnable = False
@@ -30,19 +36,28 @@ class CarState(CarStateBase):
     self.buttonReduce = 0
 
     self.steeringPressed = False
-    self.steeringPressedMin = 1
-    self.steeringPressedMax = 3 if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD else 6
+    # Steering pressure thresholds vary by variant
+    if CP.carFingerprint == CAR.QIYUAN_A05:
+      self.steeringPressedMin = 0.5
+      self.steeringPressedMax = 1.5
+    elif CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      self.steeringPressedMin = 1.0
+      self.steeringPressedMax = 3.0
+    else:
+      self.steeringPressedMin = 1.0
+      self.steeringPressedMax = 6.0
 
     self.iacc_enable_switch_button_prev = 0
     self.iacc_enable_switch_button_rising_edge = False
 
-    # 信号快照容器
+    # Signal snapshot containers - store last received values
     self.sigs244 = {}
     self.sigs1ba = {}
     self.sigs17e = {}
     self.sigs307 = {}
     self.sigs31a = {}
 
+    # Rolling counters synchronized with stock ECU
     self.counter_244 = 0
     self.counter_1ba = 0
     self.counter_17e = 0
@@ -87,30 +102,37 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = safe_get(cp, "GW_50", "seatbeltUnlatched") == 1
     ret.parkingBrake = False
 
-    # 2. 车辆速度 (兼容 iDD vs 燃油版)
+    # 2. 车辆速度 (兼容 Z6/Z6 iDD/A05)
     carspd = 0
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      carspd = safe_get(cp, "SPEED", "wheelSpeeds", 0)
+      carspd = safe_get(cp, "GW_17A", "ESP_VehicleSpeed", 0)
     else:
       carspd = safe_get(cp, "GW_187", "ESP_VehicleSpeed", 0)
 
+    # Speed correction for accuracy (from mpCode analysis)
     speed = carspd if carspd <= 5 else ((carspd / 0.98) + 2)
     ret.vEgoRaw = speed * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.vEgoCluster = ret.vEgo
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
-    # 3. 档位识别
-    can_gear = int(safe_get(cp, "GEAR", "gearShifter", 0))
+    # 3. 档位识别 (支持不同车型)
+    if self.CP.carFingerprint == CAR.QIYUAN_A05:
+      can_gear = int(safe_get(cp, "GW_331", "TCU_GearForDisplay", 0))
+    else:
+      can_gear = int(safe_get(cp, "GW_338", "TCU_GearForDisplay", 0))
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
 
-    # 4. 踏板信号 (自适应 iDD/燃油)
-    if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      ret.brakePressed = safe_get(cp, "GW_1A6", "brakePressed") != 0
-      ret.gasPressed = safe_get(cp, "GW_1A6", "gasPressed") != 0
+    # 4. 踏板信号 (自适应 Z6/Z6 iDD/A05)
+    if self.CP.carFingerprint == CAR.QIYUAN_A05:
+      ret.brakePressed = safe_get(cp, "GW_17D", "PCU_BrkPedlSts") != 0
+      ret.gasPressed = safe_get(cp, "GW_17D", "PCU_RealAccPedl") != 0
+    elif self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      ret.brakePressed = safe_get(cp, "GW_1A6", "EMS_BrakePedalStatus") != 0
+      ret.gasPressed = safe_get(cp, "GW_1C6", "EMS_RealAccPedal") != 0
     else:
-      ret.brakePressed = safe_get(cp, "GW_196", "brakePressed") != 0
-      ret.gasPressed = safe_get(cp, "GW_196", "gasPressed") != 0
+      ret.brakePressed = safe_get(cp, "GW_196", "EMS_BrakePedalStatus") != 0
+      ret.gasPressed = safe_get(cp, "GW_196", "EMS_RealAccPedal") != 0
 
     # 5. 转向系统
     ret.steeringAngleDeg = safe_get(cp, "GW_180", "steeringAngleDeg", 0.0)
@@ -118,26 +140,50 @@ class CarState(CarStateBase):
     ret.steeringTorque = safe_get(cp, "GW_17E", "EPS_MeasuredTorsionBarTorque", 0.0)
     ret.steeringTorqueEps = safe_get(cp, "GW_170", "EPS_ActualTorsionBarTorq", 0) * self.eps_torque_scale
 
-    self.steeringPressed = abs(ret.steeringTorque) > 2.5
+    # Steering pressure detection with hysteresis (from mpCode)
+    if self.steeringPressed:
+      if abs(ret.steeringTorque) < self.steeringPressedMin and abs(ret.steeringAngleDeg) < 90:
+        self.steeringPressed = False
+    else:
+      if abs(ret.steeringTorque) > self.steeringPressedMax:
+        self.steeringPressed = True
     ret.steeringPressed = self.steeringPressed
-    ret.steerFaultTemporary = safe_get(cp, "GW_17E", "EPS_LatCtrlAvailabilityStatus") == 2
 
-    # 6. 按键激活与限速控制
-    btn_val = safe_get(cp, "buttonEvents", "Button_iACC", 0)
-    self.iacc_enable_switch_button_rising_edge = (btn_val == 1 and self.iacc_enable_switch_button_prev == 0)
-    self.iacc_enable_switch_button_prev = btn_val
+    # Disable EPS fault warning (from mpCode - always return False)
+    ret.steerFaultTemporary = False
 
-    if self.iacc_enable_switch_button_rising_edge:
-      self.cruiseEnable = not self.cruiseEnable
-    elif ret.brakePressed:
-      self.cruiseEnable = False
+    # 6. 按键激活与限速控制 (from mpCode analysis)
+    # Different logic for A05 vs Z6 variants
+    if self.CP.carFingerprint == CAR.QIYUAN_A05:
+      # A05: Simple toggle on iACC button
+      btn_iacc = safe_get(cp, "GW_28C", "GW_MFS_IACCenable_switch_signal", 0)
+      btn_cancel = safe_get(cp, "GW_28C", "GW_MFS_Cancle_switch_signal", 0)
 
+      if btn_iacc == 1:
+        self.cruiseEnable = True
+      if btn_cancel == 1 or ret.brakePressed:
+        self.cruiseEnable = False
+    else:
+      # Z6/Z6 iDD: Rising edge detection
+      btn_iacc = safe_get(cp, "GW_28C", "GW_MFS_IACCenable_switch_signal", 0)
+      btn_cancel = safe_get(cp, "GW_28C", "GW_MFS_Cancle_switch_signal", 0)
+
+      self.iacc_enable_switch_button_rising_edge = (btn_iacc == 1 and self.iacc_enable_switch_button_prev == 0)
+
+      if self.cruiseEnable and (self.iacc_enable_switch_button_rising_edge or ret.brakePressed):
+        self.cruiseEnable = False
+      elif not self.cruiseEnable and self.iacc_enable_switch_button_rising_edge:
+        self.cruiseEnable = True
+
+      self.iacc_enable_switch_button_prev = btn_iacc
+
+    # Initialize cruise speed on activation
     if self.cruiseEnable and not self.cruiseEnablePrev:
-      self.cruiseSpeed = carspd if self.cruiseSpeed == 0 else self.cruiseSpeed
+      self.cruiseSpeed = speed if self.cruiseSpeed == 0 else self.cruiseSpeed
 
-    # 5kph 步进逻辑
-    btn_res = safe_get(cp, "buttonEvents", "Button_ACC_RESPlus", 0)
-    btn_set = safe_get(cp, "buttonEvents", "Button_SETReduce", 0)
+    # 5kph step logic for speed adjustment
+    btn_res = safe_get(cp, "GW_28C", "GW_MFS_RESPlus_switch_signal", 0)
+    btn_set = safe_get(cp, "GW_28C", "GW_MFS_SETReduce_switch_signal", 0)
 
     if btn_res == 1 and self.buttonPlus == 0 and self.cruiseEnable:
       self.cruiseSpeed = ((self.cruiseSpeed // 5) + 1) * 5
@@ -150,11 +196,30 @@ class CarState(CarStateBase):
 
     ret.cruiseState.enabled = self.cruiseEnable
     ret.cruiseState.speed = self.cruiseSpeed * CV.KPH_TO_MS
+    ret.cruiseState.speedCluster = self.cruiseSpeed * CV.KPH_TO_MS
+    ret.cruiseState.available = safe_get(cp_cam, "GW_31A", "ACC_IACCHWAEnable") == 1
 
     # 7. 安全信号镜像与故障捕捉
     ret.accFaulted = safe_get(cp_cam, "GW_244", "ACC_ACCMode") == 7 or safe_get(cp_cam, "GW_31A", "ACC_IACCHWAMode") == 7
     ret.stockFcw = safe_get(cp_cam, "GW_244", "ACC_FCWPreWarning") == 1
     ret.stockAeb = safe_get(cp_cam, "GW_244", "ACC_AEBCtrlType") > 0
+
+    # Blind spot detection (A05 only)
+    if self.CP.carFingerprint == CAR.QIYUAN_A05:
+      ret.leftBlindspot = (safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert") == 1) or \
+                          (safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert") == 2)
+      ret.rightBlindspot = (safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert") == 1) or \
+                           (safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert") == 2)
+    else:
+      ret.leftBlindspot = False
+      ret.rightBlindspot = False
+
+    # Blinkers
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(
+      200,
+      safe_get(cp, "GW_28B", "BCM_TurnIndicatorLeft") == 1,
+      safe_get(cp, "GW_28B", "BCM_TurnIndicatorRight") == 1
+    )
 
     # 8. 同步系统快照（确保 CarController 拿到的数据非空）
     self.sigs244 = copy.copy(cp_cam.vl.get("GW_244", {}))
@@ -174,18 +239,45 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_can_parsers(CP):
-    # 彻底释放 Parser 压力，即使信号不稳也不允许报错
+    # Base PT-CAN messages (common to all variants)
     pt_messages = [
-      ("GW_180", 0), ("GW_17E", 0), ("buttonEvents", 0), ("GEAR", 0), ("GW_50", 0),
-      ("GW_28B", 0), ("GW_170", 0), ("GW_24F", 0),
+      ("GW_180", 100),  # Steering angle
+      ("GW_17E", 100),  # EPS torque
+      ("GW_28C", 25),   # Cruise buttons
+      ("GW_50", 2),     # Seatbelt
+      ("GW_28B", 25),   # Door/blinkers
+      ("GW_170", 100),  # EPS actual torque
+      ("GW_24F", 50),   # EPS fault
     ]
-    if CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
-      pt_messages += [("SPEED", 0), ("GW_1A6", 0)]
-    else:
-      pt_messages += [("GW_187", 0), ("GW_196", 0)]
 
+    # Variant-specific messages
+    if CP.carFingerprint == CAR.QIYUAN_A05:
+      pt_messages += [
+        ("GW_187", 100),  # Speed
+        ("GW_17D", 100),  # Pedals (A05)
+        ("GW_331", 10),   # Gear (A05)
+        ("GW_2A4", 20),   # Blind spot (A05)
+      ]
+    elif CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
+      pt_messages += [
+        ("GW_17A", 100),  # Speed (iDD)
+        ("GW_1A6", 100),  # Brake pedal (iDD)
+        ("GW_1C6", 100),  # Gas pedal (iDD)
+        ("GW_338", 10),   # Gear (Z6)
+      ]
+    else:  # CHANGAN_Z6
+      pt_messages += [
+        ("GW_187", 100),  # Speed
+        ("GW_196", 100),  # Pedals (Z6)
+        ("GW_338", 10),   # Gear (Z6)
+      ]
+
+    # CAM-CAN messages (common to all variants)
     cam_messages = [
-      ("GW_1BA", 0), ("GW_244", 0), ("GW_307", 0), ("GW_31A", 0),
+      ("GW_1BA", 100),  # Steering control
+      ("GW_244", 50),   # ACC control
+      ("GW_307", 10),   # Cruise speed
+      ("GW_31A", 10),   # ADAS HUD
     ]
 
     return {

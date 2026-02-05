@@ -51,6 +51,35 @@ class CarController(CarControllerBase):
     self.actual_daccel_filtered = 0.0  # 滤波后的实际减速度
     self.slope_daccel = 0.0            # 减速阶段动态补偿值
 
+    # Emergency turn detection (from mpCode analysis)
+    self.emergency_turn_threshold_angle = 35.0  # degrees
+    self.emergency_turn_threshold_rate = 60.0   # deg/s
+    self.emergency_turn_active = False
+    self.last_steering_angle = 0.0
+    self.steering_rate = 0.0
+    self.emergency_turn_counter = 0
+    self.emergency_turn_timeout = 0
+
+    # Large angle steering control
+    self.large_angle_active = False
+    self.large_angle_threshold = 40.0  # degrees
+    self.large_angle_counter = 0
+
+    # Turn speed control
+    self.turn_speed_limit = 0.0
+    self.turn_accel_limit = 0.0
+    self.last_turn_state = False
+
+    # Steering smoothing (from mpCode - reduced for faster response)
+    self.steering_smoothing_factor = 0.3  # Lower = faster response
+    self.filtered_steering_angle = 0.0
+
+    # Return to center control
+    self.return_to_center_active = False
+    self.return_to_center_threshold = 15.0  # degrees
+    self.return_smoothing_factor = 0.5
+    self.return_max_rate = 35.0  # deg/s
+
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
     hud_control = CC.hudControl
@@ -68,24 +97,121 @@ class CarController(CarControllerBase):
     can_sends = []
 
     # -------------------------------------------------------------------------
-    # 1. 横向转向控制逻辑 (Steering Control)
+    # 1. 横向转向控制逻辑 (Steering Control with Emergency Turn Detection)
     # -------------------------------------------------------------------------
     self.counter_1ba = (self.counter_1ba + 1) & 0xF
     self.counter_17e = (self.counter_17e + 1) & 0xF
+
+    # Emergency turn detection (from mpCode analysis)
+    current_steering_angle = CS.out.steeringAngleDeg
+    self.steering_rate = abs(current_steering_angle - self.last_steering_angle) / DT_CTRL
+    self.last_steering_angle = current_steering_angle
+
+    # Detect large angle steering
+    is_large_angle = abs(current_steering_angle) > self.large_angle_threshold
+
+    # Detect emergency turn: angle > threshold OR rate > threshold OR large angle
+    is_emergency_turn = (abs(current_steering_angle) > self.emergency_turn_threshold_angle or
+                        self.steering_rate > self.emergency_turn_threshold_rate or
+                        is_large_angle)
+
+    # Use counter to prevent frequent state switching
+    if is_emergency_turn:
+      self.emergency_turn_counter += 1
+      if self.emergency_turn_counter > 3:  # 3 consecutive frames
+        if not self.emergency_turn_active:
+          self.emergency_turn_active = True
+          self.emergency_turn_timeout = 100  # 100 frame timeout
+    else:
+      self.emergency_turn_counter = max(0, self.emergency_turn_counter - 1)
+
+    # Handle emergency turn timeout
+    if self.emergency_turn_active:
+      self.emergency_turn_timeout -= 1
+      if self.emergency_turn_timeout <= 0:
+        self.emergency_turn_active = False
+        self.emergency_turn_counter = 0
+
+    # Detect large angle steering
+    if is_large_angle:
+      self.large_angle_counter += 1
+      if self.large_angle_counter > 5 and not self.large_angle_active:
+        self.large_angle_active = True
+    else:
+      self.large_angle_counter = max(0, self.large_angle_counter - 1)
+      if self.large_angle_counter == 0 and self.large_angle_active:
+        self.large_angle_active = False
+
+    # Detect return to center
+    is_returning_to_center = (abs(current_steering_angle) < self.return_to_center_threshold and
+                             self.steering_rate > 10.0 and
+                             ((self.last_steering_angle > 0 and current_steering_angle < self.last_steering_angle) or
+                              (self.last_steering_angle < 0 and current_steering_angle > self.last_steering_angle)))
+    self.return_to_center_active = is_returning_to_center
 
     # 判断转向是否激活（OP 激活且驾驶员未强行压盘）
     lat_active = CC.latActive and not CS.steeringPressed
 
     if lat_active:
       apply_angle = actuators.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
+
+      # Apply steering smoothing (from mpCode - 0.3 factor for faster response)
+      self.filtered_steering_angle = (self.steering_smoothing_factor * self.filtered_steering_angle +
+                                     (1 - self.steering_smoothing_factor) * apply_angle)
+      apply_angle = self.filtered_steering_angle
+
       # 应用 standard 变化率限制，防止方向盘打得太突兀
       apply_angle = apply_std_steer_angle_limits(
         apply_angle, self.last_angle, CS.out.vEgoRaw, CS.out.steeringAngleDeg,
         lat_active, self.params.ANGLE_LIMITS
       )
-      # Carrot 优化：放宽单帧变化限制为 30 度，在大转角弯道更从容
-      apply_angle = np.clip(apply_angle, CS.out.steeringAngleDeg - 30, CS.out.steeringAngleDeg + 30)
-      # 物理限位防护 (480度)
+
+      # Enhanced limits for emergency turns and large angles (from mpCode)
+      if self.emergency_turn_active or self.large_angle_active:
+        speed_kph = CS.out.vEgo * CV.MS_TO_KPH
+
+        if speed_kph < 30:  # Low speed large angle turns
+          # Increase steering rate limit for faster response
+          apply_angle = np.clip(apply_angle, CS.out.steeringAngleDeg - 15, CS.out.steeringAngleDeg + 15)
+          max_angle_rate = 80.0  # deg/s
+        else:
+          # High speed emergency turns
+          apply_angle = np.clip(apply_angle, CS.out.steeringAngleDeg - 12, CS.out.steeringAngleDeg + 12)
+          max_angle_rate = 65.0  # deg/s
+
+        angle_diff = apply_angle - self.last_angle
+        if abs(angle_diff) > max_angle_rate * DT_CTRL:
+          apply_angle = self.last_angle + np.sign(angle_diff) * max_angle_rate * DT_CTRL
+
+      # Return to center control (from mpCode)
+      elif self.return_to_center_active:
+        max_return_rate = self.return_max_rate  # 35 deg/s
+        angle_diff = apply_angle - self.last_angle
+
+        # Faster rate when returning to center
+        if (self.last_angle > 0 and angle_diff < 0) or (self.last_angle < 0 and angle_diff > 0):
+          max_return_rate = 30.0  # 30 deg/s when returning
+
+        if abs(angle_diff) > max_return_rate * DT_CTRL:
+          apply_angle = self.last_angle + np.sign(angle_diff) * max_return_rate * DT_CTRL
+
+        # Apply faster return smoothing
+        apply_angle = self.return_smoothing_factor * self.last_angle + (1 - self.return_smoothing_factor) * apply_angle
+
+      else:
+        # Normal steering - adjust sensitivity based on speed
+        speed_kph = CS.out.vEgo * CV.MS_TO_KPH
+        if speed_kph < 30:
+          # Low speed - increase steering speed
+          max_angle_rate = 45.0  # deg/s
+          angle_diff = apply_angle - self.last_angle
+          if abs(angle_diff) > max_angle_rate * DT_CTRL:
+            apply_angle = self.last_angle + np.sign(angle_diff) * max_angle_rate * DT_CTRL
+        else:
+          # High speed - maintain appropriate limits
+          apply_angle = np.clip(apply_angle, CS.out.steeringAngleDeg - 4, CS.out.steeringAngleDeg + 4)
+
+      # Physical limit protection (±480 degrees)
       apply_angle = np.clip(apply_angle, -self.params.MAX_STEERING_ANGLE, self.params.MAX_STEERING_ANGLE)
     else:
       # 未激活时跟随原车角度偏移，保持静默
@@ -98,8 +224,10 @@ class CarController(CarControllerBase):
       can_sends.append(changancan.create_steering_control(self.packer, CS.sigs1ba, apply_angle, lat_active, self.counter_1ba))
 
     # 【信号 0x17E】 告诉底盘 EPS 助力系统横向控制是否可用 (心跳信号)
+    # Force keep active during large angle steering (from mpCode)
+    eps_active = lat_active or self.large_angle_active
     if CS.sigs17e:
-      can_sends.append(changancan.create_eps_control(self.packer, CS.sigs17e, lat_active, self.counter_17e))
+      can_sends.append(changancan.create_eps_control(self.packer, CS.sigs17e, eps_active, self.counter_17e))
 
     # -------------------------------------------------------------------------
     # 2. 纵向加减速控制任务 (Longitudinal Control) - 50Hz
@@ -144,15 +272,16 @@ class CarController(CarControllerBase):
 
       # --- 加速与扭矩转换阶段 (Gas Control) ---
       if accel > 0:
-        # 不同速度区间下的扭矩增益设置，模拟真实油门质感
+        # 不同速度区间下的扭矩增益设置，模拟真实油门质感 (from mpCode analysis)
+        # Reduced acceleration for 50-150 km/h range
         if speed_kph > 110:
-          offset, gain = 1100, 150
+          offset, gain = 1000, 120  # Reduced from 1100, 150
         elif speed_kph > 90:
-          offset, gain = 800, 120
+          offset, gain = 700, 100   # Reduced from 800, 120
         elif speed_kph > 70:
-          offset, gain = 800, 100
+          offset, gain = 700, 80    # Reduced from 800, 100
         elif speed_kph > 50:
-          offset, gain = 800, 80
+          offset, gain = 700, 60    # Reduced from 800, 80
         elif speed_kph > 10:
           offset, gain = 500, 50
         else:
@@ -172,6 +301,36 @@ class CarController(CarControllerBase):
         base_acctrq = min(base_acctrq, -10) # 扭矩上限安全锁
         # 限制扭矩跳变率
         acctrq = np.clip(base_acctrq, self.last_acctrq - 300, self.last_acctrq + 100)
+
+      # Turn-based acceleration limiting (from mpCode)
+      current_turn_state = self.emergency_turn_active or self.large_angle_active or abs(current_steering_angle) > 25.0
+
+      if current_turn_state and accel > 0:
+        # Limit acceleration during turns
+        turn_intensity = min(abs(current_steering_angle) / 150.0, 1.0)
+        max_turn_accel = 0.4 - (turn_intensity * 0.3)  # 0.4 to 0.1 m/s²
+
+        if accel > max_turn_accel:
+          accel = max_turn_accel
+
+        # Apply light braking when entering turn while accelerating
+        if not self.last_turn_state and current_turn_state and accel > 0:
+          accel = -0.1
+
+        # Stronger braking for high-speed sharp turns
+        if speed_kph > 40 and turn_intensity > 0.5:
+          accel = max(accel, -0.3)
+
+      self.last_turn_state = current_turn_state
+
+      # Reduce acceleration for 0-40 km/h range (from mpCode)
+      if 0 <= speed_kph <= 40 and accel > 0:
+        accel = accel * 0.7  # Reduce by 30%
+
+      # Reduce acceleration for 50-150 km/h range (from mpCode)
+      if 50 <= speed_kph <= 150 and accel > 0:
+        accel = accel * 0.5  # Reduce by 50%
+        accel = min(accel, 0.3)  # Max 0.3 m/s²
 
       self.last_speed = speed_kph
       accel = int(accel / 0.05) * 0.05
