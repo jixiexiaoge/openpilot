@@ -261,12 +261,12 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
 #if DEBUG_BYPASS_TX_CHECKS
   // 🚨 NUCLEAR OPTION: Force controls_allowed = true on every TX attempt
   if (!controls_allowed) {
-    // printf("TX HOOK: Forcing controls_allowed = true (was false)\n");
+    print("TX HOOK: Forcing controls_allowed = true (was false)\n");
     controls_allowed = true;
     acc_main_on = true;
   }
   // DEBUG: Bypass all checks, force allow all TX
-  // printf("TX BYPASS: addr 0x%X, bus %d, controls_allowed=%d\n", addr, bus, controls_allowed);
+  // print("TX BYPASS: addr 0x%X, bus %d\n", addr, bus);
   return true;
 #endif
 
