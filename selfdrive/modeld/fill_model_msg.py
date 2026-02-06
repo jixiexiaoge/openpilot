@@ -1,4 +1,5 @@
 import os
+import math
 import capnp
 import numpy as np
 from cereal import log
@@ -96,7 +97,8 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
   modelV2.action = action
 
   # times at X_IDXS according to model plan
-  LINE_T_IDXS = [0.0] * ModelConstants.IDX_N
+  LINE_T_IDXS = [np.nan] * ModelConstants.IDX_N
+  LINE_T_IDXS[0] = 0.0
   plan_x = net_output_data['plan'][0, :, Plan.POSITION][:, 0].tolist()
   Tmax = ModelConstants.T_IDXS[ModelConstants.IDX_N - 1]
   for xidx in range(1, ModelConstants.IDX_N):
@@ -127,10 +129,12 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
 
   LINE_T_IDXS = [float(v) for v in LINE_T_IDXS]
 
-  # 비내림(monotonic non-decreasing) 보정 (순수 파이썬, numpy 불사용)
+  # 비내림(monotonic non-decreasing) 보정 (NaN은 건너뜀)
   running = LINE_T_IDXS[0]
   for i in range(1, len(LINE_T_IDXS)):
-      if LINE_T_IDXS[i] < running:
+      if math.isnan(LINE_T_IDXS[i]):
+          continue
+      if not math.isnan(running) and LINE_T_IDXS[i] < running:
           LINE_T_IDXS[i] = running
       else:
           running = LINE_T_IDXS[i]
