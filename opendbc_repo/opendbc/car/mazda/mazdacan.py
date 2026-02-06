@@ -90,15 +90,20 @@ def create_alert_command(packer, cam_msg: dict, ldw: bool, steer_required: bool)
 
 def create_button_cmd(packer, CP, counter, button):
 
-  can = int(button == Buttons.CANCEL)
   res = int(button == Buttons.RESUME)
   inc = int(button == Buttons.SET_PLUS)
   dec = int(button == Buttons.SET_MINUS)
-  
+  lfa = int(button == Buttons.LFA_BUTTON)
+  mrcc = int(button == Buttons.MRCC)
+  dist_more = int(button == Buttons.GAP_DIST_MORE)
+  dist_less = int(button == Buttons.GAP_DIST_LESS)
+  cancel = int(button == Buttons.CANCEL)
+  can_off = 0 # 保持巡航主开关开启，仅置 CANCEL 位用于取消
+
   if CP.flags & MazdaFlags.GEN1:
     values = {
-      "CAN_OFF": can,
-      "CAN_OFF_INV": (can + 1) % 2,
+      "CAN_OFF": can_off,
+      "CAN_OFF_INV": (can_off + 1) % 2,
 
       "SET_P": inc,
       "SET_P_INV": (inc + 1) % 2,
@@ -109,11 +114,15 @@ def create_button_cmd(packer, CP, counter, button):
       "SET_M": dec,
       "SET_M_INV": (dec + 1) % 2,
 
-      "DISTANCE_LESS": 0,
-      "DISTANCE_LESS_INV": 1,
+      "DISTANCE_LESS": dist_less,
+      "DISTANCE_LESS_INV": (dist_less + 1) % 2,
 
-      "DISTANCE_MORE": 0,
-      "DISTANCE_MORE_INV": 1,
+      "DISTANCE_MORE": dist_more,
+      "DISTANCE_MORE_INV": (dist_more + 1) % 2,
+
+      "LFA_BTN": lfa,
+      "MRCC": mrcc,
+      "CANCEL": cancel,
 
       "MODE_X": 0,
       "MODE_X_INV": 1,

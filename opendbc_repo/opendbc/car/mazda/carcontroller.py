@@ -9,13 +9,30 @@ from openpilot.common.params import Params
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 
 
+def mazda_send_cruise_btn(packer, CP, counter, btn_name):
+  # Map string names to Button enums
+  btn_map = {
+    "CAN_OFF": Buttons.CANCEL,
+    "CANCEL": Buttons.CANCEL,
+    "RES": Buttons.RESUME,
+    "SET_P": Buttons.SET_PLUS,
+    "SET_M": Buttons.SET_MINUS,
+    "LFA_BTN": Buttons.LFA_BUTTON,
+    "MRCC": Buttons.MRCC,
+    "DISTANCE_LESS": Buttons.GAP_DIST_LESS,
+    "DISTANCE_MORE": Buttons.GAP_DIST_MORE,
+  }
+  btn = btn_map.get(btn_name, Buttons.NONE)
+  return mazdacan.create_button_cmd(packer, CP, counter, btn)
+
+
 class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
     super().__init__(dbc_names, CP)
     self.apply_torque_last = 0
     self.packer = CANPacker(dbc_names[Bus.pt])
     self.brake_counter = 0
-    
+
     self.activateCruise = 0
     self.speed_from_pcm = 1
 
@@ -44,7 +61,7 @@ class CarController(CarControllerBase):
       if self.frame % 10 == 0 and not (CS.out.brakePressed and self.brake_counter < 7):
         # Cancel Stock ACC if it's enabled while OP is disengaged
         # Send at a rate of 10hz until we sync with stock ACC state
-        can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, CS.crz_btns_counter, Buttons.CANCEL))
+        can_sends.append(mazda_send_cruise_btn(self.packer, self.CP, CS.crz_btns_counter, "CANCEL"))
     elif False:
       self.brake_counter = 0
       if CC.cruiseControl.resume and self.frame % 5 == 0:
@@ -56,7 +73,7 @@ class CarController(CarControllerBase):
         spam_button = self.make_spam_button(CC, CS)
         if spam_button > 0:
           self.brake_counter = 0
-          can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.frame // 10, spam_button))
+          can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, CS.crz_btns_counter, spam_button))
 
     self.apply_torque_last = apply_torque
 
@@ -90,7 +107,7 @@ class CarController(CarControllerBase):
 
     cant_activate = CS.out.brakePressed or CS.out.gasPressed
 
-    if CC.enabled:
+    if CC.enabled and CS.main_enabled:
       if not CS.out.cruiseState.enabled:
         if (hud_control.leadVisible or v_ego_kph > 10.0) and self.activateCruise == 0 and not cant_activate:
           self.activateCruise = 1

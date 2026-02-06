@@ -88,6 +88,10 @@ class Buttons:
   SET_MINUS = 2
   RESUME = 3
   CANCEL = 4
+  LFA_BUTTON = 5
+  MRCC = 6
+  GAP_DIST_MORE = 7
+  GAP_DIST_LESS = 8
 
 
 FW_QUERY_CONFIG = FwQueryConfig(

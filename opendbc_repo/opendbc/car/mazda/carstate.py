@@ -5,8 +5,38 @@ from opendbc.car.interfaces import CarStateBase
 from opendbc.car.mazda.values import DBC, LKAS_LIMITS, MazdaFlags, Buttons
 
 ButtonType = structs.CarState.ButtonEvent.Type
-BUTTONS_DICT = {Buttons.SET_PLUS: ButtonType.accelCruise, Buttons.SET_MINUS: ButtonType.decelCruise,
-                Buttons.RESUME: ButtonType.resumeCruise, Buttons.CANCEL: ButtonType.cancel}
+MAZDA_BUTTONS_DICT = {
+    Buttons.SET_PLUS: ButtonType.accelCruise,
+    Buttons.SET_MINUS: ButtonType.decelCruise,
+    Buttons.RESUME: ButtonType.resumeCruise,
+    Buttons.CANCEL: ButtonType.cancel,
+    Buttons.LFA_BUTTON: ButtonType.lfaButton,
+    Buttons.MRCC: ButtonType.mainCruise,
+    Buttons.GAP_DIST_MORE: ButtonType.gapAdjustCruise,
+    Buttons.GAP_DIST_LESS: ButtonType.gapAdjustCruise,
+}
+
+
+def parse_mazda_btns(crz_vals):
+  # 按位解析，返回当前按下的按钮（单按钮优先）
+  if crz_vals["SET_P"]:
+    return Buttons.SET_PLUS
+  if crz_vals["SET_M"]:
+    return Buttons.SET_MINUS
+  if crz_vals["RES"]:
+    return Buttons.RESUME
+  if crz_vals["CANCEL"]:
+    return Buttons.CANCEL
+  if crz_vals["LFA_BTN"]:
+    return Buttons.LFA_BUTTON
+  if crz_vals["MRCC"]:
+    return Buttons.MRCC
+  if crz_vals["DISTANCE_MORE"]:
+    return Buttons.GAP_DIST_MORE
+  if crz_vals["DISTANCE_LESS"]:
+    return Buttons.GAP_DIST_LESS
+  return Buttons.NONE
+
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -20,9 +50,9 @@ class CarState(CarStateBase):
     self.low_speed_alert = False
     self.lkas_allowed_speed = False
     self.lkas_disabled = False
-    
-    self.prev_distance_button = 0
-    self.distance_button = 0
+
+    self.cruise_buttons = [Buttons.NONE]
+    self.main_enabled = False
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -30,20 +60,15 @@ class CarState(CarStateBase):
 
     ret = structs.CarState()
 
-    self.prev_distance_button = self.distance_button
-    self.distance_button = cp.vl["CRZ_BTNS"]["DISTANCE_LESS"]
-    
-    self.prev_cruise_buttons = self.cruise_buttons
+    prev = self.cruise_buttons[-1]
+    cur = parse_mazda_btns(cp.vl["CRZ_BTNS"])
+    self.cruise_buttons.append(cur)
+    if len(self.cruise_buttons) > 100:
+      self.cruise_buttons = self.cruise_buttons[-100:]
 
-    if bool(cp.vl["CRZ_BTNS"]["SET_P"]):
-      self.cruise_buttons = Buttons.SET_PLUS
-    elif bool(cp.vl["CRZ_BTNS"]["SET_M"]):
-      self.cruise_buttons = Buttons.SET_MINUS
-    elif bool(cp.vl["CRZ_BTNS"]["RES"]):
-      self.cruise_buttons = Buttons.RESUME
-    else:
-      self.cruise_buttons = Buttons.NONE
-      
+    if cur != prev and prev == Buttons.MRCC:
+      self.main_enabled = not self.main_enabled
+
     ret.wheelSpeeds = self.get_wheel_speeds(
       cp.vl["WHEEL_SPEEDS"]["FL"],
       cp.vl["WHEEL_SPEEDS"]["FR"],
@@ -134,14 +159,9 @@ class CarState(CarStateBase):
 
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = not self.lkas_disabled
-    
-    # TODO: add button types for inc and dec
-    #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
-    ret.buttonEvents = [
-      *create_button_events(self.cruise_buttons, self.prev_cruise_buttons, BUTTONS_DICT),
-      *create_button_events(self.distance_button, self.prev_distance_button, {1: ButtonType.gapAdjustCruise}),
-      #*create_button_events(self.lkas_enabled, self.lkas_previously_enabled, {1: ButtonType.lfaButton}),
-    ]
+
+    ret.buttonEvents = create_button_events(self.cruise_buttons[-1], self.cruise_buttons[-2] if len(self.cruise_buttons) > 1 else Buttons.NONE, MAZDA_BUTTONS_DICT)
+
     return ret
 
   @staticmethod
