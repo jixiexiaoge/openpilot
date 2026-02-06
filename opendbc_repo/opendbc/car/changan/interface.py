@@ -16,7 +16,13 @@ class CarInterface(CarInterfaceBase):
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
-    return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
+    # Dynamic acceleration and deceleration limits based on speed (from reference tuning)
+    if current_speed < 10 * CV.KPH_TO_MS:  # Low speed: Provide more torque for pull-away
+      return CarControllerParams.ACCEL_MIN, min(CarControllerParams.ACCEL_MAX * 1.2, 2.5)
+    elif current_speed > 80 * CV.KPH_TO_MS:  # High speed: Smooth out changes for stability
+      return max(CarControllerParams.ACCEL_MIN * 0.8, -4.5), CarControllerParams.ACCEL_MAX * 0.8
+    else:
+      return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
 
   @staticmethod
   def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:

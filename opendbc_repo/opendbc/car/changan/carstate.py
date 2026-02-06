@@ -193,9 +193,11 @@ class CarState(CarStateBase):
     ret.stockFcw = safe_get(cp_cam, "GW_244", "ACC_FCWPreWarning") == 1
     ret.stockAeb = safe_get(cp_cam, "GW_244", "ACC_AEBCtrlType") > 0
 
-    # Blind spot detection not available on Z6/Z6 iDD
-    ret.leftBlindspot = False
-    ret.rightBlindspot = False
+    # Blind spot detection (for models with GW_2A4)
+    bsd_l = safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert", 0)
+    bsd_r = safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert", 0)
+    ret.leftBlindspot = bsd_l in (1, 2)
+    ret.rightBlindspot = bsd_r in (1, 2)
 
     # Blinkers
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(

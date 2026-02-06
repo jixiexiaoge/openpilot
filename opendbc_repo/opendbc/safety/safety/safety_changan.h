@@ -11,14 +11,18 @@
 #define CHANGAN_WHEEL_SPEEDS     0x187  // GW_187 - Vehicle speed (Z6)
 #define CHANGAN_IDD_WHEEL_SPEEDS 0x17A  // GW_17A - Vehicle speed (Z6 iDD)
 #define CHANGAN_PEDAL_DATA       0x196  // GW_196 - Brake/gas pedal (Z6)
-#define CHANGAN_IDD_PEDAL_DATA   0x1A6  // GW_1A6 - Brake/gas pedal (Z6 iDD)
+#define CHANGAN_IDD_PEDAL_DATA   0x1A6  // GW_1A6 - Brake pedal (Z6 iDD)
+#define CHANGAN_IDD_GAS_DATA     0x1C6  // GW_1C6 - Gas pedal (Z6 iDD)
+#define CHANGAN_PCU_PEDAL_DATA   0x17D  // GW_17D - Brake/gas pedal (A05)
 #define CHANGAN_ACC_COMMAND      0x244  // GW_244 - ACC acceleration control
 #define CHANGAN_CRUISE_BUTTONS   0x28C  // GW_28C - Cruise control buttons
 #define CHANGAN_ADAS_INFO        0x31A  // GW_31A - ADAS HUD information
 #define CHANGAN_CRUISE_SPEED     0x307  // GW_307 - Cruise speed setting
 #define CHANGAN_GEAR_Z6          0x338  // GW_338 - Gear position (Z6/Z6 iDD)
+#define CHANGAN_GEAR_A05         0x331  // GW_331 - Gear position (A05)
 #define CHANGAN_DOOR_STATUS      0x28B  // GW_28B - Door and blinker status
 #define CHANGAN_SEATBELT         0x50   // GW_50 - Seatbelt status
+#define CHANGAN_BSM_INFO         0x2A4  // GW_2A4 - BSM status
 
 // Angle steering limits
 static const AngleSteeringLimits CHANGAN_STEER_LIMITS = {
@@ -59,6 +63,10 @@ static bool changan_cruise_engaged = false;
 static uint8_t changan_crc8_lut[256];
 
 static uint32_t changan_get_checksum(const CANPacket_t *to_push) {
+  int addr = GET_ADDR(to_push);
+  if (addr == 0x50) {
+    return GET_BYTE(to_push, 3);
+  }
   return GET_BYTE(to_push, 7);
 }
 
@@ -91,9 +99,9 @@ static uint8_t changan_get_counter(const CANPacket_t *to_push) {
     return GET_BYTE(to_push, 6) & 0x0FU;
   }
 
-  // 0x50 has counter at bit 27-24 (byte 3, lower nibble)
+  // 0x50 has counter at bits 23-20 (byte 2, lower nibble)
   if (addr == 0x50) {
-    return GET_BYTE(to_push, 3) & 0x0FU;
+    return GET_BYTE(to_push, 2) & 0x0FU;
   }
 
   // 0x1BA has counter at bit 51-48
@@ -166,9 +174,17 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
   }
 
   if (changan_idd_variant && addr == CHANGAN_IDD_PEDAL_DATA && bus == 0) {
-    // Z6 iDD: EMS_BrakePedalStatus at bit 4, EMS_RealAccPedal at bit 16
+    // Z6 iDD: EMS_BrakePedalStatus at bit 4
     brake_pressed = (GET_BYTE(to_push, 0) & 0x10U) != 0U;
-    gas_pressed = (GET_BYTE(to_push, 2) & 0x01U) != 0U;
+  }
+  if (changan_idd_variant && addr == CHANGAN_IDD_GAS_DATA && bus == 0) {
+    // Z6 iDD: EMS_RealAccPedal at bit 20 (Byte 2, bit 4)
+    gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0U;
+  }
+  if (addr == CHANGAN_PCU_PEDAL_DATA && bus == 0) {
+    // A05: PCU_BrkPedlSts at bit 0, PCU_RealAccPedl at bit 20
+    brake_pressed = (GET_BYTE(to_push, 0) & 0x01U) != 0U;
+    gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0U;
   }
 
   // Brake press disables cruise
@@ -205,10 +221,10 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
 
   // Steering control command (0x1BA)
   if (addr == CHANGAN_STEER_COMMAND) {
-    // ACC_SteeringAngleSub_1BA at bits 31-16 (Byte 3-2), signed, 0.1 deg scale
-    // Mask bit 16 as it is the lateral control request bit
+    // ACC_SteeringAngleSub_1BA at bits 31-17 (Bytes 3-2), Motorola signed, 0.1 deg scale
+    // Byte 3 is MSB, Byte 2 bits 23-17 are LSB. Bit 16 is Req.
     int desired_angle = (GET_BYTE(to_send, 3) << 8) | (GET_BYTE(to_send, 2) & 0xFEU);
-    desired_angle = to_signed(desired_angle, 16);
+    desired_angle = to_signed(desired_angle >> 1, 15);
 
     // ACC_SteeringAngleReq_1BA at bit 16
     bool steer_req = (GET_BYTE(to_send, 2) & 0x01U) != 0U;
@@ -226,10 +242,11 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
 
   // ACC acceleration control command (0x244)
   if (addr == CHANGAN_ACC_COMMAND) {
-    // ACC_Acceleration_24E at bits 7-(-8), signed, 0.05 m/s² scale
-    int desired_accel = (GET_BYTE(to_send, 1) << 8) | GET_BYTE(to_send, 0);
+    // ACC_Acceleration_24E at bits 7-15 (Bytes 0-1), Motorola signed, 0.05 m/s² scale
+    // Byte 0 is MSB, Byte 1 is LSB.
+    int desired_accel = (GET_BYTE(to_send, 0) << 8) | GET_BYTE(to_send, 1);
     desired_accel = to_signed(desired_accel, 16);
-    desired_accel = desired_accel / 5;  // Convert to 0.01 m/s² scale for check
+    desired_accel = desired_accel * 5;  // Convert from 0.05 to 0.01 m/s² scale for safety checks
 
     // ACC_ACCMode at bits 39-41 (byte 4, bits 7-5 and byte 5, bit 0)
     // Mode: 0=Off, 1=Standby, 2=Ready, 3=Active

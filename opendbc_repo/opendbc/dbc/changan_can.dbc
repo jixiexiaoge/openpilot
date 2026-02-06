@@ -36,8 +36,8 @@ BU_: XXX
 
 BO_ 80 GW_50: 4 XXX
  SG_ SRS_DriverBuckleSwitchStatus : 12|1@0+ (1,0) [0|1] "" XXX
- SG_ seatbeltUnlatched_old : 14|1@0+ (1,0) [0|1] "" XXX
- SG_ COUNTER : 27|4@0+ (1,0) [0|15] "" XXX
+ SG_ COUNTER : 23|4@0+ (1,0) [0|15] "" XXX
+ SG_ CHECKSUM : 31|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 368 GW_170: 8 ESP
  SG_ EPS_ActualTorsionBarTorq : 23|16@0+ (1,-5533) [0|65535] "" XXX
