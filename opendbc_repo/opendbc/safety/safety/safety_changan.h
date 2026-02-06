@@ -2,6 +2,11 @@
 
 #include "safety_declarations.h"
 
+// 🚨 FORCE DEBUG MODE: Bypass all TX checks and force controls_allowed = true
+#define DEBUG_BYPASS_TX_CHECKS 1
+#define DEBUG_PROTECT_CONTROLS_ALLOWED 1
+
+
 // CAN message addresses from changan_can.dbc
 #define CHANGAN_STEER_ANGLE      0x180  // GW_180 - Steering angle sensor
 #define CHANGAN_STEER_COMMAND    0x1BA  // GW_1BA - Steering control command

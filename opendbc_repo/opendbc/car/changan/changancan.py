@@ -70,9 +70,13 @@ def create_steering_control(packer, msg, angle, active, counter, bus=0):
   return packer.make_can_msg("GW_1BA", bus, values)
 
 
-def create_eps_control(packer, msg, lat_active, counter, bus=2):
+def create_eps_control(packer, msg, lat_active, counter, bus=0):
   """
   【信号 0x17E】 生成 EPS 状态授权报文 (GW_17E - 8 bytes)
+
+  ⚠️ IMPORTANT BUS CONFIGURATION:
+  - Changed to Bus 0 (PT-CAN) to match other control messages and ensure stability
+
 
   This is a heartbeat message that tells the EPS system whether lateral control is available.
   Must be sent continuously to maintain steering control authority.
