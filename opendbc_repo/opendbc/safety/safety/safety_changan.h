@@ -168,18 +168,18 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
   // Pedal parsing - handle all variants
   if (addr == CHANGAN_PEDAL_DATA && bus == 0) {
-    // Z6: EMS_BrakePedalStatus at bit 0, EMS_RealAccPedal at bit 20
-    brake_pressed = (GET_BYTE(to_push, 0) & 0x01U) != 0U;
+    // Z6: EMS_BrakePedalStatus at bit 14, EMS_RealAccPedal at bit 20
+    brake_pressed = (GET_BYTE(to_push, 1) & 0x40U) != 0U;
     gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0U;
   }
 
   if (changan_idd_variant && addr == CHANGAN_IDD_PEDAL_DATA && bus == 0) {
-    // Z6 iDD: EMS_BrakePedalStatus at bit 4
-    brake_pressed = (GET_BYTE(to_push, 0) & 0x10U) != 0U;
+    // Z6 iDD: EMS_BrakePedalStatus at bit 0
+    brake_pressed = (GET_BYTE(to_push, 0) & 0x01U) != 0U;
   }
   if (changan_idd_variant && addr == CHANGAN_IDD_GAS_DATA && bus == 0) {
-    // Z6 iDD: EMS_RealAccPedal at bit 20 (Byte 2, bit 4)
-    gas_pressed = (GET_BYTE(to_push, 2) & 0x10U) != 0U;
+    // Z6 iDD: EMS_RealAccPedal at bit 33 (Byte 4, bit 1)
+    gas_pressed = (GET_BYTE(to_push, 4) & 0x02U) != 0U;
   }
   if (addr == CHANGAN_PCU_PEDAL_DATA && bus == 0) {
     // A05: PCU_BrkPedlSts at bit 0, PCU_RealAccPedl at bit 20

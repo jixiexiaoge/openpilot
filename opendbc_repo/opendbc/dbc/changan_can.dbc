@@ -73,14 +73,13 @@ BO_ 391 GW_187: 8 XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 406 GW_196: 8 XXX
- SG_ EMS_BrakePedalStatus : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ EMS_BrakePedalStatus : 14|1@0+ (1,0) [0|1] "" XXX
  SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 422 GW_1A6: 8 XXX
- SG_ EMS_BrakePedalStatus : 4|1@0+ (1,0) [0|1] "" XXX
- SG_ EMS_RealAccPedal : 16|1@0+ (1,0) [0|1] "" XXX
+ SG_ EMS_BrakePedalStatus : 0|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
@@ -93,24 +92,26 @@ BO_ 442 GW_1BA: 32 XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 454 GW_1C6: 8 XXX
- SG_ EMS_RealAccPedal : 20|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_2 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_1 : 32|1@0+ (1,0) [0|1] "" XXX
+ SG_ EMS_RealAccPedal : 33|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 580 GW_244: 32 XXX
  SG_ ACC_Acceleration_24E : 7|16@0- (0.05,0) [-10|10] "m/s2" XXX
- SG_ ACC_ACCMode : 41|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_ControlActive : 32|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_BrakeActive : 36|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_ACCMode : 41|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_RollingCounter_24E : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
  SG_ ACC_AEBCtrlType : 86|3@0+ (1,0) [0|7] "" XXX
  SG_ ACC_FCWPreWarning : 87|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_ACCEnable : 95|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_ACCReq : 93|1@0+ (1,0) [0|1] "" XXX
  SG_ ACC_LongControlActive : 94|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_TorqueReq : 111|16@0- (1,-5000) [-10000|10000] "" XXX
- SG_ COUNTER_1 : 119|4@0+ (1,0) [0|15] "" XXX
+ SG_ ACC_ACCEnable : 95|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_TorqueReq : 103|16@0- (1,-5000) [-10000|10000] "" XXX
+ SG_ COUNTER_1 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 127|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 591 GW_24F: 8 XXX
