@@ -828,8 +828,8 @@ async function rtcDisconnect() {
   const rtcCard = document.getElementById("rtcCard");
   rtcCard.style.display = "none";
 
-  speedOverlayShow(false);
-  await carWsDisconnect();
+  // HUD auto dock handled by hudAutoDock()
+  //await carWsDisconnect();
 }
 
 function rtcScheduleRetry(ms = 2000) {
@@ -912,7 +912,7 @@ async function rtcConnectOnce() {
       rtcStatusSet("track: " + ev.track.kind);
       rtcDisarmTrackTimeout();
 
-      speedOverlayShow(true);
+      hudAutoDock();
       carWsConnect();
     };
 
@@ -1059,18 +1059,73 @@ function carWsScheduleReconnect(ms = 1000) {
   }, ms);
 }
 
-function speedOverlaySet(kmh) {
-  const el = document.getElementById("speedOverlay");
-  if (!el) return;
-  el.textContent = `${kmh.toFixed(0)} km/h`;
+// ===== Driving HUD docking (card <-> WebRTC overlay) =====
+function hudDock(mode /* "card"|"top"|"bl" */) {
+  const hudRoot = document.getElementById("hudRoot");
+  const card = document.getElementById("driveHudCard");
+  const host = document.getElementById("hudOverlayHost");
+  if (!hudRoot || !card || !host) return;
+
+  host.classList.remove("dock_top","dock_bl");
+  host.style.display = "none";
+
+  if (mode === "top" || mode === "bl") {
+    host.classList.add(mode === "bl" ? "dock_bl" : "dock_top");
+    host.style.display = "";
+    if (hudRoot.parentElement !== host) host.appendChild(hudRoot);
+    card.style.display = "none";
+  } else {
+    if (hudRoot.parentElement !== card) card.appendChild(hudRoot);
+    card.style.display = "";
+  }
 }
 
-function speedOverlayShow(on) {
-  const el = document.getElementById("speedOverlay");
-  if (!el) return;
-  el.style.display = on ? "" : "none";
+function hudAutoDock() {
+  const rtcVideo = document.getElementById("rtcVideo");
+  const rtcCard = document.getElementById("rtcCard");
+  const host = document.getElementById("hudOverlayHost");
+  if (!rtcVideo || !rtcCard || !host) return;
+
+  const videoVisible = rtcCard.style.display !== "none" && rtcVideo.style.display !== "none";
+  if (!videoVisible) { hudDock("card"); return; }
+
+  const fs = document.fullscreenElement === rtcVideo;
+  const landscape = window.innerWidth >= window.innerHeight;
+
+  if (fs && landscape) hudDock("bl");
+  else hudDock("top");
 }
 
+function drivingHudUpdateFromCarPayload(j) {
+  if (!window.DrivingHud) {
+    console.log("[HUD] update none");
+    return;
+  }
+
+  const vEgoKph = (typeof j.vEgo === "number" && isFinite(j.vEgo)) ? j.vEgo * 3.6 : null;
+
+  const payload = {
+    cpuTempC: j.cpuTempC,
+    memPct: j.memPct,
+    diskPct: j.diskPct,
+    diskLabel: j.diskLabel,
+    vEgoKph,
+    vSetKph: j.vSetKph,
+    temp: j.temp,
+    redDot: j.redDot,
+    tlight: j.tlight,
+    tfGap: j.tfGap,
+    tfBars: j.tfBars,
+    gear: j.gear,
+    gpsOk: j.gpsOk,
+    driveMode: j.driveMode,
+    speedLimitKph: j.speedLimitKph,
+    speedLimitOver: j.speedLimitOver,
+    apm: j.apm,
+  };
+
+  window.DrivingHud.update(payload);
+}
 function carWsConnect() {
   // 이미 살아있으면 패스
   if (CAR_WS && (CAR_WS.readyState === WebSocket.OPEN || CAR_WS.readyState === WebSocket.CONNECTING)) return;
@@ -1079,25 +1134,27 @@ function carWsConnect() {
   CAR_WS = new WebSocket(wsProto + "://" + location.host + "/ws/carstate");
 
   CAR_WS.onopen = () => {
-    // console.log("[CAR_WS] open");
+    console.log("[CAR_WS] open");
   };
 
   CAR_WS.onmessage = (ev) => {
     try {
       const j = JSON.parse(ev.data);
-      const v = j.vEgo;
-      if (typeof v === "number" && isFinite(v)) {
-        speedOverlaySet(v * 3.6);
-      }
-    } catch {}
+      // console.log("[CAR_WS] msg keys:", Object.keys(j || {}));
+      // console.log("[CAR_WS] vEgo:", j?.vEgo, "type:", typeof j?.vEgo);
+      drivingHudUpdateFromCarPayload(j);
+      hudAutoDock();
+    } catch (e) {
+      console.log("[CAR_WS] bad msg", e, ev.data);
+    }
   };
 
   CAR_WS.onerror = () => {
-    // 에러가 나면 close로 이어지는 경우가 많음
+    console.log("[CAR_WS] error", e);
   };
 
   CAR_WS.onclose = () => {
-    // console.log("[CAR_WS] close -> reconnect");
+    console.log("[CAR_WS] close -> reconnect");
     CAR_WS = null;
     carWsScheduleReconnect(1000);
   };
@@ -1145,12 +1202,20 @@ function startAll() {
   rtcInitAuto();
   updateQuickLink().catch(() => {});
 
-  setInterval(() => {
-    const v = document.getElementById("rtcVideo");
-    if (!v) return;
-    console.log("[RTC] readyState=", v.readyState, "w=", v.videoWidth, "h=", v.videoHeight);
-  }, 2000);
+  if (window.DrivingHud) {
+    window.DrivingHud.init();
+  }
+
+  // start car telemetry WS (10Hz)
+  carWsConnect();
+
+  // keep HUD dock state in sync
+  window.addEventListener("resize", hudAutoDock);
+  document.addEventListener("fullscreenchange", hudAutoDock);
+  setInterval(hudAutoDock, 800);
 }
+
+
 
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", startAll);
