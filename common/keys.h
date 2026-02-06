@@ -13,4 +13,4 @@ static const std::map<std::string, std::string> MODEL_SIGNING_KEYS = {
 };
 
 // 현재 모델 셀렉터 버전
-static const int MODEL_SELECTOR_VERSION = 2;
+static const int MODEL_SELECTOR_VERSION = 1;

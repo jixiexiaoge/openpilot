@@ -233,14 +233,7 @@ def compile_pending_model() -> None:
     env["DEV"] = "QCOM"
     env["FLOAT16"] = "1"
 
-    # off-policy 모델이 있으면 함께 컴파일
-    model_names = ["driving_vision", "driving_policy"]
-    off_policy_onnx = MODELS_TMP_DIR / "driving_off_policy.onnx"
-    if off_policy_onnx.exists():
-      model_names.append("driving_off_policy")
-      cloudlog.warning("model_compile: Off-policy model detected, will compile 3 models")
-
-    for model in model_names:
+    for model in ["driving_vision", "driving_policy"]:
       onnx_path = str(MODELS_TMP_DIR / f"{model}.onnx")
       pkl_path = str(MODELS_TMP_DIR / f"{model}_tinygrad.pkl")
       meta_path = str(MODELS_TMP_DIR / f"{model}_metadata.pkl")

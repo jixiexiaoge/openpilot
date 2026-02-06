@@ -122,11 +122,8 @@ def main():
     time.sleep(1)  # Give UI time to close
 
     try:
-        # Compile models (off-policy는 onnx 존재 시에만)
-        model_names = ["driving_vision", "driving_policy"]
-        if (model_tmp_dir / "driving_off_policy.onnx").exists():
-            model_names.append("driving_off_policy")
-        for model_name in model_names:
+        # Compile both models
+        for model_name in ["driving_vision", "driving_policy"]:
             if not compile_model(model_tmp_dir, model_name):
                 shutil.rmtree(model_tmp_dir, ignore_errors=True)
                 sys.exit(1)

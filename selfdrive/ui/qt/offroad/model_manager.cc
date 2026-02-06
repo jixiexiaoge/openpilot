@@ -882,8 +882,7 @@ bool ModelManagerDialog::isValidFilename(const QString &filename) {
   // 허용된 파일명만 (allowlist) - ONNX 파일
   static QStringList allowedFiles = {
       "driving_policy.onnx",
-      "driving_vision.onnx",
-      "driving_off_policy.onnx"
+      "driving_vision.onnx"
   };
   return allowedFiles.contains(filename);
 }
