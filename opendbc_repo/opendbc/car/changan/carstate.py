@@ -102,14 +102,7 @@ class CarState(CarStateBase):
         return default
 
     # 1. 车门与安全带 (从 Bus 0 获取，带安全默认值)
-    ret.doorOpen = safe_get(cp, "GW_28B", "doorOpen") == 1
-    # Standard Changan SRS message: SRS_DriverBuckleSwitchStatus at bit 12 (1: unlatched, 0: latched)
-    ret.seatbeltUnlatched = safe_get(cp, "GW_50", "SRS_DriverBuckleSwitchStatus", 1) == 1 or \
-                            safe_get(cp, "GW_50", "seatbeltUnlatched", 0) == 1
-    ret.parkingBrake = False
-
-    # 2. 车辆速度 (兼容 Z6/Z6 iDD)
-    carspd = 0
+    # 1. 速度解析与补偿 (iDD 使用 GW_17A，汽油版使用 GW_187)
     if self.CP.carFingerprint == CAR.CHANGAN_Z6_IDD:
       carspd = safe_get(cp, "GW_17A", "ESP_VehicleSpeed", 0)
     else:  # CHANGAN_Z6
@@ -192,12 +185,6 @@ class CarState(CarStateBase):
     ret.accFaulted = safe_get(cp_cam, "GW_244", "ACC_ACCMode") == 7 or safe_get(cp_cam, "GW_31A", "ACC_IACCHWAMode") == 7
     ret.stockFcw = safe_get(cp_cam, "GW_244", "ACC_FCWPreWarning") == 1
     ret.stockAeb = safe_get(cp_cam, "GW_244", "ACC_AEBCtrlType") > 0
-
-    # Blind spot detection (for models with GW_2A4)
-    bsd_l = safe_get(cp, "GW_2A4", "LCDAR_Left_BSD_LCAAlert", 0)
-    bsd_r = safe_get(cp, "GW_2A4", "LCDAR_BSD_LCAAlert", 0)
-    ret.leftBlindspot = bsd_l in (1, 2)
-    ret.rightBlindspot = bsd_r in (1, 2)
 
     # Blinkers
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_stalk(
