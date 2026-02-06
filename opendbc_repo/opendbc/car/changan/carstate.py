@@ -193,6 +193,9 @@ class CarState(CarStateBase):
       safe_get(cp, "GW_28B", "BCM_TurnIndicatorRight") == 1
     )
 
+    # Door status (from mpCode)
+    ret.doorOpen = safe_get(cp, "GW_28B", "BCM_DriverDoorStatus", 0) != 0
+
     # 8. 同步系统快照（确保 CarController 拿到的数据非空）
     self.sigs244 = copy.copy(cp_cam.vl.get("GW_244", {}))
     self.sigs1ba = copy.copy(cp_cam.vl.get("GW_1BA", {}))

@@ -146,9 +146,13 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq, bus=0):
   return packer.make_can_msg("GW_244", bus, values)
 
 
-def create_acc_set_speed(packer, msg, counter, speed, bus=2):
+def create_acc_set_speed(packer, msg, counter, speed, bus=0):
   """
   【信号 0x307】 同步界面设置车速到仪表盘 (GW_307 - 64 bytes)
+
+  ⚠️ IMPORTANT BUS CONFIGURATION:
+  - Default bus=0 (PT-CAN) matches mpCode implementation
+  - Instrument cluster expects speed info on PT-CAN
 
   Sends cruise control set speed to instrument cluster for display.
   Also includes following distance level setting.
@@ -182,9 +186,13 @@ def create_acc_set_speed(packer, msg, counter, speed, bus=2):
   return packer.make_can_msg("GW_307", bus, values)
 
 
-def create_acc_hud(packer, msg, counter, enabled, steering_pressed, bus=2):
+def create_acc_hud(packer, msg, counter, enabled, steering_pressed, bus=0):
   """
   【信号 0x31A】 生成仪表状态图标信号 (GW_31A - 64 bytes)
+
+  ⚠️ IMPORTANT BUS CONFIGURATION:
+  - Default bus=0 (PT-CAN) matches mpCode implementation
+  - Instrument cluster expects HUD status on PT-CAN
 
   Controls the ACC/iACC icon display on the instrument cluster.
   Icons should display when openpilot is running, with different states for enabled/standby.
