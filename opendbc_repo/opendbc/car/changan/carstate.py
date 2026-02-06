@@ -103,7 +103,9 @@ class CarState(CarStateBase):
 
     # 1. 车门与安全带 (从 Bus 0 获取，带安全默认值)
     ret.doorOpen = safe_get(cp, "GW_28B", "doorOpen") == 1
-    ret.seatbeltUnlatched = safe_get(cp, "GW_50", "seatbeltUnlatched") == 1
+    # Standard Changan SRS message: SRS_DriverBuckleSwitchStatus at bit 12 (1: unlatched, 0: latched)
+    ret.seatbeltUnlatched = safe_get(cp, "GW_50", "SRS_DriverBuckleSwitchStatus", 1) == 1 or \
+                            safe_get(cp, "GW_50", "seatbeltUnlatched", 0) == 1
     ret.parkingBrake = False
 
     # 2. 车辆速度 (兼容 Z6/Z6 iDD)

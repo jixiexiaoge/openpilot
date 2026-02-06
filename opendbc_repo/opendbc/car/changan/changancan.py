@@ -106,7 +106,7 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
     accel: 加速度请求 (m/s²), range: -3.5 to +2.0
     counter: 滚动计数器 (0-15)
     enabled: ACC系统激活状态 (True=Active/Green, False=Ready/White)
-    acctrq: 扭矩转换请求 (sig_099), range: -10000 to +10000, offset: -5000
+    acctrq: 扭矩转换请求 (ACC_TorqueReq), range: -10000 to +10000, offset: -5000
 
   Returns:
     CAN message tuple (address, data)
@@ -120,10 +120,10 @@ def create_acc_control(packer, msg, accel, counter, enabled, acctrq):
       "ACC_ACCMode": 3 if enabled else 2,               # sig_091: ACC mode (3=Active/Green, 2=Ready/White)
       "ACC_ACCEnable": 1 if enabled else 0,             # sig_098: ACC enable flag
       "ACC_ACCReq": 1 if enabled else 0,                # Duplicate enable flag
-      "sig_084": 1,                                     # Control active flag
-      "sig_088": 1 if accel < -0.1 else 0,             # Brake activation flag
-      "sig_099": acctrq,                                # Torque signal (critical for iDD smoothness)
-      "sig_100": 1 if enabled else 0,                   # Longitudinal control active
+      "ACC_ControlActive": 1,                           # Control active flag
+      "ACC_BrakeActive": 1 if accel < -0.1 else 0,      # Brake activation flag
+      "ACC_TorqueReq": acctrq,                         # Torque signal (critical for iDD smoothness)
+      "ACC_LongControlActive": 1 if enabled else 0,     # Longitudinal control active
     }
   )
   dat = packer.make_can_msg("GW_244", 0, values)[1]
@@ -180,11 +180,11 @@ def create_acc_hud(packer, msg, counter, enabled, steering_pressed):
       "cruiseState": 1 if enabled else 0,              # Cruise state flag
       "steeringPressed": 1 if steering_pressed else 0, # Steering pressure warning
       "ACC_IACCHWAMode": 3 if enabled else 0,          # sig_408: IACC mode (3=Active icon)
-      "ACC_IACCHWAEnable": 1,                          # sig_390: Always-on signal 1
-      "sig_398": 1,                                    # Always-on signal 2
-      "sig_410": 1,                                    # Control state 1
-      "sig_411": 2 if enabled else 0,                  # Control state 2
-      "Counter_36D": counter,                          # sig_395: Rolling counter (segment 1)
+      "ACC_IACCHWAEnable": 1,                          # Always-on signal 1
+      "ACC_IACCHWASignal": 1,                          # Always-on signal 2
+      "ACC_IACCHWAState1": 1,                          # Control state 1
+      "ACC_IACCHWAState2": 2 if enabled else 0,        # Control state 2
+      "Counter_36D": counter,                          # Rolling counter (segment 1)
       "COUNTER_2": counter,                            # sig_406: Rolling counter (segment 2)
       "COUNTER_3": counter,                            # sig_415: Rolling counter (segment 3)
       "COUNTER_4": counter,                            # sig_422: Rolling counter (segment 4)

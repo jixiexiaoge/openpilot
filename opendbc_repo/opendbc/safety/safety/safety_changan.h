@@ -69,7 +69,7 @@ static uint32_t changan_compute_checksum(const CANPacket_t *to_push) {
       addr == 0x196 || addr == 0x1A6 || addr == 0x17D || addr == 0x244 ||
       addr == 0x28C || addr == 0x1BA || addr == 0x307 || addr == 0x31A ||
       addr == 0x170 || addr == 0x24F || addr == 0x338 || addr == 0x331 ||
-      addr == 0x28B || addr == 0x50 || addr == 0x2A4) {
+      addr == 0x28B || addr == 0x2A4) {
     uint8_t crc = 0xFFU;
     for (int i = 0; i < 7; i++) {
       crc = changan_crc8_lut[crc ^ GET_BYTE(to_push, i)];
@@ -87,8 +87,13 @@ static uint8_t changan_get_counter(const CANPacket_t *to_push) {
   if (addr == 0x180 || addr == 0x17E || addr == 0x187 || addr == 0x17A ||
       addr == 0x196 || addr == 0x1A6 || addr == 0x17D || addr == 0x28C ||
       addr == 0x170 || addr == 0x24F || addr == 0x338 || addr == 0x331 ||
-      addr == 0x28B || addr == 0x50 || addr == 0x2A4) {
+      addr == 0x28B || addr == 0x2A4) {
     return GET_BYTE(to_push, 6) & 0x0FU;
+  }
+
+  // 0x50 has counter at bit 27-24 (byte 3, lower nibble)
+  if (addr == 0x50) {
+    return GET_BYTE(to_push, 3) & 0x0FU;
   }
 
   // 0x1BA has counter at bit 51-48
@@ -174,8 +179,9 @@ static void changan_rx_hook(const CANPacket_t *to_push) {
 
   // Steering angle measurement for angle error check
   if (addr == CHANGAN_STEER_ANGLE && bus == 0) {
-    // steeringAngleDeg at bits 7-(-8) (bytes 0-1), signed, 0.1 deg scale
-    int angle_meas_new = (GET_BYTE(to_push, 1) << 8) | GET_BYTE(to_push, 0);
+    // steeringAngleDeg at bits 7-15 (bytes 0-1), Motorola Signed, 0.1 deg scale
+    // Byte 0 is MSB, Byte 1 is LSB
+    int angle_meas_new = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
     angle_meas_new = to_signed(angle_meas_new, 16);
     update_sample(&angle_meas, angle_meas_new);
   }
@@ -199,8 +205,9 @@ static bool changan_tx_hook(const CANPacket_t *to_send) {
 
   // Steering control command (0x1BA)
   if (addr == CHANGAN_STEER_COMMAND) {
-    // ACC_SteeringAngleSub_1BA at bits 31-16, signed, 0.1 deg scale
-    int desired_angle = (GET_BYTE(to_send, 3) << 8) | GET_BYTE(to_send, 2);
+    // ACC_SteeringAngleSub_1BA at bits 31-16 (Byte 3-2), signed, 0.1 deg scale
+    // Mask bit 16 as it is the lateral control request bit
+    int desired_angle = (GET_BYTE(to_send, 3) << 8) | (GET_BYTE(to_send, 2) & 0xFEU);
     desired_angle = to_signed(desired_angle, 16);
 
     // ACC_SteeringAngleReq_1BA at bit 16
@@ -289,7 +296,7 @@ static safety_config changan_init(uint16_t param) {
 
   // TX messages allowed on CAM-CAN (bus 2)
   static const CanMsg CHANGAN_TX_MSGS[] = {
-    {CHANGAN_STEER_COMMAND, 2, 8},
+    {CHANGAN_STEER_COMMAND, 2, 32},
     {CHANGAN_ACC_COMMAND, 2, 32},
     {CHANGAN_STEER_TORQUE, 2, 8},
     {CHANGAN_CRUISE_SPEED, 2, 64},
