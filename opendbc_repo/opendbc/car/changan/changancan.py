@@ -215,15 +215,17 @@ def create_acc_hud(packer, msg, counter, enabled, steering_pressed, bus=0):
   values.update(
     {
       # ⚠️ CRITICAL: These determine ACC/iACC icon visibility and color
-      "ACC_IACCHWAMode": 3 if enabled else 2,         # Mode: 0=Off(no icon), 2=Standby(white), 3=Active(green)
+      "ACC_IACCHWAMode": 3 if enabled else 0,         # Mode: 0=Off/Ready, 3=Active(green) - Fixed: 2->0
       "ACC_IACCHWAEnable": 1,                          # System availability (1=icons can show)
       "ACC_IACCHWASignal": 1,                          # Additional availability signal
       "ACC_IACCHWAState1": 1,                          # Control state flag 1
-      "ACC_IACCHWAState2": 2 if enabled else 1,        # Control state flag 2 (2=active, 1=standby)
+      "ACC_IACCHWAState2": 1 if enabled else 0,        # Control state flag 2 - Fixed: 2->1 to match 1-bit DBC
+      "steeringPressed": 1,                            # ⚠️ mpCode: Force 1 to improve handover
+
 
       # Supplementary states
       "cruiseState": 1 if enabled else 0,              # Cruise state flag
-      "steeringPressed": 1 if steering_pressed else 0, # Steering pressure warning
+
 
       # Rolling counters for 4 segments of 64-byte message
       "Counter_36D": counter,                          # Segment 1 counter

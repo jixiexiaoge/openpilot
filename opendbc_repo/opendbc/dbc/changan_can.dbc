@@ -159,19 +159,19 @@ BO_ 775 GW_307: 64 XXX
 BO_ 794 GW_31A: 64 XXX
  SG_ Counter_36D : 51|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_1 : 63|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_IACCHWASignal : 72|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWASignal : 68|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWAEnable : 80|1@0+ (1,0) [0|1] "" XXX
+ SG_ steeringPressed : 84|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWAMode : 103|3@0+ (1,0) [0|7] "" XXX
  SG_ COUNTER_2 : 115|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_2 : 127|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_IACCHWAMode : 135|3@0+ (1,0) [0|7] "" XXX
- SG_ ACC_IACCHWAState1 : 139|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_IACCHWAState2 : 141|2@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_2 : 136|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWAState1 : 166|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_IACCHWAState2 : 173|1@0+ (1,0) [0|1] "" XXX
  SG_ COUNTER_3 : 179|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_3 : 191|8@0+ (1,0) [0|255] "" XXX
  SG_ COUNTER_4 : 243|4@0+ (1,0) [0|15] "" XXX
  SG_ CHECKSUM_4 : 255|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_IACCHWAEnable : 390|1@0+ (1,0) [0|1] "" XXX
- SG_ cruiseState : 391|1@0+ (1,0) [0|1] "" XXX
- SG_ steeringPressed : 398|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 817 GW_331: 8 XXX
  SG_ TCU_GearForDisplay : 39|4@0+ (1,-7) [0|15] "" XXX
