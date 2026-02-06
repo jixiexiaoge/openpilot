@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Carrot</title>
+  <link rel="stylesheet" href="/hud_card.css?v=2602-01" />
   <style>
     body {
       font-family: system-ui, sans-serif;
@@ -261,6 +262,65 @@
     <div id="pageHome" class="card">
       <h3 style="margin:0 0 8px 0;">Home</h3>
 
+      <!-- Driving HUD (card mode). JS will auto-dock this into WebRTC overlay when video is visible. -->
+      <div id="driveHudCard" class="card" style="margin:12px 0 0 0;">
+        <div class="hudWrap" id="hudRoot">
+          <div class="hudTop">
+            <div class="hudMini">
+              <div class="hudMiniLabel">CPU</div>
+              <div class="hudMiniVal" id="hudCpuVal">--°C</div>
+            </div>
+            <div class="hudMini">
+              <div class="hudMiniLabel">MEM</div>
+              <div class="hudMiniVal" id="hudMemVal">--%</div>
+            </div>
+            <div class="hudMini">
+              <div class="hudMiniLabel" id="hudDiskLabel">DISK</div>
+              <div class="hudMiniVal" id="hudDiskVal">--%</div>
+            </div>
+          </div>
+
+          <div class="hudLowerGroup">
+            <div class="hudMain">
+              <div class="hudSpeedBg" aria-hidden="true"></div>
+              <div class="hudRedDot" id="hudRedDot" style="display:none;"></div>
+              <div class="hudSpeed" id="hudSpeed">--</div>
+
+              <div class="hudSignalDot" id="hudSignalDot"></div>
+
+              <div class="hudTempReason" id="hudTempReason">eco</div>
+              <div class="hudTempSpeed" id="hudTempSpeed">--</div>
+
+              <div class="hudSetSpeed" id="hudSetSpeed">--</div>
+
+              <div class="hudGapNum" id="hudGapNum">-</div>
+              <div class="hudGear" id="hudGear">U</div>
+
+            </div>
+
+            <div class="hudBottom">
+              <div class="hudLeftStack">
+                <div class="hudGps" id="hudGps">GPS</div>
+                <div class="hudDriveMode mode_normal" id="hudDriveMode">일반</div>
+              </div>
+
+              <div class="hudRoadLimitBox">
+                <div class="hudRoadLimitLabel">LIMIT</div>
+                <div class="hudRoadLimitVal" id="hudRoadLimitVal">--</div>
+              </div>
+
+              <div class="hudBars" id="hudBars">
+                <div class="hudBar"></div>
+                <div class="hudBar"></div>
+                <div class="hudBar"></div>
+                <div class="hudBar"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
       <!-- Server State (기존 유지) -->
       <div id="rtcCard" class="card" style="margin:12px 0 0 0; display:none;">
         <h4 style="margin:0 0 8px 0;">WebRTC</h4>
@@ -277,23 +337,8 @@
                  autoplay playsinline muted style="display:none;">
           </video>
 
-          <div id="speedOverlay"
-               style="
-           position:absolute;
-           top:10px;
-           left:50%;
-           transform:translateX(-50%);
-           padding:6px 12px;
-           border-radius:999px;
-           background:rgba(0,0,0,.55);
-           border:1px solid rgba(255,255,255,.15);
-           font-weight:800;
-           font-size:16px;
-           color:#fff;
-           display:none;
-           pointer-events:none;">
-            0 km/h
-          </div>
+          <!-- HUD overlay host (video overlay mode) -->
+          <div id="hudOverlayHost" class="hudOverlayHost" style="display:none;"></div>
         </div>
       </div>
       <div style="height:10px;"></div>
@@ -473,6 +518,7 @@
     </div>
   </div>
 
-  <script src="/app.js?v=2602-01"></script>
+  <script src="/hud_card.js?v=2602-02"></script>
+  <script src="/app.js?v=2602-02"></script>
 </body>
 </html>

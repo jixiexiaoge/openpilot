@@ -17,15 +17,18 @@
 import argparse
 import json
 import os
+import math
 import time
 from datetime import datetime
 import asyncio
 import glob
 import subprocess
+import traceback
 from typing import Dict, Any, Tuple, Optional, List
 
 from aiohttp import web, ClientSession
 from cereal import messaging
+from opendbc.car import structs
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,6 +37,8 @@ DEFAULT_SETTINGS_PATH = "/data/openpilot/selfdrive/carrot_settings.json"
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
 UNIT_CYCLE = [1, 2, 5, 10, 50, 100]
+
+GearShifter = structs.CarState.GearShifter
 
 # -----------------------
 # Optional openpilot Params
@@ -303,6 +308,12 @@ async def handle_index(request: web.Request) -> web.Response:
 
 async def handle_appjs(request: web.Request) -> web.Response:
   return web.FileResponse(os.path.join(WEB_DIR, "app.js"))
+
+async def handle_hudjs(request: web.Request) -> web.Response:
+  return web.FileResponse(os.path.join(WEB_DIR, "hud_card.js"))
+
+async def handle_hudcss(request: web.Request) -> web.Response:
+  return web.FileResponse(os.path.join(WEB_DIR, "hud_card.css"))
 
 async def api_settings(request: web.Request) -> web.Response:
   path = _settings_cache["path"]
@@ -642,27 +653,129 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
   ws = web.WebSocketResponse(heartbeat=20)
   await ws.prepare(request)
 
-  # carState만 구독 (가벼움)
-  sm = messaging.SubMaster(['carState'])
+  sm = messaging.SubMaster(['carState', 'carControl', 'deviceState', 'longitudinalPlan', 'carrotMan', 'peripheralState'])
+
+  # for gap/driving mode (same as your drawHud: Params reads)
+  params = Params() if HAS_PARAMS else None
+  last_toggle_t = 0.0
+  show_volt = False
 
   try:
     while True:
       sm.update(0)  # non-blocking
+      now = time.time()
+
+      # toggle DISK/VOLT display every ~3s (like disp_timer)
+      if now - last_toggle_t > 3.2:
+        last_toggle_t = now
+        show_volt = not show_volt
+
       v_ego = None
-      try:
-        if sm.updated.get('carState', False):
-          v_ego = float(sm['carState'].vEgoCluster)
-      except Exception:
-        v_ego = None
+      v_cruise = None
+      gear = None
+      temp = None
+      gps_ok = None
+
+      cpu_temp_c = None
+      mem_pct = None
+      disk_pct = None
+      volt_v = None
+      tf_gap = None
+      drive_mode_obj = None
+      temp_speed = None
+
+      if sm.alive['carState'] and sm.alive['carControl']:
+        CS = sm['carState']
+        CC = sm['carControl']
+        CM = sm['carrotMan']
+        lp = sm['longitudinalPlan']
+        ps = sm['peripheralState']
+        ds = sm['deviceState']
+        v_ego = CS.vEgoCluster
+        v_cruise = CS.vCruiseCluster
+        gs = CS.gearShifter
+        step = CS.gearStep
+        if gs == GearShifter.unknown:
+          gear = "U"
+        elif gs == GearShifter.park:
+          gear = "P"
+        elif gs == GearShifter.drive:
+          gear = str(step) if step > 0 else "D"
+        elif gs == GearShifter.neutral:
+          gear = "N"
+        elif gs == GearShifter.reverse:
+          gear = "R"
+        elif gs == GearShifter.low:
+          gear = "L"
+        elif gs == GearShifter.sport:
+          gear = "S"
+        else:
+          gear = "X"
+
+        apply_speed = CM.desiredSpeed
+        apply_source = CM.desiredSource
+        temp_speed = { "speed": apply_speed, "source": apply_source if apply_speed >= v_cruise else "", "is_decel": True if apply_speed < v_cruise else False}
+        drive_mode = lp.myDrivingMode
+        if drive_mode == 1:
+          drive_mode_obj = {"name": "연비", "kind": "eco"}
+        elif drive_mode == 2:
+          drive_mode_obj = {"name": "안전", "kind": "safe"}
+        elif drive_mode == 4:
+          drive_mode_obj = {"name": "고속", "kind": "sport"}
+        else:
+          drive_mode_obj = {"name": "일반", "kind": "normal"}
+
+
+        gps_ok = True
+
+        # deviceState
+        ds = sm['deviceState']
+        # cpuTempC can be list; use max
+        c = ds.cpuTempC
+        if c is not None:
+          if isinstance(c, (list, tuple)) and len(c) > 0:
+            cpu_temp_c = float(max(c))
+
+        mem_pct = ds.memoryUsagePercent
+        free_pct = ds.freeSpacePercent
+        if math.isfinite(free_pct):
+          disk_pct = 100.0 - free_pct
+
+        volt_v = ps.voltage
+
+        # gap/driving mode from Params (same as your C++)
+        tf_gap = int(params.get_int("LongitudinalPersonality") or 0) + 1
+
 
       payload = {
-        "ts": time.time(),
-        "vEgo": v_ego,   # m/s (None 가능)
+        "ts": now,
+        "vEgo": v_ego,              # m/s
+        "vSetKph": v_cruise,
+        "gear": gear,
+        "gpsOk": gps_ok,
+
+        "cpuTempC": cpu_temp_c,
+        "memPct": mem_pct,
+        "diskPct": (volt_v if show_volt else disk_pct),
+        "diskLabel": ("VOLT" if show_volt else "DISK"),
+
+        "tfGap": tf_gap,
+        "tfBars": tf_gap,
+        "driveMode": drive_mode_obj,
+
+        # placeholders (fill later from your sources)
+        "tlight": "off",
+        "redDot": False,
+        "temp": temp_speed,
+        "speedLimitKph": None,
+        "speedLimitOver": False,
+        "apm": " ",
       }
 
       await ws.send_str(json.dumps(payload))
       await asyncio.sleep(0.1)  # 10Hz
   except Exception:
+    traceback.print_exc()
     pass
 
   try:
@@ -814,6 +927,8 @@ def make_app() -> web.Application:
   # static-like routes
   app.router.add_get("/", handle_index)
   app.router.add_get("/app.js", handle_appjs)
+  app.router.add_get("/hud_card.js", handle_hudjs)
+  app.router.add_get("/hud_card.css", handle_hudcss)
 
   # api
   app.router.add_get("/api/settings", api_settings)
@@ -832,6 +947,7 @@ def make_app() -> web.Application:
   app.router.add_get("/download/params_backup.json", handle_download_params_backup)
   app.router.add_post("/api/params_restore", api_params_restore)
 
+  app.router.add_static("/", str(WEB_DIR), show_index=True)
   return app
 
 
