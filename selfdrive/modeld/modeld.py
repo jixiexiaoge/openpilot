@@ -297,23 +297,25 @@ class ModelState:
       return None
 
     self.vision_output = self.vision_run(**self.vision_inputs).contiguous().realize().uop.base.buffer.numpy()
-    vision_outputs_dict = self.parser.parse_vision_outputs(self.slice_outputs(self.vision_output, self.vision_output_slices))
+    vision_sliced = self.slice_outputs(self.vision_output, self.vision_output_slices)
 
-    self.full_input_queues.enqueue({'features_buffer': vision_outputs_dict['hidden_state'], self.desire_key: new_desire})
+    self.full_input_queues.enqueue({'features_buffer': vision_sliced['hidden_state'], self.desire_key: new_desire})
     for k in [self.desire_key, 'features_buffer']:
       self.numpy_inputs[k][:] = self.full_input_queues.get(k)[k]
     self.numpy_inputs['traffic_convention'][:] = inputs['traffic_convention']
 
     self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
-    policy_outputs_dict = self.parser.parse_policy_outputs(self.slice_outputs(self.policy_output, self.policy_output_slices))
+    policy_sliced = self.slice_outputs(self.policy_output, self.policy_output_slices)
 
-    combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
+    # 모든 모델의 raw output을 먼저 합친 후 한번에 파싱 (sunnypilot 방식)
+    combined_sliced = {**vision_sliced, **policy_sliced}
 
-    # off-policy 모델 실행 (있을 때만)
     if self.has_off_policy:
       self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
-      off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
-      combined_outputs_dict.update(off_policy_outputs_dict)
+      off_policy_sliced = self.slice_outputs(self.off_policy_output, self.off_policy_output_slices)
+      combined_sliced.update(off_policy_sliced)
+
+    combined_outputs_dict = self.parser.parse_outputs(combined_sliced)
 
     if SEND_RAW_PRED:
       raw_parts = [self.vision_output.copy(), self.policy_output.copy()]
