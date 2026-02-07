@@ -184,7 +184,7 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
     for i in range(3):
       lead = modelV2.leadsV3[i]
       fill_xyvat(lead, ModelConstants.LEAD_T_IDXS, zero_arr, zero_arr, zero_arr, zero_arr)
-      lead.prob = [0.0]
+      lead.prob = 0.0
       lead.probTime = ModelConstants.LEAD_T_OFFSETS[i]
 
   # meta
