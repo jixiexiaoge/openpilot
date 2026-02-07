@@ -89,18 +89,7 @@ def get_model_paths():
 
     return paths
 
-# 프로세스 시작 시 경로 결정 (한 번만 호출)
-MODEL_PATHS = get_model_paths()
-VISION_PKL_PATH = MODEL_PATHS['vision_pkl']
-POLICY_PKL_PATH = MODEL_PATHS['policy_pkl']
-VISION_METADATA_PATH = MODEL_PATHS['vision_meta']
-POLICY_METADATA_PATH = MODEL_PATHS['policy_meta']
-
-# off-policy 모델 경로 (없으면 None → 기존 2-모델 방식)
-OFF_POLICY_PKL_PATH = MODEL_PATHS.get('off_policy_pkl')
-OFF_POLICY_METADATA_PATH = MODEL_PATHS.get('off_policy_meta')
-cloudlog.warning(f"modeld module init: MODEL_PATHS keys={list(MODEL_PATHS.keys())}, "
-                 f"off_policy_pkl={OFF_POLICY_PKL_PATH}, off_policy_meta={OFF_POLICY_METADATA_PATH}")
+# 모델 경로는 ModelState.__init__()에서 결정 (compile_pending_model 완료 후 실행되도록)
 
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
@@ -216,14 +205,25 @@ class ModelState:
     return next(key for key in self.numpy_inputs if key.startswith('desire'))
 
   def __init__(self, context: CLContext):
-    with open(VISION_METADATA_PATH, 'rb') as f:
+    # compile_pending_model() 완료 후 실행되므로 여기서 경로 결정
+    model_paths = get_model_paths()
+    vision_pkl_path = model_paths['vision_pkl']
+    policy_pkl_path = model_paths['policy_pkl']
+    vision_meta_path = model_paths['vision_meta']
+    policy_meta_path = model_paths['policy_meta']
+    off_policy_pkl_path = model_paths.get('off_policy_pkl')
+    off_policy_meta_path = model_paths.get('off_policy_meta')
+    cloudlog.warning(f"Model paths resolved: keys={list(model_paths.keys())}, "
+                     f"off_policy_pkl={off_policy_pkl_path}, off_policy_meta={off_policy_meta_path}")
+
+    with open(vision_meta_path, 'rb') as f:
       vision_metadata = pickle.load(f)
       self.vision_input_shapes =  vision_metadata['input_shapes']
       self.vision_input_names = list(self.vision_input_shapes.keys())
       self.vision_output_slices = vision_metadata['output_slices']
       vision_output_size = vision_metadata['output_shapes']['outputs'][1]
 
-    with open(POLICY_METADATA_PATH, 'rb') as f:
+    with open(policy_meta_path, 'rb') as f:
       policy_metadata = pickle.load(f)
       self.policy_input_shapes =  policy_metadata['input_shapes']
       self.policy_output_slices = policy_metadata['output_slices']
@@ -247,17 +247,12 @@ class ModelState:
     self.policy_inputs = {k: Tensor(v, device='NPY').realize() for k,v in self.numpy_inputs.items()}
     self.policy_output = np.zeros(policy_output_size, dtype=np.float32)
 
-    # off-policy 모델 조건부 로드 (경로가 설정되어 있고 실제 파일이 존재할 때만)
-    _pkl_set = OFF_POLICY_PKL_PATH is not None
-    _meta_set = OFF_POLICY_METADATA_PATH is not None
-    _pkl_exists = _pkl_set and Path(OFF_POLICY_PKL_PATH).exists()
-    _meta_exists = _meta_set and Path(OFF_POLICY_METADATA_PATH).exists()
-    self.has_off_policy = _pkl_set and _meta_set and _pkl_exists and _meta_exists
-    cloudlog.warning(f"Off-policy check: pkl_path={OFF_POLICY_PKL_PATH}, meta_path={OFF_POLICY_METADATA_PATH}, "
-                     f"pkl_set={_pkl_set}, meta_set={_meta_set}, pkl_exists={_pkl_exists}, meta_exists={_meta_exists}, "
-                     f"has_off_policy={self.has_off_policy}")
+    # off-policy 모델 조건부 로드
+    self.has_off_policy = (off_policy_pkl_path is not None and off_policy_meta_path is not None
+                           and Path(off_policy_pkl_path).exists() and Path(off_policy_meta_path).exists())
+    cloudlog.warning(f"Off-policy check: has_off_policy={self.has_off_policy}")
     if self.has_off_policy:
-      with open(OFF_POLICY_METADATA_PATH, 'rb') as f:
+      with open(off_policy_meta_path, 'rb') as f:
         off_policy_metadata = pickle.load(f)
         self.off_policy_input_shapes = off_policy_metadata['input_shapes']
         self.off_policy_output_slices = off_policy_metadata['output_slices']
@@ -267,14 +262,14 @@ class ModelState:
 
     self.parser = Parser()
 
-    with open(VISION_PKL_PATH, "rb") as f:
+    with open(vision_pkl_path, "rb") as f:
       self.vision_run = pickle.load(f)
 
-    with open(POLICY_PKL_PATH, "rb") as f:
+    with open(policy_pkl_path, "rb") as f:
       self.policy_run = pickle.load(f)
 
     if self.has_off_policy:
-      with open(OFF_POLICY_PKL_PATH, "rb") as f:
+      with open(off_policy_pkl_path, "rb") as f:
         self.off_policy_run = pickle.load(f)
 
   def slice_outputs(self, model_outputs: np.ndarray, output_slices: dict[str, slice]) -> dict[str, np.ndarray]:
