@@ -99,6 +99,8 @@ POLICY_METADATA_PATH = MODEL_PATHS['policy_meta']
 # off-policy 모델 경로 (없으면 None → 기존 2-모델 방식)
 OFF_POLICY_PKL_PATH = MODEL_PATHS.get('off_policy_pkl')
 OFF_POLICY_METADATA_PATH = MODEL_PATHS.get('off_policy_meta')
+cloudlog.warning(f"modeld module init: MODEL_PATHS keys={list(MODEL_PATHS.keys())}, "
+                 f"off_policy_pkl={OFF_POLICY_PKL_PATH}, off_policy_meta={OFF_POLICY_METADATA_PATH}")
 
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
@@ -246,8 +248,14 @@ class ModelState:
     self.policy_output = np.zeros(policy_output_size, dtype=np.float32)
 
     # off-policy 모델 조건부 로드 (경로가 설정되어 있고 실제 파일이 존재할 때만)
-    self.has_off_policy = (OFF_POLICY_PKL_PATH is not None and OFF_POLICY_METADATA_PATH is not None
-                           and Path(OFF_POLICY_PKL_PATH).exists() and Path(OFF_POLICY_METADATA_PATH).exists())
+    _pkl_set = OFF_POLICY_PKL_PATH is not None
+    _meta_set = OFF_POLICY_METADATA_PATH is not None
+    _pkl_exists = _pkl_set and Path(OFF_POLICY_PKL_PATH).exists()
+    _meta_exists = _meta_set and Path(OFF_POLICY_METADATA_PATH).exists()
+    self.has_off_policy = _pkl_set and _meta_set and _pkl_exists and _meta_exists
+    cloudlog.warning(f"Off-policy check: pkl_path={OFF_POLICY_PKL_PATH}, meta_path={OFF_POLICY_METADATA_PATH}, "
+                     f"pkl_set={_pkl_set}, meta_set={_meta_set}, pkl_exists={_pkl_exists}, meta_exists={_meta_exists}, "
+                     f"has_off_policy={self.has_off_policy}")
     if self.has_off_policy:
       with open(OFF_POLICY_METADATA_PATH, 'rb') as f:
         off_policy_metadata = pickle.load(f)
@@ -297,25 +305,23 @@ class ModelState:
       return None
 
     self.vision_output = self.vision_run(**self.vision_inputs).contiguous().realize().uop.base.buffer.numpy()
-    vision_sliced = self.slice_outputs(self.vision_output, self.vision_output_slices)
+    vision_outputs_dict = self.parser.parse_vision_outputs(self.slice_outputs(self.vision_output, self.vision_output_slices))
 
-    self.full_input_queues.enqueue({'features_buffer': vision_sliced['hidden_state'], self.desire_key: new_desire})
+    self.full_input_queues.enqueue({'features_buffer': vision_outputs_dict['hidden_state'], self.desire_key: new_desire})
     for k in [self.desire_key, 'features_buffer']:
       self.numpy_inputs[k][:] = self.full_input_queues.get(k)[k]
     self.numpy_inputs['traffic_convention'][:] = inputs['traffic_convention']
 
     self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
-    policy_sliced = self.slice_outputs(self.policy_output, self.policy_output_slices)
+    policy_outputs_dict = self.parser.parse_policy_outputs(self.slice_outputs(self.policy_output, self.policy_output_slices))
 
-    # 모든 모델의 raw output을 먼저 합친 후 한번에 파싱 (sunnypilot 방식)
-    combined_sliced = {**vision_sliced, **policy_sliced}
+    combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
 
+    # off-policy 모델 실행 (있을 때만)
     if self.has_off_policy:
       self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
-      off_policy_sliced = self.slice_outputs(self.off_policy_output, self.off_policy_output_slices)
-      combined_sliced.update(off_policy_sliced)
-
-    combined_outputs_dict = self.parser.parse_outputs(combined_sliced)
+      off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
+      combined_outputs_dict.update(off_policy_outputs_dict)
 
     if SEND_RAW_PRED:
       raw_parts = [self.vision_output.copy(), self.policy_output.copy()]
