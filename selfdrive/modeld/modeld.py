@@ -245,8 +245,9 @@ class ModelState:
     self.policy_inputs = {k: Tensor(v, device='NPY').realize() for k,v in self.numpy_inputs.items()}
     self.policy_output = np.zeros(policy_output_size, dtype=np.float32)
 
-    # off-policy 모델 조건부 로드
-    self.has_off_policy = OFF_POLICY_PKL_PATH is not None and OFF_POLICY_METADATA_PATH is not None
+    # off-policy 모델 조건부 로드 (경로가 설정되어 있고 실제 파일이 존재할 때만)
+    self.has_off_policy = (OFF_POLICY_PKL_PATH is not None and OFF_POLICY_METADATA_PATH is not None
+                           and Path(OFF_POLICY_PKL_PATH).exists() and Path(OFF_POLICY_METADATA_PATH).exists())
     if self.has_off_policy:
       with open(OFF_POLICY_METADATA_PATH, 'rb') as f:
         off_policy_metadata = pickle.load(f)
