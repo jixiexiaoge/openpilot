@@ -1,7 +1,7 @@
 import os
+import math
 import capnp
 import numpy as np
-import math
 from cereal import log
 from openpilot.selfdrive.modeld.constants import ModelConstants, Plan, Meta
 
@@ -96,9 +96,6 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
   # action
   modelV2.action = action
 
-  # times at X_IDXS of edges and lines aren't used
-  # LINE_T_IDXS: list[float] = []
-
   # times at X_IDXS according to model plan
   LINE_T_IDXS = [np.nan] * ModelConstants.IDX_N
   LINE_T_IDXS[0] = 0.0
@@ -130,40 +127,65 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
     #  next_x_val - current_x_val) > 1e-9 else float('nan')
     #LINE_T_IDXS[xidx] = p * ModelConstants.T_IDXS[tidx + 1] + (1 - p) * ModelConstants.T_IDXS[tidx]
 
-  LINE_T_IDXS = [float(Tmax if math.isnan(float(v)) else float(v)) for v in LINE_T_IDXS]
+  LINE_T_IDXS = [float(v) for v in LINE_T_IDXS]
 
-  # 비내림(monotonic non-decreasing) 보정 (순수 파이썬, numpy 불사용)
+  # 비내림(monotonic non-decreasing) 보정 (NaN은 건너뜀)
   running = LINE_T_IDXS[0]
   for i in range(1, len(LINE_T_IDXS)):
-      if LINE_T_IDXS[i] < running:
+      if math.isnan(LINE_T_IDXS[i]):
+          continue
+      if not math.isnan(running) and LINE_T_IDXS[i] < running:
           LINE_T_IDXS[i] = running
       else:
           running = LINE_T_IDXS[i]
 
   # lane lines
   modelV2.init('laneLines', 4)
-  for i in range(4):
-    lane_line = modelV2.laneLines[i]
-    fill_xyzt(lane_line, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
-  modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
-  modelV2.laneLineProbs = net_output_data['lane_lines_prob'][0,1::2].tolist()
+  if 'lane_lines' in net_output_data:
+    for i in range(4):
+      lane_line = modelV2.laneLines[i]
+      fill_xyzt(lane_line, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
+    modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
+    modelV2.laneLineProbs = net_output_data['lane_lines_prob'][0,1::2].tolist()
+  else:
+    zero_arr = np.zeros(ModelConstants.IDX_N, dtype=np.float32)
+    for i in range(4):
+      lane_line = modelV2.laneLines[i]
+      fill_xyzt(lane_line, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), zero_arr, zero_arr)
+    modelV2.laneLineStds = [0.0] * ModelConstants.NUM_LANE_LINES
+    modelV2.laneLineProbs = [0.0] * ModelConstants.NUM_LANE_LINES
 
   fill_lane_line_meta(driving_model_data.laneLineMeta, modelV2.laneLines, modelV2.laneLineProbs)
 
   # road edges
   modelV2.init('roadEdges', 2)
-  for i in range(2):
-    road_edge = modelV2.roadEdges[i]
-    fill_xyzt(road_edge, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['road_edges'][0,i,:,0], net_output_data['road_edges'][0,i,:,1])
-  modelV2.roadEdgeStds = net_output_data['road_edges_stds'][0,:,0,0].tolist()
+  if 'road_edges' in net_output_data:
+    for i in range(2):
+      road_edge = modelV2.roadEdges[i]
+      fill_xyzt(road_edge, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['road_edges'][0,i,:,0], net_output_data['road_edges'][0,i,:,1])
+    modelV2.roadEdgeStds = net_output_data['road_edges_stds'][0,:,0,0].tolist()
+  else:
+    zero_arr = np.zeros(ModelConstants.IDX_N, dtype=np.float32)
+    for i in range(2):
+      road_edge = modelV2.roadEdges[i]
+      fill_xyzt(road_edge, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), zero_arr, zero_arr)
+    modelV2.roadEdgeStds = [0.0] * ModelConstants.NUM_ROAD_EDGES
 
   # leads
   modelV2.init('leadsV3', 3)
-  for i in range(3):
-    lead = modelV2.leadsV3[i]
-    fill_xyvat(lead, ModelConstants.LEAD_T_IDXS, *net_output_data['lead'][0,i].T, *net_output_data['lead_stds'][0,i].T)
-    lead.prob = net_output_data['lead_prob'][0,i].tolist()
-    lead.probTime = ModelConstants.LEAD_T_OFFSETS[i]
+  if 'lead' in net_output_data:
+    for i in range(3):
+      lead = modelV2.leadsV3[i]
+      fill_xyvat(lead, ModelConstants.LEAD_T_IDXS, *net_output_data['lead'][0,i].T, *net_output_data['lead_stds'][0,i].T)
+      lead.prob = net_output_data['lead_prob'][0,i].tolist()
+      lead.probTime = ModelConstants.LEAD_T_OFFSETS[i]
+  else:
+    zero_arr = np.zeros(ModelConstants.LEAD_TRAJ_LEN, dtype=np.float32)
+    for i in range(3):
+      lead = modelV2.leadsV3[i]
+      fill_xyvat(lead, ModelConstants.LEAD_T_IDXS, zero_arr, zero_arr, zero_arr, zero_arr)
+      lead.prob = 0.0
+      lead.probTime = ModelConstants.LEAD_T_OFFSETS[i]
 
   # meta
   meta = modelV2.meta
