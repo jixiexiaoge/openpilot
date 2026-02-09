@@ -59,6 +59,9 @@ const btnBackBranch = document.getElementById("btnBackBranch");
 const branchMeta = document.getElementById("branchMeta");
 const branchList = document.getElementById("branchList");
 
+// Quick Link
+const quickLink = document.getElementById("quickLink");
+
 btnBackBranch.onclick = () => history.back();
 branchTitle.onclick = () => history.back();
 
@@ -74,6 +77,7 @@ function showPage(page, pushHistory = false) {
 
   if (page === "home") {
     loadCurrentCar().catch(() => {});
+    updateQuickLink().catch(() => {});
   }
 
   if (page === "setting") {
@@ -821,9 +825,11 @@ async function rtcDisconnect() {
   RTC_PC = null;
   const v = document.getElementById("rtcVideo");
   if (v) { v.srcObject = null; v.style.display = "none"; }
+  const rtcCard = document.getElementById("rtcCard");
+  rtcCard.style.display = "none";
 
-  speedOverlayShow(false);
-  await carWsDisconnect();
+  // HUD auto dock handled by hudAutoDock()
+  //await carWsDisconnect();
 }
 
 function rtcScheduleRetry(ms = 2000) {
@@ -890,6 +896,7 @@ async function rtcConnectOnce() {
     pc.addTransceiver("video", { direction: "recvonly" });
 
     pc.ontrack = async (ev) => {
+      const rtcCard = document.getElementById("rtcCard");
       const v = document.getElementById("rtcVideo");
       if (!v) return;
 
@@ -899,12 +906,13 @@ async function rtcConnectOnce() {
       }
 
       v.srcObject = stream;
-      v.style.display = "";
+      v.style.display = "block";
+      rtcCard.style.display = "block";
       try { await v.play(); } catch(e) { console.log("[RTC] play() failed", e); }
       rtcStatusSet("track: " + ev.track.kind);
       rtcDisarmTrackTimeout();
 
-      speedOverlayShow(true);
+      hudAutoDock();
       carWsConnect();
     };
 
@@ -993,6 +1001,52 @@ function rtcInitAuto() {
     if (!document.hidden) rtcConnectOnce().catch(() => {});
   });
 }
+const btnRtcFs = document.getElementById("btnRtcFs");
+const rtcVideoEl = document.getElementById("rtcVideo");
+const rtcWrap = document.getElementById("rtcWrap");
+
+// 유저 제스처에서만 호출되도록: 버튼 클릭 / 비디오 탭 이벤트에서만 실행
+async function rtcToggleFullscreen() {
+  const target = rtcWrap || rtcVideoEl;
+
+  // 이미 풀스크린이면 종료
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fsEl) {
+    if (document.exitFullscreen) await document.exitFullscreen().catch(()=>{});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    return;
+  }
+
+  // 1) 표준 Fullscreen API (대부분의 크롬/안드/데스크탑)
+  if (target.requestFullscreen) {
+    await target.requestFullscreen().catch(()=>{});
+    return;
+  }
+
+  // 2) Safari (일부는 webkitRequestFullscreen)
+  if (target.webkitRequestFullscreen) {
+    target.webkitRequestFullscreen();
+    return;
+  }
+
+  // 3) iOS Safari: video 전용 전체화면 (가장 잘 먹힘)
+  //    (주의: iOS는 inline 재생/정책 때문에 이 방법이 더 안정적)
+  if (target.webkitEnterFullscreen) {
+    target.webkitEnterFullscreen();
+    return;
+  }
+
+  alert("Fullscreen not supported on this browser.");
+}
+
+// 버튼
+if (btnRtcFs) btnRtcFs.onclick = rtcToggleFullscreen;
+
+// 비디오 탭(원하면)
+if (rtcVideoEl) {
+  rtcVideoEl.style.cursor = "pointer";
+  rtcVideoEl.addEventListener("click", rtcToggleFullscreen);
+}
 
 let CAR_WS = null;
 let CAR_WS_RETRY_T = null;
@@ -1005,6 +1059,73 @@ function carWsScheduleReconnect(ms = 1000) {
   }, ms);
 }
 
+// ===== Driving HUD docking (card <-> WebRTC overlay) =====
+function hudDock(mode /* "card"|"top"|"bl" */) {
+  const hudRoot = document.getElementById("hudRoot");
+  const card = document.getElementById("driveHudCard");
+  const host = document.getElementById("hudOverlayHost");
+  if (!hudRoot || !card || !host) return;
+
+  host.classList.remove("dock_top","dock_bl");
+  host.style.display = "none";
+
+  if (mode === "top" || mode === "bl") {
+    host.classList.add(mode === "bl" ? "dock_bl" : "dock_top");
+    host.style.display = "";
+    if (hudRoot.parentElement !== host) host.appendChild(hudRoot);
+    card.style.display = "none";
+  } else {
+    if (hudRoot.parentElement !== card) card.appendChild(hudRoot);
+    card.style.display = "";
+  }
+}
+
+function hudAutoDock() {
+  const rtcVideo = document.getElementById("rtcVideo");
+  const rtcCard = document.getElementById("rtcCard");
+  const host = document.getElementById("hudOverlayHost");
+  if (!rtcVideo || !rtcCard || !host) return;
+
+  const videoVisible = rtcCard.style.display !== "none" && rtcVideo.style.display !== "none";
+  if (!videoVisible) { hudDock("card"); return; }
+
+  const fs = document.fullscreenElement === rtcVideo;
+  const landscape = window.innerWidth >= window.innerHeight;
+
+  if (fs && landscape) hudDock("bl");
+  else hudDock("top");
+}
+
+function drivingHudUpdateFromCarPayload(j) {
+  if (!window.DrivingHud) {
+    console.log("[HUD] update none");
+    return;
+  }
+
+  const vEgoKph = (typeof j.vEgo === "number" && isFinite(j.vEgo)) ? j.vEgo * 3.6 : null;
+
+  const payload = {
+    cpuTempC: j.cpuTempC,
+    memPct: j.memPct,
+    diskPct: j.diskPct,
+    diskLabel: j.diskLabel,
+    vEgoKph,
+    vSetKph: j.vSetKph,
+    temp: j.temp,
+    redDot: j.redDot,
+    tlight: j.tlight,
+    tfGap: j.tfGap,
+    tfBars: j.tfBars,
+    gear: j.gear,
+    gpsOk: j.gpsOk,
+    driveMode: j.driveMode,
+    speedLimitKph: j.speedLimitKph,
+    speedLimitOver: j.speedLimitOver,
+    apm: j.apm,
+  };
+
+  window.DrivingHud.update(payload);
+}
 function carWsConnect() {
   // 이미 살아있으면 패스
   if (CAR_WS && (CAR_WS.readyState === WebSocket.OPEN || CAR_WS.readyState === WebSocket.CONNECTING)) return;
@@ -1013,25 +1134,27 @@ function carWsConnect() {
   CAR_WS = new WebSocket(wsProto + "://" + location.host + "/ws/carstate");
 
   CAR_WS.onopen = () => {
-    // console.log("[CAR_WS] open");
+    console.log("[CAR_WS] open");
   };
 
   CAR_WS.onmessage = (ev) => {
     try {
       const j = JSON.parse(ev.data);
-      const v = j.vEgo;
-      if (typeof v === "number" && isFinite(v)) {
-        speedOverlaySet(v * 3.6);
-      }
-    } catch {}
+      // console.log("[CAR_WS] msg keys:", Object.keys(j || {}));
+      // console.log("[CAR_WS] vEgo:", j?.vEgo, "type:", typeof j?.vEgo);
+      drivingHudUpdateFromCarPayload(j);
+      hudAutoDock();
+    } catch (e) {
+      console.log("[CAR_WS] bad msg", e, ev.data);
+    }
   };
 
   CAR_WS.onerror = () => {
-    // 에러가 나면 close로 이어지는 경우가 많음
+    console.log("[CAR_WS] error", e);
   };
 
   CAR_WS.onclose = () => {
-    // console.log("[CAR_WS] close -> reconnect");
+    console.log("[CAR_WS] close -> reconnect");
     CAR_WS = null;
     carWsScheduleReconnect(1000);
   };
@@ -1043,19 +1166,56 @@ async function carWsDisconnect() {
   CAR_WS = null;
 }
 
+async function updateQuickLink() {
+  const el = document.getElementById("quickLink");
+  if (!el) return;
+
+  try {
+    const v = await bulkGet(["GithubUsername"]);
+    const githubId = (v["GithubUsername"] || "").trim();
+
+    if (!githubId) {
+      el.style.display = "";
+      el.textContent = "GithubUsername empty (bulkGet ok)";
+      return;
+    }
+
+    const url = `https://shind0.synology.me/carrot/go/?id=${encodeURIComponent(githubId)}`;
+    el.href = url;
+    el.textContent = url;
+    el.style.display = "";
+  } catch (e) {
+    el.style.display = "";
+    el.removeAttribute("href");
+    el.textContent = "QuickLink error: " + (e?.message || e);
+    console.log("[QuickLink] failed:", e);
+  }
+}
+
+
+
 
 
 
 function startAll() {
   showPage("home", false);
   rtcInitAuto();
+  updateQuickLink().catch(() => {});
 
-  setInterval(() => {
-    const v = document.getElementById("rtcVideo");
-    if (!v) return;
-    console.log("[RTC] readyState=", v.readyState, "w=", v.videoWidth, "h=", v.videoHeight);
-  }, 2000);
+  if (window.DrivingHud) {
+    window.DrivingHud.init();
+  }
+
+  // start car telemetry WS (10Hz)
+  carWsConnect();
+
+  // keep HUD dock state in sync
+  window.addEventListener("resize", hudAutoDock);
+  document.addEventListener("fullscreenchange", hudAutoDock);
+  setInterval(hudAutoDock, 800);
 }
+
+
 
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", startAll);
