@@ -24,12 +24,8 @@ jobs:
           # ajouatom branches
           git remote add ajouatom https://github.com/ajouatom/openpilot.git
           git fetch ajouatom carrot2-v9 --no-tags || echo "⚠️ ajouatom carrot2-v9 fetch failed"
-          git fetch ajouatom o-cd210 --no-tags || echo "⚠️ ajouatom o-cd210 fetch failed"
-          git fetch ajouatom o-wmi --no-tags || echo "⚠️ ajouatom o-wmi fetch failed"
+          git fetch ajouatom o-offp --no-tags || echo "⚠️ ajouatom o-offp fetch failed"
 
-          # yysnet (Gitee)
-          #git remote add yysnet https://gitee.com/yysnet/carrotpilot.git
-          #git fetch yysnet carrot2-v9 --no-tags || echo "⚠️ yysnet carrot2-v9 fetch failed"
 
       - name: Push branches to your repository
         run: |
@@ -41,11 +37,7 @@ jobs:
             || echo "⚠️ carrot2-v9 push skipped"
             
           # ajouatom o-cd210
-          git checkout -B o-cd210 ajouatom/o-cd210 \
-            && git push origin o-cd210 --force \
+          git checkout -B o-offp ajouatom/o-offp \
+            && git push origin o-offp --force \
             || echo "⚠️ o-cd210 push skipped"
-
-          # ajouatom o-wmi
-          git checkout -B o-wmi ajouatom/o-wmi \
-            && git push origin o-wmi --force \
-            || echo "⚠️ o-wmi push skipped"
+ 
