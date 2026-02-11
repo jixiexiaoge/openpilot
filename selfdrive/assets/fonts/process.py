@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import gettext
 import json
 
 import pyray as rl
@@ -21,21 +22,46 @@ def _languages():
     return json.load(f)
 
 
+def _dragonpilot_chars(code: str) -> set[str]:
+  """Characters used by dragonpilot's own translations (dragonpilot_{code}.mo).
+
+  dp settings translate via a separate catalog from openpilot's app_{code}.po,
+  so their glyphs must be baked too — otherwise translated dp settings render
+  as '?' (the catalog ships compiled, so we read the .mo, not a .po source)."""
+  mo_path = TRANSLATIONS_DIR / f"dragonpilot_{code}.mo"
+  if not mo_path.exists():
+    return set()
+  with mo_path.open("rb") as fh:
+    catalog = gettext.GNUTranslations(fh)._catalog
+  chars: set[str] = set()
+  for value in catalog.values():
+    if isinstance(value, str):
+      chars |= set(value)
+  return chars
+
+
 def _char_sets():
   base = set(map(chr, range(32, 127))) | set(EXTRA_CHARS)
-  unifont = set(base)
+  labels = set(base)
+  per_lang: dict[str, tuple[int, ...]] = {}
 
   for language, code in _languages().items():
-    unifont.update(language)
-    for prefix in ("app_", "dragonpilot_"):
-      po_path = TRANSLATIONS_DIR / f"{prefix}{code}.po"
-      try:
-        chars = set(po_path.read_text(encoding="utf-8"))
-      except FileNotFoundError:
-        continue
-      (unifont if code in UNIFONT_LANGUAGES else base).update(chars)
+    labels.update(language)
+    po_path = TRANSLATIONS_DIR / f"app_{code}.po"
+    try:
+      chars = set(po_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+      continue
+    chars |= _dragonpilot_chars(code)
+    if code in UNIFONT_LANGUAGES:
+      lang_chars = set(base) | chars
+      per_lang[code] = tuple(sorted(ord(c) for c in lang_chars))
+    else:
+      base.update(chars)
 
-  return tuple(sorted(ord(c) for c in base)), tuple(sorted(ord(c) for c in unifont))
+  base_cp = tuple(sorted(ord(c) for c in base))
+  labels_cp = tuple(sorted(ord(c) for c in labels))
+  return base_cp, labels_cp, per_lang
 
 
 def _glyph_metrics(glyphs, rects, glyph_count: int):
@@ -87,12 +113,10 @@ def _write_bmfont(path: Path, font_size: int, face: str, atlas_name: str, line_h
   path.write_text("\n".join(lines) + "\n")
 
 
-def _process_font(font_path: Path, codepoints: tuple[int, ...]):
-  print(f"Processing {font_path.name}...")
-
-  font_size = {
-    "unifont.otf": 16,  # unifont is only 16x8 or 16x16 pixels per glyph
-  }.get(font_path.name, 200)
+def _process_font(font_path: Path, codepoints: tuple[int, ...], output_name: str | None = None):
+  stem = output_name or font_path.stem
+  font_size = 48 if font_path.stem.lower().startswith("opfont") else 200
+  print(f"Processing {font_path.name} -> {stem} ({len(codepoints)} glyphs @ {font_size}px)...")
 
   data = font_path.read_bytes()
   file_buf = rl.ffi.new("unsigned char[]", data)
@@ -112,24 +136,42 @@ def _process_font(font_path: Path, codepoints: tuple[int, ...]):
     raise RuntimeError("raylib returned an empty atlas")
 
   rects = rects_ptr[0]
-  atlas_name = f"{font_path.stem}.png"
+  atlas_name = f"{stem}.png"
   atlas_path = FONT_DIR / atlas_name
   entries, line_height, base = _glyph_metrics(glyphs, rects, glyph_count[0])
 
   if not rl.export_image(image, atlas_path.as_posix()):
     raise RuntimeError("Failed to export atlas image")
 
-  _write_bmfont(FONT_DIR / f"{font_path.stem}.fnt", font_size, font_path.stem, atlas_name, line_height, base, (image.width, image.height), entries)
+  _write_bmfont(FONT_DIR / f"{stem}.fnt", font_size, stem, atlas_name, line_height, base, (image.width, image.height), entries)
 
 
 def main():
-  base_cp, unifont_cp = _char_sets()
+  base_cp, labels_cp, per_lang = _char_sets()
   fonts = sorted(FONT_DIR.glob("*.ttf")) + sorted(FONT_DIR.glob("*.otf"))
+  opfonts: list[Path] = []
+
   for font in fonts:
-    if "emoji" in font.name.lower():
+    if "emoji" in font.name.lower() or font.name == "unifont.otf":
       continue
-    glyphs = unifont_cp if font.stem.lower().startswith("unifont") else base_cp
-    _process_font(font, glyphs)
+    if font.stem.lower().startswith("opfont"):
+      opfonts.append(font)
+      continue
+    _process_font(font, base_cp)
+
+  if not opfonts:
+    raise RuntimeError("OpFont not found (expected OpFont-*.otf in fonts dir)")
+
+  for opfont_path in opfonts:
+    weight = opfont_path.stem  # e.g. "OpFont-Regular"
+
+    # Labels atlas: language display names + ASCII (for language selector)
+    _process_font(opfont_path, labels_cp, output_name=f"{weight}-Labels")
+
+    # Per-language atlases: ASCII + that language's .po chars
+    for lang_code, lang_cp in per_lang.items():
+      _process_font(opfont_path, lang_cp, output_name=f"{weight}-{lang_code}")
+
   return 0
 
 
