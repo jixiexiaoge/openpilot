@@ -30,6 +30,7 @@ from aiohttp import web, ClientSession
 from cereal import messaging
 from opendbc.car import structs
 import shlex
+import shutil
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -549,13 +550,21 @@ async def api_tools(request: web.Request) -> web.Response:
       for pth in paths:
         if not os.path.isdir(pth):
           continue
-        for fn in glob.glob(os.path.join(pth, "*")):
+
+        for name in os.listdir(pth):
+          full_path = os.path.join(pth, name)
           try:
-            os.remove(fn)
-            deleted += 1
-          except Exception:
-            pass
-      return web.json_response({"ok": True, "out": f"deleted files: {deleted}"})
+            if os.path.isfile(full_path) or os.path.islink(full_path):
+              os.remove(full_path)
+              deleted += 1
+            elif os.path.isdir(full_path):
+              shutil.rmtree(full_path)
+              deleted += 1
+          except Exception as e:
+            print("delete error:", e)
+
+      return web.json_response({"ok": True, "out": f"deleted entries: {deleted}"})
+
 
 
     if action == "send_tmux_log":
