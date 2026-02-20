@@ -59,6 +59,7 @@ class SideState:
   # computed “lane change available” (includes BSD+object)
   lane_change_available_geom: bool = False
   lane_change_available: bool = False
+  lane_width_sum: float = 0.0
 
   def update_lane_geometry(self,
                            lane_outer, lane_outer_prob,
@@ -69,17 +70,20 @@ class SideState:
       lane_outer, lane_outer_prob, lane_current, road_edge
     )
 
-    # lane exist hysteresis (bugfix: 반드시 bool 넣기)
     self.lane_exist_count.update(bool(lane_valid))
 
+    # running mean (O(1))
+    if len(self.lane_width_queue) == self.lane_width_queue.maxlen:
+      self.lane_width_sum -= self.lane_width_queue.popleft()
     self.lane_width_queue.append(lane_w)
-    self.lane_width = float(np.mean(self.lane_width_queue)) if len(self.lane_width_queue) else float(lane_w)
+    self.lane_width_sum += lane_w
+    self.lane_width = self.lane_width_sum / len(self.lane_width_queue)
+
     self.lane_width_diff = (self.lane_width_queue[-1] - self.lane_width_queue[0]) if len(self.lane_width_queue) >= 2 else 0.0
 
     self.dist_to_edge = float(dist_edge)
     self.dist_to_edge_far = float(dist_edge_far)
 
-    # availability 판단
     min_lane_width = 2.5
     self.lane_width_count.update(self.lane_width > min_lane_width)
     self.edge_count.update(self.dist_to_edge > min_lane_width)
@@ -106,9 +110,9 @@ class SideState:
                        ignore_bsd: bool,
                        bsd_hold_sec: float = 2.0):
     # object_detected (radar 기반)
-    if radar_obj is not None and getattr(radar_obj, "status", False):
-      d = float(getattr(radar_obj, "dRel", 255.0))
-      v = float(getattr(radar_obj, "vLead", 0.0))
+    if radar_obj is not None and radar_obj.status:
+      d = radar_obj.dRel
+      v = radar_obj.vLead
       side_object_dist = d + v * 4.0
     else:
       side_object_dist = 255.0
