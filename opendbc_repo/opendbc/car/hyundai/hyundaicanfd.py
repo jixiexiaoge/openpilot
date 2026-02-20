@@ -790,8 +790,8 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
 
         ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values))
 
-      if CS.adrv_0x162 is not None:
-        values = copy.copy(CS.adrv_0x162)
+      if CS.ccnc_0x162 is not None:
+        values = copy.copy(CS.ccnc_0x162)
 
         if hud_control.leadDistance > 0:
           values["FF_DISTANCE"] = hud_control.leadDistance

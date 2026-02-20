@@ -94,7 +94,7 @@ class CarState(CarStateBase):
     self.adrv_0x200 = None
     self.adrv_0x1ea = None
     self.adrv_0x160 = None
-    self.adrv_0x162 = None    
+    self.ccnc_0x162 = None    
     self.hda_info_4a3 = None    
     self.tcs = None    
     self.mdps = None
@@ -224,7 +224,7 @@ class CarState(CarStateBase):
           add_and_cache(self.cp_cam, "ADRV_0x200", "adrv_0x200")
           add_and_cache(self.cp_cam, "ADRV_0x1ea", "adrv_0x1ea")
           add_and_cache(self.cp_cam, "ADRV_0x160", "adrv_0x160")
-          add_and_cache(self.cp_cam, "ADRV_0x162", "adrv_0x162")
+          add_and_cache(self.cp_cam, "CCNC_0x162", "ccnc_0x162")
         elif self.controls_ready_count == 123:        
           add_and_cache(self.cp, "HDA_INFO_4A3", "hda_info_4a3")
           add_and_cache(self.cp, "TCS", "tcs")
@@ -561,13 +561,13 @@ class CarState(CarStateBase):
     speed_limit_cam = False
     if self.CP.flags & HyundaiFlags.CAMERA_SCC.value:
       corner = False
-      if self.adrv_0x162 is not None:
-        ret.leftLongDist = self.lf_distance = self.adrv_0x162["LF_DETECT_DISTANCE"]
-        ret.rightLongDist = self.rf_distance = self.adrv_0x162["RF_DETECT_DISTANCE"]
-        self.lr_distance = self.adrv_0x162["LR_DETECT_DISTANCE"]
-        self.rr_distance = self.adrv_0x162["RR_DETECT_DISTANCE"]
-        ret.leftLatDist = self.adrv_0x162["LF_DETECT_LATERAL"]
-        ret.rightLatDist = self.adrv_0x162["RF_DETECT_LATERAL"]
+      if self.ccnc_0x162 is not None:
+        ret.leftLongDist = self.lf_distance = self.ccnc_0x162["LF_DETECT_DISTANCE"]
+        ret.rightLongDist = self.rf_distance = self.ccnc_0x162["RF_DETECT_DISTANCE"]
+        self.lr_distance = self.ccnc_0x162["LR_DETECT_DISTANCE"]
+        self.rr_distance = self.ccnc_0x162["RR_DETECT_DISTANCE"]
+        ret.leftLatDist = self.ccnc_0x162["LF_DETECT_LATERAL"]
+        ret.rightLatDist = self.ccnc_0x162["RF_DETECT_LATERAL"]
         corner = True
       if self.adrv_0x1ea is not None:
         if not corner:
