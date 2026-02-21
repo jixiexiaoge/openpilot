@@ -97,7 +97,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
   ret = []
   if CS.mdps is not None:
     values = copy.copy(CS.mdps)
-    values.pop("COUNTER", None)
+    rx_counter = values.pop("COUNTER", None)
     if angle_control:
       if CS.lfa_alt is not None:
         values["LFA2_ACTIVE"] = CS.lfa_alt["LKAS_ANGLE_ACTIVE"]
@@ -107,7 +107,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
 
     if frame % 1000 < 40:
       values["STEERING_COL_TORQUE"] += 220
-    ret.append(packer.make_can_msg("MDPS", CAN.CAM, values))
+    ret.append(packer.make_can_msg("MDPS", CAN.CAM, values, rx_counter = rx_counter))
 
   if frame % 10 == 0:
     if CS.steer_touch_2af is not None:
@@ -125,7 +125,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
   if angle_control:
     if CS.lfa_alt is not None:
       values = copy.copy(CS.lfa_alt)
-      values.pop("COUNTER", None)
+      rx_counter = values.pop("COUNTER", None)
       if emergency_steering:      
         pass
       else:
@@ -133,11 +133,11 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
         values["LKAS_ANGLE_ACTIVE"] = 2 if CC.latActive else 1
         values["LKAS_ANGLE_CMD"] = -apply_angle
         values["LKAS_ANGLE_MAX_TORQUE"] = max_torque if CC.latActive else 0
-      ret.append(packer.make_can_msg("LFA_ALT", CAN.ECAN, values))
+      ret.append(packer.make_can_msg("LFA_ALT", CAN.ECAN, values, rx_counter = rx_counter))
 
     if CS.lfa is not None:
       values = copy.copy(CS.lfa)
-      values.pop("COUNTER", None)
+      rx_counter = values.pop("COUNTER", None)
       if not emergency_steering:
         values["LKA_MODE"] = 0
         values["LKA_ICON"] = 2 if CC.latActive else 1
@@ -151,7 +151,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
         values["LKAS_ANGLE_ACTIVE"] = 0 #2 if lat_active else 1,
         values["LKAS_ANGLE_MAX_TORQUE"] = 0 #max_torque if lat_active else 0,
         values["NEW_SIGNAL_1"] = 10
-      ret.append(packer.make_can_msg("LFA", CAN.ECAN, values))
+      ret.append(packer.make_can_msg("LFA", CAN.ECAN, values, rx_counter = rx_counter))
 
   else:
     values = {}
@@ -321,7 +321,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
     a_val = accel #np.clip(accel, accel_last - jn, accel_last + jn)
 
   values = copy.copy(CS.scc_control)
-  values.pop("COUNTER", None)
+  rx_counter = values.pop("COUNTER", None)
   values["ACCMode"] = acc_mode
   values["MainMode_ACC"] = 1
   values["StopReq"] = 1 if stopping or CS.softHoldActive > 0 else 0  # 1: Stop control is required, 2: Not used, 3: Error Indicator
@@ -369,7 +369,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
 
   values["ZEROS_7"] = 1
 
-  return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
+  return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values, rx_counter = rx_counter)
 
 def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_override, set_speed, hud_control, jerk_u, jerk_l, CS):
 
@@ -450,7 +450,7 @@ def create_tcs_messages(packer, CAN, CS):
   ret = []
   if CS.tcs is not None:
     values = copy.copy(CS.tcs)
-    values.pop("COUNTER", None)
+    rx_counter = values.pop("COUNTER", None)
     values["DriverBraking"] = 0
     values["NEW_SIGNAL_20"] = 0
     values["NEW_SIGNAL_11"] = 0
@@ -458,7 +458,7 @@ def create_tcs_messages(packer, CAN, CS):
     #values["NEW_SIGNAL_1"] = 0 # accel과 관련..  옆두부 꺼지는것과 관련? 확인필요
     #values["ACC_REQ"] = 1 # 옆두부 꺼지는것과 관련? 확인필요.. 항상 켜지게함..
     values["NEW_SIGNAL_1"] = 0 if values["ACC_REQ"] == 1 else 1 # 옆두부..
-    ret.append(packer.make_can_msg("TCS", CAN.CAM, values))
+    ret.append(packer.make_can_msg("TCS", CAN.CAM, values, rx_counter = rx_counter))
   return ret
 
 def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_trigger, LFA_trigger):
@@ -466,6 +466,7 @@ def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_t
   if frame % 2 == 0:
     if CS.cruise_buttons_msg is not None:
       values = copy.copy(CS.cruise_buttons_msg)
+      rx_counter = values.pop("COUNTER", None)
       cruise_button_driver = values["CRUISE_BUTTONS"]
       if cruise_button_driver == 0:
         values["CRUISE_BUTTONS"] = cruise_button
@@ -475,7 +476,7 @@ def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_t
       elif LFA_trigger > 0:
         values["LFA_BTN"] = 1
 
-      ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
+      ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values, rx_counter = rx_counter))
   return ret
 
 def create_adrv_messages(CP, packer, CAN, frame):
@@ -690,7 +691,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         # hdpuse carrot
 
         values = copy.copy(CS.adrv_0x161)
-        values.pop("COUNTER", None)
+        rx_counter = values.pop("COUNTER", None)
         values["SETSPEED"] = (6 if hdp_active else 3 if cruise_enabled else 1) if main_enabled else 0
         values["SETSPEED_HUD"] = (5 if hdp_active else 3 if cruise_enabled else 1) if main_enabled else 0
 
@@ -724,7 +725,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           values["SOUNDS_2"] = 0
           values["SOUNDS_4"] = 0
 
-        if values["ALERTS_3"] in [3, 4, 13, 17, 19, 26, 7, 8, 9, 10]:
+        if values["ALERTS_3"] in [3, 4, 11, 12, 13, 14, 17, 19, 26, 7, 8, 9, 10]: # hide gap distance msg.(11,12,13,14)
           values["ALERTS_3"] = 0
           values["SOUNDS_3"] = 0
 
@@ -762,17 +763,17 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         values["LANE_LEFT"] = 1 if desire in (1, 3) else 0
         values["LANE_RIGHT"] = 1 if desire in (2, 4) else 0
 
-        ret.append(packer.make_can_msg("ADRV_0x161", CAN.ECAN, values))
+        ret.append(packer.make_can_msg("ADRV_0x161", CAN.ECAN, values, rx_counter = rx_counter))
 
       if CS.adrv_0x200 is not None:
         values = copy.copy(CS.adrv_0x200)
-        values.pop("COUNTER", None)
+        rx_counter = values.pop("COUNTER", None)
         values["TauGapSet"] = hud_control.leadDistanceBars
-        ret.append(packer.make_can_msg("ADRV_0x200", CAN.ECAN, values))
+        ret.append(packer.make_can_msg("ADRV_0x200", CAN.ECAN, values, rx_counter = rx_counter))
 
       if CS.adrv_0x1ea is not None:
         values = copy.copy(CS.adrv_0x1ea)
-        values.pop("COUNTER", None)
+        rx_counter = values.pop("COUNTER", None)
         # blinker hold
         values['LEFT_BLINK_HOLD'] = 1 if lane_changing == 3 else 0
         values['RIGHT_BLINK_HOLD'] = 1 if lane_changing == 4 else 0
@@ -788,7 +789,7 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           blink_t=1.0
         )
 
-        ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values))
+        ret.append(packer.make_can_msg("ADRV_0x1ea", CAN.ECAN, values, rx_counter = rx_counter))
 
       if CS.ccnc_0x162 is not None:
         values = copy.copy(CS.ccnc_0x162)
