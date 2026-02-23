@@ -35,6 +35,8 @@ import socket
 import urllib.request
 import urllib.error
 import ssl
+from openpilot.common.realtime import set_core_affinity
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -1181,6 +1183,11 @@ def make_app() -> web.Application:
 
 
 def main():
+  try:
+    set_core_affinity([0, 1, 2, 3])
+  except Exception:
+    print("[carrot_man] failed to set core affinity")
+
   parser = argparse.ArgumentParser()
   parser.add_argument("--host", type=str, default="0.0.0.0")
   parser.add_argument("--port", type=int, default=7000)
