@@ -97,7 +97,7 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
   ret = []
   if CS.mdps is not None:
     values = copy.copy(CS.mdps)
-    rx_counter = values.pop("COUNTER", None)
+    #rx_counter = values.pop("COUNTER", None)
     if angle_control:
       if CS.lfa_alt is not None:
         values["LFA2_ACTIVE"] = CS.lfa_alt["LKAS_ANGLE_ACTIVE"]
@@ -107,7 +107,8 @@ def create_steering_messages_camera_scc(frame, packer, CP, CAN, CC, lat_active, 
 
     if frame % 1000 < 40:
       values["STEERING_COL_TORQUE"] += 220
-    ret.append(packer.make_can_msg("MDPS", CAN.CAM, values, rx_counter = rx_counter))
+    #ret.append(packer.make_can_msg("MDPS", CAN.CAM, values, rx_counter = rx_counter))
+    ret.append(packer.make_can_msg("MDPS", CAN.CAM, values))
 
   if frame % 10 == 0:
     if CS.steer_touch_2af is not None:
@@ -450,7 +451,7 @@ def create_tcs_messages(packer, CAN, CS):
   ret = []
   if CS.tcs is not None:
     values = copy.copy(CS.tcs)
-    rx_counter = values.pop("COUNTER", None)
+    #rx_counter = values.pop("COUNTER", None)
     values["DriverBraking"] = 0
     values["NEW_SIGNAL_20"] = 0
     values["NEW_SIGNAL_11"] = 0
@@ -458,7 +459,8 @@ def create_tcs_messages(packer, CAN, CS):
     #values["NEW_SIGNAL_1"] = 0 # accel과 관련..  옆두부 꺼지는것과 관련? 확인필요
     #values["ACC_REQ"] = 1 # 옆두부 꺼지는것과 관련? 확인필요.. 항상 켜지게함..
     values["NEW_SIGNAL_1"] = 0 if values["ACC_REQ"] == 1 else 1 # 옆두부..
-    ret.append(packer.make_can_msg("TCS", CAN.CAM, values, rx_counter = rx_counter))
+    #ret.append(packer.make_can_msg("TCS", CAN.CAM, values, rx_counter = rx_counter))
+    ret.append(packer.make_can_msg("TCS", CAN.CAM, values))
   return ret
 
 def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_trigger, LFA_trigger):
@@ -466,7 +468,7 @@ def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_t
   if frame % 2 == 0:
     if CS.cruise_buttons_msg is not None:
       values = copy.copy(CS.cruise_buttons_msg)
-      rx_counter = values.pop("COUNTER", None)
+      #rx_counter = values.pop("COUNTER", None)
       cruise_button_driver = values["CRUISE_BUTTONS"]
       if cruise_button_driver == 0:
         values["CRUISE_BUTTONS"] = cruise_button
@@ -476,7 +478,8 @@ def forward_button_message(packer, CAN, frame, CS, cruise_button, MainMode_ACC_t
       elif LFA_trigger > 0:
         values["LFA_BTN"] = 1
 
-      ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values, rx_counter = rx_counter))
+      #ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values, rx_counter = rx_counter))
+      ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
   return ret
 
 def create_adrv_messages(CP, packer, CAN, frame):
