@@ -645,25 +645,42 @@ async def api_tools(request: web.Request) -> web.Response:
   
 
     if action == "git_branch_list":
+      # 1) 원격 브랜치/삭제 반영(동기화) 먼저
+      rc0, out0 = run(["git", "fetch", "--all", "--prune"], cwd=REPO_DIR)
+      if rc0 != 0:
+        return web.json_response({"ok": False, "rc": rc0, "out": out0})
+
+      # 2) 로컬/원격 브랜치 목록 출력
       rc, out = run(
         ["git", "branch", "-a", "--format=%(refname:short)"],
         cwd=REPO_DIR
       )
       if rc != 0:
-        return web.json_response({"ok": False, "rc": rc, "out": out})
+        # fetch 결과도 함께 반환해서 디버깅 쉽게
+        merged = (out0 + "\n\n" + out).strip()
+        return web.json_response({"ok": False, "rc": rc, "out": merged})
 
-      branches = []
+      # 3) 정리: "remotes/" 제거, HEAD 같은 노이즈 제거, 중복 제거
+      branches: list[str] = []
       for line in out.splitlines():
         line = line.strip()
         if not line:
           continue
+
+        # 예: "remotes/origin/HEAD -> origin/main" 같은 라인은 제거
+        if "->" in line:
+          continue
+
+        # "remotes/origin/foo" -> "origin/foo"
         if line.startswith("remotes/"):
           line = line.replace("remotes/", "", 1)
+
         branches.append(line)
 
-      # 중복 제거 + 정렬
       branches = sorted(set(branches))
-      return web.json_response({"ok": True, "branches": branches})
+
+      # fetch 출력도 같이 주면 UI에서 "동기화됨" 로그 확인 가능 (원치 않으면 빼도 됨)
+      return web.json_response({"ok": True, "branches": branches, "fetch": out0.strip()})
 
 
     if action == "delete_all_videos":
