@@ -614,8 +614,35 @@ async def api_tools(request: web.Request) -> web.Response:
       branch = (body.get("branch") or "").strip()
       if not branch:
         return web.json_response({"ok": False, "error": "missing branch"}, status=400)
-      rc, out = run(["git", "checkout", "-f", branch], cwd=REPO_DIR)
-      return web.json_response({"ok": rc == 0, "rc": rc, "out": out})
+
+      rc_fetch, out_fetch = run(["git", "fetch", "--all", "--prune"], cwd=REPO_DIR)
+      if rc_fetch != 0:
+        return web.json_response({"ok": False, "rc": rc_fetch, "out": out_fetch})
+
+      is_remote = branch.startswith("origin/")
+      try:
+        if is_remote:
+          local_branch = branch.replace("origin/", "", 1)
+          rc_check, _ = run(["git", "rev-parse", "--verify", local_branch], cwd=REPO_DIR)
+          if rc_check == 0:
+            rc, out = run(["git", "switch", local_branch], cwd=REPO_DIR)
+          else:
+            rc, out = run(
+              ["git", "switch", "-c", local_branch, "--track", branch],
+              cwd=REPO_DIR
+            )
+        else:
+          rc, out = run(["git", "switch", branch], cwd=REPO_DIR)
+          if rc != 0:
+            rc2, out2 = run(
+              ["git", "switch", "-c", branch, "--track", f"origin/{branch}"],
+              cwd=REPO_DIR
+            )
+            rc, out = rc2, out2
+        return web.json_response({"ok": rc == 0, "rc": rc, "out": out})
+      except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+  
 
     if action == "git_branch_list":
       rc, out = run(
@@ -913,7 +940,7 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
         if math.isfinite(free_pct):
           disk_pct = 100.0 - free_pct
 
-        volt_v = ps.voltage
+        volt_v = ps.voltage / 1000.0
 
         # gap/driving mode from Params (same as your C++)
         tf_gap = int(params.get_int("LongitudinalPersonality") or 0) + 1
