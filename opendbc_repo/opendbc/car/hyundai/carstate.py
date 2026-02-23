@@ -191,18 +191,14 @@ class CarState(CarStateBase):
         if self.cp_alt is not None:
           self.cp_alt.enable_capture = False
       elif self.controls_ready_count == 101:
-        #print("cp_cam.seen_addresses =", self.cp_cam.seen_addresses)
-        pass
+        print("cp_cam.seen_addresses =", self.cp_cam.seen_addresses)
       elif self.controls_ready_count == 102:
-        #print("cp.seen_addresses =", self.cp.seen_addresses)
-        pass
+        print("cp.seen_addresses =", self.cp.seen_addresses)
       elif self.controls_ready_count == 103:
         if self.cp_alt is not None:
-          #print("cp_alt.seen_addresses =", self.cp_alt.seen_addresses)
-          pass
+          print("cp_alt.seen_addresses =", self.cp_alt.seen_addresses)
         else:
-          #print("cp_alt.seen_addresses = None")
-          pass
+          print("cp_alt.seen_addresses = None")
       if not canfd:
         if self.controls_ready_count == 104:
           if not add_and_cache(self.cp_cam, "FCA11", "fca11"):
@@ -550,8 +546,9 @@ class CarState(CarStateBase):
       # These are not used for engage/disengage since openpilot keeps track of state using the buttons
       ret.cruiseState.enabled = cp.vl["TCS"]["ACC_REQ"] == 1
       ret.cruiseState.standstill = False
-      if self.MainMode_ACC:
+      if self.MainMode_ACC or self.main_enabled:
         self.main_enabled = True
+        self.MainMode_ACC = True
     else:
       cp_cruise_info = cp_cam if self.CP.flags & HyundaiFlags.CANFD_CAMERA_SCC else cp
       ret.cruiseState.enabled = cp_cruise_info.vl["SCC_CONTROL"]["ACCMode"] in (1, 2)
