@@ -191,14 +191,18 @@ class CarState(CarStateBase):
         if self.cp_alt is not None:
           self.cp_alt.enable_capture = False
       elif self.controls_ready_count == 101:
-        print("cp_cam.seen_addresses =", self.cp_cam.seen_addresses)
+        #print("cp_cam.seen_addresses =", self.cp_cam.seen_addresses)
+        pass
       elif self.controls_ready_count == 102:
-        print("cp.seen_addresses =", self.cp.seen_addresses)
+        #print("cp.seen_addresses =", self.cp.seen_addresses)
+        pass
       elif self.controls_ready_count == 103:
         if self.cp_alt is not None:
-          print("cp_alt.seen_addresses =", self.cp_alt.seen_addresses)
+          #print("cp_alt.seen_addresses =", self.cp_alt.seen_addresses)
+          pass
         else:
-          print("cp_alt.seen_addresses = None")
+          #print("cp_alt.seen_addresses = None")
+          pass
       if not canfd:
         if self.controls_ready_count == 104:
           if not add_and_cache(self.cp_cam, "FCA11", "fca11"):
