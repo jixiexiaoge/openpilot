@@ -1947,7 +1947,7 @@ typedef struct {
 } lead_vertex_data;
 #endif
 
-char    carrot_man_debug[128] = "";
+char    carrot_man_debug[256] = "";
 class DrawCarrot : public QObject {
     Q_OBJECT
 
