@@ -140,5 +140,5 @@ def curv_from_psis_dist(psi_target, psi_rate, distance, vego):
 def get_curvature_from_plan(yaws, yaw_rates, distances, t_idxs, vego, action_t):
   psi_target = np.interp(action_t, t_idxs, yaws)
   psi_rate = yaw_rates[0]
-  dist = np.interp(action_t, t_idxs, distances)
+  dist = max(MIN_SPEED * action_t, np.interp(action_t, t_idxs, distances))
   return curv_from_psis_dist(psi_target, psi_rate, dist, vego)
