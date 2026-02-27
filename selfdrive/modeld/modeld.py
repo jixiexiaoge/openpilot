@@ -100,9 +100,6 @@ RECOVERY_POWER = 1.0  # planplus 차선 복귀 강도 (높을수록 적극적으
 def get_action_from_model(model_output: dict[str, np.ndarray], prev_action: log.ModelDataV2.Action,
                           lat_action_t: float, long_action_t: float, v_ego: float, lat_smooth_seconds: float, vEgoStopping: float) -> log.ModelDataV2.Action:
     plan = model_output['plan'][0]
-    # planplus가 있으면 plan에 합산 (차선 복귀 보정)
-    if 'planplus' in model_output:
-      plan = plan + RECOVERY_POWER * model_output['planplus'][0]
     desired_accel, should_stop, _, desired_velocity_now = get_accel_from_plan(plan[:,Plan.VELOCITY][:,0],
                                                      plan[:,Plan.ACCELERATION][:,0],
                                                      ModelConstants.T_IDXS,
@@ -318,6 +315,14 @@ class ModelState:
       self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
       off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
       combined_outputs_dict.update(off_policy_outputs_dict)
+
+    # off-policy의 plan + policy의 planplus 합산 (commaai off-policy-model 방식)
+    if 'planplus' in combined_outputs_dict and 'plan' in combined_outputs_dict:
+      combined_outputs_dict['plan'] = combined_outputs_dict['plan'] + RECOVERY_POWER * combined_outputs_dict['planplus']
+    elif 'planplus' in combined_outputs_dict and 'plan' not in combined_outputs_dict:
+      # plan이 없고 planplus만 있는 모델 (off-policy v3 등): planplus를 plan으로 사용
+      combined_outputs_dict['plan'] = combined_outputs_dict['planplus']
+      combined_outputs_dict['plan_stds'] = combined_outputs_dict['planplus_stds']
 
     if SEND_RAW_PRED:
       raw_parts = [self.vision_output.copy(), self.policy_output.copy()]
