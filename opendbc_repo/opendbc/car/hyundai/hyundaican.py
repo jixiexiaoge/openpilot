@@ -201,8 +201,8 @@ def create_acc_commands_scc(packer, enabled, accel, jerk, idx, hud_control, set_
 
   if CS.scc14 is not None:
     values = copy.copy(CS.scc14)
-    values["ComfortBandUpper"] = 0 #jerk.cb_upper
-    values["ComfortBandLower"] = 0 #jerk.cb_lower
+    values["ComfortBandUpper"] = jerk.cb_upper
+    values["ComfortBandLower"] = jerk.cb_lower
     values["JerkUpperLimit"] = jerk.jerk_u
     values["JerkLowerLimit"] = jerk.jerk_l if long_enabled else 0 # for KONA test
     values["ACCMode"] = scc14_acc_mode #2 if enabled and long_override else 1 if long_enabled else 4 # stock will always be 4 instead of 0 after first disengage

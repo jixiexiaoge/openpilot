@@ -777,6 +777,14 @@ async def api_tools(request: web.Request) -> web.Response:
       subprocess.Popen(["sudo", "reboot"])
       return web.json_response({"ok": True, "out": "reboot requested"})
 
+    if action == "rebuild_all":
+      # cd /data/openpilot
+      # scons -c
+      # rm -rf prebuilt
+      # sudo reboot
+      cmd = "cd /data/openpilot && scons -c && rm -rf prebuilt && sudo reboot"
+      subprocess.Popen(cmd, shell=True)
+      return web.json_response({"ok": True, "out": "rebuild_all requested (clean + remove prebuilt + reboot)"})
 
     if action == "shell_cmd":
       cmd_str = (body.get("cmd") or "").strip()
@@ -792,7 +800,7 @@ async def api_tools(request: web.Request) -> web.Response:
       if not argv:
         return web.json_response({"ok": False, "error": "empty cmd"}, status=400)
 
-      allowed_top = {"git", "df", "free", "uptime"}
+      allowed_top = {"git", "df", "free", "uptime", "scons"}
       if argv[0] not in allowed_top:
         return web.json_response({"ok": False, "error": f"not allowed: {argv[0]}"}, status=403)
 

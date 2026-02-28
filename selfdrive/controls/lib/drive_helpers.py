@@ -133,9 +133,9 @@ def get_curvature_from_plan_org(yaws, yaw_rates, t_idxs, vego, action_t):
 
 def curv_from_psis_dist(psi_target, psi_rate, distance, vego):
   vego = np.clip(vego, MIN_SPEED, np.inf)
-  distance = np.clip(distance, 1e-3, np.inf)   # 0 나눗셈 방지
-  avg_curv = psi_target / distance             # kappa = psi / s
-  return 2.0 * avg_curv - (psi_rate / vego)    # 기존 보정 유지
+  distance = np.clip(distance, 1e-3, np.inf)   
+  avg_curv = psi_target / distance             
+  return 2.0 * avg_curv - (psi_rate / vego)    
 
 def get_curvature_from_plan(yaws, yaw_rates, distances, t_idxs, vego, action_t):
   psi_target = np.interp(action_t, t_idxs, yaws)
