@@ -191,7 +191,6 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AutoNaviCountDownMode", {PERSISTENT, INT, "2"}},
     {"TurnSpeedControlMode", {PERSISTENT, INT, "1"}},
 
-    {"CarrotSmartSpeedControl", {PERSISTENT, INT, "0"}},
     {"MapTurnSpeedFactor", {PERSISTENT, INT, "90"}},
     {"ModelTurnSpeedFactor", {PERSISTENT, INT, "0"}},
     {"StoppingAccel", {PERSISTENT, INT, "0"}},
@@ -316,9 +315,6 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
 
     {"CarrotException", {CLEAR_ON_MANAGER_START, STRING}},
 
-    {"CarrotSpeed", {PERSISTENT, INT} },
-    {"CarrotSpeedViz", {PERSISTENT, JSON} },
-    {"CarrotSpeedTable", {PERSISTENT, BYTES} },
     {"CarName", {PERSISTENT, STRING}},
     {"EVTable", {PERSISTENT, BOOL, "0"}},
     {"LongPitch", {PERSISTENT, BOOL, "0"}},
