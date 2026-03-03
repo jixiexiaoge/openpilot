@@ -10,6 +10,8 @@ import time
 import numpy as np
 import zmq
 from datetime import datetime
+import traceback
+from typing import Any, List, Optional
 
 from ftplib import FTP
 from cereal import log
@@ -306,7 +308,7 @@ class CarrotMan:
             #  sock.sendto(dat, address)
 
             if remote_addr is None:
-              print(f"Broadcasting: {self.broadcast_ip}") #:{msg}")
+              #print(f"Broadcasting: {self.broadcast_ip}") #:{msg}")
               if not self.navd_active:
                 #print("clear path_points: navd_active: ", self.navd_active)
                 self.navi_points = []
@@ -543,7 +545,6 @@ class CarrotMan:
         self.remote_addr = None
         print(f"Network error, retrying...: {e}")
         time.sleep(2)
-
 
   def parse_kisa_data(self, data: bytes):
     result = {}
@@ -926,9 +927,165 @@ class CarrotMan:
     turnSpeed = min(turnSpeed, 250)
     return turnSpeed * curv_direction
 
+  def carrot_navi_thread(self):
+    self.carrot_navi_tcp_server(7712)
 
+  def classify(self, obj: Any) -> str:
+    if isinstance(obj, list):
+      # route: [{"coordType":..,"x":..,"y":..,"valid":..}, ...]
+      if len(obj) == 0:
+        return "route"
+      if isinstance(obj[0], dict) and (
+        ("x" in obj[0] and "y" in obj[0]) or ("coordType" in obj[0] and "valid" in obj[0])
+      ):
+        return "route"
+      return "unknown_list"
 
-import traceback
+    if isinstance(obj, dict):
+      # type1: traffic light
+      if isinstance(obj.get("location"), dict) and (
+        "greenLightOn" in obj or "redLightOn" in obj or "leftLightOn" in obj
+      ):
+        return "traffic_light"
+
+      # type3: carrot state
+      if ("nRoadLimitSpeed" in obj) or ("nTBTDist" in obj) or ("vpPosPointLat" in obj):
+        return "carrot_state"
+
+      return "unknown_dict"
+
+    return "unknown"
+
+  def handle_route(self, arr: list):
+    if not arr:
+      print("Received route: 0")
+      # navd route가 비어오면 비활성 처리
+      self.navi_points = []
+      self.navi_points_start_index = 0
+      self.navi_points_active = False
+      self.navd_active = False
+      return
+
+    # valid만 필터 (필요 없으면 제거)
+    valid_pts = [p for p in arr if isinstance(p, dict) and p.get("valid", True)]
+    if not valid_pts:
+      print("Received route: 0 valid")
+      self.navi_points = []
+      self.navi_points_start_index = 0
+      self.navi_points_active = False
+      self.navd_active = False
+      return
+
+    # x=lon, y=lat
+    coords = []
+    navi_points = []
+
+    for p in valid_pts:
+      try:
+        lon = float(p.get("x"))
+        lat = float(p.get("y"))
+      except Exception:
+        continue
+
+      navi_points.append((lon, lat))
+      coords.append({"latitude": lat, "longitude": lon})
+
+    self.navi_points = navi_points
+    self.navi_points_start_index = 0
+    self.navi_points_active = True
+    self.navd_active = True
+
+    print("Received points:", len(self.navi_points))
+
+    self.send_routes(coords)
+
+    if coords:
+      dest = dict(coords[-1])
+      dest["place_name"] = "External Navi"
+      try:
+        self.params.put("NavDestination", json.dumps(dest))
+      except Exception as e:
+        print("NavDestination put error:", e)
+
+  def handle_traffic_light(self, d: dict):
+    print(f"[Traffic] {d}")
+
+  def handle_carrot_state(self, d: dict):
+    try:
+      self.carrot_serv.update(d)
+    except Exception as e:
+      print("carrot_state update error:", e)
+
+  def handle_unknown(self, obj: Any):
+    print("[UNKNOWN]", str(obj)[:200])
+
+  def _dispatch_obj(self, obj: Any):
+    typ = self.classify(obj)
+    if typ == "route":
+      self.handle_route(obj)
+    elif typ == "traffic_light":
+      self.handle_traffic_light(obj)
+    elif typ == "carrot_state":
+      self.handle_carrot_state(obj)
+    else:
+      self.handle_unknown(obj)
+
+  def carrot_navi_tcp_server(self, port: int = 7712):
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("0.0.0.0", port))
+    server.listen(5)
+    print("TCP server listening", port)
+
+    while True:
+      conn, addr = server.accept()
+      self.remote_addr = addr
+      #print("Connected:", addr)
+
+      chunks = []
+      try:
+        conn.settimeout(2.0)
+
+        while True:
+          try:
+            data = conn.recv(8192)
+          except socket.timeout:
+            continue
+
+          if not data:
+            break  # close 감지
+
+          chunks.append(data)
+
+      except Exception as e:
+        print("TCP recv error:", e)
+
+      finally:
+        try:
+          conn.close()
+        except Exception:
+          pass
+        self.remote_addr = None
+        #print("Disconnected:", addr)
+
+      if not chunks:
+        continue
+
+      raw_bytes = b"".join(chunks)
+
+      # print("RX bytes:", len(raw_bytes), "head:", raw_bytes[:30], "tail:", raw_bytes[-30:])
+
+      text = raw_bytes.decode(errors="ignore").strip()
+
+      try:
+        obj = json.loads(text)
+      except Exception as e:
+        print("[JSON parse error]", e)
+        print("TEXT_HEAD:", repr(text[:200]))
+        print("TEXT_TAIL:", repr(text[-200:]))
+        continue
+
+      self._dispatch_obj(obj)        
 
 def main():
   try:
@@ -942,6 +1099,7 @@ def main():
 
   print(f"CarrotMan {carrot_man}")
   threading.Thread(target=carrot_man.kisa_app_thread).start()
+  threading.Thread(target=carrot_man.carrot_navi_thread).start()
   while True:
     try:
       carrot_man.carrot_man_thread()

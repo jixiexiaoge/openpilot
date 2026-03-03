@@ -1181,18 +1181,26 @@ class CarrotServ:
       print("timed.failed_setting_time")
 
   def update(self, json):
+    def _i(v, default=0):
+      return default if v is None else int(v)
+    def _f(v, default=0.0):
+      return default if v is None else float(v)  
+    def _s(v, default=""):
+      return default if v is None else str(v)  
     if json is None:
       return
     if "carrotIndex" in json:
-      self.carrotIndex = int(json.get("carrotIndex"))
+      self.carrotIndex = int(json.get("carrotIndex") or self.carrotIndex + 1)
 
     #print(json)
     if self.carrotIndex % 60 == 0 and "epochTime" in json:
-      # op는 ntp를 사용하기때문에... 필요없는 루틴으로 보임.
-      timezone_remote = json.get("timezone", "Asia/Seoul")
+      epoch = json.get("epochTime")
+      if epoch is not None:
+        # op는 ntp를 사용하기때문에... 필요없는 루틴으로 보임.
+        timezone_remote = json.get("timezone", "Asia/Seoul")
 
-      if not PC:
-        self.set_time(int(json.get("epochTime")), timezone_remote)
+        if not PC:
+          self.set_time(int(epoch), timezone_remote)
 
       #self._update_system_time(int(json.get("epochTime")), timezone_remote)
 
@@ -1207,9 +1215,12 @@ class CarrotServ:
     now = time.monotonic()
 
     if "goalPosX" in json:
-      self.goalPosX = float(json.get("goalPosX", self.goalPosX))
-      self.goalPosY = float(json.get("goalPosY", self.goalPosY))
-      self.szGoalName = json.get("szGoalName", self.szGoalName)
+      gx = json.get("goalPosX")
+      gy = json.get("goalPosY")
+      if gx is not None and gy is not None:
+        self.goalPosX = float(json.get("goalPosX", self.goalPosX))
+        self.goalPosY = float(json.get("goalPosY", self.goalPosY))
+        self.szGoalName = json.get("szGoalName", self.szGoalName)
 
     if "nRoadLimitSpeed" in json:
       #print(json)
@@ -1232,28 +1243,28 @@ class CarrotServ:
         self.nRoadLimitSpeed_counter = 0
 
       ### SDI
-      self.nSdiType = int(json.get("nSdiType", -1))
-      self.nSdiSpeedLimit = int(json.get("nSdiSpeedLimit", 0))
-      self.nSdiSection = int(json.get("nSdiSection", -1))
-      self.nSdiDist = int(json.get("nSdiDist", -1))
-      self.nSdiBlockType = int(json.get("nSdiBlockType", -1))
-      self.nSdiBlockSpeed = int(json.get("nSdiBlockSpeed", 0))
-      self.nSdiBlockDist = int(json.get("nSdiBlockDist", 0))
+      self.nSdiType = _i(json.get("nSdiType"), -1)
+      self.nSdiSpeedLimit = _i(json.get("nSdiSpeedLimit"), 0)
+      self.nSdiSection = _i(json.get("nSdiSection"), -1)
+      self.nSdiDist = _i(json.get("nSdiDist"), -1)
+      self.nSdiBlockType = _i(json.get("nSdiBlockType"), -1)
+      self.nSdiBlockSpeed = _i(json.get("nSdiBlockSpeed"), 0)
+      self.nSdiBlockDist = _i(json.get("nSdiBlockDist"), 0)
 
-      self.nSdiPlusType = int(json.get("nSdiPlusType", -1))
-      self.nSdiPlusSpeedLimit = int(json.get("nSdiPlusSpeedLimit", 0))
-      self.nSdiPlusDist = int(json.get("nSdiPlusDist", 0))
-      self.nSdiPlusBlockType = int(json.get("nSdiPlusBlockType", -1))
-      self.nSdiPlusBlockSpeed = int(json.get("nSdiPlusBlockSpeed", 0))
-      self.nSdiPlusBlockDist = int(json.get("nSdiPlusBlockDist", 0))
-      self.roadcate = int(json.get("roadcate", 0))
+      self.nSdiPlusType = _i(json.get("nSdiPlusType"), -1)
+      self.nSdiPlusSpeedLimit = _i(json.get("nSdiPlusSpeedLimit"), 0)
+      self.nSdiPlusDist = _i(json.get("nSdiPlusDist"), 0)
+      self.nSdiPlusBlockType = _i(json.get("nSdiPlusBlockType"), -1)
+      self.nSdiPlusBlockSpeed = _i(json.get("nSdiPlusBlockSpeed"), 0)
+      self.nSdiPlusBlockDist = _i(json.get("nSdiPlusBlockDist"), 0)
+      self.roadcate = _i(json.get("roadcate"), 0)
 
       ## GuidePoint
       self.nTBTDist = int(json.get("nTBTDist", 0))
       self.nTBTTurnType = int(json.get("nTBTTurnType", -1))
-      self.szTBTMainText = json.get("szTBTMainText", "")
-      self.szNearDirName = json.get("szNearDirName", "")
-      self.szFarDirName = json.get("szFarDirName", "")
+      self.szTBTMainText = _s(json.get("szTBTMainText"))
+      self.szNearDirName = _s(json.get("szNearDirName"))
+      self.szFarDirName = _s(json.get("szFarDirName"))
 
       self.nTBTNextRoadWidth = int(json.get("nTBTNextRoadWidth", 0))
       self.nTBTDistNext = int(json.get("nTBTDistNext", 0))
@@ -1262,7 +1273,7 @@ class CarrotServ:
 
       self.nGoPosDist = int(json.get("nGoPosDist", 0))
       self.nGoPosTime = int(json.get("nGoPosTime", 0))
-      self.szPosRoadName = json.get("szPosRoadName", "")
+      self.szPosRoadName = _s(json.get("szPosRoadName"))
       if self.szPosRoadName == "null":
         self.szPosRoadName = ""
 
@@ -1287,10 +1298,10 @@ class CarrotServ:
 
     # 3초간 navi 데이터가 없으면, phone gps로 업데이트
     if "latitude" in json:
-      self.nPosAnglePhone = float(json.get("heading", self.nPosAngle))
-      self.phone_latitude = float(json.get("latitude", self.vpPosPointLatNavi))
-      self.phone_longitude = float(json.get("longitude", self.vpPosPointLonNavi))
-      self.phone_gps_accuracy = float(json.get("accuracy", 0))
+      self.nPosAnglePhone = _f(json.get("heading"), self.nPosAngle)
+      self.phone_latitude = _f(json.get("latitude"), self.vpPosPointLatNavi)
+      self.phone_longitude = _f(json.get("longitude"), self.vpPosPointLonNavi)
+      self.phone_gps_accuracy = _f(json.get("accuracy"), 0)
       if self.phone_gps_accuracy < 15.0:
         self.phone_gps_frame += 1
       if (now - self.last_update_gps_time_navi) > 3.0:
