@@ -791,6 +791,13 @@ class CAR(Platforms):
     CarSpecs(mass=2055, wheelbase=2.90, steerRatio=16.0, tireStiffnessFactor=0.65),
     flags=HyundaiFlags.EV,
   )
+  KIA_PV5 = HyundaiCanFDPlatformConfig(
+    [
+      HyundaiCarDocs("KIA PV5 (SW1)", car_parts=CarParts.common([CarHarness.hyundai_n])),
+    ],
+    CarSpecs(mass=2600, wheelbase=2.995, steerRatio=16.0, tireStiffnessFactor=0.65),
+    flags=HyundaiFlags.EV,
+  )
 
 class Buttons:
   NONE = 0

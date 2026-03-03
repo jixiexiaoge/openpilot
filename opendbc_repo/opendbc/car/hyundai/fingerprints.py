@@ -1307,6 +1307,12 @@ FW_VERSIONS = {
     (Ecu.fwdCamera, 0x7c4, None): [
     ],
   },
+  CAR.KIA_PV5: {  # (SW1)  ??
+    (Ecu.fwdRadar, 0x7d0, None): [
+    ],
+    (Ecu.fwdCamera, 0x7c4, None): [
+    ],
+  },
   CAR.HYUNDAI_SANTAFE_MX5: {  # (MX5)
     (Ecu.fwdRadar, 0x7d0, None): [
     ],
