@@ -11,7 +11,7 @@ import numpy as np
 import zmq
 from datetime import datetime
 import traceback
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from ftplib import FTP
 from cereal import log
@@ -930,32 +930,6 @@ class CarrotMan:
   def carrot_navi_thread(self):
     self.carrot_navi_tcp_server(7712)
 
-  def classify(self, obj: Any) -> str:
-    if isinstance(obj, list):
-      # route: [{"coordType":..,"x":..,"y":..,"valid":..}, ...]
-      if len(obj) == 0:
-        return "route"
-      if isinstance(obj[0], dict) and (
-        ("x" in obj[0] and "y" in obj[0]) or ("coordType" in obj[0] and "valid" in obj[0])
-      ):
-        return "route"
-      return "unknown_list"
-
-    if isinstance(obj, dict):
-      # type1: traffic light
-      if isinstance(obj.get("location"), dict) and (
-        "greenLightOn" in obj or "redLightOn" in obj or "leftLightOn" in obj
-      ):
-        return "traffic_light"
-
-      # type3: carrot state
-      if ("nRoadLimitSpeed" in obj) or ("nTBTDist" in obj) or ("vpPosPointLat" in obj):
-        return "carrot_state"
-
-      return "unknown_dict"
-
-    return "unknown"
-
   def handle_route(self, arr: list):
     if not arr:
       print("Received route: 0")
@@ -1020,15 +994,31 @@ class CarrotMan:
     print("[UNKNOWN]", str(obj)[:200])
 
   def _dispatch_obj(self, obj: Any):
-    typ = self.classify(obj)
-    if typ == "route":
-      self.handle_route(obj)
-    elif typ == "traffic_light":
-      self.handle_traffic_light(obj)
-    elif typ == "carrot_state":
-      self.handle_carrot_state(obj)
-    else:
-      self.handle_unknown(obj)
+    if obj is None:
+      return
+
+    # obj가 str이면 여기서 JSON 파싱
+    if isinstance(obj, str):
+      s = obj.strip()
+      if not s:
+        return
+      try:
+        obj = json.loads(s)
+      except Exception:
+        # JSON 아니면 unknown 처리
+        return self.handle_unknown(s[:200])
+
+    if not isinstance(obj, dict):
+      return self.handle_unknown(obj)
+
+    if "vrtx" in obj:
+      self.handle_route(obj["vrtx"])
+
+    if "rgdata" in obj:
+      self.handle_carrot_state(obj["rgdata"])
+
+    if "sinf" in obj:
+      self.handle_signal(obj["sinf"])
 
   def carrot_navi_tcp_server(self, port: int = 7712):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1040,52 +1030,43 @@ class CarrotMan:
     while True:
       conn, addr = server.accept()
       self.remote_addr = addr
-      #print("Connected:", addr)
-
-      chunks = []
+      print("Connected:", addr)
+      conn.settimeout(5.0)
+      conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
       try:
-        conn.settimeout(2.0)
-
+        f = conn.makefile("r", encoding="utf-8", errors="ignore")
         while True:
           try:
-            data = conn.recv(8192)
+            line = f.readline()
           except socket.timeout:
+            print("TCP timeout: closing connection", addr)
+            break          
+          if not line:
+            break
+
+          s = line.strip()
+          if not s:
             continue
 
-          if not data:
-            break  # close 감지
+          try:
+            obj = json.loads(s)
+          except Exception:
+            obj = s   # fallback: raw string
 
-          chunks.append(data)
-
+          try:
+            self._dispatch_obj(obj)
+          except Exception as e:
+            print("dispatch error:", e, "raw:", repr(s[:200]))
+  
       except Exception as e:
-        print("TCP recv error:", e)
+        print("TCP error:", e)
 
       finally:
         try:
           conn.close()
         except Exception:
           pass
-        self.remote_addr = None
-        #print("Disconnected:", addr)
-
-      if not chunks:
-        continue
-
-      raw_bytes = b"".join(chunks)
-
-      # print("RX bytes:", len(raw_bytes), "head:", raw_bytes[:30], "tail:", raw_bytes[-30:])
-
-      text = raw_bytes.decode(errors="ignore").strip()
-
-      try:
-        obj = json.loads(text)
-      except Exception as e:
-        print("[JSON parse error]", e)
-        print("TEXT_HEAD:", repr(text[:200]))
-        print("TEXT_TAIL:", repr(text[-200:]))
-        continue
-
-      self._dispatch_obj(obj)        
+        self.remote_addr = None      
 
 def main():
   try:
