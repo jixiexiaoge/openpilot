@@ -272,7 +272,7 @@ def main():
 
   pm = messaging.PubMaster(['liveParameters'])
   gps_location_service = get_gps_location_service(Params())
-  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', gps_location_service], ignore_alive=[gps_location_service], ignore_valid=[gps_location_service])
+  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', gps_location_service], poll='livePose', ignore_alive=[gps_location_service], ignore_valid=[gps_location_service])
 
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
@@ -286,8 +286,6 @@ def main():
   params_memory.remove("LastGPSPosition")
   while True:
     sm.update()
-    if not sm.updated['livePose']:
-      continue
     if sm.all_checks():
       for which in sorted(sm.updated.keys(), key=lambda x: sm.logMonoTime[x]):
         if sm.updated[which]:
