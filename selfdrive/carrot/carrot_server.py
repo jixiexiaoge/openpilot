@@ -576,9 +576,9 @@ async def api_tools(request: web.Request) -> web.Response:
     return web.json_response({"ok": False, "error": "missing action"}, status=400)
 
   # 최소 보안: 사설대역만 허용 (권장)
-  ip = request.remote or ""
-  if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
-    return web.json_response({"ok": False, "error": "forbidden"}, status=403)
+  #ip = request.remote or ""
+  #if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
+  #  return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
   def run(cmd: List[str], cwd: Optional[str] = None) -> Tuple[int, str]:
     p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
@@ -758,9 +758,9 @@ async def api_tools(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "Params/ParamKeyType not available"}, status=500)
 
       # 사설대역 제한
-      ip = request.remote or ""
-      if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
-        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
+      #ip = request.remote or ""
+      #if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
+      #  return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
       try:
         values = _get_all_param_values_for_backup()
@@ -1133,9 +1133,9 @@ async def api_params_restore(request: web.Request) -> web.Response:
     return web.json_response({"ok": False, "error": "Params/ParamKeyType not available"}, status=500)
 
   # 최소 보안: 사설대역만 허용 (api_tools와 동일하게)
-  ip = request.remote or ""
-  if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
-    return web.json_response({"ok": False, "error": "forbidden"}, status=403)
+  #ip = request.remote or ""
+  #if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
+  #  return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
   try:
     reader = await request.multipart()
