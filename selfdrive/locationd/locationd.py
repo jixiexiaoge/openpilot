@@ -260,7 +260,8 @@ def main():
   SIMULATION = bool(int(os.getenv("SIMULATION", "0")))
 
   pm = messaging.PubMaster(['livePose'])
-  sm = messaging.SubMaster(['carState', 'liveCalibration', 'cameraOdometry'], poll='cameraOdometry')
+  sm = messaging.SubMaster(['carState', 'liveCalibration', 'cameraOdometry'])
+
   # separate sensor sockets for efficiency
   sensor_sockets = [messaging.sub_sock(which, timeout=20) for which in ['accelerometer', 'gyroscope']]
   sensor_alive, sensor_valid, sensor_recv_time = defaultdict(bool), defaultdict(bool), defaultdict(float)
@@ -285,6 +286,10 @@ def main():
       P_initial = np.diag(np.array(filter_state.std, dtype=np.float64)) if len(filter_state.std) != 0 else PoseKalman.initial_P
       estimator.reset(None, x_initial, P_initial)
 
+  last_processed_time = {s: 0 for s in sm.updated.keys()}
+  last_processed_time["accelerometer"] = 0
+  last_processed_time["gyroscope"] = 0
+
   while True:
     sm.update()
 
@@ -292,19 +297,27 @@ def main():
 
     if filter_initialized:
       msgs = []
+
+      # sensor sockets: 새 timestamp만 처리
       for msg in acc_msgs + gyro_msgs:
-        t, valid, which, data = msg.logMonoTime, msg.valid, msg.which(), getattr(msg, msg.which())
-        msgs.append((t, valid, which, data))
-      for which, updated in sm.updated.items():
-        if not updated:
-          continue
-        t, valid, data = sm.logMonoTime[which], sm.valid[which], sm[which]
-        msgs.append((t, valid, which, data))
+        t_ns = msg.logMonoTime
+        which = msg.which()
+        if t_ns > last_processed_time[which]:
+          last_processed_time[which] = t_ns
+          msgs.append((t_ns, msg.valid, which, getattr(msg, which)))
+
+      # SubMaster services: updated 대신 logMonoTime 기준
+      for which in sm.updated.keys():
+        t_ns = sm.logMonoTime[which]
+        if t_ns > last_processed_time[which]:
+          last_processed_time[which] = t_ns
+          msgs.append((t_ns, sm.valid[which], which, sm[which]))
 
       for log_mono_time, valid, which, msg in sorted(msgs, key=lambda x: x[0]):
         if valid:
           t = log_mono_time * 1e-9
           res = estimator.handle_log(t, which, msg)
+
           if which not in critcal_services:
             continue
 
@@ -316,17 +329,24 @@ def main():
             observation_input_invalid[which] += 1
           elif res == HandleLogResult.SUCCESS:
             observation_input_invalid[which] *= input_invalid_decay[which]
-    else:
-      filter_initialized = sm.all_checks() and sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
+    else:
+      filter_initialized = sm.all_checks() and sensor_all_checks(
+        acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION
+      )
+
+    # publish는 cameraOdometry 새 샘플 기준
     if sm.updated["cameraOdometry"]:
-      critical_service_inputs_valid = all(observation_input_invalid[s] < input_invalid_threshold[s] for s in critcal_services)
+      critical_service_inputs_valid = all(
+        observation_input_invalid[s] < input_invalid_threshold[s] for s in critcal_services
+      )
       inputs_valid = sm.all_valid() and critical_service_inputs_valid
-      sensors_valid = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
+      sensors_valid = sensor_all_checks(
+        acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION
+      )
 
       msg = estimator.get_msg(sensors_valid, inputs_valid, filter_initialized)
       pm.send("livePose", msg)
-
-
+      
 if __name__ == "__main__":
   main()

@@ -51,7 +51,7 @@ class Controls:
     self.sm = messaging.SubMaster(['liveDelay', 'liveParameters', 'liveTorqueParameters', 'modelV2', 'selfdriveState',
                                    'liveCalibration', 'livePose', 'longitudinalPlan', 'carState', 'carOutput',
                                    'carrotMan', 'lateralPlan', 'radarState',
-                                   'driverMonitoringState', 'onroadEvents', 'driverAssistance'], poll='selfdriveState')
+                                   'driverMonitoringState', 'onroadEvents', 'driverAssistance'])
     self.pm = messaging.PubMaster(['carControl', 'controlsState'])
 
     self.steer_limited_by_controls = False
@@ -76,12 +76,23 @@ class Controls:
     elif self.CP.lateralTuning.which() == 'torque':
       self.LaC = LatControlTorque(self.CP, self.CI)
     self.carrot_controls = CarrotControls(self.CP)
+    self.last_live_calibration_t = 0
+    self.last_live_pose_t = 0
 
   def update(self):
-    self.sm.update(15)
-    if self.sm.updated["liveCalibration"]:
+    while True:
+      self.sm.update(15)
+      if self.sm.updated['selfdriveState']:
+        break
+      
+    t_cal = self.sm.logMonoTime["liveCalibration"]
+    if t_cal > self.last_live_calibration_t:
+      self.last_live_calibration_t = t_cal
       self.pose_calibrator.feed_live_calib(self.sm['liveCalibration'])
-    if self.sm.updated["livePose"]:
+
+    t_pose = self.sm.logMonoTime["livePose"]
+    if t_pose > self.last_live_pose_t:
+      self.last_live_pose_t = t_pose
       device_pose = Pose.from_live_pose(self.sm['livePose'])
       self.calibrated_pose = self.pose_calibrator.build_calibrated_pose(device_pose)
 

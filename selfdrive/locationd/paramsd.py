@@ -272,7 +272,7 @@ def main():
 
   pm = messaging.PubMaster(['liveParameters'])
   gps_location_service = get_gps_location_service(Params())
-  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', gps_location_service], poll='livePose', ignore_alive=[gps_location_service], ignore_valid=[gps_location_service])
+  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', gps_location_service], ignore_alive=[gps_location_service], ignore_valid=[gps_location_service])
 
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
@@ -284,22 +284,34 @@ def main():
 
   params_memory = Params("/dev/shm/params")
   params_memory.remove("LastGPSPosition")
+  
+  last_processed_time = {s: 0 for s in sm.updated.keys()}
   while True:
     sm.update()
-    if sm.all_checks():
-      for which in sorted(sm.updated.keys(), key=lambda x: sm.logMonoTime[x]):
-        if sm.updated[which]:
-          t = sm.logMonoTime[which] * 1e-9
-          learner.handle_log(t, which, sm[which])
 
-    if sm.updated[gps_location_service]:
+    if sm.all_checks():
+      items = []
+      for which in sm.updated.keys():
+        t = sm.logMonoTime[which]
+        if t > last_processed_time[which]:
+          items.append((t, which))
+
+      for t_ns, which in sorted(items, key=lambda x: x[0]):
+        last_processed_time[which] = t_ns
+        learner.handle_log(t_ns * 1e-9, which, sm[which])
+
+    gps_t_ns = sm.logMonoTime[gps_location_service]
+    if gps_t_ns > last_processed_time[gps_location_service]:
+      last_processed_time[gps_location_service] = gps_t_ns
       gps = sm[gps_location_service]
       if gps.hasFix:
         bearing = gps.bearingDeg
         lat = gps.latitude
         lon = gps.longitude
-        params_memory.put_nonblocking("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
-        
+        params_memory.put_nonblocking(
+          "LastGPSPosition",
+          json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing})
+        )      
 
     if sm.updated['livePose']:
       msg = learner.get_msg(sm.all_checks(), debug=DEBUG)
@@ -309,7 +321,6 @@ def main():
         params.put_nonblocking("LiveParametersV2", msg_dat)
 
       pm.send('liveParameters', msg_dat)
-
 
 if __name__ == "__main__":
   main()

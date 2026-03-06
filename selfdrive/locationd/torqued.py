@@ -33,7 +33,7 @@ MIN_BUCKET_POINTS = np.array([100, 300, 500, 500, 500, 500, 300, 100])
 MIN_ENGAGE_BUFFER = 2  # secs
 
 VERSION = 1  # bump this to invalidate old parameter caches
-ALLOWED_CARS = ['toyota', 'hyundai', 'rivian', 'honda']
+ALLOWED_CARS = ['toyota', 'hyundai', 'rivian', 'honda', 'volkswagen']
 
 
 def slope2rot(slope):
@@ -243,29 +243,42 @@ class TorqueEstimator(ParameterEstimator):
 def main(demo=False):
   config_realtime_process([0, 1, 2, 3], 5)
 
+  DEBUG = bool(int(os.getenv("DEBUG", "0")))
+
   pm = messaging.PubMaster(['liveTorqueParameters'])
-  sm = messaging.SubMaster(['carControl', 'carOutput', 'carState', 'liveCalibration', 'livePose', 'liveDelay'], poll='livePose')
+  sm = messaging.SubMaster(['carControl', 'carOutput', 'carState', 'liveCalibration', 'livePose', 'liveDelay'])
 
   params = Params()
   estimator = TorqueEstimator(messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams))
 
+  live_pose_updated = 0
+  last_processed_time = {s: 0 for s in sm.updated.keys()}
+
   while True:
     sm.update()
+
     if sm.all_checks():
+      items = []
       for which in sm.updated.keys():
-        if sm.updated[which]:
-          t = sm.logMonoTime[which] * 1e-9
-          estimator.handle_log(t, which, sm[which])
+        t_ns = sm.logMonoTime[which]
+        if t_ns > last_processed_time[which]:
+          items.append((t_ns, which))
 
-    # 4Hz driven by livePose
-    if sm.frame % 5 == 0:
-      pm.send('liveTorqueParameters', estimator.get_msg(valid=sm.all_checks()))
+      for t_ns, which in sorted(items, key=lambda x: x[0]):
+        last_processed_time[which] = t_ns
+        estimator.handle_log(t_ns * 1e-9, which, sm[which])
 
-    # Cache points every 60 seconds while onroad
-    if sm.frame % 240 == 0:
-      msg = estimator.get_msg(valid=sm.all_checks(), with_points=True)
-      params.put_nonblocking("LiveTorqueParameters", msg.to_bytes())
+    if sm.updated['livePose']:
+      live_pose_updated += 1
 
+      # 4Hz driven by livePose
+      if live_pose_updated % 5 == 0:
+        pm.send('liveTorqueParameters', estimator.get_msg(valid=sm.all_checks(), with_points=DEBUG))
+
+      # Cache points every 60 seconds while onroad
+      if live_pose_updated % 240 == 0:
+        msg = estimator.get_msg(valid=sm.all_checks(), with_points=True)
+        params.put_nonblocking("LiveTorqueParameters", msg.to_bytes())
 
 if __name__ == "__main__":
   import argparse
