@@ -261,7 +261,10 @@
   <div class="wrap">
     <!-- HOME -->
     <div id="pageHome" class="card">
-      <h3 id="homeTitle" style="margin:0 0 8px 0;">Home</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 8px 0;">
+        <h3 id="homeTitle" style="margin:0;">Home</h3>
+        <button id="btnRecordToggle" class="btn" style="padding:8px 12px;">Record</button>
+      </div>
 
       <!-- Driving HUD (card mode). JS will auto-dock this into WebRTC overlay when video is visible. -->
       <div id="driveHudCard" class="card" style="margin:12px 0 0 0;">

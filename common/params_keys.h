@@ -128,6 +128,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     // carrot
     {"LongitudinalPersonalityMax", {PERSISTENT, INT, "3"}},
     {"NetworkAddress", {CLEAR_ON_MANAGER_START, STRING}},
+    {"ScreenRecord", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, BOOL} },
 
     {"ApiCache_NavDestinations", {PERSISTENT, STRING}},
     {"NavDestination", {CLEAR_ON_MANAGER_START | CLEAR_ON_OFFROAD_TRANSITION, STRING}},

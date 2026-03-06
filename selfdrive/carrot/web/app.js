@@ -48,6 +48,9 @@ const UI_STRINGS = {
     set_failed: "설정 실패: ",
     branch_dom_missing: "브랜치 DOM 요소를 찾을 수 없습니다.",
     fullscreen_not_supported: "이 브라우저는 전체화면을 지원하지 않습니다.",
+    record: "녹화",
+    record_on: "녹화중",
+    record_off: "녹화대기",
   },
   en: {
     home: "Home",
@@ -92,6 +95,9 @@ const UI_STRINGS = {
     set_failed: "Set failed: ",
     branch_dom_missing: "Branch DOM elements missing.",
     fullscreen_not_supported: "Fullscreen not supported on this browser.",
+    record: "Record",
+    record_on: "Recording",
+    record_off: "Idle",
   },
   zh: {
     home: "首页",
@@ -136,6 +142,9 @@ const UI_STRINGS = {
     set_failed: "设置失败: ",
     branch_dom_missing: "找不到分支 DOM 元素。",
     fullscreen_not_supported: "此浏览器不支持全屏。",
+    record: "录制",
+    record_on: "录制中",
+    record_off: "待机",
   }
 };
 
@@ -159,6 +168,7 @@ const btnLang = document.getElementById("btnLang");
 const langLabel = document.getElementById("langLabel");
 const btnTools = document.getElementById("btnTools");
 const btnToolsBack = document.getElementById("btnToolsBack");
+const btnRecordToggle = document.getElementById("btnRecordToggle");
 
 btnTools.onclick = () => showPage("tools");
 btnToolsBack.onclick = () => showPage("home");
@@ -186,6 +196,7 @@ const modelTitle = document.getElementById("modelTitle");
 const modelMeta = document.getElementById("modelMeta");
 
 btnHome.onclick = () => showPage("home", true);
+btnRecordToggle.onclick = () => toggleRecord();
 btnSetting.onclick = () => showPage("setting", true);
 
 btnFleet.onclick = () => {
@@ -226,6 +237,7 @@ function showPage(page, pushHistory = false) {
 
   if (page === "home") {
     loadCurrentCar().catch(() => {});
+    loadRecordState().catch(() => {});
     updateQuickLink().catch(() => {});
   }
 
@@ -304,6 +316,7 @@ function toggleLang() {
 
   // Update static UI text
   renderUIText();
+  loadRecordState().catch(() => {});
 
   if (SETTINGS) {
     renderGroups();
@@ -323,6 +336,7 @@ function renderUIText() {
 
   // Home
   setText("homeTitle", s.home);
+  setText("btnRecordToggle", s.record);
   setText("serverStateTitle", s.server_state);
   setText("quickLinkTitle", s.quick_link);
 
@@ -410,6 +424,46 @@ async function loadCurrentCar() {
   } catch (e) {
     curCarLabelCar.textContent = "-";
     curCarLabelSetting.textContent = "-";
+  }
+}
+
+async function loadRecordState() {
+  try {
+    const values = await bulkGet(["ScreenRecord"]);
+    const v = values["ScreenRecord"];
+
+    const isOn =
+      v === true ||
+      v === 1 ||
+      v === "1" ||
+      v === "true" ||
+      v === "True";
+
+    btnRecordToggle.classList.toggle("active", isOn);
+    btnRecordToggle.textContent = isOn
+      ? `${UI_STRINGS[LANG].record} ON`
+      : `${UI_STRINGS[LANG].record} OFF`;
+  } catch (e) {
+    btnRecordToggle.classList.remove("active");
+    btnRecordToggle.textContent = UI_STRINGS[LANG].record || "Record";
+  }
+}
+async function toggleRecord() {
+  try {
+    const values = await bulkGet(["ScreenRecord"]);
+    const v = values["ScreenRecord"];
+
+    const isOn =
+      v === true ||
+      v === 1 ||
+      v === "1" ||
+      v === "true" ||
+      v === "True";
+
+    await setParam("ScreenRecord", !isOn);
+    await loadRecordState();
+  } catch (e) {
+    alert((UI_STRINGS[LANG].record || "Failed to toggle record: ") + e.message);
   }
 }
 
