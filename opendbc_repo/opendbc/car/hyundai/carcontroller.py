@@ -330,7 +330,7 @@ class CarController(CarControllerBase):
         can_sends.extend(hyundaicanfd.create_suppress_lfa(self.packer, self.CAN, CS))
 
       # LFA and HDA icons
-      if self.frame % 5 == 0 and (not hda2 or hda2_long):
+      if self.frame % 5 == 0 and (not hda2 or hda2_long or camera_scc):
         can_sends.extend(hyundaicanfd.create_lfahda_cluster(self.packer, CS, self.CAN, CC.longActive, CC.latActive))
         if not camera_scc:
           can_sends.extend(hyundaicanfd.create_lfa_icon_non_camera_scc(self.packer, CS, self.CAN, CC))
