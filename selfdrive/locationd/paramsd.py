@@ -285,42 +285,63 @@ def main():
   params_memory = Params("/dev/shm/params")
   params_memory.remove("LastGPSPosition")
   
-  last_processed_time = {s: 0 for s in sm.updated.keys()}
+  livepose_count = 0
+  last_carstate = None
+  last_carstate_time = 0
+  last_livecalib = None
+  last_livecalib_time = 0
   while True:
     sm.update()
+    if sm.updated["carState"] and sm.valid["carState"]:
+      last_carstate = sm["carState"]
+      last_carstate_time = sm.logMonoTime["carState"]
 
-    if sm.all_checks():
-      items = []
-      for which in sm.updated.keys():
-        t = sm.logMonoTime[which]
-        if t > last_processed_time[which]:
-          items.append((t, which))
+    if sm.updated["liveCalibration"] and sm.valid["liveCalibration"]:
+      last_livecalib = sm["liveCalibration"]
+      last_livecalib_time = sm.logMonoTime["liveCalibration"]
 
-      for t_ns, which in sorted(items, key=lambda x: x[0]):
-        last_processed_time[which] = t_ns
-        learner.handle_log(t_ns * 1e-9, which, sm[which])
-
-    gps_t_ns = sm.logMonoTime[gps_location_service]
-    if gps_t_ns > last_processed_time[gps_location_service]:
-      last_processed_time[gps_location_service] = gps_t_ns
+    if sm.updated[gps_location_service]:
       gps = sm[gps_location_service]
       if gps.hasFix:
         bearing = gps.bearingDeg
         lat = gps.latitude
         lon = gps.longitude
-        params_memory.put_nonblocking(
-          "LastGPSPosition",
-          json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing})
-        )      
+        params_memory.put_nonblocking("LastGPSPosition", json.dumps({
+          "latitude": lat,
+          "longitude": lon,
+          "bearing": bearing
+        }))
 
-    if sm.updated['livePose']:
-      msg = learner.get_msg(sm.all_checks(), debug=DEBUG)
+    if not sm.updated['livePose']:
+      continue
 
-      msg_dat = msg.to_bytes()
-      if sm.frame % 1200 == 0:  # once a minute
-        params.put_nonblocking("LiveParametersV2", msg_dat)
+    livepose_count += 1
 
-      pm.send('liveParameters', msg_dat)
+    msgs = []
+
+    if last_livecalib is not None:
+      msgs.append((last_livecalib_time, "liveCalibration", last_livecalib))
+
+    if last_carstate is not None:
+      msgs.append((last_carstate_time, "carState", last_carstate))
+
+    if sm.valid["livePose"]:
+      msgs.append((sm.logMonoTime["livePose"], "livePose", sm["livePose"]))
+
+    for log_mono_time, which, msg in sorted(msgs, key=lambda x: x[0]):
+      learner.handle_log(log_mono_time * 1e-9, which, msg)
+      
+    last_carstate = None
+    last_livecalib = None
+
+    msg = learner.get_msg(sm.valid['livePose'], debug=DEBUG)
+    msg_dat = msg.to_bytes()
+
+    if livepose_count % 1200 == 0:  # once a minute at 20Hz livePose
+      params.put_nonblocking("LiveParametersV2", msg_dat)
+
+    pm.send('liveParameters', msg_dat)
+    
 
 if __name__ == "__main__":
   main()

@@ -251,34 +251,70 @@ def main(demo=False):
   params = Params()
   estimator = TorqueEstimator(messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams))
 
-  live_pose_updated = 0
-  last_processed_time = {s: 0 for s in sm.updated.keys()}
-
+  livepose_count = 0
+  last_carControl = None
+  last_carControl_time = 0
+  last_carOutput = None
+  last_carOutput_time = 0
+  last_carState = None
+  last_carState_time = 0
+  
   while True:
-    sm.update()
+    sm.update(10)
+    
+    if sm.updated["carControl"] and sm.valid["carControl"]:
+      last_carControl = sm["carControl"]
+      last_carControl_time = sm.logMonoTime["carControl"]
 
-    if sm.all_checks():
-      items = []
-      for which in sm.updated.keys():
-        t_ns = sm.logMonoTime[which]
-        if t_ns > last_processed_time[which]:
-          items.append((t_ns, which))
+    if sm.updated["carOutput"] and sm.valid["carOutput"]:
+      last_carOutput = sm["carOutput"]
+      last_carOutput_time = sm.logMonoTime["carOutput"]
 
-      for t_ns, which in sorted(items, key=lambda x: x[0]):
-        last_processed_time[which] = t_ns
-        estimator.handle_log(t_ns * 1e-9, which, sm[which])
+    if sm.updated["carState"] and sm.valid["carState"]:
+      last_carState = sm["carState"]
+      last_carState_time = sm.logMonoTime["carState"]
 
-    if sm.updated['livePose']:
-      live_pose_updated += 1
+    if sm.updated["liveCalibration"] and sm.valid["liveCalibration"]:
+      t = sm.logMonoTime["liveCalibration"] * 1e-9
+      estimator.handle_log(t, "liveCalibration", sm["liveCalibration"])
 
-      # 4Hz driven by livePose
-      if live_pose_updated % 5 == 0:
-        pm.send('liveTorqueParameters', estimator.get_msg(valid=sm.all_checks(), with_points=DEBUG))
+    if sm.updated["liveDelay"] and sm.valid["liveDelay"]:
+      t = sm.logMonoTime["liveDelay"] * 1e-9
+      estimator.handle_log(t, "liveDelay", sm["liveDelay"])
 
-      # Cache points every 60 seconds while onroad
-      if live_pose_updated % 240 == 0:
-        msg = estimator.get_msg(valid=sm.all_checks(), with_points=True)
-        params.put_nonblocking("LiveTorqueParameters", msg.to_bytes())
+    # livePose가 안 왔으면 핵심 처리 안 함
+    if not sm.updated['livePose']:
+      continue
+
+    livepose_count += 1
+
+    msgs = []
+
+    if last_carControl is not None:
+      msgs.append((last_carControl_time, "carControl", last_carControl))
+    if last_carOutput is not None:
+      msgs.append((last_carOutput_time, "carOutput", last_carOutput))
+    if last_carState is not None:
+      msgs.append((last_carState_time, "carState", last_carState))
+    if sm.valid["livePose"]:
+      msgs.append((sm.logMonoTime["livePose"], "livePose", sm["livePose"]))
+
+    for log_mono_time, which, msg in sorted(msgs, key=lambda x: x[0]):
+      estimator.handle_log(log_mono_time * 1e-9, which, msg)
+
+    last_carControl = None
+    last_carOutput = None
+    last_carState = None
+    
+    # 4Hz driven by livePose
+    if livepose_count % 5 == 0:
+      pm.send('liveTorqueParameters', estimator.get_msg(valid=sm.valid['livePose']))
+
+    # Cache points every 60 seconds while onroad (기존 240 = 60초 @ 4Hz publish)
+    if livepose_count % 1200 == 0:
+      msg = estimator.get_msg(valid=sm.valid['livePose'], with_points=True)
+      params.put_nonblocking("LiveTorqueParameters", msg.to_bytes())
+      
 
 if __name__ == "__main__":
   import argparse
