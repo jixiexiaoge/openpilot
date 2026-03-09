@@ -46,9 +46,9 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   static int carrot_cmd_index_last = 0;
   SubMaster& sm = *(s.sm);
   if (sm.alive("carrotMan")) {
-    bool screen_record = Params().getBool("ScreenRecord");
-    if(screen_record) recorder->start();
-    else recorder->stop();
+    //bool screen_record = Params().getBool("ScreenRecord");
+    //if(screen_record) recorder->start();
+    //else recorder->stop();
 
     const auto& carrot = sm["carrotMan"].getCarrotMan();
     int carrot_cmd_index = carrot.getCarrotCmdIndex();
