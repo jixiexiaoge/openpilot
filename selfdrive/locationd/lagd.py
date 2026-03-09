@@ -366,7 +366,7 @@ def main():
   DEBUG = bool(int(os.getenv("DEBUG", "0")))
 
   pm = messaging.PubMaster(['liveDelay'])
-  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', 'controlsState', 'carControl'])
+  sm = messaging.SubMaster(['livePose', 'liveCalibration', 'carState', 'controlsState', 'carControl'], poll='livePose')
 
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
@@ -376,32 +376,21 @@ def main():
     lag, valid_blocks = initial_lag_params
     lag_learner.reset(lag, valid_blocks)
 
-  livepose_count = 0
   while True:
     sm.update()
-    
-    for which in ("carControl", "carState", "controlsState", "liveCalibration"):
-      if sm.updated[which] and sm.valid[which]:
-        t = sm.logMonoTime[which] * 1e-9
-        lag_learner.handle_log(t, which, sm[which])
+    if sm.all_checks():
+      for which in sorted(sm.updated.keys(), key=lambda x: sm.logMonoTime[x]):
+        if sm.updated[which]:
+          t = sm.logMonoTime[which] * 1e-9
+          lag_learner.handle_log(t, which, sm[which])
+      lag_learner.update_points()
 
-    if not sm.updated["livePose"]:
-      continue
-
-    livepose_count += 1        
-
-    t = sm.logMonoTime["livePose"] * 1e-9
-    lag_learner.handle_log(t, "livePose", sm["livePose"])
-
-    # livePose 기준으로 point update
-    lag_learner.update_points()
-
-    # 4Hz driven by livePose (20Hz / 5)
-    if livepose_count % 5 == 0:
+    # 4Hz driven by livePose
+    if sm.frame % 5 == 0:
       lag_learner.update_estimate()
-      lag_msg = lag_learner.get_msg(sm.valid["livePose"], DEBUG)
+      lag_msg = lag_learner.get_msg(sm.all_checks(), DEBUG)
       lag_msg_dat = lag_msg.to_bytes()
       pm.send('liveDelay', lag_msg_dat)
 
-      if livepose_count % 1200 == 0:  # 60 sec at 20Hz livePose
+      if sm.frame % 1200 == 0: # cache every 60 seconds
         params.put_nonblocking("LiveDelay", lag_msg_dat)

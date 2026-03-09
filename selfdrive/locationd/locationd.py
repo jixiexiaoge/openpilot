@@ -260,7 +260,7 @@ def main():
   SIMULATION = bool(int(os.getenv("SIMULATION", "0")))
 
   pm = messaging.PubMaster(['livePose'])
-  sm = messaging.SubMaster(['carState', 'liveCalibration', 'cameraOdometry'])
+  sm = messaging.SubMaster(['carState', 'liveCalibration', 'cameraOdometry'], poll='cameraOdometry')
   # separate sensor sockets for efficiency
   sensor_sockets = [messaging.sub_sock(which, timeout=20) for which in ['accelerometer', 'gyroscope']]
   sensor_alive, sensor_valid, sensor_recv_time = defaultdict(bool), defaultdict(bool), defaultdict(float)
@@ -287,14 +287,6 @@ def main():
 
   while True:
     sm.update()
-    if sm.updated["carState"] and sm.valid["carState"]:
-      estimator.car_speed = abs(sm["carState"].vEgo)
-    if sm.updated["liveCalibration"] and sm.valid["liveCalibration"]:
-      t = sm.logMonoTime["liveCalibration"] * 1e-9
-      estimator.handle_log(t, "liveCalibration", sm["liveCalibration"])
-      
-    if not sm.updated["cameraOdometry"]:
-      continue   
 
     acc_msgs, gyro_msgs = (messaging.drain_sock(sock) for sock in sensor_sockets)
 
@@ -303,14 +295,12 @@ def main():
       for msg in acc_msgs + gyro_msgs:
         t, valid, which, data = msg.logMonoTime, msg.valid, msg.which(), getattr(msg, msg.which())
         msgs.append((t, valid, which, data))
-        
-      msgs.append((
-        sm.logMonoTime["cameraOdometry"],
-        sm.valid["cameraOdometry"],
-        "cameraOdometry",
-        sm["cameraOdometry"],
-      ))
-      
+      for which, updated in sm.updated.items():
+        if not updated:
+          continue
+        t, valid, data = sm.logMonoTime[which], sm.valid[which], sm[which]
+        msgs.append((t, valid, which, data))
+
       for log_mono_time, valid, which, msg in sorted(msgs, key=lambda x: x[0]):
         if valid:
           t = log_mono_time * 1e-9
@@ -329,9 +319,9 @@ def main():
     else:
       filter_initialized = sm.all_checks() and sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
-    if True:
+    if sm.updated["cameraOdometry"]:
       critical_service_inputs_valid = all(observation_input_invalid[s] < input_invalid_threshold[s] for s in critcal_services)
-      inputs_valid = sm.valid["cameraOdometry"] and critical_service_inputs_valid
+      inputs_valid = sm.all_valid() and critical_service_inputs_valid
       sensors_valid = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
       msg = estimator.get_msg(sensors_valid, inputs_valid, filter_initialized)
