@@ -58,7 +58,7 @@
   left: 40%;
   top: 6px;
   transform: translateX(-50%);
-  background-image: url("/speed_bg.png");
+  background-image: url("/assets/speed_bg.png");
   background-repeat: no-repeat;
   background-size: contain;
   background-position: center;

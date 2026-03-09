@@ -1,0 +1,240 @@
+body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #0b0d10;
+      color: #e8eef5;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      background: #11161d;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .btn {
+      padding: 10px 14px;
+      border: 1px solid #2a3542;
+      background: #141b24;
+      color: #e8eef5;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+      .btn.active {
+        background: #1e2a3a;
+        border-color: #3b5168;
+      }
+
+    .wrap {
+      padding: 12px;
+    }
+
+    .card {
+      border: 1px solid #253040;
+      background: #0f141c;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .muted {
+      color: #9bb0c6;
+      font-size: 12px;
+    }
+
+    .groupBtn {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 8px;
+    }
+
+    .setting {
+      border: 1px solid #253040;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #0c1118;
+    }
+
+    .settingTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .title {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #9bb0c6;
+    }
+
+    .descr {
+      white-space: pre-wrap;
+      margin-top: 6px;
+      color: #c7d6e6;
+      font-size: 13px;
+    }
+
+    .ctrl {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      border: 1px solid #2a3542;
+      background: #141b24;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #c7d6e6;
+    }
+
+    .smallBtn {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #2a3542;
+      background: #141b24;
+      color: #e8eef5;
+      cursor: pointer;
+    }
+
+    .val {
+      min-width: 84px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .langToggle {
+      margin-left: auto;
+    }
+
+    .btnRow {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .backupRow {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .restoreRow {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .restoreRow input[type="file"] {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      overflow: auto;
+    }
+
+    /* screen transition */
+    .screen {
+      transition: opacity .16s ease, transform .16s ease;
+      will-change: opacity, transform;
+    }
+
+      .screen.hidden {
+        opacity: 0;
+        transform: translateX(12px);
+        pointer-events: none;
+      }
+
+    /* Mobile improvements */
+    @media (max-width: 640px) {
+      .topbar {
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .btn {
+        padding: 10px 12px;
+        border-radius: 12px;
+      }
+
+      .settingTop {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .ctrl {
+        justify-content: flex-start;
+      }
+
+      .val {
+        min-width: 120px;
+      }
+
+      .smallBtn {
+        padding: 10px 12px;
+      }
+    }
+
+    .rtcVideo {
+      width: 100%;
+      border-radius: 14px;
+      background: #000;
+      object-fit: contain;
+      /* 세로모드 기본: 너무 작게 안 만들고 싶으면 제한 안 둬도 됨 */
+    }
+
+    @media (orientation: landscape) {
+      .rtcVideo {
+        max-height: 40vh; /* 35~50vh 사이에서 취향 */
+        width: auto; /* 가로모드에서 “폭 100%” 강제 안 함 */
+        max-width: 100%;
+        margin: 0 auto;
+      }
+    }
+
+    /* ===== Fullscreen override (video or wrapper) ===== */
+    /* ===== Fullscreen override (wrapper) ===== */
+    #rtcWrap:fullscreen,
+    #rtcWrap:-webkit-full-screen {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      background: #000 !important;
+      z-index: 9999 !important;
+      /* fullscreen에서만 중앙정렬 */
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    /* fullscreen일 때 video는 무조건 꽉 채움 */
+    #rtcWrap:fullscreen #rtcVideo,
+    #rtcWrap:-webkit-full-screen #rtcVideo {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      object-fit: contain !important;
+    }
