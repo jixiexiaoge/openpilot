@@ -1031,7 +1031,7 @@ class CarrotMan:
       conn, addr = server.accept()
       self.remote_addr = addr
       print("Connected:", addr)
-      conn.settimeout(5.0)
+      #conn.settimeout(5.0)
       conn.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
       try:
         f = conn.makefile("r", encoding="utf-8", errors="ignore")
