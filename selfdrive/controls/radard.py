@@ -846,16 +846,13 @@ def main() -> None:
   cloudlog.info("radard got CarParams")
 
   # *** setup messaging
-  sm = messaging.SubMaster(['modelV2', 'carState', 'liveTracks'])
-  #sm = messaging.SubMaster(['modelV2', 'carState', 'liveTracks'], poll='liveTracks')
+  sm = messaging.SubMaster(['modelV2', 'carState', 'liveTracks'], poll='modelV2')
   pm = messaging.PubMaster(['radarState'])
 
   RD = RadarD(CP.radarDelay)
 
   while 1:
     sm.update()
-    if not sm.updated['modelV2']:
-      continue
 
     RD.update(sm, sm['liveTracks'])
     RD.publish(pm)

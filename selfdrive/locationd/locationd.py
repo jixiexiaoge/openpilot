@@ -285,10 +285,51 @@ def main():
       P_initial = np.diag(np.array(filter_state.std, dtype=np.float64)) if len(filter_state.std) != 0 else PoseKalman.initial_P
       estimator.reset(None, x_initial, P_initial)
 
+  last_fail_print_t = 0.0
+  last_input_fail_print_t = 0.0
+
   while True:
     sm.update()
 
     acc_msgs, gyro_msgs = (messaging.drain_sock(sock) for sock in sensor_sockets)
+
+    ok_alive = sm.all_alive()
+    ok_freq = sm.all_freq_ok()
+    ok_valid = sm.all_valid()
+    ok_sm = ok_alive and ok_freq and ok_valid
+    ok_sensor = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
+
+    if not filter_initialized:
+      filter_initialized = ok_sm and ok_sensor
+      if (not filter_initialized):
+        now = time.monotonic()
+        if now - last_fail_print_t > 1.0:
+          last_fail_print_t = now
+          print(f"\n[locationd init waiting] frame={sm.frame} "
+                f"sm={ok_sm} alive={ok_alive} freq={ok_freq} valid={ok_valid} sensor={ok_sensor}")
+
+          for s in sm.services:
+            recv_age_ms = (now - sm.recv_time[s]) * 1000.0 if sm.recv_time[s] > 0 else -1.0
+            print(
+              f"  SM {s:16s} "
+              f"seen={sm.seen[s]} "
+              f"updated={sm.updated[s]} "
+              f"alive={sm.alive[s]} "
+              f"freq_ok={sm.freq_ok[s]} "
+              f"valid={sm.valid[s]} "
+              f"recv_age_ms={recv_age_ms:7.1f} "
+              f"logMonoTime={sm.logMonoTime[s]}"
+            )
+
+          for s in ['accelerometer', 'gyroscope']:
+            recv_age_ms = (now - sensor_recv_time[s]) * 1000.0 if sensor_recv_time[s] > 0 else -1.0
+            print(
+              f"  SNS {s:16s} "
+              f"alive={sensor_alive[s]} "
+              f"valid={sensor_valid[s]} "
+              f"recv_age_ms={recv_age_ms:7.1f} "
+              f"drain_cnt={len(acc_msgs) if s == 'accelerometer' else len(gyro_msgs)}"
+            )
 
     if filter_initialized:
       msgs = []
@@ -316,17 +357,54 @@ def main():
             observation_input_invalid[which] += 1
           elif res == HandleLogResult.SUCCESS:
             observation_input_invalid[which] *= input_invalid_decay[which]
-    else:
-      filter_initialized = sm.all_checks() and sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
     if sm.updated["cameraOdometry"]:
       critical_service_inputs_valid = all(observation_input_invalid[s] < input_invalid_threshold[s] for s in critcal_services)
       inputs_valid = sm.all_valid() and critical_service_inputs_valid
       sensors_valid = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
+      now = time.monotonic()
+      if ((not ok_sm) or (not sensors_valid) or (not critical_service_inputs_valid) or (not inputs_valid)) and (now - last_input_fail_print_t > 1.0):
+        last_input_fail_print_t = now
+
+        print(f"\n[locationd output invalid] frame={sm.frame} "
+              f"sm={ok_sm} alive={ok_alive} freq={ok_freq} valid={ok_valid} "
+              f"sensors_valid={sensors_valid} critical_inputs_valid={critical_service_inputs_valid} "
+              f"inputs_valid={inputs_valid} filter_initialized={filter_initialized}")
+
+        for s in sm.services:
+          recv_age_ms = (now - sm.recv_time[s]) * 1000.0 if sm.recv_time[s] > 0 else -1.0
+          print(
+            f"  SM {s:16s} "
+            f"seen={sm.seen[s]} "
+            f"updated={sm.updated[s]} "
+            f"alive={sm.alive[s]} "
+            f"freq_ok={sm.freq_ok[s]} "
+            f"valid={sm.valid[s]} "
+            f"recv_age_ms={recv_age_ms:7.1f} "
+            f"logMonoTime={sm.logMonoTime[s]}"
+          )
+
+        for s in ['accelerometer', 'gyroscope']:
+          recv_age_ms = (now - sensor_recv_time[s]) * 1000.0 if sensor_recv_time[s] > 0 else -1.0
+          print(
+            f"  SNS {s:16s} "
+            f"alive={sensor_alive[s]} "
+            f"valid={sensor_valid[s]} "
+            f"recv_age_ms={recv_age_ms:7.1f} "
+            f"drain_cnt={len(acc_msgs) if s == 'accelerometer' else len(gyro_msgs)}"
+          )
+
+        for s in critcal_services:
+          print(
+            f"  CRIT {s:16s} "
+            f"invalid_score={observation_input_invalid[s]:8.3f} "
+            f"threshold={input_invalid_threshold[s]:8.3f} "
+            f"limit={input_invalid_limit[s]:8.3f}"
+          )
+
       msg = estimator.get_msg(sensors_valid, inputs_valid, filter_initialized)
       pm.send("livePose", msg)
-
 
 if __name__ == "__main__":
   main()

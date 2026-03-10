@@ -209,8 +209,30 @@ async def on_startup(app: web.Application):
   app["hb_last"] = {"ok": None, "msg": "not yet", "ts": 0}
   if HAS_PARAMS:
     app["hb_task"] = asyncio.create_task(heartbeat_loop(app))
-    
+  global _ws_carstate_task, _ws_carstate_lock
+  _ws_carstate_lock = asyncio.Lock()
+  _ws_carstate_task = asyncio.create_task(carstate_updater(app))
+  
 async def on_cleanup(app: web.Application):
+  global _ws_carstate_task
+
+  for ws in list(_ws_carstate_clients):
+    try:
+      await ws.close()
+    except Exception:
+      pass
+  _ws_carstate_clients.clear()
+
+  if _ws_carstate_task is not None:
+    _ws_carstate_task.cancel()
+    try:
+      await _ws_carstate_task
+    except asyncio.CancelledError:
+      pass
+    except Exception:
+      traceback.print_exc()
+    _ws_carstate_task = None
+    
   t = app.get("hb_task")
   if t:
     t.cancel()
@@ -893,26 +915,46 @@ async def handle_download_tmux(request: web.Request) -> web.Response:
     }
   )
 
-async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
-  ws = web.WebSocketResponse(heartbeat=20)
-  await ws.prepare(request)
+_ws_carstate_task = None
+_ws_carstate_payload_json = "{}"
+_ws_carstate_lock = None
+_ws_carstate_clients = set()
+async def carstate_updater(app: web.Application):
+  global _ws_carstate_payload_json, _ws_carstate_lock
 
-  sm = messaging.SubMaster(['carState', 'carControl', 'deviceState', 'longitudinalPlan', 'carrotMan', 'peripheralState'])
+  sm = messaging.SubMaster([
+    'carState',
+    'carControl',
+    'deviceState',
+    'longitudinalPlan',
+    'carrotMan',
+    'peripheralState',
+  ])
 
-  # for gap/driving mode (same as your drawHud: Params reads)
   params = Params() if HAS_PARAMS else None
+
   last_toggle_t = 0.0
   show_volt = False
 
-  try:
-    while True:
-      sm.update(0)  # non-blocking
+  last_tf_gap_read_t = 0.0
+  cached_tf_gap = None
+
+  while True:
+    try:
+      sm.update(0)
       now = time.time()
 
-      # toggle DISK/VOLT display every ~3s (like disp_timer)
       if now - last_toggle_t > 3.2:
         last_toggle_t = now
         show_volt = not show_volt
+
+      # Params는 매 루프마다 읽지 말고 1초에 1번만
+      if params is not None and (now - last_tf_gap_read_t > 1.0):
+        last_tf_gap_read_t = now
+        try:
+          cached_tf_gap = int(params.get_int("LongitudinalPersonality") or 0) + 1
+        except Exception:
+          cached_tf_gap = None
 
       v_ego = None
       v_cruise = None
@@ -924,7 +966,6 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
       mem_pct = None
       disk_pct = None
       volt_v = None
-      tf_gap = None
       drive_mode_obj = None
       temp_speed = None
 
@@ -935,8 +976,10 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
         lp = sm['longitudinalPlan']
         ps = sm['peripheralState']
         ds = sm['deviceState']
+
         v_ego = CS.vEgoCluster
         v_cruise = CS.vCruiseCluster
+
         gs = CS.gearShifter
         step = CS.gearStep
         if gs == GearShifter.unknown:
@@ -958,7 +1001,12 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
 
         apply_speed = CM.desiredSpeed
         apply_source = CM.desiredSource
-        temp_speed = { "speed": apply_speed, "source": apply_source if apply_speed >= v_cruise else "", "is_decel": True if apply_speed < v_cruise else False}
+        temp_speed = {
+          "speed": apply_speed,
+          "source": apply_source if v_cruise is not None and apply_speed >= v_cruise else "",
+          "is_decel": True if v_cruise is not None and apply_speed < v_cruise else False,
+        }
+
         drive_mode = lp.myDrivingMode
         if drive_mode == 1:
           drive_mode_obj = {"name": "Eco", "kind": "eco"}
@@ -969,31 +1017,28 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
         else:
           drive_mode_obj = {"name": "Normal", "kind": "normal"}
 
-
         gps_ok = True
 
-        # deviceState
-        ds = sm['deviceState']
-        # cpuTempC can be list; use max
         c = ds.cpuTempC
         if c is not None:
           if isinstance(c, (list, tuple)) and len(c) > 0:
             cpu_temp_c = float(max(c))
+          else:
+            try:
+              cpu_temp_c = float(c)
+            except Exception:
+              cpu_temp_c = None
 
         mem_pct = ds.memoryUsagePercent
         free_pct = ds.freeSpacePercent
         if math.isfinite(free_pct):
           disk_pct = 100.0 - free_pct
 
-        volt_v = ps.voltage / 1000.0
-
-        # gap/driving mode from Params (same as your C++)
-        tf_gap = int(params.get_int("LongitudinalPersonality") or 0) + 1
-
+        volt_v = ps.voltage / 1000.0 if ps.voltage is not None else None
 
       payload = {
         "ts": now,
-        "vEgo": v_ego,              # m/s
+        "vEgo": v_ego,
         "vSetKph": v_cruise,
         "gear": gear,
         "gpsOk": gps_ok,
@@ -1003,11 +1048,10 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
         "diskPct": (volt_v if show_volt else disk_pct),
         "diskLabel": ("VOLT" if show_volt else "DISK"),
 
-        "tfGap": tf_gap,
-        "tfBars": tf_gap,
+        "tfGap": cached_tf_gap,
+        "tfBars": cached_tf_gap,
         "driveMode": drive_mode_obj,
 
-        # placeholders (fill later from your sources)
         "tlight": "off",
         "redDot": False,
         "temp": temp_speed,
@@ -1016,31 +1060,56 @@ async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
         "apm": " ",
       }
 
+      payload_json = json.dumps(payload, separators=(",", ":"))
+
+      async with _ws_carstate_lock:
+        _ws_carstate_payload_json = payload_json
+
+    except asyncio.CancelledError:
+      raise
+    except Exception:
+      traceback.print_exc()
+
+    await asyncio.sleep(0.2)
+    
+async def ws_carstate(request: web.Request) -> web.WebSocketResponse:
+  ws = web.WebSocketResponse(heartbeat=20)
+  await ws.prepare(request)
+
+  _ws_carstate_clients.add(ws)
+
+  try:
+    while True:
+      async with _ws_carstate_lock:
+        payload_json = _ws_carstate_payload_json
+
       try:
-        await ws.send_str(json.dumps(payload))
+        await ws.send_str(payload_json)
       except (asyncio.CancelledError, GeneratorExit):
         raise
       except (ConnectionResetError, BrokenPipeError, web.HTTPException):
         break
       except Exception as e:
-        # aiohttp에서 클라이언트가 끊길 때 나는 대표 예외
         if isinstance(e, (aiohttp.client_exceptions.ClientConnectionResetError,)):
           break
         if "Cannot write to closing transport" in str(e):
           break
-        # traceback.print_exc()
         break
-      await asyncio.sleep(0.1)  # 10Hz
+
+      await asyncio.sleep(0.1)
+
+  except asyncio.CancelledError:
+    raise
   except Exception:
     traceback.print_exc()
-    pass
 
   try:
+    _ws_carstate_clients.discard(ws)
     await ws.close()
   except Exception:
     pass
-  return ws
 
+  return ws
 
 PARAMS_BACKUP_PATH = "/data/media/params_backup.json"
 def _get_all_param_values_for_backup() -> Dict[str, str]:
