@@ -44,11 +44,15 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   dmon.updateState(s);
 
   static int carrot_cmd_index_last = 0;
+  static bool screen_record_last = false;
   SubMaster& sm = *(s.sm);
   if (sm.alive("carrotMan")) {
-    //bool screen_record = Params().getBool("ScreenRecord");
-    //if(screen_record) recorder->start();
-    //else recorder->stop();
+    bool screen_record = Params().getBool("ScreenRecord");
+    if (screen_record != screen_record_last) {
+      if(screen_record) recorder->start();
+      else recorder->stop();
+      screen_record_last = screen_record;
+    }
 
     const auto& carrot = sm["carrotMan"].getCarrotMan();
     int carrot_cmd_index = carrot.getCarrotCmdIndex();
