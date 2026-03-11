@@ -28,6 +28,7 @@ const UI_STRINGS = {
     apply: "적용",
     confirm_car: "이 차량을 선택하시겠습니까?",
     confirm_reboot: "지금 재부팅하시겠습니까?",
+    confirm_reboot_after_install: "설치가 완료되었습니다.\n변경 사항을 적용하려면 재부팅이 필요합니다.\n지금 재부팅하시겠습니까?",
     reboot_later: "선택되었습니다. 적용하려면 나중에 재부팅하세요.",
     rebooting: "재부팅 중...",
     git_sync_confirm: "Git sync를 실행하시겠습니까?",
@@ -40,9 +41,6 @@ const UI_STRINGS = {
     checkout_confirm: "브랜치를 체크아웃하시겠습니까?",
     branch_changed: "브랜치가 변경되었습니다.",
     quick_link_hint: "* 길게 눌러 링크저장",
-    git_hint: "* reset/branch는 위험할 수 있으니 confirm 뜹니다.",
-    sys_hint: "* delete/reboot는 confirm 후 실행합니다.",
-    restore_hint: "* restore 후 reboot 권장",
     failed_set_car: "차량 선택 저장 실패: ",
     reboot_failed: "재부팅 실패: ",
     set_failed: "설정 실패: ",
@@ -75,6 +73,7 @@ const UI_STRINGS = {
     apply: "Apply",
     confirm_car: "Select this car?",
     confirm_reboot: "Reboot now?",
+    confirm_reboot_after_install: "Installation is complete.\nA reboot is required to apply the changes.\nReboot now?",
     reboot_later: "Selected. Reboot later to apply.",
     rebooting: "Rebooting...",
     git_sync_confirm: "Run git sync?",
@@ -87,9 +86,6 @@ const UI_STRINGS = {
     checkout_confirm: "Checkout branch?",
     branch_changed: "Branch changed.",
     quick_link_hint: "* Long press to save link",
-    git_hint: "* Reset/branch will prompt for confirmation.",
-    sys_hint: "* Delete/reboot will prompt for confirmation.",
-    restore_hint: "* Reboot recommended after restore.",
     failed_set_car: "Failed to set car: ",
     reboot_failed: "Reboot failed: ",
     set_failed: "Set failed: ",
@@ -122,6 +118,7 @@ const UI_STRINGS = {
     apply: "应用",
     confirm_car: "选择此车辆吗？",
     confirm_reboot: "现在重启吗？",
+    confirm_reboot_after_install: "安装已完成。\n需要重新启动设备以应用更改。\n现在重新启动吗？",
     reboot_later: "已选择。请稍后重启以应用更改。",
     rebooting: "正在重启...",
     git_sync_confirm: "执行 Git 同步吗？",
@@ -134,9 +131,6 @@ const UI_STRINGS = {
     checkout_confirm: "切换分支吗？",
     branch_changed: "分支已切换。",
     quick_link_hint: "* 长按保存链接",
-    git_hint: "* 重置/分支操作会弹出确认提示。",
-    sys_hint: "* 删除/重启操作会弹出确认提示。",
-    restore_hint: "* 还原后建议重启。",
     failed_set_car: "保存车辆选择失败: ",
     reboot_failed: "重启失败: ",
     set_failed: "设置失败: ",
@@ -358,14 +352,12 @@ function renderUIText() {
   setText("btnToolsBack", s.back);
   setText("gitCommandsTitle", s.git_commands);
   setText("userSystemTitle", s.user_system);
+  setText("userSettingsTitle", s.setting);
   setText("btnReboot", s.reboot);
   setText("btnBackupSettings", s.backup);
   setText("btnRestoreSettings", s.restore);
 
   setText("quickLinkHint", s.quick_link_hint);
-  setText("gitHint", s.git_hint);
-  setText("sysHint", s.sys_hint);
-  setText("restoreHint", s.restore_hint);
 }
 
 function setText(id, txt) {

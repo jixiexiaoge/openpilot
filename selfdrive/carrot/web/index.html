@@ -222,9 +222,6 @@
           <button id="btnGitBranch" class="btn">change branch</button>
         </div>
 
-        <div id="gitHint" class="muted" style="margin-top:10px;">
-          * reset/branch는 위험할 수 있으니 confirm 뜹니다.
-        </div>
       </div>
 
       <!-- System / User -->
@@ -232,31 +229,23 @@
         <h4 id="userSystemTitle" style="margin:0 0 10px 0;">User / System</h4>
 
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button id="btnSendTmuxLog" class="btn">tmux log</button>
+          <button id="btnSendTmuxLog" class="btn">capture tmux</button>
+          <button id="btnSendTmuxServerLog" class="btn">send tmux</button>
+          <button id="btnInstallRequired" class="btn">install flask</button>
           <button id="btnDeleteVideos" class="btn">delete all videos</button>
           <button id="btnDeleteLogs" class="btn">delete all logs</button>
           <button id="btnRebuildAll" class="smallBtn">Rebuild All</button>
           <button id="btnReboot" class="btn">reboot</button>
         </div>
 
-        <div id="sysHint" class="muted" style="margin-top:10px;">
-          * delete/reboot는 confirm 후 실행합니다.
-        </div>
-
         <!-- Backup / Restore -->
         <div class="card">
+          <h4 id="userSettingsTitle" style="margin:0 0 10px 0;">Settings</h4>
           <div class="backupRow">
             <button id="btnBackupSettings" class="btn">backup settings</button>
-          </div>
-
-          <div class="restoreRow">
-            <input id="restoreFile" type="file" accept="application/json" />
             <button id="btnRestoreSettings" class="btn">restore settings</button>
           </div>
 
-          <div id="restoreHint" class="muted">
-            * restore 후 reboot 권장
-          </div>
         </div>
         <div class="card">
           <h4 style="margin:0 0 6px 0;">System Command</h4>

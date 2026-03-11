@@ -489,6 +489,65 @@ function initToolsPage() {
     }
   });
 
+bindOnce("btnSendTmuxServerLog", async () => {
+  try {
+    toolsMetaSet("working");
+    toolsOutSet("triggering server tmux send...");
+
+    const j = await runTool("server_tmux_log");
+
+    toolsMetaSet(j.ok ? "ok" : "error");
+    toolsOutSet(j.out || j.error || "done");
+
+    if (j.file) {
+      window.location.href = j.file;
+    }
+  } catch (e) {
+    toolsMetaSet("error");
+    toolsOutSet("send tmux server log failed: " + e.message);
+    alert(e.message);
+  }
+});
+
+bindOnce("btnInstallRequired", async () => {
+
+  try {
+    toolsMetaSet("working");
+    toolsOutSet("installing required packages...");
+
+    const j = await runTool("install_required");
+
+    toolsMetaSet(j.ok ? "ok" : "error");
+
+    let msg = j.out || j.error || "done";
+
+    if (j.results && Array.isArray(j.results)) {
+      const lines = j.results.map(r => {
+        return `${r.package}: ${r.status}`;
+      });
+      msg += "\n" + lines.join("\n");
+    }
+
+    toolsOutSet(msg);
+
+    if (j.file) {
+      window.location.href = j.file;
+    }
+
+    if (j.need_reboot) {
+      const yes = confirm(UI_STRINGS[LANG].confirm_reboot_after_install);
+      if (yes) {
+        const r = await runTool("reboot");
+        toolsMetaSet(r.ok ? "ok" : "error");
+        toolsOutSet((msg + "\n\n" + (r.out || r.error || "reboot requested")).trim());
+      }
+    }
+  } catch (e) {
+    toolsMetaSet("error");
+    toolsOutSet("install required failed: " + e.message);
+    alert(e.message);
+  }
+});
   bindOnce("btnDeleteVideos", async () => {
     if (!confirm(UI_STRINGS[LANG].delete_videos_confirm || "Delete ALL videos? (DANGEROUS)")) return;
     try {
@@ -534,38 +593,48 @@ function initToolsPage() {
   });
 
   bindOnce("btnRestoreSettings", async () => {
-    const inp = document.getElementById("restoreFile");
-    if (!inp || !inp.files || !inp.files[0]) {
-      alert(UI_STRINGS[LANG].select_backup_file || "Select a backup json file first.");
-      return;
-    }
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "application/json";
+    inp.style.display = "none";
 
-    if (!confirm(UI_STRINGS[LANG].restore_confirm || "Restore settings from file?\n\nThis will overwrite many Params values.")) return;
+    inp.onchange = async () => {
+      if (!inp.files || !inp.files[0]) return;
 
-    try {
-      toolsMetaSet("uploading...");
-      toolsOutSet("...");
-
-      const fd = new FormData();
-      fd.append("file", inp.files[0]);
-
-      const r = await fetch("/api/params_restore", { method: "POST", body: fd });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok || !j.ok) throw new Error(j.error || ("HTTP " + r.status));
-
-      toolsMetaSet("restore done");
-      toolsOutSet(JSON.stringify(j.result, null, 2));
-
-      if (confirm(UI_STRINGS[LANG].restore_done_reboot || "Restore done.\nReboot now?")) {
-        await runTool("reboot");
-        toolsMetaSet("rebooting...");
-        toolsOutSet("reboot requested");
+      if (!confirm(UI_STRINGS[LANG].restore_confirm || "Restore settings from file?\n\nThis will overwrite many Params values.")) {
+        return;
       }
-    } catch (e) {
-      toolsMetaSet("error");
-      toolsOutSet("restore failed: " + e.message);
-      alert(e.message);
-    }
+
+      try {
+        toolsMetaSet("uploading...");
+        toolsOutSet("restoring settings...");
+
+        const fd = new FormData();
+        fd.append("file", inp.files[0]);
+
+        const r = await fetch("/api/params_restore", { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.error || ("HTTP " + r.status));
+
+        toolsMetaSet("restore done");
+        toolsOutSet(JSON.stringify(j.result, null, 2));
+
+        if (confirm(UI_STRINGS[LANG].restore_done_reboot || "Restore done.\nReboot now?")) {
+          const rebootRes = await runTool("reboot");
+          toolsMetaSet(rebootRes.ok ? "rebooting..." : "error");
+          toolsOutSet(rebootRes.out || rebootRes.error || "reboot requested");
+        }
+      } catch (e) {
+        toolsMetaSet("error");
+        toolsOutSet("restore failed: " + e.message);
+        alert(e.message);
+      } finally {
+        inp.remove();
+      }
+    };
+
+    document.body.appendChild(inp);
+    inp.click();
   });
 
   bindOnce("btnReboot", async () => {

@@ -792,7 +792,84 @@ async def api_tools(request: web.Request) -> web.Response:
         "out": "tmux log captured",
         "file": "/download/tmux.log"
       })
+    
+    if action == "server_tmux_log":
+      params = Params()
+      params.put_nonblocking("CarrotException", "tmux_send")
+      return web.json_response({"ok": True, "out": "tmux send triggered"})
 
+    if action == "install_required":
+      import importlib.util
+
+      packages = [
+        {"pip": "flask", "import": "flask"},
+        {"pip": "shapely", "import": "shapely"},
+        {"pip": "kaitaistruct", "import": "kaitaistruct"},
+      ]
+
+      results = []
+      installed_any = False
+
+      for item in packages:
+        pip_name = item["pip"]
+        import_name = item["import"]
+
+        try:
+          if importlib.util.find_spec(import_name) is not None:
+            results.append({
+              "package": pip_name,
+              "status": "already_installed",
+            })
+            continue
+
+          cmd = ["pip", "install", pip_name]
+          p = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
+          )
+
+          results.append({
+            "package": pip_name,
+            "status": "installed" if p.returncode == 0 else "failed",
+            "returncode": p.returncode,
+            "stdout": (p.stdout or "")[-2000:],
+            "stderr": (p.stderr or "")[-2000:],
+          })
+
+          if p.returncode != 0:
+            return web.json_response({
+              "ok": False,
+              "error": f"pip install failed: {pip_name}",
+              "results": results,
+              "need_reboot": False,
+            }, status=500)
+
+          installed_any = True
+
+        except Exception as e:
+          return web.json_response({
+            "ok": False,
+            "error": f"exception while checking/installing {pip_name}: {str(e)}",
+            "results": results,
+            "need_reboot": False,
+          }, status=500)
+
+      if installed_any:
+        return web.json_response({
+          "ok": True,
+          "out": "required packages installed. reboot is required to apply changes.",
+          "results": results,
+          "need_reboot": True,
+        })
+
+      return web.json_response({
+        "ok": True,
+        "out": "all required packages are already installed.",
+        "results": results,
+        "need_reboot": False,
+      })    
     if action == "backup_settings":
       if not HAS_PARAMS or ParamKeyType is None:
         return web.json_response({"ok": False, "error": "Params/ParamKeyType not available"}, status=500)
@@ -1218,11 +1295,6 @@ async def handle_download_params_backup(request: web.Request) -> web.Response:
 async def api_params_restore(request: web.Request) -> web.Response:
   if not HAS_PARAMS or ParamKeyType is None:
     return web.json_response({"ok": False, "error": "Params/ParamKeyType not available"}, status=500)
-
-  # 최소 보안: 사설대역만 허용 (api_tools와 동일하게)
-  #ip = request.remote or ""
-  #if not (ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16.") or ip.startswith("172.17.") or ip in ("127.0.0.1", "::1")):
-  #  return web.json_response({"ok": False, "error": "forbidden"}, status=403)
 
   try:
     reader = await request.multipart()

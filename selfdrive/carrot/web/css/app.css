@@ -133,18 +133,6 @@ body {
       margin-bottom: 10px;
     }
 
-    .restoreRow {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .restoreRow input[type="file"] {
-      flex: 1;
-      min-width: 180px;
-    }
-
     pre {
       white-space: pre-wrap;
       overflow: auto;

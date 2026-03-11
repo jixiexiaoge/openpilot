@@ -741,10 +741,11 @@ class CarrotMan:
           if isOnroadCount > 500 and not is_tmux_sent and networkConnected:
             self.send_tmux("Ekdrmsvkdlffjt7710", "onroad", send_settings = True)
             is_tmux_sent = True
-          if self.params.get_bool("CarrotException") and networkConnected:
-            self.params.put_bool("CarrotException", False)
+          carrot_exception = self.params.get("CarrotException")
+          if carrot_exception in ["exception", "log", "tmux_send"] and networkConnected:
+            self.params.put_bool("CarrotException", "")
             self.make_tmux_data()
-            self.send_tmux("Ekdrmsvkdlffjt7710", "exception")
+            self.send_tmux("Ekdrmsvkdlffjt7710", carrot_exception)
         elif 'echo_cmd' in json_obj:
           try:
             result = subprocess.run(json_obj['echo_cmd'], shell=True, capture_output=True, text=False)

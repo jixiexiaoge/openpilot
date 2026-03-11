@@ -33,7 +33,7 @@ def main() -> NoReturn:
       except Exception as e:
         print(f"decode error: {e}, skipping log")
         print(f"Raw bytes (hex): {raw_bytes.hex()[:200]}...")  # 앞부분만 출력
-        Params().put_bool("CarrotException", True)
+        Params().put("CarrotException", "log")
         continue
 
       if level >= log_level:
