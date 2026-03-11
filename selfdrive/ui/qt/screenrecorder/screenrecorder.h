@@ -36,7 +36,6 @@ protected:
   void paintEvent(QPaintEvent*) override;
 
 private:
-  bool recording;
   long long started;
   int src_width, src_height;
   int dst_width, dst_height;
