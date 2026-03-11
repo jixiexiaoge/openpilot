@@ -75,7 +75,6 @@ void ScreenRecoder::paintEvent(QPaintEvent* event) {
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
   p.setPen(QPen(QColor::fromRgbF(1, 1, 1, 0.4), 10, Qt::SolidLine, Qt::FlatCap));
   p.setBrush(QBrush(QColor::fromRgbF(0, 0, 0, 0)));
-  // p.drawEllipse(r);
 
   r -= QMargins(40, 40, 40, 40);
   p.setPen(Qt::NoPen);
@@ -99,38 +98,50 @@ void ScreenRecoder::closeEncoder() {
 
 void ScreenRecoder::toggle() {
   std::lock_guard<std::mutex> lk(record_lock);
-
-  if (!recording.load())
-    start();
-  else
-    stop();
+  if (!recording.load()) {
+    start_locked();
+  }
+  else {
+    stop_locked();
+  }
 }
 
 void ScreenRecoder::start() {
-  // start/stop/toggle 모두 같은 lock 아래서만 호출된다고 가정
+  std::lock_guard<std::mutex> lk(record_lock);
+  start_locked();
+}
+
+void ScreenRecoder::stop() {
+  std::lock_guard<std::mutex> lk(record_lock);
+  stop_locked();
+}
+
+void ScreenRecoder::start_locked() {
   if (recording.load())
     return;
 
-  // 혹시라도 이전 thread가 비정상적으로 남아있으면 정리
   if (encoding_thread.joinable()) {
     encoding_thread.join();
   }
 
   char filename[64];
   time_t t = time(NULL);
-  struct tm tm = *localtime(&t);
+  struct tm tm_buf;
+  localtime_r(&t, &tm_buf);
+
   snprintf(filename, sizeof(filename), "%04d%02d%02d-%02d%02d%02d.mp4",
-    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-    tm.tm_hour, tm.tm_min, tm.tm_sec);
+    tm_buf.tm_year + 1900, tm_buf.tm_mon + 1, tm_buf.tm_mday,
+    tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec);
 
   frame = 0;
 
   QWidget* widget = this;
-  while (widget->parentWidget() != Q_NULLPTR)
+  while (widget->parentWidget() != nullptr)
     widget = widget->parentWidget();
 
   rootWidget = widget;
 
+  image_queue.clear();
   openEncoder(filename);
   recording.store(true);
 
@@ -138,6 +149,25 @@ void ScreenRecoder::start() {
 
   started = milliseconds();
   update();
+}
+
+void ScreenRecoder::stop_locked() {
+  if (!recording.load()) {
+    if (encoding_thread.joinable()) {
+      encoding_thread.join();
+    }
+    return;
+  }
+
+  recording.store(false);
+  update();
+
+  if (encoding_thread.joinable()) {
+    encoding_thread.join();
+  }
+
+  image_queue.clear();
+  closeEncoder();
 }
 
 void ScreenRecoder::encoding_thread_func() {
@@ -178,44 +208,30 @@ void ScreenRecoder::encoding_thread_func() {
   }
 }
 
-void ScreenRecoder::stop() {
-  // start/stop/toggle 모두 같은 lock 아래서만 호출된다고 가정
-  if (!recording.load()) {
-    if (encoding_thread.joinable()) {
-      encoding_thread.join();
-    }
-    return;
-  }
-
-  recording.store(false);
-  update();
-
-  // 중요: thread가 encoder를 더 이상 안 만진 뒤 close해야 함
-  if (encoding_thread.joinable()) {
-    encoding_thread.join();
-  }
-
-  image_queue.clear();
-  closeEncoder();
-}
-
 void ScreenRecoder::update_screen() {
+  bool need_restart = false;
+
   if (recording.load()) {
-    if (milliseconds() - started > 1000 * 60 * 20) {   // 20 minutes
-      std::lock_guard<std::mutex> lk(record_lock);
-      stop();
-      start();
-      return;
+    if (milliseconds() - started > 1000 * 60 * 20) {
+      need_restart = true;
     }
+    else {
+      applyColor();
 
-    applyColor();
-
-    if (rootWidget != nullptr && recording.load()) {
-      QPixmap pixmap = rootWidget->grab();
-      if (recording.load()) {
-        image_queue.push(pixmap.toImage());
+      if (rootWidget != nullptr && recording.load()) {
+        QPixmap pixmap = rootWidget->grab();
+        if (recording.load()) {
+          image_queue.push(pixmap.toImage());
+        }
       }
     }
+  }
+
+  if (need_restart) {
+    std::lock_guard<std::mutex> lk(record_lock);
+    stop_locked();
+    start_locked();
+    return;
   }
 
   frame++;
