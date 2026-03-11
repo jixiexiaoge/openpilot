@@ -24,6 +24,7 @@ import asyncio
 import glob
 import subprocess
 import traceback
+import numpy as np
 from typing import Dict, Any, Tuple, Optional, List
 
 from aiohttp import web, ClientSession
@@ -1096,16 +1097,11 @@ async def carstate_updater(app: web.Application):
 
         gps_ok = True
 
-        c = ds.cpuTempC
-        if c is not None:
-          if isinstance(c, (list, tuple)) and len(c) > 0:
-            cpu_temp_c = float(max(c))
-          else:
-            try:
-              cpu_temp_c = float(c)
-            except Exception:
-              cpu_temp_c = None
-
+        if sm.alive['deviceState']:
+          c = ds.cpuTempC
+          cpu_temp_c = np.mean(c)
+        else:
+          cpu_temp_c = 0
         mem_pct = ds.memoryUsagePercent
         free_pct = ds.freeSpacePercent
         if math.isfinite(free_pct):
