@@ -6,6 +6,8 @@
 #include <QPushButton>
 #include <thread>
 #include <chrono>
+#include <atomic>
+#include <mutex>
 
 #ifdef WSL2
 class ScreenRecoder : public QPushButton {
@@ -55,6 +57,8 @@ private:
   void openEncoder(const char* filename);
   void closeEncoder();
 
+  std::atomic<bool> recording{ false };
+  std::mutex record_lock;
 public:
     void start();
     void stop();
