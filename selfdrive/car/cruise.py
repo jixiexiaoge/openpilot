@@ -211,6 +211,7 @@ class VCruiseCarrot:
     self.d_rel = 0
     self.v_rel = 0
     self.v_lead_kph = 0
+    self.model_v_kph = 0
 
     self._log_timer = 0
     self._log_timeout = int(3/0.01)
@@ -302,10 +303,8 @@ class VCruiseCarrot:
       self.d_rel = lead.dRel if lead.status else 0
       self.v_rel = lead.vRel if lead.status else 0
       self.v_lead_kph = lead.vLeadK * CV.MS_TO_KPH if lead.status else 0
-    if sm.alive['modelV2']:
-      self.model_v_kph = sm['modelV2'].velocity.x[0] * CV.MS_TO_KPH
-    else:
-      self.model_v_kph = 0
+    if sm.alive['drivingModelData']:
+      self.model_v_kph = sm['drivingModelData'].action.desiredVelocity * CV.MS_TO_KPH
 
     self.v_cruise_kph_last = self.v_cruise_kph
     self.is_metric = is_metric
@@ -622,6 +621,9 @@ class VCruiseCarrot:
   def _auto_speed_up(self, v_cruise_kph):
     #if self._pause_auto_speed_up:
     #  return v_cruise_kph
+    if self.autoGasSyncSpeed > 1:
+      if v_cruise_kph < self.model_v_kph:
+        return self.model_v_kph
 
     road_limit_kph = self.nRoadLimitSpeed * self.autoSpeedUptoRoadSpeedLimit
     if road_limit_kph < 1.0:
