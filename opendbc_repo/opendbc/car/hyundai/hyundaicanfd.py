@@ -203,7 +203,7 @@ def create_steering_messages(packer, CP, CAN, enabled, lat_active, apply_steer, 
       "LKA_MODE": 2,
       "LKA_ICON": 2 if enabled else 1,
       "TORQUE_REQUEST": apply_steer,
-      "DampingGain": 3 if enabled else 100,
+      #"DampingGain": 3 if enabled else 100,
       "STEER_REQ": 1 if lat_active else 0,
       #"STEER_MODE": 0,
       "HAS_LANE_SAFETY": 0,  # hide LKAS settings
@@ -527,7 +527,7 @@ def create_adrv_messages(CP, packer, CAN, frame):
     ret.extend(create_fca_warning_light(CP, packer, CAN, frame))
     if frame % 5 == 0:
       values = {
-        'HDA_MODE1': 0x8,
+        #'HDA_MODE1': 0x8,
         'HDA_MODE2': 0x1,
         #'SET_ME_1C': 0x1c,
         'SET_ME_FF': 0xff,
