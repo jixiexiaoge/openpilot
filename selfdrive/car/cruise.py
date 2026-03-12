@@ -623,7 +623,7 @@ class VCruiseCarrot:
     #  return v_cruise_kph
     if not self._pause_auto_speed_up and self.autoGasSyncSpeed > 1:
       if v_cruise_kph < self.model_v_kph:
-        return self.model_v_kph
+        v_cruise_kph = self.model_v_kph
 
     road_limit_kph = self.nRoadLimitSpeed * self.autoSpeedUptoRoadSpeedLimit
     if road_limit_kph < 1.0:
