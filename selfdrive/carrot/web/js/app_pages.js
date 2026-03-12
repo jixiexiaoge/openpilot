@@ -399,16 +399,20 @@ async function runTool(action, payload) {
   toolsMetaSet("running: " + action);
   toolsOutSet("...");
 
-  // �������� { ok:true, out:"...", rc:0 } �̷� ���·� �ָ� ���� ����
   const j = await postJson("/api/tools", { action, ...(payload || {}) });
 
-  toolsMetaSet("done: " + action);
   if (j.out != null) {
     toolsOutSet(j.out);
   } else {
     toolsOutSet(JSON.stringify(j, null, 2));
   }
 
+  if (!j.ok) {
+    toolsMetaSet("failed: " + action);
+    throw new Error(j.out || `${action} failed (rc=${j.rc})`);
+  }
+
+  toolsMetaSet("done: " + action);
   return j;
 }
 
