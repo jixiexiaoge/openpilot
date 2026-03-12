@@ -245,7 +245,7 @@ class VCruiseCarrot:
     if self.frame % 10 == 0:
       self.autoCruiseControl = self.params.get_int("AutoCruiseControl") * unit_factor
       self.autoGasTokSpeed = self.params.get_int("AutoGasTokSpeed") * unit_factor
-      self.autoGasSyncSpeed = self.params.get_bool("AutoGasSyncSpeed") * unit_factor
+      self.autoGasSyncSpeed = self.params.get_int("AutoGasSyncSpeed")
       self.autoSpeedUptoRoadSpeedLimit = self.params.get_float("AutoSpeedUptoRoadSpeedLimit") * 0.01
       self.autoRoadSpeedAdjust = self.params.get_float("AutoRoadSpeedAdjust") * 0.01
 
@@ -621,7 +621,7 @@ class VCruiseCarrot:
   def _auto_speed_up(self, v_cruise_kph):
     #if self._pause_auto_speed_up:
     #  return v_cruise_kph
-    if self.autoGasSyncSpeed > 1:
+    if not self._pause_auto_speed_up and self.autoGasSyncSpeed > 1:
       if v_cruise_kph < self.model_v_kph:
         return self.model_v_kph
 
