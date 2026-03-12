@@ -244,7 +244,7 @@ class CarrotPlanner:
         scale = (1.0 - reduce) + reduce * s
         tf_target *= scale
       else:
-        return tf_target
+        return self.apply_t_follow(tf_target)
 
     # ------------------------------------------------------------
     # 2) Decel-hold only (no smoothing constants)
@@ -266,7 +266,7 @@ class CarrotPlanner:
     tf_applied = float(np.clip(tf_applied, tf_min, tf_max))
 
     self._tf_applied = tf_applied
-    return tf_applied
+    return self.apply_t_follow(tf_applied)
 
   def _update_model_desire(self, sm):
     meta = sm['modelV2'].meta
@@ -294,6 +294,9 @@ class CarrotPlanner:
           self.jerk_factor_apply = self.jerk_factor * 0.5 # 전방차량을 따라갈때는 aggressive하게.
         #self.jerk_factor_apply = np.interp(abs(lead.jLead), [0, 2], [self.jerk_factor, self.jerk_factor * self.j_lead_factor])
 
+    return self.apply_t_follow(t_follow)
+
+  def apply_t_follow(self, t_follow):
     if t_follow > self.t_follow_last:
       t_follow = min(t_follow, self.t_follow_last + 0.1 * DT_MDL)
       pass
