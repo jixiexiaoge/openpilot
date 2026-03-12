@@ -684,7 +684,7 @@ class VCruiseCarrot:
 
   def _update_cruise_state(self, CS, CC, v_cruise_kph):
     if not CC.enabled:
-      self._pause_auto_speed_up = False
+      #self._pause_auto_speed_up = False
       if self._brake_pressed_count == -1 and self._soft_hold_active > 0:
         self._soft_hold_active = 2
         #self.autoCruiseControl_cancel_timer = 0
@@ -775,7 +775,7 @@ class VCruiseCarrot:
       self._pause_auto_speed_up = False
       if self._gas_pressed_count == 1 and CS.vEgo < 0.1:
         self._cruise_control(-1, -1, "Cruise off (gasPressed)")
-    elif self._brake_pressed_count == 1:
+    elif self._brake_pressed_count > 0:
       self._pause_auto_speed_up = True
 
     return self._auto_speed_up(v_cruise_kph)
