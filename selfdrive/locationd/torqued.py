@@ -254,6 +254,7 @@ def main(demo=False):
 
   last_fail_print_t = 0.0
 
+  show_debug = False
   while True:
     sm.update()
 
@@ -267,7 +268,7 @@ def main(demo=False):
         if sm.updated[which]:
           t = sm.logMonoTime[which] * 1e-9
           estimator.handle_log(t, which, sm[which])
-    else:
+    elif show_debug:
       now = time.monotonic()
 
       # 너무 많이 찍히지 않게 1초에 1번만

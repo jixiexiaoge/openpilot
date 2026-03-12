@@ -287,7 +287,7 @@ def main():
 
   last_fail_print_t = 0.0
   last_input_fail_print_t = 0.0
-
+  show_debug = False
   while True:
     sm.update()
 
@@ -301,7 +301,7 @@ def main():
 
     if not filter_initialized:
       filter_initialized = ok_sm and ok_sensor
-      if (not filter_initialized):
+      if show_debug and (not filter_initialized):
         now = time.monotonic()
         if now - last_fail_print_t > 1.0:
           last_fail_print_t = now
@@ -364,7 +364,7 @@ def main():
       sensors_valid = sensor_all_checks(acc_msgs, gyro_msgs, sensor_valid, sensor_recv_time, sensor_alive, SIMULATION)
 
       now = time.monotonic()
-      if ((not ok_sm) or (not sensors_valid) or (not critical_service_inputs_valid) or (not inputs_valid)) and (now - last_input_fail_print_t > 1.0):
+      if show_debug and ((not ok_sm) or (not sensors_valid) or (not critical_service_inputs_valid) or (not inputs_valid)) and (now - last_input_fail_print_t > 1.0):
         last_input_fail_print_t = now
 
         print(f"\n[locationd output invalid] frame={sm.frame} "

@@ -294,6 +294,7 @@ def main():
   last_fail_print_t = 0.0
   last_lp_invalid_print_t = 0.0
 
+  show_debug = False
   while True:
     sm.update()
 
@@ -309,7 +310,7 @@ def main():
           learner.handle_log(t, which, sm[which])
     else:
       now = time.monotonic()
-      if now - last_fail_print_t > 1.0:
+      if show_debug and now - last_fail_print_t > 1.0:
         last_fail_print_t = now
 
         print(f"\n[liveParameters all_checks FAIL] frame={sm.frame} "
@@ -344,7 +345,7 @@ def main():
       lp_valid = sm.valid["livePose"] and sm.valid["liveCalibration"]
 
       now = time.monotonic()
-      if (not lp_valid) and (now - last_lp_invalid_print_t > 1.0):
+      if show_debug and (not lp_valid) and (now - last_lp_invalid_print_t > 1.0):
         last_lp_invalid_print_t = now
 
         print(f"\n[liveParameters lp_valid FAIL] frame={sm.frame} "
