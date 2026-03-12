@@ -622,9 +622,12 @@ class VCruiseCarrot:
   def _auto_speed_up(self, v_cruise_kph):
     #if self._pause_auto_speed_up:
     #  return v_cruise_kph
-    if not self._pause_auto_speed_up and self.applyModelSpeed > 0.0:
-      model_kph = self.model_v_kph * self.applyModelSpeed
-      if v_cruise_kph < model_kph:
+    if not self._pause_auto_speed_up and self.applyModelSpeed != 0.0:
+      model_kph = self.model_v_kph * abs(self.applyModelSpeed)
+
+      if self.applyModelSpeed < 0.0:
+        v_cruise_kph = model_kph
+      elif v_cruise_kph < model_kph:
         v_cruise_kph = model_kph
 
     road_limit_kph = self.nRoadLimitSpeed * self.autoSpeedUptoRoadSpeedLimit
