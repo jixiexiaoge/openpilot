@@ -626,9 +626,9 @@ class VCruiseCarrot:
       model_kph = self.model_v_kph * abs(self.applyModelSpeed)
 
       if self.applyModelSpeed < 0.0:
-        v_cruise_kph = model_kph
+        v_cruise_kph = min(model_kph, self.nRoadLimitSpeed * 1.1)
       elif v_cruise_kph < model_kph:
-        v_cruise_kph = model_kph
+        v_cruise_kph = min(model_kph, self.nRoadLimitSpeed * 1.1)
 
     road_limit_kph = self.nRoadLimitSpeed * self.autoSpeedUptoRoadSpeedLimit
     if road_limit_kph < 1.0:
