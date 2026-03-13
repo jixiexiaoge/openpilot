@@ -529,7 +529,7 @@ class CarrotMan:
                 #  print(f"carrot_man_thread: send error...: {e}")
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                #print("Waiting for data (timeout)...")
                 self.remote_addr = None
                 time.sleep(1)
 
@@ -603,7 +603,7 @@ class CarrotMan:
                   print(data)
 
               except TimeoutError:
-                print("Waiting for data (timeout)...")
+                #print("Waiting for data (timeout)...")
                 #self.remote_addr = None
                 time.sleep(1)
 
