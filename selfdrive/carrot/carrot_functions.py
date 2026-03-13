@@ -265,8 +265,8 @@ class CarrotPlanner:
     tf_max = float(max(self.tFollowGap1, self.tFollowGap2, self.tFollowGap3, self.tFollowGap4))
     tf_applied = float(np.clip(tf_applied, tf_min, tf_max))
 
-    self._tf_applied = tf_applied
-    return tf_applied
+    self._tf_applied = max(tf_applied * self.mySafeFactor, 0.3)
+    return self.apply_t_follow(self._tf_applied)
 
   def _update_model_desire(self, sm):
     meta = sm['modelV2'].meta
@@ -294,11 +294,14 @@ class CarrotPlanner:
           self.jerk_factor_apply = self.jerk_factor * 0.5 # 전방차량을 따라갈때는 aggressive하게.
         #self.jerk_factor_apply = np.interp(abs(lead.jLead), [0, 2], [self.jerk_factor, self.jerk_factor * self.j_lead_factor])
 
+    return self.apply_t_follow(t_follow, gap_dist_adjust)
+
+  def apply_t_follow(self, t_follow, adjust_t_follow=0.0):
     if t_follow > self.t_follow_last:
       t_follow = min(t_follow, self.t_follow_last + 0.1 * DT_MDL)
       pass
     self.t_follow_last = t_follow
-    return t_follow + gap_dist_adjust
+    return t_follow + adjust_t_follow
 
   def update_stop_dist(self, stop_x):
     stop_x = self.xStopFilter.process(stop_x, median = True)
