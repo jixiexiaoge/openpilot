@@ -237,6 +237,9 @@ class CarrotMan:
 
     self.active_carrot_last = False
 
+    self._rgdata_ts_lock = threading.Lock()
+    self._last_rgdata_timestamp_ms = 0
+
     self.is_metric = self.params.get_bool("IsMetric")
 
   def get_broadcast_address(self):
@@ -997,6 +1000,27 @@ class CarrotMan:
   def handle_unknown(self, obj: Any):
     print("[UNKNOWN]", str(obj)[:200])
 
+  def _get_timestamp_ms(self, obj: Any) -> int:
+    if not isinstance(obj, dict):
+      return 0
+    try:
+      return int(obj.get("timestamp_ms", 0))
+    except Exception:
+      return 0
+
+
+  def _is_stale_rgdata(self, timestamp_ms: int):
+    if timestamp_ms <= 0:
+      return False, 0
+
+    with self._rgdata_ts_lock:
+      last_ts = self._last_rgdata_timestamp_ms
+      if timestamp_ms <= last_ts:
+        return True, last_ts
+
+      self._last_rgdata_timestamp_ms = timestamp_ms
+      return False, last_ts
+  
   def _dispatch_obj(self, obj: Any):
     if obj is None:
       return
@@ -1019,8 +1043,13 @@ class CarrotMan:
       self.handle_route(obj["vrtx"])
 
     if "rgdata" in obj:
-      self.handle_carrot_state(obj["rgdata"])
-
+      timestamp_ms = self._get_timestamp_ms(obj)
+      stale, last_ts = self._is_stale_rgdata(timestamp_ms)
+      if stale:
+        print(f"[STALE DROP] rgdata ts={timestamp_ms} <= last={last_ts}")
+      else:
+        self.handle_carrot_state(obj["rgdata"])
+      
     if "sinf" in obj:
       self.handle_signal(obj["sinf"])
 
@@ -1104,6 +1133,7 @@ class CarrotMan:
     try:
       self._dispatch_obj(obj)
       #print(f"[HTTP] dispatch ok version={tmap_version}")
+      #print(obj)
       return web.json_response({
         "ok": True,
         "tmap_version": tmap_version

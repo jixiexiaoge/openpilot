@@ -144,9 +144,9 @@ def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_mu
     car_fingerprint = fixed_fingerprint
     source = CarParams.FingerprintSource.fixed
 
-  carlog.error({"event": "fingerprinted", "car_fingerprint": str(car_fingerprint), "source": source, "fuzzy": not exact_match,
-                "cached": cached, "fw_count": len(car_fw), "ecu_responses": list(ecu_rx_addrs), "vin_rx_addr": vin_rx_addr,
-                "vin_rx_bus": vin_rx_bus, "fingerprints": repr(finger), "fw_query_time": fw_query_time})
+  #carlog.error({"event": "fingerprinted", "car_fingerprint": str(car_fingerprint), "source": source, "fuzzy": not exact_match,
+  #              "cached": cached, "fw_count": len(car_fw), "ecu_responses": list(ecu_rx_addrs), "vin_rx_addr": vin_rx_addr,
+  #              "vin_rx_bus": vin_rx_bus, "fingerprints": repr(finger), "fw_query_time": fw_query_time})
 
   return car_fingerprint, finger, vin, car_fw, source, exact_match
 
@@ -154,10 +154,6 @@ def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_mu
 def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, alpha_long_allowed: bool,
             is_release: bool, num_pandas: int = 1, cached_params: CarParamsT | None = None):
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
-
-  if candidate is None:
-    carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
-    candidate = "MOCK"
 
   selected_car = Params().get("CarSelected3")
   if selected_car:
@@ -186,6 +182,10 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     found_car = find_car(selected_car)
     if found_car is not None:
       candidate = found_car
+
+  if candidate is None:
+    carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
+    candidate = "MOCK"
 
   print(f"SelectedCar = {candidate}")
   Params().put("CarName", str(candidate))

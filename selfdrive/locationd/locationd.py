@@ -287,7 +287,7 @@ def main():
 
   last_fail_print_t = 0.0
   last_input_fail_print_t = 0.0
-  show_debug = False
+  show_debug = True
   while True:
     sm.update()
 
