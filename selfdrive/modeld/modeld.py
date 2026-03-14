@@ -255,7 +255,10 @@ class ModelState:
         self.off_policy_output_slices = off_policy_metadata['output_slices']
         off_policy_output_size = off_policy_metadata['output_shapes']['outputs'][1]
       self.off_policy_output = np.zeros(off_policy_output_size, dtype=np.float32)
-      cloudlog.info(f"Off-policy model loaded: output_size={off_policy_output_size}")
+      # off-policy 전용 입력 생성 (control_context 등 policy에 없는 추가 입력 지원)
+      self.off_policy_numpy_inputs = {k: np.zeros(self.off_policy_input_shapes[k], dtype=np.float32) for k in self.off_policy_input_shapes}
+      self.off_policy_tinygrad_inputs = {k: Tensor(v, device='NPY').realize() for k, v in self.off_policy_numpy_inputs.items()}
+      cloudlog.info(f"Off-policy model loaded: output_size={off_policy_output_size}, inputs={list(self.off_policy_input_shapes.keys())}")
 
     self.parser = Parser()
 
@@ -311,7 +314,11 @@ class ModelState:
 
     # off-policy 모델 실행 (있을 때만)
     if self.has_off_policy:
-      self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
+      # off-policy 입력 동기화 (policy와 공유하는 키만 복사, control_context 등 추가 키는 0 유지)
+      for k in self.off_policy_numpy_inputs:
+        if k in self.numpy_inputs:
+          self.off_policy_numpy_inputs[k][:] = self.numpy_inputs[k]
+      self.off_policy_output = self.off_policy_run(**self.off_policy_tinygrad_inputs).contiguous().realize().uop.base.buffer.numpy()
       off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
       combined_outputs_dict.update(off_policy_outputs_dict)
 
