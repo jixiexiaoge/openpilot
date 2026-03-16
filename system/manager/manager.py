@@ -3,6 +3,7 @@ import datetime
 import os
 import signal
 import sys
+import time
 import traceback
 
 from cereal import log
