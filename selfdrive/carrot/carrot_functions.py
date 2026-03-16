@@ -1,3 +1,4 @@
+import time
 from enum import Enum
 
 from cereal import log
@@ -137,7 +138,7 @@ class CarrotPlanner:
     self.atc_active = False
 
     self._stop_x_rl = None
-
+    self.last_event_time = 0.0
 
   def _params_update(self):
     self.frame += 1
@@ -371,7 +372,7 @@ class CarrotPlanner:
 
       if trigger_start:
         if self.soft_hold_active > 0:
-          self.events.add(EventName.trafficSignChanged)
+          self.add_event(EventName.trafficSignChanged)
         elif self.xState in [XState.e2eStop, XState.e2eStopped]:
           self.xState = XState.e2eCruise
           self.traffic_starting_count = 10.0 / DT_MDL
@@ -405,6 +406,12 @@ class CarrotPlanner:
       self.eco_target_speed = 0
 
     return v_cruise_kph_apply
+
+  def add_event(self, event_name):
+    now = time.time()
+    if now - self.last_event_time > 5.0:
+      self.events.add(event_name)
+      self.last_event_time = now
 
   def update(self, sm, v_cruise_kph, mode):
     self._params_update()
@@ -487,7 +494,7 @@ class CarrotPlanner:
     if self.soft_hold_active > 0:
       self.xState = XState.e2eStopped
       if trafficState_last in [TrafficState.off, TrafficState.red] and self.trafficState == TrafficState.green:
-        self.events.add(EventName.trafficSignChanged)
+        self.add_event(EventName.trafficSignChanged)
     elif self.xState == XState.e2eStopped:
       if carstate.gasPressed:
         self.xState = XState.e2eCruise #XState.e2ePrepare
@@ -497,7 +504,7 @@ class CarrotPlanner:
         if self.trafficState == TrafficState.green and not self.carrot_stay_stop and not carstate.leftBlinker and self.trafficLightDetectMode != 1:
           #self.xState = XState.e2ePrepare
           self.xState = XState.e2eCruise  # 실험모드를 거치지 않고 바로 출발.
-          self.events.add(EventName.trafficSignGreen)
+          self.add_event(EventName.trafficSignGreen)
       self.stopping_count = max(0, self.stopping_count - 1)
       v_cruise = 0
     elif self.xState == XState.e2eStop:
@@ -510,7 +517,7 @@ class CarrotPlanner:
         self.xState = XState.lead
       else:
         if self.trafficState == TrafficState.green:
-          self.events.add(EventName.trafficSignGreen)
+          self.add_event(EventName.trafficSignGreen)
           self.xState = XState.e2eCruise
         else:
           self.comfort_brake = self.comfortBrake * 0.9
@@ -540,7 +547,7 @@ class CarrotPlanner:
       if lead_detected:
         self.xState = XState.lead
       elif self.trafficState == TrafficState.red and abs(carstate.steeringAngleDeg) < 30 and self.traffic_starting_count == 0:
-        self.events.add(EventName.trafficStopping)
+        self.add_event(EventName.trafficStopping)
         self.xState = XState.e2eStop
         self.actual_stop_distance = stop_model_x_rl
       else:
