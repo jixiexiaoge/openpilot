@@ -272,12 +272,21 @@ def main() -> NoReturn:
 
     if sm.updated['cameraOdometry']:
       calibrator.handle_v_ego(sm['carState'].vEgo)
-      new_rpy = calibrator.handle_cam_odom(sm['cameraOdometry'].trans,
-                                           sm['cameraOdometry'].rot,
-                                           sm['cameraOdometry'].wideFromDeviceEuler,
-                                           sm['cameraOdometry'].transStd,
-                                           sm['cameraOdometry'].roadTransformTrans,
-                                           sm['cameraOdometry'].roadTransformTransStd)
+
+      yaw_trim_deg = params_reader.get_float("CameraYawTrimDeg") * 0.01
+      trim_active = abs(yaw_trim_deg) > 1e-6
+      calib_done = calibrator.cal_status == log.LiveCalibrationData.Status.calibrated
+
+      freeze_calibration = trim_active and calib_done
+      if not freeze_calibration:
+        new_rpy = calibrator.handle_cam_odom(sm['cameraOdometry'].trans,
+                                             sm['cameraOdometry'].rot,
+                                             sm['cameraOdometry'].wideFromDeviceEuler,
+                                             sm['cameraOdometry'].transStd,
+                                             sm['cameraOdometry'].roadTransformTrans,
+                                             sm['cameraOdometry'].roadTransformTransStd)
+      else:
+        new_rpy = None
 
       if DEBUG and new_rpy is not None:
         print('got new rpy', new_rpy)
