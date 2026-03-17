@@ -419,6 +419,7 @@ def main(demo=False):
   custom_lat_delay = 0.0
   lat_smooth_seconds = LAT_SMOOTH_SECONDS
   vEgoStopping = params.get_float("VEgoStopping") * 0.01
+  camera_yaw_trim_deg = params.get_float("CameraYawTrimDeg") * 0.01
   while True:
     frame += 1
     if frame % 100 == 0:
@@ -426,6 +427,7 @@ def main(demo=False):
       lat_smooth_seconds = params.get_float("LatSmoothSec") * 0.01
       long_delay = params.get_float("LongActuatorDelay")*0.01
       vEgoStopping = params.get_float("VEgoStopping") * 0.01
+      camera_yaw_trim_deg = params.get_float("CameraYawTrimDeg") * 0.01
       
     if custom_lat_delay > 0.0:
       lat_delay = custom_lat_delay + lat_smooth_seconds + 0.1
@@ -472,6 +474,8 @@ def main(demo=False):
     #lateral_control_params = np.array([v_ego, lat_delay], dtype=np.float32)
     if sm.updated["liveCalibration"] and sm.seen['roadCameraState'] and sm.seen['deviceState']:
       device_from_calib_euler = np.array(sm["liveCalibration"].rpyCalib, dtype=np.float32)
+      if camera_yaw_trim_deg != 0.0:
+        device_from_calib_euler[2] += np.radians(camera_yaw_trim_deg)
       dc = DEVICE_CAMERAS[(str(sm['deviceState'].deviceType), str(sm['roadCameraState'].sensor))]
       model_transform_main = get_warp_matrix(device_from_calib_euler, dc.ecam.intrinsics if main_wide_camera else dc.fcam.intrinsics, False).astype(np.float32)
       model_transform_extra = get_warp_matrix(device_from_calib_euler, dc.ecam.intrinsics, True).astype(np.float32)

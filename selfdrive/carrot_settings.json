@@ -18,6 +18,22 @@
       "cdescr": "仅限车道模式 — (-)左侧 / (+)右侧"
     },
     {
+      "group": "조향일반",
+      "name": "CameraYawTrimDeg",
+      "title": "카메라YAW보정*0.01deg(0)",
+      "descr": "카메라 좌우(YAW) 값을 미세조정",
+      "egroup": "LAT",
+      "etitle": "Camera YAW Correction(0)",
+      "edescr": "Fine tunes camera yaw alignment.",
+      "min": -200,
+      "max": 200,
+      "default": 0,
+      "unit": 1,
+      "cgroup": "转向",
+      "ctitle": "摄像头YAW校正(0)",
+      "cdescr": "微调摄像头左右(YAW)值"
+    },
+    {
       "group": "조향튜닝",
       "name": "LateralTorqueCustom",
       "title": "_LateralTorqueCustom(0)",
