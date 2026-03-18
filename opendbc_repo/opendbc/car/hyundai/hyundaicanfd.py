@@ -286,16 +286,13 @@ def create_lfahda_cluster(packer, CS, CAN, long_active, lat_active):
 
 
   if CS.lfahda_cluster is not None:
-    values = copy.copy(CS.lfahda_cluster)
-    rx_counter = values.pop("COUNTER", None)
+    values = {} #copy.copy(CS.lfahda_cluster)
+    #rx_counter = values.pop("COUNTER", None)
+    values["HDA_CntrlModSta"] = 2 if long_active else 0
+    values["HDA_LFA_SymSta"] = 2 if lat_active else 0
   else:
-    values = {}
-    rx_counter = None
-    values["LFA_OptUsmSta"] = 2
-    values["HDA_OptUsmSta"] = 2
-  values["HDA_CntrlModSta"] = 2 if long_active else 0
-  values["HDA_LFA_SymSta"] = 2 if lat_active else 0
-  return [packer.make_can_msg("LFAHDA_CLUSTER", CAN.ECAN, values, rx_counter=rx_counter)]
+    return []
+  return [packer.make_can_msg("LFAHDA_CLUSTER", CAN.ECAN, values)]
 
 def create_lfa_icon_non_camera_scc(packer, CS, CAN, CC):
   ret = []
