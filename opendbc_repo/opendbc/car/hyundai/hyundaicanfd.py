@@ -673,7 +673,7 @@ def _make_ccnc_values(values, CS, lat_active, frame, hud_control,
 
 def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
                          disp_angle, left_lane_warning, right_lane_warning,
-                         enable_corner_radar):
+                         enable_corner_radar, stopping):
   ret = []
 
   md = CS.MD
@@ -700,12 +700,17 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
         if  HDA_LFA_SymSta == 0 and 0 < frame % 200 < 12:
           values["LFA_BTN"] = 1
 
-        if CC.enabled and 10 < frame % 200 <= 16 and CS.out.vEgo > 3.:
+        if CC.enabled:          
           if not CS.MainMode_ACC:
-            values["ADAPTIVE_CRUISE_MAIN_BTN"] = 1
-          else:
-            if CS.ACCMode in [0, 4]:
+            if 10 < frame % 200 <= 16 and CS.out.vEgo > 3.:
+              values["ADAPTIVE_CRUISE_MAIN_BTN"] = 1
+          elif CS.ACCMode in [0, 4]:
+            if 10 < frame % 200 <= 16 and CS.out.vEgo > 3.:
               values["CRUISE_BUTTONS"] = 2
+          else:
+            if CS.scc_control is not None and CS.scc_control["InfoDisplay"] == 4:
+              if 10 < frame % 30 <= 16 and not stopping:
+                values["CRUISE_BUTTONS"] = 2
 
         ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
 
