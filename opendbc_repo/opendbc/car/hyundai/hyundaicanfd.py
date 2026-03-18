@@ -400,7 +400,7 @@ def create_acc_control_scc2(packer, CAN, enabled, accel_last, accel, stopping, g
 
   values["ZEROS_7"] = 1
 
-  return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values, rx_counter = rx_counter)
+  return packer.make_can_msg("SCC_CONTROL", CAN.ECAN, values)
 
 def create_acc_control(packer, CAN, enabled, accel_last, accel, stopping, gas_override, set_speed, hud_control, jerk_u, jerk_l, CS):
 
