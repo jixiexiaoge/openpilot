@@ -704,10 +704,13 @@ def create_ccnc_messages(CP, packer, CAN, frame, CC, CS, hud_control,
           elif CS.ACCMode in [0, 4]:
             if 10 < frame % 200 <= 16 and CS.out.vEgo > 3.:
               values["CRUISE_BUTTONS"] = 2
+          elif CS.scc_control is not None and CS.scc_control["InfoDisplay"] == 4:
+            if 10 < frame % 30 <= 16 and not stopping:
+              values["CRUISE_BUTTONS"] = 2
           else:
-            if CS.scc_control is not None and CS.scc_control["InfoDisplay"] == 4:
-              if 10 < frame % 30 <= 16 and not stopping:
-                values["CRUISE_BUTTONS"] = 2
+            if CS.adrv_0x1ea is not None and CS.adrv_0x1ea["HDA_MODE2"] == 0: # if corner radar is disabled, send main btn
+              if 10 < frame % 1000 <= 16 and CS.out.vEgo > 3:
+                values["ADAPTIVE_CRUISE_MAIN_BTN"] = 1
 
         ret.append(packer.make_can_msg(CS.cruise_btns_msg_canfd, CAN.CAM, values))
 
