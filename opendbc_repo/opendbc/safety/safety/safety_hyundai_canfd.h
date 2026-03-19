@@ -255,6 +255,7 @@ typedef struct {
   uint8_t last_counter_tx;
   uint8_t counter_step;
   bool counter_valid;
+  bool tx_counter_valid;
 } CanfdCounterState;
 
 typedef struct {
@@ -295,19 +296,19 @@ CanfdTxState canfd_tx_states[] = {
 
 // counter/checksum 보정용: addr 기준
 CanfdCounterState canfd_counter_states[] = {
-  {0x50,  true, 0U, 0U, 0U, false},  // 80:  LKAS
-  {0x110, true, 0U, 0U, 0U, false},  // 272: LKAS_ALT
-  {0x12A, true, 0U, 0U, 0U, false},  // 298: LFA
-  {0x1A0, true, 0U, 0U, 0U, false},  // 416: SCC_CONTROL
-  //{0x2A4, true, 0U, 0U, 0U, false},  // 676: CAM_0x2a4
-  //{0x362, true, 0U, 0U, 0U, false},  // 866: CAM_0x362
-  //{0x1CF, true, 0U, 0U, 0U, false},  // 463: CRUISE_BUTTONS
-  //{0x1AA, true, 0U, 0U, 0U, false},  // 426: CRUISE_BUTTONS_ALT
-  {0x175, true, 0U, 0U, 0U, false},  // 373: TCS
-  {0x0EA, true, 0U, 0U, 0U, false},  // 234: MDPS
-  {0x1E0, true, 0U, 0U, 0U, false},  // 480: LFAHDA_CLUSTER
-  {0x162, true, 0U, 0U, 0U, false},  // 354: CCNC_0x162
-  {0, false, 0U, 0U, 0U, false},
+  //{0x50,  true, 0U, 0U, 0U, false, false},  // 80:  LKAS
+  //{0x110, true, 0U, 0U, 0U, false, false},  // 272: LKAS_ALT
+  //{0x12A, true, 0U, 0U, 0U, false, false},  // 298: LFA
+  {0x1A0, true, 0U, 0U, 0U, false, false},  // 416: SCC_CONTROL
+  //{0x2A4, true, 0U, 0U, 0U, false, false},  // 676: CAM_0x2a4
+  //{0x362, true, 0U, 0U, 0U, false, false},  // 866: CAM_0x362
+  //{0x1CF, true, 0U, 0U, 0U, false, false},  // 463: CRUISE_BUTTONS
+  //{0x1AA, true, 0U, 0U, 0U, false, false},  // 426: CRUISE_BUTTONS_ALT
+  //{0x175, true, 0U, 0U, 0U, false, false},  // 373: TCS
+  //{0x0EA, true, 0U, 0U, 0U, false, false},  // 234: MDPS
+  //{0x1E0, true, 0U, 0U, 0U, false, false},  // 480: LFAHDA_CLUSTER
+  //{0x162, true, 0U, 0U, 0U, false, false},  // 354: CCNC_0x162
+  {0, false, 0U, 0U, 0U, false, false},
 };
 
 CanfdAddrList canfd_addr_debug_bus1 = { {0, }, 0 };
@@ -407,11 +408,17 @@ static void canfd_fix_counter_and_checksum(CANPacket_t* to_send) {
 
   uint8_t mask = hyundai_canfd_get_counter_mask(to_send);
   uint8_t step = (st->counter_step > 0U) ? st->counter_step : 1U;
-  uint8_t next_counter = (st->last_counter_rx + step) & mask;
+
+  // tx 시작 전에는 마지막 rx 기준
+  // tx가 시작된 뒤에는 마지막 tx 기준으로 계속 증가
+  uint8_t base = st->tx_counter_valid ? st->last_counter_tx : st->last_counter_rx;
+  uint8_t next_counter = (base + step) & mask;
 
   hyundai_canfd_set_counter(to_send, next_counter);
   hyundai_canfd_update_checksum(to_send);
+
   st->last_counter_tx = next_counter;
+  st->tx_counter_valid = true;
 }
 
 static void canfd_record_tx_time(int bus, int addr, bool tx) {
@@ -656,6 +663,7 @@ static safety_config hyundai_canfd_init(uint16_t param) {
     canfd_counter_states[i].last_counter_tx = 0U;
     canfd_counter_states[i].counter_step = 0U;
     canfd_counter_states[i].counter_valid = false;
+    canfd_counter_states[i].tx_counter_valid = false;
   }
 
   canfd_addr_debug_bus1.count = 0;
