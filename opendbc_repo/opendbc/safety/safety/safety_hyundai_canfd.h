@@ -218,6 +218,7 @@ const int HYUNDAI_PARAM_CANFD_ALT_BUTTONS = 32;
 const int HYUNDAI_PARAM_CANFD_HDA2_ALT_STEERING = 128;
 bool hyundai_canfd_alt_buttons = false;
 bool hyundai_canfd_hda2_alt_steering = false;
+bool hyundai_canfd_buffered_fwd = false;
 
 int hyundai_canfd_hda2_get_lkas_addr(void) {
   return hyundai_canfd_hda2_alt_steering ? 0x110 : 0x50;
@@ -247,21 +248,6 @@ typedef struct {
   uint32_t timeout_us;
   uint32_t last_tx_us;
 } CanfdTxState;
-
-typedef struct {
-  int addr;
-  bool check_counter;
-  uint8_t last_counter_rx;
-  uint8_t last_counter_tx;
-  uint8_t counter_step;
-  bool counter_valid;
-  bool tx_counter_valid;
-} CanfdCounterState;
-
-typedef struct {
-  int addrs[128];
-  int count;
-} CanfdAddrList;
 
 // forwarding block용: bus 0,2만 사용
 CanfdTxState canfd_tx_states[] = {
@@ -294,26 +280,6 @@ CanfdTxState canfd_tx_states[] = {
   {0, 0, 0, 0U, 0U},
 };
 
-// counter/checksum 보정용: addr 기준
-CanfdCounterState canfd_counter_states[] = {
-  //{0x50,  true, 0U, 0U, 0U, false, false},  // 80:  LKAS
-  //{0x110, true, 0U, 0U, 0U, false, false},  // 272: LKAS_ALT
-  //{0x12A, true, 0U, 0U, 0U, false, false},  // 298: LFA
-  {0x1A0, true, 0U, 0U, 0U, false, false},  // 416: SCC_CONTROL
-  //{0x2A4, true, 0U, 0U, 0U, false, false},  // 676: CAM_0x2a4
-  //{0x362, true, 0U, 0U, 0U, false, false},  // 866: CAM_0x362
-  //{0x1CF, true, 0U, 0U, 0U, false, false},  // 463: CRUISE_BUTTONS
-  //{0x1AA, true, 0U, 0U, 0U, false, false},  // 426: CRUISE_BUTTONS_ALT
-  //{0x175, true, 0U, 0U, 0U, false, false},  // 373: TCS
-  //{0x0EA, true, 0U, 0U, 0U, false, false},  // 234: MDPS
-  //{0x1E0, true, 0U, 0U, 0U, false, false},  // 480: LFAHDA_CLUSTER
-  //{0x162, true, 0U, 0U, 0U, false, false},  // 354: CCNC_0x162
-  {0, false, 0U, 0U, 0U, false, false},
-};
-
-CanfdAddrList canfd_addr_debug_bus1 = { {0, }, 0 };
-CanfdAddrList canfd_addr_debug_bus2 = { {0, }, 0 };
-
 static CanfdTxState* find_canfd_tx_state(int bus, int addr) {
   for (int i = 0; canfd_tx_states[i].addr > 0; i++) {
     if ((canfd_tx_states[i].addr == addr) && (canfd_tx_states[i].bus == bus)) {
@@ -323,39 +289,6 @@ static CanfdTxState* find_canfd_tx_state(int bus, int addr) {
   return NULL;
 }
 
-static CanfdCounterState* find_canfd_counter_state(int addr) {
-  for (int i = 0; canfd_counter_states[i].addr > 0; i++) {
-    if (canfd_counter_states[i].addr == addr) {
-      return &canfd_counter_states[i];
-    }
-  }
-  return NULL;
-}
-
-static void canfd_debug_track_addr(CanfdAddrList* list, int addr, const char* prefix) {
-  int i;
-  for (i = 0; (i < list->count) && (i < 127); i++) {
-    if (list->addrs[i] == addr) {
-      break;
-    }
-  }
-
-  if ((i == list->count) && (i < 127)) {
-    list->addrs[list->count] = addr;
-    list->count++;
-
-    print(prefix);
-    for (int j = 0; j < list->count; j++) {
-      putui((uint32_t)list->addrs[j]);
-      print(",");
-    }
-    print("\n");
-  }
-}
-
-static uint8_t hyundai_canfd_get_counter_mask(const CANPacket_t* to_push) {
-  return (GET_LEN(to_push) == 8U) ? 0xFU : 0xFFU;
-}
 
 static void hyundai_canfd_set_counter(CANPacket_t* to_push, uint8_t counter) {
   if (GET_LEN(to_push) == 8U) {
@@ -377,50 +310,10 @@ static void hyundai_canfd_update_checksum(CANPacket_t* to_push) {
   uint32_t checksum = hyundai_common_canfd_compute_checksum(to_push);
   hyundai_canfd_set_checksum(to_push, (uint16_t)checksum);
 }
-
-static void canfd_update_counter_state_from_rx(const CANPacket_t* to_push) {
-  int addr = GET_ADDR(to_push);
-  CanfdCounterState* st = find_canfd_counter_state(addr);
-  if ((st == NULL) || !st->check_counter) {
-    return;
-  }
-
-  uint8_t counter = hyundai_canfd_get_counter(to_push);
-  uint8_t mask = hyundai_canfd_get_counter_mask(to_push);
-
-  if (st->counter_valid) {
-    st->counter_step = (counter - st->last_counter_rx) & mask;
-  }
-  else {
-    st->counter_step = 0U;
-    st->counter_valid = true;
-  }
-
-  st->last_counter_rx = counter;
+static void canfd_apply_counter_and_update_checksum(CANPacket_t* dst, uint8_t counter) {
+  hyundai_canfd_set_counter(dst, counter);
+  hyundai_canfd_update_checksum(dst);
 }
-
-static void canfd_fix_counter_and_checksum(CANPacket_t* to_send) {
-  int addr = GET_ADDR(to_send);
-  CanfdCounterState* st = find_canfd_counter_state(addr);
-  if ((st == NULL) || !st->check_counter || !st->counter_valid) {
-    return;
-  }
-
-  uint8_t mask = hyundai_canfd_get_counter_mask(to_send);
-  uint8_t step = (st->counter_step > 0U) ? st->counter_step : 1U;
-
-  // tx 시작 전에는 마지막 rx 기준
-  // tx가 시작된 뒤에는 마지막 tx 기준으로 계속 증가
-  uint8_t base = st->tx_counter_valid ? st->last_counter_tx : st->last_counter_rx;
-  uint8_t next_counter = (base + step) & mask;
-
-  hyundai_canfd_set_counter(to_send, next_counter);
-  hyundai_canfd_update_checksum(to_send);
-
-  st->last_counter_tx = next_counter;
-  st->tx_counter_valid = true;
-}
-
 static void canfd_record_tx_time(int bus, int addr, bool tx) {
   CanfdTxState* st = find_canfd_tx_state(bus, addr);
   if (st != NULL) {
@@ -436,11 +329,110 @@ static bool canfd_should_block_fwd(int tx_bus, int addr, uint32_t now) {
   return (now - st->last_tx_us) < st->timeout_us;
 }
 
+#define CANFD_BFWD_MAX_QUEUE 6
+#define CANFD_BFWD_START_COUNT 2
+
+typedef struct {
+  int addr;
+  int dst_bus;
+  bool enabled;
+} CanfdBufferedFwdConfig;
+
+typedef struct {
+  bool started;
+  uint8_t head;
+  uint8_t tail;
+  uint8_t count;
+  CANPacket_t q[CANFD_BFWD_MAX_QUEUE];
+} CanfdBufferedFwdState;
+
+CanfdBufferedFwdConfig canfd_bfwd_configs[] = {
+  {0x1A0, 0, true},   // SCC_CONTROL
+  {0x12A, 0, true},   // LFA
+  {0x0CB, 0, true},   // LFA_ALT
+  {0, 0, false},
+};
+
+CanfdBufferedFwdState canfd_bfwd_states[] = {
+  {false, 0U, 0U, 0U, {{0}}},
+  {false, 0U, 0U, 0U, {{0}}},
+  {false, 0U, 0U, 0U, {{0}}},
+  {false, 0U, 0U, 0U, {{0}}},
+};
+
+static void canfd_copy_packet(CANPacket_t* dst, const CANPacket_t* src) {
+  dst->fd = src->fd;
+  dst->returned = 0U;
+  dst->rejected = 0U;
+  dst->extended = src->extended;
+  dst->addr = src->addr;
+  dst->bus = src->bus;
+  dst->data_len_code = src->data_len_code;
+  (void)memcpy(dst->data, src->data, dlc_to_len[src->data_len_code]);
+}
+static int canfd_bfwd_find_index(int addr, int dst_bus) {
+  for (int i = 0; canfd_bfwd_configs[i].addr > 0; i++) {
+    if (canfd_bfwd_configs[i].enabled &&
+      (canfd_bfwd_configs[i].addr == addr) &&
+      (canfd_bfwd_configs[i].dst_bus == dst_bus)) {
+      return i;
+    }
+  }
+  return -1;
+}
+static void canfd_bfwd_reset_state(CanfdBufferedFwdState* st) {
+  st->started = false;
+  st->head = 0U;
+  st->tail = 0U;
+  st->count = 0U;
+}
+static void canfd_bfwd_push(int idx, const CANPacket_t* pkt) {
+  if ((idx < 0) || (canfd_bfwd_configs[idx].addr <= 0)) return;
+  if (GET_BUS(pkt) != canfd_bfwd_configs[idx].dst_bus) return;
+
+  CanfdBufferedFwdState* st = &canfd_bfwd_states[idx];
+
+  if (st->count >= CANFD_BFWD_MAX_QUEUE) {
+    st->head = (st->head + 1U) % CANFD_BFWD_MAX_QUEUE;
+    st->count--;
+  }
+
+  canfd_copy_packet(&st->q[st->tail], pkt);
+  st->tail = (st->tail + 1U) % CANFD_BFWD_MAX_QUEUE;
+  st->count++;
+
+  if (st->count >= CANFD_BFWD_START_COUNT) {
+    st->started = true;
+  }
+}
+static bool canfd_bfwd_pop(int idx, CANPacket_t* pkt) {
+  if ((idx < 0) || (canfd_bfwd_configs[idx].addr <= 0)) {
+    return false;
+  }
+
+  CanfdBufferedFwdState* st = &canfd_bfwd_states[idx];
+
+  if (!st->started || (st->count == 0U)) {
+    return false;
+  }
+
+  canfd_copy_packet(pkt, &st->q[st->head]);
+  st->head = (st->head + 1U) % CANFD_BFWD_MAX_QUEUE;
+  st->count--;
+
+  if (st->count == 0U) {
+    st->started = false;
+  }
+
+  return true;
+}
+
+
+
+
 static void hyundai_canfd_rx_hook(const CANPacket_t *to_push) {
   int bus = GET_BUS(to_push);
   int addr = GET_ADDR(to_push);
-
-  canfd_update_counter_state_from_rx(to_push);
 
   int pt_bus = hyundai_canfd_hda2 ? 1 : 0;
   const int scc_bus = hyundai_camera_scc ? 2 : pt_bus;
@@ -544,8 +536,7 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
 
   bool tx = true;
   int addr = GET_ADDR(to_send);
-
-  canfd_fix_counter_and_checksum(to_send);
+  bool violation = false;
 
   // steering
   const int steer_addr = (hyundai_canfd_hda2 && !hyundai_longitudinal) ? hyundai_canfd_hda2_get_lkas_addr() : 0x12a;
@@ -585,7 +576,6 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
     int desired_accel_raw = (((GET_BYTE(to_send, 17) & 0x7U) << 8) | GET_BYTE(to_send, 16)) - 1023U;
     int desired_accel_val = ((GET_BYTE(to_send, 18) << 4) | (GET_BYTE(to_send, 17) >> 4)) - 1023U;
 
-    bool violation = false;
 
     if (hyundai_longitudinal) {
       int cruise_status = ((GET_BYTE(to_send, 8) >> 4) & 0x7U);
@@ -597,18 +587,25 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
       violation |= longitudinal_accel_checks(desired_accel_raw, HYUNDAI_LONG_LIMITS);
       violation |= longitudinal_accel_checks(desired_accel_val, HYUNDAI_LONG_LIMITS);
       if (violation) {
-          print("long violation"); putui((uint32_t)desired_accel_raw); print(","); putui((uint32_t)desired_accel_val); print("\n");
+        print("long violation"); putui((uint32_t)desired_accel_raw); print(","); putui((uint32_t)desired_accel_val); print("\n");
       }
 
-    } else {
+    }
+    else {
       // only used to cancel on here
       if ((desired_accel_raw != 0) || (desired_accel_val != 0)) {
         violation = true;
         print("no long violation\n");
       }
     }
+  }
 
-    if (violation) {
+  if (violation) {
+    tx = false;
+  } else if (hyundai_canfd_buffered_fwd) {
+    int bfwd_idx = canfd_bfwd_find_index(addr, GET_BUS(to_send));
+    if (bfwd_idx >= 0) {
+      canfd_bfwd_push(bfwd_idx, to_send);
       tx = false;
     }
   }
@@ -618,37 +615,50 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
   return tx;
 }
 
-// fwd_hook 전체 교체
-static int hyundai_canfd_fwd_hook(int bus_num, int addr) {
+static int hyundai_canfd_fwd_hook(CANPacket_t* to_send) {
+  const int bus_num = GET_BUS(to_send);
+  const int addr = GET_ADDR(to_send);
+
   int bus_fwd = -1;
   uint32_t now = microsecond_timer_get();
-
   if (bus_num == 0) {
     bus_fwd = 2;
-
-    if (canfd_should_block_fwd(2, addr, now)) {
-      bus_fwd = -1;
-    }
-
-    if (addr == 0x4B9) {
-      bus_fwd = -1;
-    }
   }
-
-  if (bus_num == 1) {
-    canfd_debug_track_addr(&canfd_addr_debug_bus1, addr, "!!!!! bus1_list=");
-  }
-
-  if (bus_num == 2) {
-    canfd_debug_track_addr(&canfd_addr_debug_bus2, addr, "@@@@ bus2_list=");
-
+  else if (bus_num == 2) {
     bus_fwd = 0;
-    if (canfd_should_block_fwd(0, addr, now)) {
-      bus_fwd = -1;
+  }
+  else {
+    return -1;
+  }
+
+  if (hyundai_canfd_buffered_fwd) {
+    int bfwd_idx = canfd_bfwd_find_index(addr, bus_fwd);
+    if (bfwd_idx >= 0) {
+      CANPacket_t buffered_pkt;
+      if (canfd_bfwd_pop(bfwd_idx, &buffered_pkt)) {
+        uint8_t counter = hyundai_canfd_get_counter(to_send);
+
+        canfd_copy_packet(to_send, &buffered_pkt);
+        canfd_apply_counter_and_update_checksum(to_send, counter);
+
+        return bus_fwd;
+      }
     }
   }
 
-  return bus_fwd;
+  if (bus_num == 0) {
+    if (canfd_should_block_fwd(2, addr, now)) {
+      return -1;
+    }
+    if (addr == 0x4B9) {
+      return -1;
+    }
+    return 2;
+  }
+  if (canfd_should_block_fwd(0, addr, now)) {
+    return -1;
+  }
+  return 0;
 }
 
 static safety_config hyundai_canfd_init(uint16_t param) {
@@ -658,22 +668,16 @@ static safety_config hyundai_canfd_init(uint16_t param) {
     canfd_tx_states[i].last_tx_us = 0U;
   }
 
-  for (int i = 0; canfd_counter_states[i].addr > 0; i++) {
-    canfd_counter_states[i].last_counter_rx = 0U;
-    canfd_counter_states[i].last_counter_tx = 0U;
-    canfd_counter_states[i].counter_step = 0U;
-    canfd_counter_states[i].counter_valid = false;
-    canfd_counter_states[i].tx_counter_valid = false;
+  for (int i = 0; canfd_bfwd_configs[i].addr > 0; i++) {
+    canfd_bfwd_reset_state(&canfd_bfwd_states[i]);
   }
-
-  canfd_addr_debug_bus1.count = 0;
-  canfd_addr_debug_bus2.count = 0;
 
   hyundai_common_init(param);
 
   gen_crc_lookup_table_16(0x1021, hyundai_canfd_crc_lut);
   hyundai_canfd_alt_buttons = GET_FLAG(param, HYUNDAI_PARAM_CANFD_ALT_BUTTONS);
   hyundai_canfd_hda2_alt_steering = GET_FLAG(param, HYUNDAI_PARAM_CANFD_HDA2_ALT_STEERING);
+  hyundai_canfd_buffered_fwd = hyundai_camera_scc;
 
   // no long for radar-SCC HDA1 yet
   //if (!hyundai_canfd_hda2 && !hyundai_camera_scc) {

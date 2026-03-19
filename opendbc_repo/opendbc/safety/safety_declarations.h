@@ -161,7 +161,7 @@ typedef bool (*get_quality_flag_valid_t)(const CANPacket_t *to_push);
 typedef safety_config (*safety_hook_init)(uint16_t param);
 typedef void (*rx_hook)(const CANPacket_t *to_push);
 typedef bool (*tx_hook)(const CANPacket_t *to_send);
-typedef int (*fwd_hook)(int bus_num, int addr);
+typedef int (*fwd_hook)(CANPacket_t* to_send);
 
 typedef struct {
   safety_hook_init init;
@@ -268,7 +268,7 @@ extern uint16_t current_safety_mode;
 extern uint16_t current_safety_param;
 extern safety_config current_safety_config;
 
-int safety_fwd_hook(int bus_num, int addr);
+int safety_fwd_hook(CANPacket_t* to_send);
 int set_safety_hooks(uint16_t mode, uint16_t param);
 
 extern const safety_hooks body_hooks;

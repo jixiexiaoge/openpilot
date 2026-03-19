@@ -295,7 +295,10 @@ static bool hyundai_tx_hook(const CANPacket_t *to_send) {
   return tx;
 }
 
-static int hyundai_fwd_hook(int bus_num, int addr) {
+static int hyundai_fwd_hook(CANPacket_t* to_send) {
+  const int bus_num = GET_BUS(to_send);
+  const int addr = GET_ADDR(to_send);
+
 
   int bus_fwd = -1;
 

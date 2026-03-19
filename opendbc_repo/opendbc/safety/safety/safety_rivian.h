@@ -91,7 +91,10 @@ static bool rivian_tx_hook(const CANPacket_t *to_send) {
   return tx;
 }
 
-static int rivian_fwd_hook(int bus, int addr) {
+static int rivian_fwd_hook(CANPacket_t* to_send) {
+  const int bus = GET_BUS(to_send);
+  const int addr = GET_ADDR(to_send);
+
   int bus_fwd = -1;
   bool block_msg = false;
 

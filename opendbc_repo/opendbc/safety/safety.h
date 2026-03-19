@@ -254,7 +254,7 @@ static bool tx_msg_safety_check(const CANPacket_t *to_send, const CanMsg msg_lis
   return allowed;
 }
 
-int _prev_error_addr = -1;
+//int _prev_error_addr = -1;
 bool safety_tx_hook(CANPacket_t *to_send) {
   bool allowed = tx_msg_safety_check(to_send, current_safety_config.tx_msgs, current_safety_config.tx_msgs_len);
   if ((current_safety_mode == SAFETY_ALLOUTPUT) || (current_safety_mode == SAFETY_ELM327)) {
@@ -263,6 +263,7 @@ bool safety_tx_hook(CANPacket_t *to_send) {
 
   const bool safety_allowed = current_hooks->tx(to_send);
 
+  /*
   int addr = GET_ADDR(to_send);
   if ((!allowed || !safety_allowed) && (addr!=_prev_error_addr)) {
       int bus = GET_BUS(to_send);
@@ -285,12 +286,13 @@ bool safety_tx_hook(CANPacket_t *to_send) {
       print("\n");
       _prev_error_addr = addr;
   }
+  */
 
   return !relay_malfunction && allowed && safety_allowed;
 }
 
-int safety_fwd_hook(int bus_num, int addr) {
-  return (relay_malfunction ? -1 : current_hooks->fwd(bus_num, addr));
+int safety_fwd_hook(CANPacket_t *to_send) {
+  return (relay_malfunction ? -1 : current_hooks->fwd(to_send));
 }
 
 bool get_longitudinal_allowed(void) {
