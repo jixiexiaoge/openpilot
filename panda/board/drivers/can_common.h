@@ -235,9 +235,12 @@ bool can_check_checksum(CANPacket_t *packet) {
   return (calculate_checksum((uint8_t *) packet, CANPACKET_HEAD_SIZE + GET_LEN(packet)) == 0U);
 }
 
+bool safety_tx_buffered_for_fwd = false;
 void can_send(CANPacket_t *to_push, uint8_t bus_number, bool skip_tx_hook) {
+  safety_tx_buffered_for_fwd = false;
   if (skip_tx_hook || safety_tx_hook(to_push) != 0) {
-    if (bus_number < PANDA_BUS_CNT) {
+    if (safety_tx_buffered_for_fwd) safety_tx_buffered_for_fwd = false;
+    else if (bus_number < PANDA_BUS_CNT) {
       can_set_checksum(to_push);
       // add CAN packet to send queue
       tx_buffer_overflow += can_push(can_queues[bus_number], to_push) ? 0U : 1U;

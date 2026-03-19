@@ -329,35 +329,31 @@ static bool canfd_should_block_fwd(int tx_bus, int addr, uint32_t now) {
   return (now - st->last_tx_us) < st->timeout_us;
 }
 
-#define CANFD_BFWD_MAX_QUEUE 6
-#define CANFD_BFWD_START_COUNT 2
+#define CANFD_BFWD_MAX_QUEUE 2
+#define CANFD_BFWD_REUSE_MAX 2
 
 typedef struct {
   int addr;
   int dst_bus;
   bool enabled;
-} CanfdBufferedFwdConfig;
 
-typedef struct {
   bool started;
   uint8_t head;
   uint8_t tail;
   uint8_t count;
+
+  uint8_t reuse_left;
+  bool has_last_pkt;
+  CANPacket_t last_pkt;
+
   CANPacket_t q[CANFD_BFWD_MAX_QUEUE];
-} CanfdBufferedFwdState;
+} CanfdBufferedFwd;
 
-CanfdBufferedFwdConfig canfd_bfwd_configs[] = {
-  {0x1A0, 0, true},   // SCC_CONTROL
-  {0x12A, 0, true},   // LFA
-  {0x0CB, 0, true},   // LFA_ALT
-  {0, 0, false},
-};
-
-CanfdBufferedFwdState canfd_bfwd_states[] = {
-  {false, 0U, 0U, 0U, {{0}}},
-  {false, 0U, 0U, 0U, {{0}}},
-  {false, 0U, 0U, 0U, {{0}}},
-  {false, 0U, 0U, 0U, {{0}}},
+CanfdBufferedFwd canfd_bfwd[] = {
+  {.addr = 0x1A0, .dst_bus = 0, .enabled = true },  // SCC_CONTROL
+  {.addr = 0x12A, .dst_bus = 0, .enabled = true },  // LFA
+  {.addr = 0x0CB, .dst_bus = 0, .enabled = true },  // LFA_ALT
+  { 0 },
 };
 
 static void canfd_copy_packet(CANPacket_t* dst, const CANPacket_t* src) {
@@ -370,47 +366,45 @@ static void canfd_copy_packet(CANPacket_t* dst, const CANPacket_t* src) {
   dst->data_len_code = src->data_len_code;
   (void)memcpy(dst->data, src->data, dlc_to_len[src->data_len_code]);
 }
-static int canfd_bfwd_find_index(int addr, int dst_bus) {
-  for (int i = 0; canfd_bfwd_configs[i].addr > 0; i++) {
-    if (canfd_bfwd_configs[i].enabled &&
-      (canfd_bfwd_configs[i].addr == addr) &&
-      (canfd_bfwd_configs[i].dst_bus == dst_bus)) {
-      return i;
+static CanfdBufferedFwd* canfd_bfwd_find(int addr, int dst_bus) {
+  for (int i = 0; canfd_bfwd[i].addr > 0; i++) {
+    if (canfd_bfwd[i].enabled &&
+      (canfd_bfwd[i].addr == addr) &&
+      (canfd_bfwd[i].dst_bus == dst_bus)) {
+      return &canfd_bfwd[i];
     }
   }
-  return -1;
+  return NULL;
 }
-static void canfd_bfwd_reset_state(CanfdBufferedFwdState* st) {
+
+static void canfd_bfwd_reset(CanfdBufferedFwd* st) {
   st->started = false;
   st->head = 0U;
   st->tail = 0U;
   st->count = 0U;
+  st->reuse_left = 0U;
+  st->has_last_pkt = false;
+  (void)memset(&st->last_pkt, 0, sizeof(st->last_pkt));
 }
-static void canfd_bfwd_push(int idx, const CANPacket_t* pkt) {
-  if ((idx < 0) || (canfd_bfwd_configs[idx].addr <= 0)) return;
-  if (GET_BUS(pkt) != canfd_bfwd_configs[idx].dst_bus) return;
+static void canfd_bfwd_push(CanfdBufferedFwd* st, const CANPacket_t* pkt) {
+  if ((st == NULL) || !st->enabled) return;
+  if (GET_BUS(pkt) != st->dst_bus) return;
 
-  CanfdBufferedFwdState* st = &canfd_bfwd_states[idx];
-
+  // queue가 이미 2개면 이번 새 packet은 버림
   if (st->count >= CANFD_BFWD_MAX_QUEUE) {
-    st->head = (st->head + 1U) % CANFD_BFWD_MAX_QUEUE;
-    st->count--;
+    return;
   }
 
   canfd_copy_packet(&st->q[st->tail], pkt);
   st->tail = (st->tail + 1U) % CANFD_BFWD_MAX_QUEUE;
   st->count++;
-
-  if (st->count >= CANFD_BFWD_START_COUNT) {
-    st->started = true;
-  }
+  st->started = true;
 }
-static bool canfd_bfwd_pop(int idx, CANPacket_t* pkt) {
-  if ((idx < 0) || (canfd_bfwd_configs[idx].addr <= 0)) {
+
+static bool canfd_bfwd_pop(CanfdBufferedFwd* st, CANPacket_t* pkt) {
+  if ((st == NULL) || !st->enabled) {
     return false;
   }
-
-  CanfdBufferedFwdState* st = &canfd_bfwd_states[idx];
 
   if (!st->started || (st->count == 0U)) {
     return false;
@@ -420,9 +414,28 @@ static bool canfd_bfwd_pop(int idx, CANPacket_t* pkt) {
   st->head = (st->head + 1U) % CANFD_BFWD_MAX_QUEUE;
   st->count--;
 
+  // 마지막 정상 packet 저장
+  canfd_copy_packet(&st->last_pkt, pkt);
+  st->has_last_pkt = true;
+  st->reuse_left = CANFD_BFWD_REUSE_MAX;
+
   if (st->count == 0U) {
     st->started = false;
   }
+
+  return true;
+}
+static bool canfd_bfwd_reuse_last(CanfdBufferedFwd* st, CANPacket_t* pkt) {
+  if ((st == NULL) || !st->enabled) {
+    return false;
+  }
+
+  if (!st->has_last_pkt || (st->reuse_left == 0U)) {
+    return false;
+  }
+
+  canfd_copy_packet(pkt, &st->last_pkt);
+  st->reuse_left--;
 
   return true;
 }
@@ -602,11 +615,15 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *to_send_const) {
 
   if (violation) {
     tx = false;
-  } else if (hyundai_canfd_buffered_fwd) {
-    int bfwd_idx = canfd_bfwd_find_index(addr, GET_BUS(to_send));
-    if (bfwd_idx >= 0) {
-      canfd_bfwd_push(bfwd_idx, to_send);
-      tx = false;
+  }
+  else if (hyundai_canfd_buffered_fwd) {
+    CanfdBufferedFwd* bfwd = canfd_bfwd_find(addr, GET_BUS(to_send));
+    if (bfwd != NULL) {
+      canfd_bfwd_push(bfwd, to_send);
+      extern bool safety_tx_buffered_for_fwd;
+      safety_tx_buffered_for_fwd = true;
+      //tx = false;
+      return true;
     }
   }
 
@@ -632,10 +649,17 @@ static int hyundai_canfd_fwd_hook(CANPacket_t* to_send) {
   }
 
   if (hyundai_canfd_buffered_fwd) {
-    int bfwd_idx = canfd_bfwd_find_index(addr, bus_fwd);
-    if (bfwd_idx >= 0) {
+    CanfdBufferedFwd* bfwd = canfd_bfwd_find(addr, bus_fwd);
+    if (bfwd != NULL) {
       CANPacket_t buffered_pkt;
-      if (canfd_bfwd_pop(bfwd_idx, &buffered_pkt)) {
+      bool use_buffered = canfd_bfwd_pop(bfwd, &buffered_pkt);
+
+      // queue가 비었으면 마지막 정상값을 1~2회 재사용
+      if (!use_buffered) {
+        use_buffered = canfd_bfwd_reuse_last(bfwd, &buffered_pkt);
+      }
+
+      if (use_buffered) {
         uint8_t counter = hyundai_canfd_get_counter(to_send);
 
         canfd_copy_packet(to_send, &buffered_pkt);
@@ -668,8 +692,8 @@ static safety_config hyundai_canfd_init(uint16_t param) {
     canfd_tx_states[i].last_tx_us = 0U;
   }
 
-  for (int i = 0; canfd_bfwd_configs[i].addr > 0; i++) {
-    canfd_bfwd_reset_state(&canfd_bfwd_states[i]);
+  for (int i = 0; canfd_bfwd[i].addr > 0; i++) {
+    canfd_bfwd_reset(&canfd_bfwd[i]);
   }
 
   hyundai_common_init(param);
