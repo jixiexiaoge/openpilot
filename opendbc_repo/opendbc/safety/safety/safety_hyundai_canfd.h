@@ -295,18 +295,18 @@ CanfdTxState canfd_tx_states[] = {
 
 // counter/checksum 보정용: addr 기준
 CanfdCounterState canfd_counter_states[] = {
-  {0x50,  true, 0U, 0U, 0U, false},  // 80:  LKAS
-  {0x110, true, 0U, 0U, 0U, false},  // 272: LKAS_ALT
-  {0x12A, true, 0U, 0U, 0U, false},  // 298: LFA
-  {0x1A0, true, 0U, 0U, 0U, false},  // 416: SCC_CONTROL
+  //{0x50,  true, 0U, 0U, 0U, false},  // 80:  LKAS
+  //{0x110, true, 0U, 0U, 0U, false},  // 272: LKAS_ALT
+  //{0x12A, true, 0U, 0U, 0U, false},  // 298: LFA
+  //{0x1A0, true, 0U, 0U, 0U, false},  // 416: SCC_CONTROL
   //{0x2A4, true, 0U, 0U, 0U, false},  // 676: CAM_0x2a4
   //{0x362, true, 0U, 0U, 0U, false},  // 866: CAM_0x362
   //{0x1CF, true, 0U, 0U, 0U, false},  // 463: CRUISE_BUTTONS
   //{0x1AA, true, 0U, 0U, 0U, false},  // 426: CRUISE_BUTTONS_ALT
-  {0x175, true, 0U, 0U, 0U, false},  // 373: TCS
-  {0x0EA, true, 0U, 0U, 0U, false},  // 234: MDPS
-  {0x1E0, true, 0U, 0U, 0U, false},  // 480: LFAHDA_CLUSTER
-  {0x162, true, 0U, 0U, 0U, false},  // 354: CCNC_0x162
+  //{0x175, true, 0U, 0U, 0U, false},  // 373: TCS
+  //{0x0EA, true, 0U, 0U, 0U, false},  // 234: MDPS
+  //{0x1E0, true, 0U, 0U, 0U, false},  // 480: LFAHDA_CLUSTER
+  //{0x162, true, 0U, 0U, 0U, false},  // 354: CCNC_0x162
   {0, false, 0U, 0U, 0U, false},
 };
 
