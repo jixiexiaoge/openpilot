@@ -1,26 +1,42 @@
-#!/usr/bin/bash -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-BUILD_DIR=/data/openpilot
-cd $BUILD_DIR
-git init
-#git remote add origin https://github.com/ajouatom/openpilot
-git remote set-url --push origin https://github.com/ajouatom/openpilot.git
+SRC="/data/openpilot"
+WORK_BASE="/data/tmp"
+REPO_URL="https://github.com/ajouatom/openpilot.git"
 
-# Cleanup
-find . -name '*.a' -delete
+BRANCH_NAME="${1:-prebuilt-$(date +%y%m%d-%H%M)}"
+COMMIT_MSG="${2:-prebuilt: ${BRANCH_NAME}}"
+
+WORK_DIR="${WORK_BASE}/${BRANCH_NAME}"
+
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+rsync -a \
+  --exclude='.git' \
+  --exclude='.gitignore' \
+  "$SRC"/ "$WORK_DIR"/
+
+cd "$WORK_DIR"
+
+find . -name '__pycache__' -type d -prune -exec rm -rf {} +
+find . -name '*.pyc' -delete
+find . -name '*.pyo' -delete
 find . -name '*.o' -delete
 find . -name '*.os' -delete
-find . -name '*.pyc' -delete
-find . -name 'moc_*' -delete
-find . -name '__pycache__' -delete
-rm -rf .sconsign.dblite Jenkinsfile release/
-rm selfdrive/modeld/models/*.onnx
+find . -name '*.a' -delete
+rm -rf .pytest_cache .mypy_cache .cache
+rm -f .sconsign.dblite compile_commands.json
+
 touch prebuilt
 
-# Add built files to git
-git add -f .
+git init
+git config user.name "ajouatom"
+git config user.email "ajouatom@users.noreply.github.com"
 
-VERSION="carrot_v$(date +%y%m%d)"
-git commit -m $VERSION
-git branch -m $VERSION
-git push -f origin $VERSION
+git add -A
+git commit -m "$COMMIT_MSG"
+git branch -M "$BRANCH_NAME"
+git remote add origin "$REPO_URL"
+git push -f origin "$BRANCH_NAME"
