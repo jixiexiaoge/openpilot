@@ -991,6 +991,11 @@ class CarrotMan:
   def handle_traffic_light(self, d: dict):
     print(f"[Traffic] {d}")
 
+    # {'distance': 120, 'greenLightRemainTime': 0, 'leftLightRemainTime': 0, 'location': {'coordString': 'x:127.045286, y:37.477032', 'latitude': 37.47703188722564, 'longitude': 127.04528634430659},
+    #       'redLightRemainTime': 15, 'rightLightRemainTime': 0, 'uturnLightRemainTime': 0, 'greenLightOn': False, 'leftLightOn': False, 'redLightOn': True, 'rightLightOn': False, 'uturnLightOn': False}
+
+
+
   def handle_carrot_state(self, d: dict):
     try:
       self.carrot_serv.update(d)
