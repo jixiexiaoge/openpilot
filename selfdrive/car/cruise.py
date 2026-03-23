@@ -330,6 +330,7 @@ class VCruiseCarrot:
     if CS.cruiseState.available:
       if not self.cruise_state_available_last:
         self._lat_enabled = True
+        v_cruise_kph = self.v_ego_kph_set
       if not self.CP.pcmCruise:
         # if stock cruise is completely disabled, then we can use our own set speed logic
         self.v_cruise_kph = np.clip(v_cruise_kph, self._cruise_speed_min, self._cruise_speed_max)
