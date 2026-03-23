@@ -1051,7 +1051,7 @@ class CarrotMan:
         self.handle_carrot_state(obj["rgdata"])
       
     if "sinf" in obj:
-      self.handle_signal(obj["sinf"])
+      self.handle_traffic_light(obj["sinf"])
 
   def carrot_navi_http_thread(self):
     asyncio.run(self.carrot_navi_http_server(7713))
