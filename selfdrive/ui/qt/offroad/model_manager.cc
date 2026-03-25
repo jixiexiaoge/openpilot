@@ -115,6 +115,46 @@ bool verifyEd25519Signature(const QByteArray &message, const QByteArray &signatu
   return ret == 1;
 }
 
+// 날짜 컬럼용 커스텀 아이템: 같은 날짜일 때 모델명으로 자연 정렬 (버전 번호 인식)
+class DateSortItem : public QTableWidgetItem {
+public:
+  DateSortItem(const QString &date, const QString &name)
+      : QTableWidgetItem(date), modelName(name) {}
+
+  bool operator<(const QTableWidgetItem &other) const override {
+    const DateSortItem *o = dynamic_cast<const DateSortItem *>(&other);
+    if (!o) return QTableWidgetItem::operator<(other);
+
+    int cmp = text().compare(o->text());
+    if (cmp != 0) return cmp < 0;
+
+    // 같은 날짜: 모델명 자연 정렬 (숫자 부분을 수치 비교)
+    return naturalCompare(modelName, o->modelName) < 0;
+  }
+
+private:
+  QString modelName;
+
+  static int naturalCompare(const QString &a, const QString &b) {
+    int i = 0, j = 0;
+    while (i < a.size() && j < b.size()) {
+      QChar ca = a[i], cb = b[j];
+      if (ca.isDigit() && cb.isDigit()) {
+        // 숫자 블록 추출 후 수치 비교
+        int numA = 0, numB = 0;
+        while (i < a.size() && a[i].isDigit()) numA = numA * 10 + a[i++].digitValue();
+        while (j < b.size() && b[j].isDigit()) numB = numB * 10 + b[j++].digitValue();
+        if (numA != numB) return numA - numB;
+      } else {
+        int c = ca.toLower().unicode() - cb.toLower().unicode();
+        if (c != 0) return c;
+        ++i; ++j;
+      }
+    }
+    return (a.size() - i) - (b.size() - j);
+  }
+};
+
 }  // namespace
 
 ModelManagerDialog::ModelManagerDialog(QWidget *parent) : DialogBase(parent) {
@@ -469,8 +509,8 @@ void ModelManagerDialog::showModelList() {
     sizeItem->setTextAlignment(Qt::AlignCenter);
     modelTableWidget->setItem(row, 1, sizeItem);
 
-    // 추가된 날짜
-    QTableWidgetItem *dateItem = new QTableWidgetItem(model.addedAt);
+    // 추가된 날짜 (같은 날짜 내 버전 정렬을 위해 DateSortItem 사용)
+    DateSortItem *dateItem = new DateSortItem(model.addedAt, model.name);
     dateItem->setTextAlignment(Qt::AlignCenter);
     modelTableWidget->setItem(row, 2, dateItem);
 
