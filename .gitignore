@@ -112,3 +112,6 @@ todo_dev/
 # Claude Code
 .claude/
 CLAUDE.md
+
+# 모델 셀렉터 기능 정리 문서 (체리픽 참조용)
+docs/MODEL_SELECTOR_FEATURE.md
