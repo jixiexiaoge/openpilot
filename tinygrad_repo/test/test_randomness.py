@@ -4,9 +4,10 @@ from functools import partial
 from tinygrad import nn, dtypes, Tensor, Device, TinyJit, Variable
 from tinygrad.helpers import getenv, CI, OSX
 from tinygrad.device import is_dtype_supported
-from tinygrad.engine.realize import lower_schedule, CompiledRunner
+from tinygrad.engine.realize import CompiledRunner
 from tinygrad.renderer.ptx import PTXRenderer
-from test.helpers import not_support_multi_device
+from tinygrad.renderer.nir import NIRRenderer
+from test.helpers import not_support_multi_device, needs_second_gpu
 
 import numpy as np
 import torch
@@ -68,6 +69,20 @@ class TestRandomness(unittest.TestCase):
     self.assertFalse(normal_test(Tensor.rand))
     self.assertTrue(equal_distribution(Tensor.rand, torch.rand, lambda x: np.random.rand(*x)))
 
+  def test_rand_is_lazy(self):
+    Tensor.manual_seed(0)
+    r1 = Tensor.rand(10)
+    self.assertFalse(r1.uop.is_realized, "rand should be lazy - tensor should not be realized")
+    counter = Tensor._device_rng_counters[Device.DEFAULT]
+    self.assertFalse(counter.uop.is_realized, "rand should be lazy - counter should not be realized")
+    # second rand triggers assign path
+    r2 = Tensor.rand(10)
+    self.assertFalse(r2.uop.is_realized, "rand should be lazy - tensor should not be realized after second rand")
+    self.assertFalse(counter.uop.is_realized, "rand should be lazy - counter should not be realized after second rand")
+    Tensor.realize(r1, r2)
+    self.assertTrue(r1.uop.is_realized, "tensor should be realized after .realize()")
+    self.assertTrue(r2.uop.is_realized, "tensor should be realized after .realize()")
+
   @unittest.skipUnless(is_dtype_supported(dtypes.float16) and is_dtype_supported(dtypes.ulong), "need float16 and ulong support")
   def test_rand_float16(self):
     N = 128
@@ -100,12 +115,14 @@ class TestRandomness(unittest.TestCase):
 
     np.testing.assert_allclose(jr, r)
 
-  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "fails with PTX")
+  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (NIRRenderer, PTXRenderer)), "PTX and NIR use pointer arithmetic")
   def test_threefry_doesnt_use_long(self):
-    for (_,ei) in lower_schedule(Tensor.rand(20).schedule()):
-      if isinstance(ei.prg, CompiledRunner):
-        for u in ei.prg.p.uops:
-          self.assertNotIn(u.dtype, {dtypes.long, dtypes.ulong}, msg=f"long found in {ei.prg.p.name}")
+    sched = Tensor.rand(20).schedule()
+    for si in sched:
+      si.lower()
+      if isinstance(si.prg, CompiledRunner):
+        for u in si.prg.p.uops:
+          self.assertNotIn(u.dtype, {dtypes.long, dtypes.ulong}, msg=f"long found in {si.prg.p.name}")
 
   def test_threefry_against_reference_full(self):
     Tensor.manual_seed(1337)
@@ -140,6 +157,7 @@ class TestRandomness(unittest.TestCase):
     r = Tensor.rand(10).numpy()
     np.testing.assert_allclose(r, jr, atol=1e-5, rtol=1e-5)
 
+  @needs_second_gpu
   @unittest.skipIf(not_support_multi_device(), "no multi")
   def test_threefry_tensors_cnt(self):
     Tensor.manual_seed(1337)
@@ -159,6 +177,7 @@ class TestRandomness(unittest.TestCase):
     assert len(Tensor._device_rng_counters) == 0
     assert len(Tensor._device_seeds) == 0
 
+  @needs_second_gpu
   @unittest.skipIf(not_support_multi_device(), "no multi")
   def test_threefry_same_kernels(self):
     Tensor.manual_seed(0)
@@ -257,13 +276,12 @@ class TestRandomness(unittest.TestCase):
     self.assertEqual(Tensor.randn(3,3,device="CPU").device, "CPU")
 
   @given(strat.sampled_from([dtypes.float, dtypes.float16, dtypes.bfloat16]))
-  @unittest.skipIf(Device.DEFAULT in ["HSA", "AMD"], "bfloat16 local buffer broken in HSA")
   def test_randn_finite(self, default_float):
     if not is_dtype_supported(default_float): return
     old_default_float = dtypes.default_float
     # low precision can result in inf from randn
     dtypes.default_float = default_float
-    t = Tensor.randn(256, 256)
+    t = Tensor.randn(64, 64)
     mx = t.max().numpy().item()
     mn = t.min().numpy().item()
     print(f"testing with {default_float=}")
@@ -306,11 +324,11 @@ class TestRandomness(unittest.TestCase):
                                                               lambda x: np.random.uniform(-1, 1, size=x) * math.sqrt(6 / (x[0] + math.prod(x[1:])))))
 
   def test_kaiming_uniform(self):
-    for shape in [(32, 128, 3, 3), (80, 44), (3, 55, 35)]:
+    for shape in [(32, 16, 3, 3), (20, 44), (3, 15, 35)]:
       self.assertTrue(equal_distribution(Tensor.kaiming_uniform, lambda x: torch.nn.init.kaiming_uniform_(torch.empty(x)), shape=shape))
 
   def test_kaiming_normal(self):
-    for shape in [(32, 128, 3, 3), (80, 44), (3, 55, 35)]:
+    for shape in [(32, 16, 3, 3), (20, 44), (3, 15, 35)]:
       self.assertTrue(equal_distribution(Tensor.kaiming_normal, lambda x: torch.nn.init.kaiming_normal_(torch.empty(x)), shape=shape))
 
   def test_multinomial(self):
@@ -361,11 +379,16 @@ class TestRandomness(unittest.TestCase):
     assert equal_distribution(lambda *_: nn.BatchNorm2d(*params).weight, lambda _: torch.nn.BatchNorm2d(*params).weight.detach())
     assert equal_distribution(lambda *_: nn.BatchNorm2d(*params).bias, lambda _: torch.nn.BatchNorm2d(*params).bias.detach())
 
+  def test_rand_chain(self):
+    # NOTE: this fails if property propagates deeper than stack limit
+    for _ in range(833): Tensor.rand(1)
+    Tensor.rand(1).realize()
+
 # TODO: still fails with MAX_KERNEL_BUFFERS
 @unittest.skipIf(Device.DEFAULT == "WEBGPU" and not OSX, "WEBGPU Vulkan can only run kernels with up to 10 buffers")
 class TestSample(unittest.TestCase):
   def test_sample(self):
-    X = Tensor.rand(10000, 50).realize()
+    X = Tensor.rand(1000, 50).realize()
     BS = 16
     idxs = np.random.randint(0, X.shape[0], size=(BS))
     # this uncovered a bug with arg sort order

@@ -5,7 +5,8 @@ from dataclasses import replace
 from tinygrad import Tensor, Context, Device, dtypes
 from tinygrad.uop.ops import Ops
 from tinygrad.codegen.opt import Opt, OptOps
-from tinygrad.engine.realize import CompiledRunner, ExecItem, lower_schedule_item, get_program
+from tinygrad.engine.realize import CompiledRunner, get_program
+from tinygrad.engine.schedule import ExecItem
 
 N = 512
 
@@ -38,12 +39,12 @@ def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=
 
 def sexec(out:Tensor, opts:list[Opt], replace_src=None, run_count=3):
   si = out.schedule()[-1]
-  prg = get_program(si.ast, opts=opts)
+  prg = get_program(si.ast, renderer=Device[Device.DEFAULT].renderer, opts=opts)
   if replace_src is not None:
     old_name = prg.src.split("__attribute__((noinline)) void ")[1].split("(")[0]
     prg = replace(prg, src=replace_src + "/* DSP boilerplate */" + prg.src.split("/* DSP boilerplate */")[1].replace(old_name, "fxn"))
-  ei = ExecItem(CompiledRunner(prg), [x.ensure_allocated() for x in si.bufs], si.metadata)
-  for _ in range(run_count): ei.run(wait=True)
+  new_si = ExecItem(si.ast, [x.ensure_allocated() for x in si.bufs], si.metadata, prg=CompiledRunner(prg))
+  for _ in range(run_count): new_si.run(wait=True)
 
 def get_quantized_model(sz):
   from onnxruntime.quantization import quantize_static, QuantFormat, QuantType, CalibrationDataReader
@@ -68,14 +69,14 @@ class TestQuantizeOnnxCPU(unittest.TestCase):
       import onnx # noqa: F401 # pylint: disable=unused-import
     except ImportError:
       raise unittest.SkipTest()
-    from tinygrad.frontend.onnx import OnnxRunner
+    from tinygrad.nn.onnx import OnnxRunner
     out_file = get_quantized_model(sz)
     run_onnx = OnnxRunner(out_file)
     inp = Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32))
-    with Context(DONT_REALIZE_EXPAND=1, QUANTIZE=1):
+    with Context(QUANTIZE=1):
       sched = run_onnx({"input":inp})["output"].schedule()
-      ei = lower_schedule_item(sched[-2])
-      daccs = [u for u in ei.prg.p.uops if u.op is Ops.DEFINE_REG]
+      sched[-2].lower()
+      daccs = [u for u in sched[-2].prg.p.uops if u.op is Ops.DEFINE_REG]
       assert all(u.dtype.scalar() is dtypes.int for u in daccs)
 
 @unittest.skipIf(Device.DEFAULT != "DSP", "only tests for DSP")
@@ -86,8 +87,7 @@ class TestQuantizeOnnx(unittest.TestCase):
     # divide is ~1500-2000 without reduce_range, 750-900 with it
     out_file = get_quantized_model(sz)
     run_onnx_jit, _ = load_onnx_model(out_file)
-    with Context(DONT_REALIZE_EXPAND=1):
-      run_onnx_jit(input=Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32)))
+    run_onnx_jit(input=Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32)))
 
   def test_prequant_conv2d_1x1(self):
     X = Tensor(np.random.uniform(0, 255, size=(1, 32, 128, 128)).astype(np.uint8))
@@ -109,11 +109,10 @@ class TestQuantizeOnnx(unittest.TestCase):
     N = 512
     X = Tensor(np.random.uniform(0, 255, size=(N,N)).astype(xi))
     W = Tensor(np.random.uniform(0, 255, size=(N,N)).astype(wi))
-    with Context(DONT_REALIZE_EXPAND=1):
-      # this divide is interesting and forces the accumulator to actually be an int
-      out = (X.cast("int").matmul(W.cast("int"))//1000).cast("int8")
-      opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
-      sexec(out, opts)
+    # this divide is interesting and forces the accumulator to actually be an int
+    out = (X.cast("int").matmul(W.cast("int"))//1000).cast("int8")
+    opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
+    sexec(out, opts)
 
   def test_prequant_gemm_handcode(self):
     src = """typedef int int128 __attribute__((aligned(512),vector_size(512)));
@@ -203,14 +202,12 @@ class TestQuantizeOnnx(unittest.TestCase):
   def test_prequant_gemm_intacc(self, xi=np.uint8, wi=np.uint8, replace_src=None, N=512, clip=True, opts=None):
     X = Tensor(m1:=(np.random.uniform(0, 255, size=(N,N)).astype(xi))).realize()
     W = Tensor(m2:=(np.random.uniform(0, 255, size=(N,N)).astype(wi))).realize()
-    # ugh, it's so broken with those casts. need DONT_REALIZE_EXPAND=1 python3 test/test_quantize_onnx.py TestQuantizeOnnx.test_prequant
     tg_dtype = dtypes.int8 if xi == np.int8 else dtypes.uint8
-    with Context(DONT_REALIZE_EXPAND=1):
-      out = (X.int().matmul(W.int())//1000)
-      if clip: out = out.clip(dtypes.min(tg_dtype),dtypes.max(tg_dtype))
-      out = out.cast(tg_dtype)
-      opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)] if opts is None else opts
-      sexec(out, opts, replace_src, run_count=1)
+    out = (X.int().matmul(W.int())//1000)
+    if clip: out = out.clip(dtypes.min(tg_dtype),dtypes.max(tg_dtype))
+    out = out.cast(tg_dtype)
+    opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)] if opts is None else opts
+    sexec(out, opts, replace_src, run_count=1)
     tout = out.numpy()
     mout = ((m1.astype(np.int32) @ m2.astype(np.int32)) // 1000)
     if clip: mout = mout.clip(dtypes.min(tg_dtype),dtypes.max(tg_dtype))
@@ -225,7 +222,6 @@ class TestQuantizeOnnx(unittest.TestCase):
 
   def test_prequant_gemv(self):
     N = 2048
-    # ugh, it's so broken with those casts. need DONT_REALIZE_EXPAND=1 python3 test/test_quantize_onnx.py TestQuantizeOnnx.test_prequant
     X = Tensor(np.random.uniform(0, 255, size=(1,N)).astype(np.uint8)).realize()
     W = Tensor(np.random.uniform(0, 255, size=(N,N)).astype(np.uint8)).realize()
     #out = X.cast(dtypes.int) @ W.cast(dtypes.int)

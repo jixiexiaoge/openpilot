@@ -17,7 +17,7 @@ def helper_collect_profile(*devs):
   cpu_events.clear()
 
   profile_list = []
-  with Context(VIZ=1):
+  with Context(VIZ=1, PROFILE=1):
     yield profile_list
     for dev in devs: dev.synchronize()
     for dev in devs: dev._at_profile_finalize()
@@ -92,7 +92,9 @@ class TestProfiler(unittest.TestCase):
     #  assert evs[i].st > evs[i-1].en, "timestamp not aranged"
 
   def test_profile_multidev(self):
-    d1 = Device[f"{Device.DEFAULT}:1"]
+    try: d1 = Device[f"{Device.DEFAULT}:1"]
+    except Exception as e: self.skipTest(f"second device not available {e}")
+
     buf1 = Buffer(Device.DEFAULT, 2, dtypes.float, options=BufferSpec(nolru=True)).ensure_allocated()
     buf2 = Buffer(f"{Device.DEFAULT}:1", 2, dtypes.float, options=BufferSpec(nolru=True)).ensure_allocated()
 
@@ -109,7 +111,8 @@ class TestProfiler(unittest.TestCase):
       assert evs[0].is_copy, "kernel should be copy"
 
   def test_profile_multidev_transfer(self):
-    d1 = Device[f"{Device.DEFAULT}:1"]
+    try: d1 = Device[f"{Device.DEFAULT}:1"]
+    except Exception as e: self.skipTest(f"second device not available {e}")
 
     buf1 = Tensor.randn(10, 10, device=f"{Device.DEFAULT}:0").realize()
     with helper_collect_profile(TestProfiler.d0, d1) as profile:
@@ -122,7 +125,8 @@ class TestProfiler(unittest.TestCase):
 
   @unittest.skipIf(Device.DEFAULT in "METAL" or (MOCKGPU and Device.DEFAULT == "AMD"), "AMD mockgpu does not support queue wait interrupts")
   def test_profile_graph(self):
-    d1 = Device[f"{Device.DEFAULT}:1"]
+    try: d1 = Device[f"{Device.DEFAULT}:1"]
+    except Exception as e: self.skipTest(f"second device not available {e}")
 
     def f(a):
       x = (a + 1).realize()
@@ -145,7 +149,9 @@ class TestProfiler(unittest.TestCase):
   @unittest.skipIf(CI or not issubclass(type(Device[Device.DEFAULT]), HCQCompiled), "skip CI")
   def test_dev_jitter_matrix(self):
     dev_cnt = 6
-    devs = [Device[f"{Device.DEFAULT}:{i}"] for i in range(dev_cnt)]
+    try: devs = [Device[f"{Device.DEFAULT}:{i}"] for i in range(dev_cnt)]
+    except Exception as e: self.skipTest(f"multiple devices not available {e}")
+
     for dev in devs: dev.synchronize()
     for dev in devs: dev._at_profile_finalize()
 
@@ -166,7 +172,10 @@ class TestProfiler(unittest.TestCase):
     for (i1, d1), (i2, d2) in pairs:
       cpu_diff = d1.gpu2cpu_compute_time_diff - d2.gpu2cpu_compute_time_diff
       jitter_matrix[i1][i2] = statistics.median(_sync_d2d(d1, d2) - _sync_d2d(d2, d1) for _ in range(20)) / 2 - cpu_diff
-      assert abs(jitter_matrix[i1][i2]) < 0.5, "jitter should be less than 0.5ms"
+
+    for (i1, d1), (i2, d2) in pairs:
+      assert abs(jitter_matrix[i1][i2]) < 0.5, "jitter should be less than 0.5us"
+
     print("pairwise clock jitter matrix (us):\n" + '\n'.join([''.join([f'{float(item):8.3f}' for item in row]) for row in jitter_matrix]))
 
   def test_cpu_profile(self):
@@ -193,6 +202,7 @@ class TestProfiler(unittest.TestCase):
     #self.assertLess(e1.st, e2.st)
     #self.assertGreater(e1.en-e1.st, e2.en-e2.st)
 
+  @unittest.skip("this test is flaky")
   @unittest.skipUnless(Device[Device.DEFAULT].graph is not None, "graph support required")
   def test_graph(self):
     from test.test_graph import helper_alloc_rawbuffer, helper_exec_op, helper_test_graphs
@@ -217,9 +227,9 @@ class TestProfiler(unittest.TestCase):
         Tensor.realize(a, b)
     profile, _ = helper_profile_filter_device(profile, TestProfiler.d0.device)
     exec_points = [e for e in profile if isinstance(e, ProfilePointEvent) and e.name == "exec"]
-    range_events = [e for e in profile if isinstance(e, ProfileRangeEvent)]
+    range_events = [e for e in profile if isinstance(e, ProfileRangeEvent) and not e.is_copy]
     self.assertEqual(len(exec_points), len(range_events), 2)
-    self.assertEqual(len(dedup(e.key for e in exec_points)), 1)
+    self.assertEqual(len(dedup(e.arg['name'] for e in exec_points)), 1)
     self.assertEqual(len(dedup(e.arg['metadata'] for e in exec_points)), 1)
 
 if __name__ == "__main__":

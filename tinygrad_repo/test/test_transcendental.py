@@ -47,6 +47,8 @@ class TestTranscendentalMath(unittest.TestCase):
                                  op[1](np.array([x], dtype=_to_np_dtype(dtypes.float16))),
                                  atol=1e-2, rtol=5e-3)  # exp can have bigger rtol
 
+  # TODO: WEBGPU produces incorrect values near infinity
+  @unittest.skipIf(Device.DEFAULT == "WEBGPU", "WEBGPU incorrect values near inf")
   @given(strat.sampled_from([(dtypes.float64, 709.5), (dtypes.float32, 88.7), (dtypes.float16, 11)]))
   def test_exp_near_inf(self, dtype_x):
     # reordering compute might return inf
@@ -101,6 +103,44 @@ class TestFromFuzzer(unittest.TestCase):
     _test_value(0)
     _test_value(0.0000009)
 
+class TestFloat16Log2(unittest.TestCase):
+  """Tests for native float16 log2 implementation (no float32 cast)"""
+  @unittest.skipUnless(is_dtype_supported(dtypes.float16, Device.DEFAULT), f"no float16 on {Device.DEFAULT}")
+  def test_float16_log2_basic(self):
+    # basic values
+    test_values = [1.0, 2.0, 4.0, 0.5, 0.25, 10.0, 100.0, 1000.0]
+    with Context(TRANSCENDENTAL=2):
+      for val in test_values:
+        result = Tensor([val], dtype=dtypes.float16).log2().numpy()[0]
+        expected = np.log2(np.float16(val))
+        np.testing.assert_allclose(result, expected, rtol=1e-3, err_msg=f"log2({val})")
+
+  @unittest.skipUnless(is_dtype_supported(dtypes.float16, Device.DEFAULT), f"no float16 on {Device.DEFAULT}")
+  @unittest.skipIf(Device.DEFAULT == "WEBGPU" and CI, "Nan handling differs on Vulkan")
+  def test_float16_log2_special(self):
+    # special values: inf, -inf, nan, 0, negative
+    with Context(TRANSCENDENTAL=2), np.errstate(all='ignore'):
+      # log2(inf) = inf
+      assert np.isinf(Tensor([np.inf], dtype=dtypes.float16).log2().numpy()[0])
+      # log2(0) = -inf
+      assert Tensor([0.0], dtype=dtypes.float16).log2().numpy()[0] == -np.inf
+      # log2(negative) = nan
+      assert np.isnan(Tensor([-1.0], dtype=dtypes.float16).log2().numpy()[0])
+      # log2(nan) = nan
+      assert np.isnan(Tensor([np.nan], dtype=dtypes.float16).log2().numpy()[0])
+
+  @unittest.skipUnless(is_dtype_supported(dtypes.float16, Device.DEFAULT), f"no float16 on {Device.DEFAULT}")
+  def test_float16_log2_denormal(self):
+    # test values near and below float16 min normal (6.1e-5)
+    # these exercise the denormal handling path with 2^10 scaling
+    test_values = [1e-4, 6e-5, 1e-5]
+    with Context(TRANSCENDENTAL=2):
+      for val in test_values:
+        result = Tensor([val], dtype=dtypes.float16).log2().numpy()[0]
+        expected = np.log2(np.float16(val))
+        # denormals have lower precision due to float16 limitations
+        np.testing.assert_allclose(result, expected, rtol=5e-2, err_msg=f"log2({val})")
+
 class TestTranscendentalSchedule(unittest.TestCase):
   @unittest.skipUnless(is_dtype_supported(dtypes.ulong), "Needs ulong")
   def test_transcendental_sin_fusion(self):
@@ -149,6 +189,7 @@ class TestTranscendentalVectorized(unittest.TestCase):
     for vec_size in [1,2,3,4,5,127,128]: self._test_vectorized_op(Tensor.log2, np.log2, (0.001, 200), vec_size)
 
   @unittest.skipIf(getenv("DSP"), "requires int division")
+  @unittest.skipIf(getenv("NV_NAK"), "MUFU.SIN is not accurate enough")
   def test_sin_vectorized(self):
     for vec_size in [1,2,3,4,5,127,128]: self._test_vectorized_op(Tensor.sin, np.sin, (-100, 100), vec_size)
 

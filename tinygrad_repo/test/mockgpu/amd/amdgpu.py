@@ -1,12 +1,18 @@
 import ctypes, time
 from test.mockgpu.gpu import VirtGPU
 from test.mockgpu.helpers import _try_dlopen_remu
-from tinygrad.helpers import getbits, to_mv, init_c_struct_t
+from tinygrad.helpers import getbits, to_mv, getenv
+from tinygrad.runtime.support import c
+
+MOCKGPU_ARCH = getenv("MOCKGPU_ARCH", "rdna3")
+GFX_TARGET_VERSION = {"rdna3": 110000, "rdna4": 120000}[MOCKGPU_ARCH]
 import tinygrad.runtime.autogen.amd_gpu as amd_gpu, tinygrad.runtime.autogen.am.pm4_nv as pm4
 
 SDMA_MAX_COPY_SIZE = 0x400000
 
 regCOMPUTE_PGM_LO = 0x1bac + amd_gpu.GC_BASE__INST0_SEG0
+regCOMPUTE_PGM_RSRC2 = 0x1bb3 + amd_gpu.GC_BASE__INST0_SEG0
+regCOMPUTE_TMPRING_SIZE = 0x1bb8 + amd_gpu.GC_BASE__INST0_SEG0
 regCOMPUTE_USER_DATA_0 = 0x1be0 + amd_gpu.GC_BASE__INST0_SEG0
 regCOMPUTE_NUM_THREAD_X = 0x1ba7 + amd_gpu.GC_BASE__INST0_SEG0
 regGRBM_GFX_INDEX = 0x2200 + amd_gpu.GC_BASE__INST0_SEG1
@@ -14,6 +20,9 @@ regSQ_THREAD_TRACE_BUF0_BASE = 0x39e8 + amd_gpu.GC_BASE__INST0_SEG1
 regSQ_THREAD_TRACE_BUF0_SIZE = 0x39e9 + amd_gpu.GC_BASE__INST0_SEG1
 regSQ_THREAD_TRACE_WPTR = 0x39ef + amd_gpu.GC_BASE__INST0_SEG1
 regSQ_THREAD_TRACE_STATUS = 0x39f4 + amd_gpu.GC_BASE__INST0_SEG1
+regCP_PERFMON_CNTL = 0x3808 + amd_gpu.GC_BASE__INST0_SEG1
+regCPG_PERFCOUNTER1_LO = 0x3000 + amd_gpu.GC_BASE__INST0_SEG1
+regGUS_PERFCOUNTER_HI = 0x3643 + amd_gpu.GC_BASE__INST0_SEG1
 
 class SQTT_EVENTS:
   THREAD_TRACE_FINISH = 0x00000037
@@ -30,23 +39,21 @@ remu = _try_dlopen_remu()
 def create_sdma_packets():
   # TODO: clean up this, if we want to keep it
   structs = {}
-  for name,pkt in [(name,s) for name,s in amd_gpu.__dict__.items() if name.startswith("struct_SDMA_PKT_") and name.endswith("_TAG")]:
+  for name,pkt in [(name,s) for name,s in amd_gpu.__dict__.items() if name.startswith("rocr_AMD_SDMA_PKT_") and name.endswith("_TAG")]:
     names = set()
     fields = []
-    for pkt_fields in pkt._fields_:
+    for pkt_fields in pkt._real_fields_:
       if not pkt_fields[0].endswith("_UNION"): fields.append(pkt_fields)
       else:
-        assert pkt_fields[1]._fields_[0][0] == '_0'
-        for union_fields in pkt_fields[1]._fields_[0][1]._fields_:
+        for union_fields in pkt_fields[1]._real_fields_[:-1]:
           fname = union_fields[0]
           if fname in names: fname = pkt_fields[0]+fname
           names.add(fname)
           # merge together 64-bit fields, otherwise just append them
-          if fname.endswith("_63_32") and fields[-1][0].endswith("_31_0"): fields[-1] = tuple([fname[:-6], ctypes.c_ulong, 64])
-          else: fields.append(tuple([fname, *union_fields[1:]]))
-    new_name = name[16:-4].lower()
-    structs[new_name] = init_c_struct_t(tuple(fields))
-    assert ctypes.sizeof(structs[new_name]) == ctypes.sizeof(pkt), f"{ctypes.sizeof(structs[new_name])} != {ctypes.sizeof(pkt)}"
+          if fname.endswith("_63_32") and fields[-1][0].endswith("_31_0"): fields[-1] = (fname[:-6], ctypes.c_ulong, fields[-1][2], 64, 0)
+          else: fields.append((fname, union_fields[1], union_fields[2] + pkt_fields[2], *union_fields[3:]))
+    new_name = name[18:-4].lower()
+    structs[new_name] = c.init_c_struct_t(ctypes.sizeof(pkt), tuple(fields))
   return type("SDMA_PKTS", (object, ), structs)
 sdma_pkts = create_sdma_packets()
 
@@ -121,6 +128,7 @@ class PM4Executor(AMDQueue):
     elif mem_data_sel == 3:
       if mem_event_type == CACHE_FLUSH_AND_INV_TS_EVENT: ptr.cast('Q')[0] = int(time.perf_counter() * 1e8)
       else: raise RuntimeError(f"Unknown {mem_data_sel=} {mem_event_type=}")
+    elif mem_data_sel == 0: pass # no write
     else: raise RuntimeError(f"Unknown {mem_data_sel=}")
 
   def _exec_copy_data(self, n):
@@ -130,7 +138,7 @@ class PM4Executor(AMDQueue):
     _src_addr_hi = self._next_dword()
     dst_addr_lo = self._next_dword()
     dst_addr_hi = self._next_dword()
-    assert copy_data_flags == 0x100204, hex(copy_data_flags) # better fail than silently do the wrong thing
+    assert copy_data_flags in {0x100204, 0x000204}, hex(copy_data_flags) # better fail than silently do the wrong thing
     to_mv(dst_addr_hi<<32|dst_addr_lo, 4).cast('I')[0] = self.gpu.regs[src_addr_lo]
 
   def _exec_wait_reg_mem(self, n):
@@ -175,12 +183,25 @@ class PM4Executor(AMDQueue):
     prg_addr = (self.gpu.regs[regCOMPUTE_PGM_LO] + (self.gpu.regs[regCOMPUTE_PGM_LO + 1] << 32)) << 8
     args_addr = self.gpu.regs[regCOMPUTE_USER_DATA_0] + (self.gpu.regs[regCOMPUTE_USER_DATA_0 + 1] << 32)
     lc = [self.gpu.regs[i] for i in range(regCOMPUTE_NUM_THREAD_X, regCOMPUTE_NUM_THREAD_X+3)]
+    rsrc2 = self.gpu.regs[regCOMPUTE_PGM_RSRC2]
 
     prg_sz = 0
     for st,sz in self.gpu.mapped_ranges:
       if st <= prg_addr < st+sz: prg_sz = sz - (prg_addr - st)
 
+    # Get scratch size from COMPUTE_TMPRING_SIZE register
+    # For gfx11: WAVESIZE = ceildiv(64 * size_per_thread, 256), so size_per_thread ≈ WAVESIZE * 256 / 64 = WAVESIZE * 4
+    try: tmpring_size = self.gpu.regs[regCOMPUTE_TMPRING_SIZE]
+    except KeyError: tmpring_size = 0
+    wavesize = (tmpring_size >> 12) & 0x3FFF  # WAVESIZE field is bits 12:25 for gfx11
+    scratch_size = wavesize * 4  # This gives the scratch size per thread (lane)
+
     assert prg_sz > 0, "Invalid prg ptr (not found in mapped ranges)"
+    # Pass valid memory ranges, rsrc2, scratch_size and arch to Python emulator
+    if hasattr(remu, 'valid_mem_ranges'): remu.valid_mem_ranges = self.gpu.mapped_ranges
+    if hasattr(remu, 'rsrc2'): remu.rsrc2 = rsrc2
+    if hasattr(remu, 'scratch_size'): remu.scratch_size = scratch_size
+    if hasattr(remu, 'arch'): remu.arch = self.gpu.arch
     err = remu.run_asm(prg_addr, prg_sz, *gl, *lc, args_addr)
     if err != 0: raise RuntimeError("remu does not support the new instruction introduced in this kernel")
 
@@ -280,6 +301,9 @@ class AMDGPURegisters:
     self.regs: dict[tuple[int, int], int] = {}
   def __getitem__(self, addr:int) -> int:
     if addr == regGRBM_GFX_INDEX: return self.grbm_index
+    if regCPG_PERFCOUNTER1_LO < addr < regGUS_PERFCOUNTER_HI:
+      assert self.regs[(regCP_PERFMON_CNTL, 0)] == 0x401, "read mode should be enabled"
+      return addr << 16 | self.grbm_index
     return self.regs[(addr, getbits(self.grbm_index, 16, 23))]
   def __setitem__(self, addr:int, val:int):
     if addr == regGRBM_GFX_INDEX: self.grbm_index = val
@@ -294,6 +318,7 @@ class AMDGPU(VirtGPU):
     self.regs = AMDGPURegisters()
     self.mapped_ranges = set()
     self.queues = []
+    self.arch = MOCKGPU_ARCH
 
   def map_range(self, vaddr, size): self.mapped_ranges.add((vaddr, size))
   def unmap_range(self, vaddr, size): self.mapped_ranges.remove((vaddr, size))
@@ -322,7 +347,7 @@ simd_arrays_per_engine 2
 cu_per_simd_array 8
 simd_per_cu 2
 max_slots_scratch_cu 32
-gfx_target_version 110000
+gfx_target_version {gfx_target_version}
 vendor_id 4098
 device_id 29772
 location_id 34304

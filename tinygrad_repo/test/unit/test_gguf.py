@@ -1,12 +1,9 @@
 import os, unittest, ctypes
 from tinygrad import dtypes, Tensor, fetch, Device
-import numpy as np
 from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
 from tinygrad.device import is_dtype_supported
-try:
-  import ggml
-except ModuleNotFoundError:
-  raise unittest.SkipTest("ggml not installed, skipping gguf test")
+import numpy as np
+import ggml
 
 ggml_test_block_count = 4
 ggml_type_to_np_dtype = {
@@ -43,6 +40,8 @@ def ggml_tensor_to_numpy(tensor: ggml.ggml_tensor_p):
   return np.lib.stride_tricks.as_strided(output, shape=shape, strides=strides), ctx
 
 @unittest.skipIf(any(not is_dtype_supported(t) for t in [ dtypes.uint8, dtypes.half ]), "Backend must support uint8 and half")
+# TODO: WEBGPU GGUF dequantization produces incorrect values
+@unittest.skipIf(Device.DEFAULT == "WEBGPU", "WEBGPU GGUF dequantization issue")
 class TestGGUF(unittest.TestCase):
   def setUp(self) -> None:
     params = ggml.ggml_init_params(mem_size=0, mem_buffer=None, no_alloc=False)
@@ -58,6 +57,7 @@ class TestGGUF(unittest.TestCase):
   def test_dequantization_q4_0(self): self._test_dequantization(ggml.GGML_TYPE_Q4_0)
   def test_dequantization_q4_1(self): self._test_dequantization(ggml.GGML_TYPE_Q4_1)
   def test_dequantization_q8_0(self): self._test_dequantization(ggml.GGML_TYPE_Q8_0)
+  def test_dequantization_q4_k(self): self._test_dequantization(ggml.GGML_TYPE_Q4_K)
   def test_dequantization_q6_k(self): self._test_dequantization(ggml.GGML_TYPE_Q6_K)
   def test_dequantization_mxfp4(self):
     MXFP4 = 39

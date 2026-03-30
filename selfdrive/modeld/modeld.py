@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 import os
 from openpilot.system.hardware import TICI
-os.environ['DEV'] = 'QCOM' if TICI else 'LLVM'
+os.environ['DEV'] = 'QCOM' if TICI else 'CPU'
 USBGPU = "USBGPU" in os.environ
 if USBGPU:
   os.environ['DEV'] = 'AMD'
   os.environ['AMD_IFACE'] = 'USB'
 from tinygrad.tensor import Tensor
-from tinygrad.dtype import dtypes
 import time
 import pickle
 import numpy as np
 import cereal.messaging as messaging
 from cereal import car, log
 from pathlib import Path
-from setproctitle import setproctitle
 from cereal.messaging import PubMaster, SubMaster
 from msgq.visionipc import VisionIpcClient, VisionStreamType, VisionBuf
 from opendbc.car.car_helpers import get_demo_car_params
@@ -23,15 +21,14 @@ from openpilot.common.params import Params
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import config_realtime_process, DT_MDL
 from openpilot.common.transformations.camera import DEVICE_CAMERAS
+from openpilot.system.camerad.cameras.nv12_info import get_nv12_info
 from openpilot.common.transformations.model import get_warp_matrix
-from openpilot.system import sentry
 from openpilot.selfdrive.controls.lib.desire_helper import DesireHelper
 from openpilot.selfdrive.controls.lib.drive_helpers import get_accel_from_plan, smooth_value, get_curvature_from_plan
 from openpilot.selfdrive.modeld.parse_model_outputs import Parser
 from openpilot.selfdrive.modeld.fill_model_msg import fill_model_msg, fill_pose_msg, PublishState
+from openpilot.common.file_chunker import read_file_chunked
 from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
-from openpilot.selfdrive.modeld.models.commonmodel_pyx import DrivingModelFrame, CLContext
-from openpilot.selfdrive.modeld.runners.tinygrad_helpers import qcom_tensor_from_opencl_address
 
 
 PROCESS_NAME = "selfdrive.modeld.modeld"
@@ -39,6 +36,7 @@ SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 
 # 커스텀 모델 경로
 CUSTOM_MODEL_PATH = Path('/data/models')
+DEFAULT_MODEL_PATH = Path(__file__).parent / 'models'
 
 # 모델에 필요한 필수 파일 목록
 REQUIRED_MODEL_FILES = [
@@ -62,21 +60,19 @@ def validate_model_files(base: Path) -> bool:
 
 def get_model_paths():
     """커스텀 모델 폴더가 유효하면 사용, 아니면 기본 모델"""
-    default_base = Path(__file__).parent / 'models'
-
-    # /data/models/ 폴더에 유효한 모델이 있으면 사용
     if CUSTOM_MODEL_PATH.exists() and validate_model_files(CUSTOM_MODEL_PATH):
         cloudlog.info(f"Using custom model from {CUSTOM_MODEL_PATH}")
         base = CUSTOM_MODEL_PATH
     else:
         cloudlog.info("Using default built-in model")
-        base = default_base
+        base = DEFAULT_MODEL_PATH
 
     paths = {
         'vision_pkl': base / 'driving_vision_tinygrad.pkl',
         'policy_pkl': base / 'driving_policy_tinygrad.pkl',
         'vision_meta': base / 'driving_vision_metadata.pkl',
         'policy_meta': base / 'driving_policy_metadata.pkl',
+        'models_dir': base,
     }
 
     # off-policy 모델이 있으면 경로 추가
@@ -89,12 +85,13 @@ def get_model_paths():
 
     return paths
 
-# 모델 경로는 ModelState.__init__()에서 결정 (compile_pending_model 완료 후 실행되도록)
-
 LAT_SMOOTH_SECONDS = 0.13
 LONG_SMOOTH_SECONDS = 0.3
 MIN_LAT_CONTROL_SPEED = 0.3
-RECOVERY_POWER = 1.0  # planplus 차선 복귀 강도 (높을수록 적극적으로 차선 중심 복귀, 너무 높으면 핑퐁)
+RECOVERY_POWER = 1.0  # planplus 차선 복귀 강도
+
+IMG_QUEUE_SHAPE = (6*(ModelConstants.MODEL_RUN_FREQ//ModelConstants.MODEL_CONTEXT_FREQ + 1), 128, 256)
+assert IMG_QUEUE_SHAPE[0] == 30
 
 
 def get_action_from_model(model_output: dict[str, np.ndarray], prev_action: log.ModelDataV2.Action,
@@ -191,7 +188,6 @@ class InputQueues:
       return out
 
 class ModelState:
-  frames: dict[str, DrivingModelFrame]
   inputs: dict[str, np.ndarray]
   output: np.ndarray
   prev_desire: np.ndarray  # for tracking the rising edge of the pulse
@@ -201,7 +197,7 @@ class ModelState:
     """desire로 시작하는 키를 동적으로 찾음 (desire, desire_pulse 등)"""
     return next(key for key in self.numpy_inputs if key.startswith('desire'))
 
-  def __init__(self, context: CLContext):
+  def __init__(self):
     # compile_pending_model() 완료 후 실행되므로 여기서 경로 결정
     model_paths = get_model_paths()
     vision_pkl_path = model_paths['vision_pkl']
@@ -210,6 +206,7 @@ class ModelState:
     policy_meta_path = model_paths['policy_meta']
     off_policy_pkl_path = model_paths.get('off_policy_pkl')
     off_policy_meta_path = model_paths.get('off_policy_meta')
+    self._models_dir = model_paths['models_dir']
     cloudlog.warning(f"Model paths resolved: keys={list(model_paths.keys())}, "
                      f"off_policy_pkl={off_policy_pkl_path}, off_policy_meta={off_policy_meta_path}")
 
@@ -226,20 +223,22 @@ class ModelState:
       self.policy_output_slices = policy_metadata['output_slices']
       policy_output_size = policy_metadata['output_shapes']['outputs'][1]
 
-    self.frames = {name: DrivingModelFrame(context, ModelConstants.MODEL_RUN_FREQ//ModelConstants.MODEL_CONTEXT_FREQ) for name in self.vision_input_names}
     self.prev_desire = np.zeros(ModelConstants.DESIRE_LEN, dtype=np.float32)
 
     # policy inputs
     self.numpy_inputs = {k: np.zeros(self.policy_input_shapes[k], dtype=np.float32) for k in self.policy_input_shapes}
     cloudlog.info(f"Using desire key: {self.desire_key}")
-
     self.full_input_queues = InputQueues(ModelConstants.MODEL_CONTEXT_FREQ, ModelConstants.MODEL_RUN_FREQ, ModelConstants.N_FRAMES)
     for k in [self.desire_key, 'features_buffer']:
       self.full_input_queues.update_dtypes_and_shapes({k: self.numpy_inputs[k].dtype}, {k: self.numpy_inputs[k].shape})
     self.full_input_queues.reset()
 
-    # img buffers are managed in openCL transform code
-    self.vision_inputs: dict[str, Tensor] = {}
+    self.img_queues = {'img': Tensor.zeros(IMG_QUEUE_SHAPE, dtype='uint8').contiguous().realize(),
+                       'big_img': Tensor.zeros(IMG_QUEUE_SHAPE, dtype='uint8').contiguous().realize()}
+    self.full_frames : dict[str, Tensor] = {}
+    self._blob_cache : dict[int, Tensor] = {}
+    self.transforms_np = {k: np.zeros((3,3), dtype=np.float32) for k in self.img_queues}
+    self.transforms = {k: Tensor(v, device='NPY').realize() for k, v in self.transforms_np.items()}
     self.vision_output = np.zeros(vision_output_size, dtype=np.float32)
     self.policy_inputs = {k: Tensor(v, device='NPY').realize() for k,v in self.numpy_inputs.items()}
     self.policy_output = np.zeros(policy_output_size, dtype=np.float32)
@@ -255,22 +254,18 @@ class ModelState:
         self.off_policy_output_slices = off_policy_metadata['output_slices']
         off_policy_output_size = off_policy_metadata['output_shapes']['outputs'][1]
       self.off_policy_output = np.zeros(off_policy_output_size, dtype=np.float32)
-      # off-policy 전용 입력 생성 (control_context 등 policy에 없는 추가 입력 지원)
       self.off_policy_numpy_inputs = {k: np.zeros(self.off_policy_input_shapes[k], dtype=np.float32) for k in self.off_policy_input_shapes}
       self.off_policy_tinygrad_inputs = {k: Tensor(v, device='NPY').realize() for k, v in self.off_policy_numpy_inputs.items()}
       cloudlog.info(f"Off-policy model loaded: output_size={off_policy_output_size}, inputs={list(self.off_policy_input_shapes.keys())}")
 
     self.parser = Parser()
-
-    with open(vision_pkl_path, "rb") as f:
-      self.vision_run = pickle.load(f)
-
-    with open(policy_pkl_path, "rb") as f:
-      self.policy_run = pickle.load(f)
+    self.frame_buf_params : dict[str, tuple[int, int, int, int]] = {}
+    self.update_imgs = None
+    self.vision_run = pickle.loads(read_file_chunked(str(vision_pkl_path)))
+    self.policy_run = pickle.loads(read_file_chunked(str(policy_pkl_path)))
 
     if self.has_off_policy:
-      with open(off_policy_pkl_path, "rb") as f:
-        self.off_policy_run = pickle.load(f)
+      self.off_policy_run = pickle.loads(read_file_chunked(str(off_policy_pkl_path)))
 
   def slice_outputs(self, model_outputs: np.ndarray, output_slices: dict[str, slice]) -> dict[str, np.ndarray]:
     parsed_model_outputs = {k: model_outputs[np.newaxis, v] for k,v in output_slices.items()}
@@ -283,23 +278,34 @@ class ModelState:
     desire_input[0] = 0
     new_desire = np.where(desire_input - self.prev_desire > .99, desire_input, 0)
     self.prev_desire[:] = desire_input
+    if self.update_imgs is None:
+      for key in bufs.keys():
+        w, h = bufs[key].width, bufs[key].height
+        self.frame_buf_params[key] = get_nv12_info(w, h)
+      warp_path = self._models_dir / f'warp_{w}x{h}_tinygrad.pkl'
+      with open(warp_path, "rb") as f:
+        self.update_imgs = pickle.load(f)
 
-    imgs_cl = {name: self.frames[name].prepare(bufs[name], transforms[name].flatten()) for name in self.vision_input_names}
+    for key in bufs.keys():
+      ptr = bufs[key].data.ctypes.data
+      yuv_size = self.frame_buf_params[key][3]
+      # There is a ringbuffer of imgs, just cache tensors pointing to all of them
+      cache_key = (key, ptr)
+      if cache_key not in self._blob_cache:
+        self._blob_cache[cache_key] = Tensor.from_blob(ptr, (yuv_size,), dtype='uint8')
+      self.full_frames[key] = self._blob_cache[cache_key]
+    for key in bufs.keys():
+      self.transforms_np[key][:,:] = transforms[key][:,:]
 
-    if TICI and not USBGPU:
-      # The imgs tensors are backed by opencl memory, only need init once
-      for key in imgs_cl:
-        if key not in self.vision_inputs:
-          self.vision_inputs[key] = qcom_tensor_from_opencl_address(imgs_cl[key].mem_address, self.vision_input_shapes[key], dtype=dtypes.uint8)
-    else:
-      for key in imgs_cl:
-        frame_input = self.frames[key].buffer_from_cl(imgs_cl[key]).reshape(self.vision_input_shapes[key])
-        self.vision_inputs[key] = Tensor(frame_input, dtype=dtypes.uint8).realize()
+    out = self.update_imgs(self.img_queues['img'], self.full_frames['img'], self.transforms['img'],
+                           self.img_queues['big_img'], self.full_frames['big_img'], self.transforms['big_img'])
+    self.img_queues['img'], self.img_queues['big_img'] = out[0].realize(), out[2].realize()
+    vision_inputs = {'img': out[1], 'big_img': out[3]}
 
     if prepare_only:
       return None
 
-    self.vision_output = self.vision_run(**self.vision_inputs).contiguous().realize().uop.base.buffer.numpy()
+    self.vision_output = self.vision_run(**vision_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
     vision_outputs_dict = self.parser.parse_vision_outputs(self.slice_outputs(self.vision_output, self.vision_output_slices))
 
     self.full_input_queues.enqueue({'features_buffer': vision_outputs_dict['hidden_state'], self.desire_key: new_desire})
@@ -307,26 +313,23 @@ class ModelState:
       self.numpy_inputs[k][:] = self.full_input_queues.get(k)[k]
     self.numpy_inputs['traffic_convention'][:] = inputs['traffic_convention']
 
-    self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy()
+    self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
     policy_outputs_dict = self.parser.parse_policy_outputs(self.slice_outputs(self.policy_output, self.policy_output_slices))
-
     combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
 
     # off-policy 모델 실행 (있을 때만)
     if self.has_off_policy:
-      # off-policy 입력 동기화 (policy와 공유하는 키만 복사, control_context 등 추가 키는 0 유지)
       for k in self.off_policy_numpy_inputs:
         if k in self.numpy_inputs:
           self.off_policy_numpy_inputs[k][:] = self.numpy_inputs[k]
-      self.off_policy_output = self.off_policy_run(**self.off_policy_tinygrad_inputs).contiguous().realize().uop.base.buffer.numpy()
+      self.off_policy_output = self.off_policy_run(**self.off_policy_tinygrad_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
       off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
       combined_outputs_dict.update(off_policy_outputs_dict)
 
-    # off-policy의 plan + policy의 planplus 합산 (commaai off-policy-model 방식)
+    # off-policy의 plan + policy의 planplus 합산
     if 'planplus' in combined_outputs_dict and 'plan' in combined_outputs_dict:
       combined_outputs_dict['plan'] = combined_outputs_dict['plan'] + RECOVERY_POWER * combined_outputs_dict['planplus']
     elif 'planplus' in combined_outputs_dict and 'plan' not in combined_outputs_dict:
-      # plan이 없고 planplus만 있는 모델 (off-policy v3 등): planplus를 plan으로 사용
       combined_outputs_dict['plan'] = combined_outputs_dict['planplus']
       combined_outputs_dict['plan_stds'] = combined_outputs_dict['planplus_stds']
 
@@ -342,19 +345,14 @@ class ModelState:
 def main(demo=False):
   cloudlog.warning("modeld init")
 
-  sentry.set_tag("daemon", PROCESS_NAME)
-  cloudlog.bind(daemon=PROCESS_NAME)
-  setproctitle(PROCESS_NAME)
   if not USBGPU:
     # USB GPU currently saturates a core so can't do this yet,
     # also need to move the aux USB interrupts for good timings
     config_realtime_process(7, 54)
 
   st = time.monotonic()
-  cloudlog.warning("setting up CL context")
-  cl_context = CLContext()
-  cloudlog.warning("CL context ready; loading model")
-  model = ModelState(cl_context)
+  cloudlog.warning("loading model")
+  model = ModelState()
   cloudlog.warning(f"models loaded in {time.monotonic() - st:.1f}s, modeld starting")
 
   # visionipc clients
@@ -367,8 +365,8 @@ def main(demo=False):
     time.sleep(.1)
 
   vipc_client_main_stream = VisionStreamType.VISION_STREAM_WIDE_ROAD if main_wide_camera else VisionStreamType.VISION_STREAM_ROAD
-  vipc_client_main = VisionIpcClient("camerad", vipc_client_main_stream, True, cl_context)
-  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False, cl_context)
+  vipc_client_main = VisionIpcClient("camerad", vipc_client_main_stream, True)
+  vipc_client_extra = VisionIpcClient("camerad", VisionStreamType.VISION_STREAM_WIDE_ROAD, False)
   cloudlog.warning(f"vision stream set up, main_wide_camera: {main_wide_camera}, use_extra_client: {use_extra_client}")
 
   while not vipc_client_main.connect(False):
@@ -549,6 +547,8 @@ def main(demo=False):
       modelv2_send.modelV2.meta.modelTurnSpeed = float(DH.model_turn_speed)
       modelv2_send.modelV2.meta.laneChangeAvailableLeft = DH.lane_change_available_left
       modelv2_send.modelV2.meta.laneChangeAvailableRight = DH.lane_change_available_right
+      mt3 = time.perf_counter()
+      drivingdata_send.drivingModelData.modelExecutionTime = mt3 - mt1
 
       fill_pose_msg(posenet_send, model_output, meta_main.frame_id, vipc_dropped_frames, meta_main.timestamp_eof, live_calib_seen)
       pm.send('modelV2', modelv2_send)
@@ -565,7 +565,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(demo=args.demo)
   except KeyboardInterrupt:
-    cloudlog.warning(f"child {PROCESS_NAME} got SIGINT")
-  except Exception:
-    sentry.capture_exception()
-    raise
+    cloudlog.warning("got SIGINT")

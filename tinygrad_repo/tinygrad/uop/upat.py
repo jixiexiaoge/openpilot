@@ -1,14 +1,14 @@
 from typing import Any, Callable
 import itertools, inspect, functools, types
 from tinygrad.helpers import partition, dedup, Context
-from tinygrad.uop.ops import UPat, UPatAny, UOp, Ops, PatternMatcher, graph_rewrite, deconstruct_function
+from tinygrad.uop.ops import UPat, UOp, Ops, PatternMatcher, graph_rewrite, deconstruct_function
 
 class UPatCompileError(Exception): pass
 
 # **** UPat compiled ****
 
 def _get_clause(self:UPat, base:UOp, depth=0) -> UOp:
-  if isinstance(self, UPatAny):
+  if self.is_any:
     assert len(self.src) == 1
     return UOp(Ops.AND, src=(UOp(Ops.OR, src=tuple(_get_clause(s, base, depth) for s in self.src[0])),))
   # build the and_clause for acceptance
@@ -153,7 +153,8 @@ def _get_code(self:UPat, has_ctx:bool):
 @functools.cache
 def upat_compile(self:UPat, fxn) -> Callable|None:
   real_fxn = types.FunctionType(*deconstruct_function(fxn))
-  code = _get_code(self, 'ctx' in inspect.signature(real_fxn).parameters)
+  # UOps used here don't follow the spec
+  with Context(SPEC=0): code = _get_code(self, 'ctx' in inspect.signature(real_fxn).parameters)
   if code is None: return None
   code_str, dyn_lookup = code
   globs = dyn_lookup.copy()

@@ -213,12 +213,13 @@ class InterleavedDataset:
     self.queues[queue_index].queue.extend(load_file(file))
 
 # Reference: https://github.com/mlcommons/training/blob/1c8a098ae3e70962a4f7422c0b0bd35ae639e357/language_model/tensorflow/bert/run_pretraining.py, Line 394
-def batch_load_train_bert(BS:int):
+def batch_load_train_bert(BS:int, seed:int|None=None):
   from extra.datasets.wikipedia import get_wiki_train_files
+  rng = random.Random(seed)
   fs = sorted(get_wiki_train_files())
   train_files = []
   while fs: # TF shuffle
-    random.shuffle(fs)
+    rng.shuffle(fs)
     train_files.append(fs.pop(0))
 
   cycle_length = min(getenv("NUM_CPU_THREADS", min(os.cpu_count(), 8)), len(train_files))
@@ -511,6 +512,33 @@ def batch_load_retinanet(dataset, val:bool, base_dir:Path, batch_size:int=32, sh
       # happens with BENCHMARK set
       pass
 
+# stable diffusion callbacks to match mlperf ref; declared here because they're pickled
+def filter_dataset(sample:dict): return {k:v for k,v in sample.items() if k in {'npy', 'txt'}}
+def collate(batch:list[dict]):
+  ret = {"npy": [], "txt": [], "__key__": []}
+  for sample in batch:
+    for k,v in sample.items():
+      ret[k].append(v)
+  return ret
+def collate_fn(batch): return batch
+
+# Reference (code): https://github.com/mlcommons/training/blob/2f4a93fb4888180755a8ef55f4b977ef8f60a89e/stable_diffusion/ldm/data/webdatasets.py, Line 55
+# Reference (params): https://github.com/mlcommons/training/blob/ab4ae1ca718d7fe62c369710a316dff18768d04b/stable_diffusion/configs/train_01x08x08.yaml, Line 107
+def batch_load_train_stable_diffusion(urls:str, BS:int):
+  import webdataset
+  dataset = webdataset.WebDataset(urls=urls, resampled=True, cache_size=-1, cache_dir=None)
+  dataset = dataset.shuffle(size=1000)
+  dataset = dataset.decode()
+  dataset = dataset.map(filter_dataset)
+  dataset = dataset.batched(BS, partial=False, collation_fn=collate)
+  dataset = webdataset.WebLoader(dataset, batch_size=None, shuffle=False, num_workers=1, persistent_workers=True, collate_fn=collate_fn)
+
+  for x in dataset:
+    assert isinstance(x, dict) and all(isinstance(k, str) for k in x.keys()) and all(isinstance(v, list) for v in x.values())
+    assert all(isinstance(moment_mean_logvar, np.ndarray) and moment_mean_logvar.shape==(1,8,64,64) for moment_mean_logvar in x["npy"])
+    assert all(isinstance(caption, str) for caption in x["txt"])
+    yield x
+
 # llama3
 
 class BinIdxDataset:
@@ -736,48 +764,26 @@ class BlendedGPTDataset:
 
     return dataset_idx, dataset_sample_idx
 
-def batch_load_llama3(bs:int, samples:int, seqlen:int, base_dir:Path, seed:int=0, val:bool=True):
+def get_llama3_dataset(samples:int, seqlen:int, base_dir:Path, seed:int=0, val:bool=True, small:bool=False) -> BlendedGPTDataset:
+  if small:
+    if val:
+      return BlendedGPTDataset(
+        [base_dir / "c4-validation-91205-samples.en_text_document"], [1.0], samples, seqlen, seed, shuffle=False)
+    return BlendedGPTDataset(
+      [base_dir / "c4-train.en_6_text_document"], [1.0], samples, seqlen, seed, shuffle=True)
   if val:
-    dataset = BlendedGPTDataset([
-      base_dir / "validation" / "c4-validationn-91205-samples.en_text_document",
-    ], [
-      1.0
-    ], samples, seqlen, seed, False)
-  else:
-    dataset = BlendedGPTDataset([
-      base_dir / "c4-train.en_6_text_document",
-      base_dir / "c4-train.en_7_text_document",
-    ], [
-      1.0, 1.0
-    ], samples, seqlen, seed, True)
+    return BlendedGPTDataset(
+      [base_dir / "validation" / "c4-validationn-91205-samples.en_text_document"], [1.0], samples, seqlen, seed, shuffle=False)
+  return BlendedGPTDataset(
+    [base_dir / "c4-train.en_6_text_document", base_dir / "c4-train.en_7_text_document"], [1.0, 1.0], samples, seqlen, seed, shuffle=True)
 
-  for b in range(math.ceil(samples / bs)):
-    batch = []
-    for i in range(bs):
-      tokens = dataset.get(b * bs + i)
-      batch.append(tokens)
+def iterate_llama3_dataset(dataset:BlendedGPTDataset, bs:int):
+  for b in range(math.ceil(dataset.samples / bs)):
+    batch = [dataset.get(b * bs + i) for i in range(bs)]
     yield Tensor.stack(batch, dim=0)
 
-def batch_load_llama3_small(bs:int, samples:int, seqlen:int, base_dir:Path, seed:int=0, val:bool=True):
-  if val:
-    dataset = BlendedGPTDataset([
-      base_dir / "c4-validation-91205-samples.en_text_document",
-    ], [
-      1.0
-    ], samples, seqlen, seed, False)
-  else:
-    dataset = BlendedGPTDataset([
-      base_dir / "c4-train.en_6_text_document",
-    ], [
-      1.0
-    ], samples, seqlen, seed, True)
-
-  for b in range(math.ceil(samples / bs)):
-    batch = []
-    for i in range(bs):
-      tokens = dataset.get(b * bs + i)
-      batch.append(tokens)
-    yield Tensor.stack(batch, dim=0)
+def batch_load_llama3(bs:int, samples:int, seqlen:int, base_dir:Path, seed:int=0, val:bool=True, small:bool=False):
+  return iterate_llama3_dataset(get_llama3_dataset(samples, seqlen, base_dir, seed, val, small), bs)
 
 if __name__ == "__main__":
   def load_unet3d(val):

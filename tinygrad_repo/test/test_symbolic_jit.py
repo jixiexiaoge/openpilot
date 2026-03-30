@@ -2,7 +2,7 @@ import unittest
 
 from test.helpers import assert_jit_cache_len
 from tinygrad import Variable, Tensor, TinyJit
-from tinygrad.helpers import RANGEIFY
+from tinygrad.engine.jit import JitError
 import numpy as np
 
 class TestSymbolicJit(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestSymbolicJit(unittest.TestCase):
       symbolic = jf(a[:, :vi]).numpy()
       expected = f(a[:, :i]).numpy()
       np.testing.assert_allclose(symbolic, expected, atol=1e-6, rtol=1e-6)
-    assert_jit_cache_len(jf, 1 if RANGEIFY else 2) # one add and one pad, can be one kernel?
+    assert_jit_cache_len(jf, 1)
 
   def test_add(self):
     def f(a, b): return (a+b).realize()
@@ -80,7 +80,7 @@ class TestSymbolicJit(unittest.TestCase):
       symbolic = jf(q, k[:, :vi], v[:, :vi])[:2, :4, :1, :8].numpy()
       expected = f(q, k[:, :i], v[:, :i]).numpy()
       np.testing.assert_allclose(symbolic, expected, atol=1e-6, rtol=1e-6)
-    assert_jit_cache_len(jf, 4 if RANGEIFY else 5)
+    assert_jit_cache_len(jf, 4)
 
   def test_cat_dim0(self):
     def f(a, b): return a.cat(b, dim=0).realize()
@@ -173,7 +173,7 @@ class TestSymbolicJit(unittest.TestCase):
     vi2 = Variable("i", 1, 10).bind(7)
     a = Tensor.rand(3, 7)[:, :vi2]
     bad = Tensor.rand(4, 7)[:, :vi2]
-    with self.assertRaises(AssertionError):
+    with self.assertRaises(JitError):
       add(a, bad)
 
   def test_shrink(self):
@@ -217,7 +217,7 @@ class TestSymbolicJit(unittest.TestCase):
   def test_ones_sum(self):
     def f(a): return a.sum().realize()
     jf = TinyJit(f)
-    t = Tensor.ones(10)
+    t = Tensor.ones(10).contiguous()
     for i in range(1, 5):
       vi = Variable("i", 1, 10).bind(i)
       symbolic = jf(t[:vi]).item()
