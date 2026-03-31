@@ -40,6 +40,10 @@ def compile_model(model_dir: Path, model_name: str) -> bool:
     # 1. Generate metadata
     write_status(f"compiling:{model_name} metadata")
     env = os.environ.copy()
+    env["DEV"] = "QCOM"
+    env["FLOAT16"] = "1"
+    env["NOLOCALS"] = "1"
+    env["JIT_BATCH_SIZE"] = "0"
     result = subprocess.run(
         ["python3", str(metadata_script), str(onnx_path), str(meta_path)],
         cwd=str(OPENPILOT_DIR),
@@ -52,8 +56,7 @@ def compile_model(model_dir: Path, model_name: str) -> bool:
 
     # 2. Compile with tinygrad
     write_status(f"compiling:{model_name} tinygrad")
-    env["DEV"] = "QCOM"
-    env["FLOAT16"] = "1"
+    env["IMAGE"] = "2"
     result = subprocess.run(
         ["python3", str(tinygrad_compiler), str(onnx_path), str(pkl_path)],
         cwd=str(OPENPILOT_DIR),
@@ -63,6 +66,35 @@ def compile_model(model_dir: Path, model_name: str) -> bool:
     if result.returncode != 0:
         write_status(f"error:Compilation failed for {model_name}: {result.stderr.decode()}")
         return False
+
+    return True
+
+
+def compile_warp(model_dir: Path) -> bool:
+    """Compile warp pkl files for all camera resolutions"""
+    write_status("compiling:warp transform")
+    compile_warp_script = OPENPILOT_DIR / "selfdrive/modeld/compile_warp.py"
+    env = os.environ.copy()
+    env["DEV"] = "QCOM"
+    env["FLOAT16"] = "1"
+    env["NOLOCALS"] = "1"
+    env["JIT_BATCH_SIZE"] = "0"
+    result = subprocess.run(
+        ["python3", str(compile_warp_script)],
+        cwd=str(OPENPILOT_DIR),
+        env=env,
+        capture_output=True
+    )
+    if result.returncode != 0:
+        write_status(f"error:Warp compilation failed: {result.stderr.decode()}")
+        return False
+
+    # warp pkl을 커스텀 모델 디렉토리에 복사
+    builtin_models = OPENPILOT_DIR / "selfdrive/modeld/models"
+    for warp_file in builtin_models.glob("warp_*_tinygrad.pkl"):
+        shutil.copy2(warp_file, model_dir / warp_file.name)
+    for dm_warp_file in builtin_models.glob("dm_warp_*_tinygrad.pkl"):
+        shutil.copy2(dm_warp_file, model_dir / dm_warp_file.name)
 
     return True
 
@@ -130,6 +162,11 @@ def main():
             if not compile_model(model_tmp_dir, model_name):
                 shutil.rmtree(model_tmp_dir, ignore_errors=True)
                 sys.exit(1)
+
+        # Compile warp transform
+        if not compile_warp(model_tmp_dir):
+            shutil.rmtree(model_tmp_dir, ignore_errors=True)
+            sys.exit(1)
 
         # Install model
         if not install_model(model_tmp_dir, display_name):
