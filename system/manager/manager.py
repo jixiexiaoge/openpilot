@@ -254,6 +254,9 @@ def compile_pending_model() -> None:
     env = os.environ.copy()
     env["DEV"] = "QCOM"
     env["FLOAT16"] = "1"
+    env["NOLOCALS"] = "1"
+    env["JIT_BATCH_SIZE"] = "0"
+    env["IMAGE"] = "2"
 
     # off-policy 모델이 있으면 함께 컴파일
     model_names = ["driving_vision", "driving_policy"]
