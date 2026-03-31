@@ -294,8 +294,6 @@ def compile_pending_model() -> None:
     builtin_models = Path(f"{openpilot_dir}/selfdrive/modeld/models")
     for warp_file in builtin_models.glob("warp_*_tinygrad.pkl"):
       shutil.copy2(warp_file, MODELS_TMP_DIR / warp_file.name)
-    for dm_warp_file in builtin_models.glob("dm_warp_*_tinygrad.pkl"):
-      shutil.copy2(dm_warp_file, MODELS_TMP_DIR / dm_warp_file.name)
 
     # Install: backup → swap → cleanup
     cloudlog.warning("model_compile: Installing model...")
