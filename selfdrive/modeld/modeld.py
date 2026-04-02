@@ -67,11 +67,21 @@ def get_model_paths():
         cloudlog.info("Using default built-in model")
         base = DEFAULT_MODEL_PATH
 
+    # on_policy 네이밍 우선 탐색, 없으면 기존 policy 네이밍
+    on_policy_pkl = base / 'driving_on_policy_tinygrad.pkl'
+    on_policy_meta = base / 'driving_on_policy_metadata.pkl'
+    if on_policy_pkl.exists() and on_policy_meta.exists():
+        policy_pkl = on_policy_pkl
+        policy_meta = on_policy_meta
+    else:
+        policy_pkl = base / 'driving_policy_tinygrad.pkl'
+        policy_meta = base / 'driving_policy_metadata.pkl'
+
     paths = {
         'vision_pkl': base / 'driving_vision_tinygrad.pkl',
-        'policy_pkl': base / 'driving_policy_tinygrad.pkl',
+        'policy_pkl': policy_pkl,
         'vision_meta': base / 'driving_vision_metadata.pkl',
-        'policy_meta': base / 'driving_policy_metadata.pkl',
+        'policy_meta': policy_meta,
         'models_dir': base,
     }
 
