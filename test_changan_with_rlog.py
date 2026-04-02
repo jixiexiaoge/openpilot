@@ -363,7 +363,7 @@ class ChanganRLogTester:
             for msg in can_msgs:
                 timestamp = msg.logMonoTime
                 for can_data in msg.can:
-                    can_packets_by_time[timestamp].append((can_data.address, can_data.busTime, can_data.dat, can_data.src))
+                    can_packets_by_time[timestamp].append((can_data.address, bytes(can_data.dat), can_data.src))
 
             print(f"按时间分组: {len(can_packets_by_time)} 个时间点")
 
@@ -386,16 +386,12 @@ class ChanganRLogTester:
             for ts in sorted(can_packets_by_time.keys())[:1000]:  # Sample first 1000 time points
                 try:
                     # Update CAN parsers with messages at this timestamp
-                    can_strings = []
-                    for addr, bus_time, dat, src in can_packets_by_time[ts]:
-                        can_strings.append((addr, bus_time, dat, src))
+                    frames = can_packets_by_time[ts]
+                    can_strings = [(ts, frames)]
 
                     # Update parsers
                     for parser_bus, parser in can_parsers.items():
-                        # Filter messages for this bus
-                        bus_msgs = [(addr, bus_time, dat) for addr, bus_time, dat, src in can_strings if src == parser_bus]
-                        if bus_msgs:
-                            parser.update_strings(bus_msgs)
+                        parser.update(can_strings)
 
                     # Now update CarState
                     car_state_ret = self.car_state.update(can_parsers)
