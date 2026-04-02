@@ -254,8 +254,6 @@ class ModelState:
         self.off_policy_output_slices = off_policy_metadata['output_slices']
         off_policy_output_size = off_policy_metadata['output_shapes']['outputs'][1]
       self.off_policy_output = np.zeros(off_policy_output_size, dtype=np.float32)
-      self.off_policy_numpy_inputs = {k: np.zeros(self.off_policy_input_shapes[k], dtype=np.float32) for k in self.off_policy_input_shapes}
-      self.off_policy_tinygrad_inputs = {k: Tensor(v, device='NPY').realize() for k, v in self.off_policy_numpy_inputs.items()}
       cloudlog.info(f"Off-policy model loaded: output_size={off_policy_output_size}, inputs={list(self.off_policy_input_shapes.keys())}")
 
     self.parser = Parser()
@@ -318,16 +316,16 @@ class ModelState:
 
     self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
     policy_outputs_dict = self.parser.parse_policy_outputs(self.slice_outputs(self.policy_output, self.policy_output_slices))
-    combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
 
     # off-policy 모델 실행 (있을 때만)
     if self.has_off_policy:
-      for k in self.off_policy_numpy_inputs:
-        if k in self.numpy_inputs:
-          self.off_policy_numpy_inputs[k][:] = self.numpy_inputs[k]
-      self.off_policy_output = self.off_policy_run(**self.off_policy_tinygrad_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
+      self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
       off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
-      combined_outputs_dict.update(off_policy_outputs_dict)
+      off_policy_outputs_dict.pop('plan')  # off-policy의 plan은 버린다
+      # 합성 순서: vision → off_policy → policy (policy가 최종 덮어쓰기)
+      combined_outputs_dict = {**vision_outputs_dict, **off_policy_outputs_dict, **policy_outputs_dict}
+    else:
+      combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
 
     # off-policy의 plan + policy의 planplus 합산
     if 'planplus' in combined_outputs_dict and 'plan' in combined_outputs_dict:
