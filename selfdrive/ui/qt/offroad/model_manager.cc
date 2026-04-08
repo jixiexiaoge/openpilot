@@ -37,18 +37,20 @@ namespace {
 constexpr int ED25519_PUBLIC_KEY_LEN = 32;
 constexpr int ED25519_SIGNATURE_LEN = 64;
 
-const QStringList REQUIRED_MODEL_FILES = {
-  "driving_vision_tinygrad.pkl",
-  "driving_policy_tinygrad.pkl",
-  "driving_vision_metadata.pkl",
-  "driving_policy_metadata.pkl",
-};
-
 bool hasValidCustomModel(const QString &dir) {
-  for (const QString &filename : REQUIRED_MODEL_FILES) {
-    QFileInfo fi(dir + "/" + filename);
-    if (!fi.exists() || fi.size() <= 0) return false;
-  }
+  // vision 필수
+  QFileInfo vision_pkl(dir + "/driving_vision_tinygrad.pkl");
+  QFileInfo vision_meta(dir + "/driving_vision_metadata.pkl");
+  if (!vision_pkl.exists() || vision_pkl.size() <= 0) return false;
+  if (!vision_meta.exists() || vision_meta.size() <= 0) return false;
+
+  // policy: on_policy 또는 policy 둘 중 하나 필요
+  bool has_on_policy = QFileInfo(dir + "/driving_on_policy_tinygrad.pkl").exists() &&
+                       QFileInfo(dir + "/driving_on_policy_metadata.pkl").exists();
+  bool has_policy = QFileInfo(dir + "/driving_policy_tinygrad.pkl").exists() &&
+                    QFileInfo(dir + "/driving_policy_metadata.pkl").exists();
+  if (!has_on_policy && !has_policy) return false;
+
   return true;
 }
 
@@ -923,7 +925,8 @@ bool ModelManagerDialog::isValidFilename(const QString &filename) {
   static QStringList allowedFiles = {
       "driving_policy.onnx",
       "driving_vision.onnx",
-      "driving_off_policy.onnx"
+      "driving_off_policy.onnx",
+      "driving_on_policy.onnx"
   };
   return allowedFiles.contains(filename);
 }

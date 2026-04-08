@@ -228,11 +228,14 @@ def compile_pending_model() -> None:
   if not MODELS_TMP_DIR.exists():
     return
 
-  # Check if ONNX files exist
+  # Check if ONNX files exist (on_policy 또는 policy 둘 중 하나 필요)
   vision_onnx = MODELS_TMP_DIR / "driving_vision.onnx"
+  on_policy_onnx = MODELS_TMP_DIR / "driving_on_policy.onnx"
   policy_onnx = MODELS_TMP_DIR / "driving_policy.onnx"
+  has_on_policy = on_policy_onnx.exists()
+  has_policy = policy_onnx.exists()
 
-  if not vision_onnx.exists() or not policy_onnx.exists():
+  if not vision_onnx.exists() or not (has_policy or has_on_policy):
     cloudlog.warning("model_compile: ONNX files not found, cleaning up")
     shutil.rmtree(MODELS_TMP_DIR, ignore_errors=True)
     return
@@ -258,12 +261,21 @@ def compile_pending_model() -> None:
     env["JIT_BATCH_SIZE"] = "0"
     env["IMAGE"] = "2"
 
+    # on_policy가 있으면 on_policy 사용, 아니면 기존 policy
+    model_names = ["driving_vision"]
+    if has_on_policy:
+      model_names.append("driving_on_policy")
+      cloudlog.warning("model_compile: on_policy model detected")
+    else:
+      model_names.append("driving_policy")
+
     # off-policy 모델이 있으면 함께 컴파일
-    model_names = ["driving_vision", "driving_policy"]
     off_policy_onnx = MODELS_TMP_DIR / "driving_off_policy.onnx"
     if off_policy_onnx.exists():
       model_names.append("driving_off_policy")
-      cloudlog.warning("model_compile: Off-policy model detected, will compile 3 models")
+      cloudlog.warning("model_compile: Off-policy model detected")
+
+    cloudlog.warning(f"model_compile: Will compile {len(model_names)} models: {model_names}")
 
     for model in model_names:
       onnx_path = str(MODELS_TMP_DIR / f"{model}.onnx")

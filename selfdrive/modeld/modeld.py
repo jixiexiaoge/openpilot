@@ -38,24 +38,22 @@ SEND_RAW_PRED = os.getenv('SEND_RAW_PRED')
 CUSTOM_MODEL_PATH = Path('/data/models')
 DEFAULT_MODEL_PATH = Path(__file__).parent / 'models'
 
-# 모델에 필요한 필수 파일 목록
-REQUIRED_MODEL_FILES = [
-    'driving_vision_tinygrad.pkl',
-    'driving_policy_tinygrad.pkl',
-    'driving_vision_metadata.pkl',
-    'driving_policy_metadata.pkl',
-]
-
 def validate_model_files(base: Path) -> bool:
-    """모델 디렉토리의 4개 필수 파일 모두 존재하는지 검증"""
-    for filename in REQUIRED_MODEL_FILES:
-        filepath = base / filename
-        if not filepath.exists():
-            cloudlog.warning(f"Model file missing: {filepath}")
+    """모델 디렉토리의 필수 파일 존재 검증 (on_policy 또는 policy 허용)"""
+    # vision 필수
+    for f in ['driving_vision_tinygrad.pkl', 'driving_vision_metadata.pkl']:
+        fp = base / f
+        if not fp.exists() or fp.stat().st_size == 0:
+            cloudlog.warning(f"Model file missing or empty: {fp}")
             return False
-        if filepath.stat().st_size == 0:
-            cloudlog.warning(f"Model file empty: {filepath}")
-            return False
+    # policy: on_policy 또는 policy 둘 중 하나
+    has_on_policy = (base / 'driving_on_policy_tinygrad.pkl').exists() and \
+                    (base / 'driving_on_policy_metadata.pkl').exists()
+    has_policy = (base / 'driving_policy_tinygrad.pkl').exists() and \
+                 (base / 'driving_policy_metadata.pkl').exists()
+    if not has_on_policy and not has_policy:
+        cloudlog.warning(f"No policy model found in {base}")
+        return False
     return True
 
 def get_model_paths():
