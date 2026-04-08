@@ -1,11 +1,11 @@
-import random
+import random, sys
 import z3
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.uop.validate import uops_to_z3
 from tinygrad.helpers import DEBUG, Context, colored
 
-seed = random.randint(0, 100)
-print(f"Seed: {seed}")
+seed = int(sys.argv[1]) if len(sys.argv) > 1 else random.randint(0, 100)
+print(f"Seed: {seed}", flush=True)
 random.seed(seed)
 
 def get_random_term(ranges, factors):
@@ -15,7 +15,7 @@ def get_random_term(ranges, factors):
 
 def get_random_expr(ranges, factors):
   num_terms = random.randint(2,4)
-  x = UOp.sum(*[get_random_term(ranges, factors) for _ in range(num_terms)])
+  x = UOp.usum(*[get_random_term(ranges, factors) for _ in range(num_terms)])
   return x.alu(random.choice([Ops.IDIV, Ops.MOD]), x.ufix(random.choice(factors)*random.choice([1, 1, 1, -1])))
 
 if __name__ == "__main__":

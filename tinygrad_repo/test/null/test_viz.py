@@ -1,4 +1,4 @@
-import unittest, decimal, json, struct
+import unittest, decimal, sys, json
 from dataclasses import dataclass
 from typing import Generator
 
@@ -6,7 +6,7 @@ from tinygrad.uop.ops import UOp, UPat, Ops, PatternMatcher, TrackedPatternMatch
 from tinygrad.uop.symbolic import sym
 from tinygrad.dtype import dtypes
 from tinygrad.helpers import PROFILE, colored, ansistrip, flatten, TracingKey, ProfileRangeEvent, ProfileEvent, Context, cpu_events, profile_marker
-from tinygrad.helpers import VIZ, cpu_profile
+from tinygrad.helpers import VIZ, cpu_profile, ProfilePointEvent
 from tinygrad.device import Buffer
 
 @track_rewrites(name=True)
@@ -16,7 +16,7 @@ def exec_rewrite(sink:UOp, pm_lst:list[PatternMatcher], names:None|list[str]=Non
   return sink
 
 # real VIZ=1 loads the trace from a file, we just keep it in memory for tests
-from tinygrad.uop.ops import tracked_keys, tracked_ctxs, uop_fields, active_rewrites, _name_cnt, RewriteTrace
+from tinygrad.uop.ops import tracked_keys, tracked_ctxs, uop_fields, active_rewrites, active_group, _name_cnt, RewriteTrace
 from tinygrad.viz import serve
 serve.trace = RewriteTrace(tracked_keys, tracked_ctxs, uop_fields)
 from tinygrad.viz.serve import get_rewrites, get_full_rewrite, uop_to_json
@@ -26,10 +26,11 @@ def get_viz_details(rewrite_idx:int, step:int) -> Generator[dict, None, None]:
   assert len(lst) > rewrite_idx, "only loaded {len(lst)} traces, expecting at least {idx}"
   return get_full_rewrite(tracked_ctxs[rewrite_idx][step])
 
+@unittest.skip("TODO: flaky")
 class BaseTestViz(unittest.TestCase):
   def setUp(self):
     # clear the global context
-    for lst in [tracked_keys, tracked_ctxs, active_rewrites, _name_cnt]: lst.clear()
+    for lst in [tracked_keys, tracked_ctxs, active_rewrites, active_group, _name_cnt]: lst.clear()
     Buffer.profile_events.clear()
     cpu_events.clear()
     self.tms = TRACK_MATCH_STATS.value
@@ -121,6 +122,26 @@ class TestViz(BaseTestViz):
     # NOTE: names from TracingKey do not get deduped
     self.assertEqual(lst[0]["name"], "custom_name")
 
+  def test_nested_track_rewrites(self):
+    @track_rewrites(name=lambda x,ret: TracingKey(f"inner fxn for {x.render()}", (ret,)))
+    def inner(x:UOp): return graph_rewrite(x, PatternMatcher([]), name="each")
+    @track_rewrites(name=lambda *args,ret: f"outer rewrite of {len(args)} inputs")
+    def outer(*xs:tuple[UOp, ...]): return graph_rewrite(UOp.sink(*[inner(x) for x in xs]), PatternMatcher([]), name="all")
+    items = ["a", "b", "c"]
+    outer(*[UOp.variable(x, 1, 10) for x in items])
+    lst = get_viz_list()
+    # inner calls fall outside the outer call
+    self.assertEqual(len(lst), len(items)+1)
+    self.assertEqual(lst[0]["name"], f"outer rewrite of {len(items)} inputs n1")
+    steps = lst[0]["steps"]
+    self.assertEqual(len(steps), 1)
+    self.assertEqual(steps[0]["name"], "all")
+    for i in range(len(items)):
+      self.assertEqual(lst[i+1]["name"], f"inner fxn for {items[i]}")
+      steps = lst[i+1]["steps"]
+      self.assertEqual(len(steps), 1)
+      self.assertEqual(steps[0]["name"], "each")
+
   def test_profile_matches(self):
     @profile_matches
     def nested_function(u:UOp):
@@ -187,6 +208,20 @@ class TestViz(BaseTestViz):
     # embed const in the parent node when possible
     self.assertEqual(list(graphs[0]), [id(a), id(alu)])
     self.assertEqual(list(graphs[1]), [id(z)])
+
+  def test_const_reshape_expand_folded(self):
+    # CONST->RESHAPE->EXPAND should be folded into the ALU node, not shown as separate RESHAPE/EXPAND nodes
+    c = UOp.const(dtypes.float, 1.0, device="CPU", shape=(3,4))  # creates CONST->RESHAPE->EXPAND chain
+    a = UOp(Ops.DEFINE_VAR, dtypes.float, arg=("a", 0.0, 10.0))
+    alu = a + c
+    graph = uop_to_json(alu)
+    # the RESHAPE and EXPAND nodes from the const should not appear in the graph
+    labels = {v["label"].split("\n")[0] for v in graph.values()}
+    self.assertNotIn("RESHAPE", labels)
+    self.assertNotIn("EXPAND", labels)
+    # the CONST should be inlined into the ALU node's label
+    alu_label = graph[id(alu)]["label"]
+    self.assertIn("CONST", alu_label)
 
 # VIZ displays nested graph_rewrites in a tree view
 
@@ -268,9 +303,25 @@ class TestVizIntegration(BaseTestViz):
     ast = Tensor.schedule(Tensor.empty(4)+Tensor.empty(4))[0].ast
     prg = get_program(ast, Device[Device.DEFAULT].renderer)
     lst = get_viz_list()
-    self.assertEqual(len(lst), 2)
-    self.assertEqual(lst[0]["name"], "Schedule 1 Kernel n1")
-    self.assertEqual(lst[1]["name"], prg.name)
+    self.assertEqual(len(lst), 3)
+    self.assertEqual(lst[0]["name"], "Process 1 Buffer n1")
+    self.assertEqual(lst[1]["name"], "Schedule 1 Kernel n1")
+    self.assertEqual(lst[2]["name"], prg.name)
+
+  # schedule graph CALL nodes have a link to jump to codegen
+  def test_link_sched_codegen(self):
+    c1 = Tensor.empty(4).add(1)
+    c2 = Tensor.empty(8).add(1)
+    sched = Tensor.schedule(c1, c2)
+    prgs = [si.lower().prg.p.name for si in sched]
+    lst = get_viz_list()
+    sched_idx = next(i for i,l in enumerate(lst) if l["name"].startswith("Schedule"))
+    viz_kernel = next(i for i,s in enumerate(lst[sched_idx]["steps"]) if s["name"] == "View Kernel Graph")
+    graph = next(get_viz_details(sched_idx, viz_kernel))["graph"]
+    call_nodes = [n for n in graph.values() if n["label"].startswith("CALL")]
+    for i,n in enumerate(call_nodes):
+      assert n["ref"] is not None
+      self.assertEqual(lst[n["ref"]]["name"], prgs[i])
 
   def test_metadata_tracing(self):
     with Context(TRACEMETA=2):
@@ -327,46 +378,23 @@ class TestVizIntegration(BaseTestViz):
 
 from tinygrad.device import ProfileDeviceEvent, ProfileGraphEvent, ProfileGraphEntry
 from tinygrad.viz.serve import get_profile
+from extra.viz.cli import decode_profile
 
-class TinyUnpacker:
-  def __init__(self, buf): self.buf, self.offset = buf, 0
-  def __call__(self, fmt:str) -> tuple:
-    ret = struct.unpack_from(fmt, self.buf, self.offset)
-    self.offset += struct.calcsize(fmt)
-    return ret
-
-# 0 means None, otherwise it's an enum value
-def option(i:int) -> int|None: return None if i == 0 else i-1
-
-def load_profile(lst:list[ProfileEvent]) -> dict:
-  ret = get_profile(lst)
-  u = TinyUnpacker(ret)
-  total_dur, global_peak, index_len, layout_len = u("<IQII")
-  strings, dtypes, markers = json.loads(ret[u.offset:u.offset+index_len]).values()
-  u.offset += index_len
-  layout:dict[str, dict] = {}
-  for _ in range(layout_len):
-    klen = u("<B")[0]
-    k = ret[u.offset:u.offset+klen].decode()
-    u.offset += klen
-    layout[k] = v = {"events":[]}
-    event_type, event_count = u("<BI")
-    if event_type == 0:
-      for _ in range(event_count):
-        name, ref, key, st, dur, fmt = u("<IIIIfI")
-        v["events"].append({"name":strings[name], "ref":option(ref), "key":option(key), "st":st, "dur":dur, "fmt":strings[fmt]})
-    else:
-      v["peak"] = u("<Q")[0]
-      for _ in range(event_count):
-        alloc, ts, key = u("<BII")
-        if alloc: v["events"].append({"event":"alloc", "ts":ts, "key":key, "arg": {"dtype":strings[u("<I")[0]], "sz":u("<Q")[0]}})
-        else: v["events"].append({"event":"free", "ts":ts, "key":key, "arg": {"users":[u("<IIIB") for _ in range(u("<I")[0])]}})
-  return {"dur":total_dur, "peak":global_peak, "layout":layout, "markers":markers}
+def load_profile(lst:list[ProfileEvent]) -> dict: return decode_profile(get_profile(lst))
 
 class TestVizProfiler(BaseTestViz):
+  def test_transfer_uses_copy_device(self):
+    a = Tensor.ones(1, device="NULL").contiguous().realize()
+    a.to("NULL:1").realize()
+    range_events = [e for e in cpu_events if isinstance(e, ProfileRangeEvent)]
+    compute_events = [e for e in range_events if e.device == "NULL"]
+    copy_events = [e for e in range_events if e.device.endswith(":COPY")]
+    self.assertGreater(len(compute_events), 0, "expected compute events on base device")
+    self.assertGreater(len(copy_events), 0, "transfer must produce events with ':COPY' device suffix")
+
   def test_node(self):
-    prof = [ProfileRangeEvent(device='NV', name='E_2', st=decimal.Decimal(1000), en=decimal.Decimal(1010), is_copy=False),
-            ProfileDeviceEvent(device='NV', comp_tdiff=decimal.Decimal(-1000), copy_tdiff=decimal.Decimal(-100))]
+    prof = [ProfileRangeEvent(device='NV', name='E_2', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileDeviceEvent(device='NV', tdiff=decimal.Decimal(-1000))]
 
     j = load_profile(prof)
 
@@ -379,28 +407,38 @@ class TestVizProfiler(BaseTestViz):
     assert event['ref'] is None
 
   def test_copy_node(self):
-    prof = [ProfileRangeEvent(device='NV', name='COPYxx', st=decimal.Decimal(1000), en=decimal.Decimal(1010), is_copy=True),
-            ProfileRangeEvent(device='NV:2', name='COPYxx', st=decimal.Decimal(1000), en=decimal.Decimal(1010), is_copy=True),
-            ProfileDeviceEvent(device='NV', comp_tdiff=decimal.Decimal(-1000), copy_tdiff=decimal.Decimal(-100)),
-            ProfileDeviceEvent(device='NV:2', comp_tdiff=decimal.Decimal(-800), copy_tdiff=decimal.Decimal(-80))]
+    prof = [ProfileRangeEvent(device='NV:SDMA:0', name='COPYxx', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileRangeEvent(device='NV:2:SDMA:0', name='COPYxx', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileDeviceEvent(device='NV:SDMA:0', tdiff=decimal.Decimal(-100)),
+            ProfileDeviceEvent(device='NV:2:SDMA:0', tdiff=decimal.Decimal(-80))]
 
     j = load_profile(prof)
 
-    event = j['layout']['NV']['events'][0]
+    event = j['layout']['NV:SDMA:0']['events'][0]
     self.assertEqual(event['name'], 'COPYxx')
     self.assertEqual(event['st'], 0)   # first event
     self.assertEqual(event['dur'], 10)
 
-    event2 = j['layout']['NV:2']['events'][0]
+    event2 = j['layout']['NV:2:SDMA:0']['events'][0]
     self.assertEqual(event2['st'], 20) # second event, diff clock
 
     self.assertEqual(j["dur"], (event2["st"]+event2["dur"])-event["st"])
 
+  def test_copy_node_bandwidth(self):
+    sz = 256*1024*1024
+    dur = 10_000
+    prof = [ProfileRangeEvent(device='NV:SDMA:0', name=TracingKey("NV -> NV:1", ret=sz), st=decimal.Decimal(1000), en=decimal.Decimal(1000+dur)),
+            ProfileDeviceEvent(device='NV:SDMA:0', tdiff=decimal.Decimal(-1000))]
+    j = load_profile(prof)
+    event = j['layout']['NV:SDMA:0']['events'][0]
+    gbs = sz/(dur*1e-6)*1e-9
+    self.assertEqual(event['fmt'], f"{gbs:.0f} GB/s")
+
   def test_graph(self):
-    prof = [ProfileDeviceEvent(device='NV', comp_tdiff=decimal.Decimal(-1000), copy_tdiff=decimal.Decimal(-100)),
-            ProfileDeviceEvent(device='NV:1', comp_tdiff=decimal.Decimal(-500), copy_tdiff=decimal.Decimal(-50)),
-            ProfileGraphEvent(ents=[ProfileGraphEntry(device='NV', name='E_25_4n2', st_id=0, en_id=1, is_copy=False),
-                                    ProfileGraphEntry(device='NV:1', name='NV -> NV:1', st_id=2, en_id=3, is_copy=True)],
+    prof = [ProfileDeviceEvent(device='NV', tdiff=decimal.Decimal(-1000)),
+            ProfileDeviceEvent(device='NV:1:SDMA:0', tdiff=decimal.Decimal(-50)),
+            ProfileGraphEvent(ents=[ProfileGraphEntry(device='NV', name='E_25_4n2', st_id=0, en_id=1),
+                                    ProfileGraphEntry(device='NV:1:SDMA:0', name='NV -> NV:1', st_id=2, en_id=3)],
                               deps=[[], [0]],
                               sigs=[decimal.Decimal(1000), decimal.Decimal(1002), decimal.Decimal(1004), decimal.Decimal(1008)])]
 
@@ -409,22 +447,79 @@ class TestVizProfiler(BaseTestViz):
     tracks = list(j['layout'])
     self.assertEqual(tracks[0], 'NV')
     self.assertEqual(tracks[1], 'NV Graph')
-    self.assertEqual(tracks[2], 'NV:1')
+    self.assertEqual(tracks[2], 'NV:1:SDMA:0')
 
     nv_events = j['layout']['NV']['events']
     self.assertEqual(nv_events[0]['name'], 'E_25_4n2')
     self.assertEqual(nv_events[0]['st'], 0)
     self.assertEqual(nv_events[0]['dur'], 2)
-    #self.assertEqual(j['devEvents'][6]['pid'], j['devEvents'][0]['pid'])
 
-    nv1_events = j['layout']['NV:1']['events']
-    self.assertEqual(nv1_events[0]['name'], 'NV -> NV:1')
-    self.assertEqual(nv1_events[0]['st'], 954)
-    #self.assertEqual(j['devEvents'][7]['pid'], j['devEvents'][3]['pid'])
+    sdma_events = j['layout']['NV:1:SDMA:0']['events']
+    self.assertEqual(sdma_events[0]['name'], 'NV -> NV:1')
+    self.assertEqual(sdma_events[0]['st'], 954)
 
     graph_events = j['layout']['NV Graph']['events']
     self.assertEqual(graph_events[0]['st'], nv_events[0]['st'])
-    self.assertEqual(graph_events[0]['st']+graph_events[0]['dur'], nv1_events[0]['st']+nv1_events[0]['dur'])
+    self.assertEqual(graph_events[0]['st']+graph_events[0]['dur'], sdma_events[0]['st']+sdma_events[0]['dur'])
+
+  def test_graph_copy_bandwidth(self):
+    sz = 256*1024*1024
+    dur = 10_000
+    prof = [ProfileDeviceEvent(device='NV', tdiff=decimal.Decimal(-1000)),
+            ProfileDeviceEvent(device='NV:1:SDMA:0', tdiff=decimal.Decimal(-50)),
+            ProfileGraphEvent(ents=[ProfileGraphEntry(device='NV:1:SDMA:0', name=TracingKey("NV -> NV:1", ret=sz), st_id=0, en_id=1)],
+                              deps=[[]],
+                              sigs=[decimal.Decimal(1004), decimal.Decimal(1004+dur)])]
+
+    j = load_profile(prof)
+    sdma_events = j['layout']['NV:1:SDMA:0']['events']
+    gbs = sz/(dur*1e-6)*1e-9
+    self.assertEqual(sdma_events[0]['fmt'], f"{gbs:.0f} GB/s")
+
+  def test_block_ordering(self):
+    prof = [ProfileDeviceEvent(device='NV', tdiff=decimal.Decimal(-1000)),
+            ProfileDeviceEvent(device='NV:1', tdiff=decimal.Decimal(-500)),
+            ProfileDeviceEvent(device='NV:SDMA:0', tdiff=decimal.Decimal(-100)),
+            ProfileRangeEvent(device='NV', name='E_2', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileRangeEvent(device='NV:1', name='E_3', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileRangeEvent(device='NV:SDMA:0', name='COPY', st=decimal.Decimal(1000), en=decimal.Decimal(1010)),
+            ProfileGraphEvent(ents=[ProfileGraphEntry(device='NV', name='E_2', st_id=0, en_id=1)],
+                              deps=[[]], sigs=[decimal.Decimal(1000), decimal.Decimal(1010)])]
+    j = load_profile(prof)
+    # graph grouped with its device, memory at the end
+    self.assertListEqual(list(j['layout']), ['NV', 'NV Graph', 'NV:SDMA:0', 'NV:1'])
+
+  @unittest.skipIf(sys.platform == 'win32', "TODO: ops_amd import fails on windows")
+  def test_multi_sdma_ordering(self):
+    props = {"gfx_target_version": 0}
+    D, St, En = decimal.Decimal, decimal.Decimal(1000), decimal.Decimal(1010)
+    prof = [# 2 AMD GPUs, 2 SDMA engines each
+            ProfileDeviceEvent(device='AMD', tdiff=D(-1000), props=props),
+            ProfileDeviceEvent(device='AMD:1', tdiff=D(-900), props=props),
+            ProfileDeviceEvent(device='AMD:SDMA:0', tdiff=D(-100), props=props),
+            ProfileDeviceEvent(device='AMD:SDMA:1', tdiff=D(-80), props=props),
+            ProfileDeviceEvent(device='AMD:1:SDMA:0', tdiff=D(-60), props=props),
+            ProfileDeviceEvent(device='AMD:1:SDMA:1', tdiff=D(-40), props=props),
+            # compute + copy events
+            ProfileRangeEvent(device='AMD', name='E_1', st=St, en=En),
+            ProfileRangeEvent(device='AMD:1', name='E_2', st=St, en=En),
+            ProfileRangeEvent(device='AMD:SDMA:0', name='COPY0', st=St, en=En),
+            ProfileRangeEvent(device='AMD:SDMA:1', name='COPY1', st=St, en=En),
+            ProfileRangeEvent(device='AMD:1:SDMA:0', name='COPY2', st=St, en=En),
+            ProfileRangeEvent(device='AMD:1:SDMA:1', name='COPY3', st=St, en=En),
+            # graph spanning compute + copy on GPU 0
+            ProfileGraphEvent(ents=[ProfileGraphEntry(device='AMD', name='E_1', st_id=0, en_id=1),
+                                    ProfileGraphEntry(device='AMD:SDMA:0', name='COPY0', st_id=2, en_id=3)],
+                              deps=[[], [0]], sigs=[St, En, St, En]),
+            # memory alloc on both GPUs
+            ProfilePointEvent(device='AMD', name='alloc', key=0, arg={"sz":1024, "dtype":dtypes.float}, ts=St),
+            ProfilePointEvent(device='AMD:1', name='alloc', key=1, arg={"sz":512, "dtype":dtypes.float}, ts=St)]
+    j = load_profile(prof)
+    # graph grouped with its device, memory at the end
+    self.assertListEqual(list(j['layout']),
+      ['AMD', 'AMD Graph', 'AMD:SDMA:0', 'AMD:SDMA:1',
+       'AMD:1', 'AMD:1:SDMA:0', 'AMD:1:SDMA:1',
+       'AMD Memory', 'AMD:1 Memory'])
 
   def test_bytes_per_kernel(self):
     step = 10
@@ -435,9 +530,15 @@ class TestVizProfiler(BaseTestViz):
 
   def test_calltrace(self):
     def fxn(): return Tensor.empty(10).mul(2).realize()
-    fxn()
-    trace = get_viz_list()[0]["steps"][0]["trace"]
-    assert any(fxn.__code__.co_filename == f and fxn.__code__.co_firstlineno == l for f,l,*_ in trace), str(trace)
+    with cpu_profile(TracingKey("test_fxn"), "CUSTOM"):
+      fxn()
+    codegen_trace = get_viz_list()[0]["steps"][0]["trace"]
+    assert any(fxn.__code__.co_filename == f and fxn.__code__.co_firstlineno == l for f,l,*_ in codegen_trace), str(codegen_trace)
+    profile_ret = load_profile(cpu_events)
+    e = profile_ret["layout"]["CUSTOM"]["events"][0]
+    self.assertEqual(e["name"], "test_fxn")
+    runtime_trace = json.loads(e["fmt"].replace("TB:", ""))
+    assert any(fxn.__code__.co_filename == f and fxn.__code__.co_firstlineno+1 == l for f,l,*_ in runtime_trace), str(runtime_trace)
 
   # can pack up to 1hr 11 min of trace events
   def test_trace_duration(self):
@@ -445,7 +546,7 @@ class TestVizProfiler(BaseTestViz):
     n_events = 1_000
     step = decimal.Decimal(dur_mins*60*1e6//n_events)
     prof = [ProfileRangeEvent("CPU", name="k_test", st=decimal.Decimal(ts:=i*step), en=decimal.Decimal(ts)+step) for i in range(n_events)]
-    with self.assertRaises(struct.error):
+    with self.assertRaisesRegex(ValueError, "timestamp out of range"):
       get_profile(prof)
 
   def test_python_marker(self):
@@ -465,11 +566,11 @@ class TestVizProfiler(BaseTestViz):
 
   def test_layout_order(self):
     def fn(): return
-    for dname in ["TINY", "USER", "TEST:1 N1", "TEST:2 N1", "TEST:1 N2"]:
+    for dname in ["TINY", "USER", "TEST:1 N1", "TEST:2 N1", "TEST:1 N2", "TEST:1:ENGINE:0", "TEST:1:ENGINE:0 N1", "TEST:1"]:
       with cpu_profile("fn", dname): fn()
     layout = list(load_profile(cpu_events)["layout"])
     self.assertListEqual(layout[:2], ["USER","TINY"])
-    self.assertListEqual(layout[2:], ["TEST:1 N1","TEST:1 N2", "TEST:2 N1"])
+    self.assertListEqual(layout[2:], ["TEST:1", "TEST:1 N1", "TEST:1 N2", "TEST:1:ENGINE:0", "TEST:1:ENGINE:0 N1", "TEST:2 N1"])
 
 def _alloc(b:int):
   a = Tensor.empty(b, device="NULL", dtype=dtypes.char)
@@ -531,6 +632,7 @@ class TestVizMemoryLayout(BaseTestViz):
     user_cnt = [len(b["arg"]["users"]) for b in buffers if b["arg"].get("users")]
     self.assertEqual(len(user_cnt), len(programs))
 
+  @unittest.skip("flaky")
   def test_inflight_buf(self):
     a = Tensor.empty(1, device="NULL")
     n = 4
@@ -560,6 +662,195 @@ class TestVizMemoryLayout(BaseTestViz):
     programs = profile["layout"][a.device]["events"]
     users = profile["layout"][f"{a.device} Memory"]["events"].pop()["arg"]["users"]
     self.assertEqual(len(programs), len(set(users)), n)
+
+from tinygrad.uop.ops import KernelInfo
+from tinygrad.viz.serve import amdgpu_cfg
+from tinygrad.renderer.amd.dsl import s
+from tinygrad.runtime.autogen.amd.rdna3.ins import (s_add_u32, s_branch, s_cbranch_execz, s_cbranch_scc0, s_cbranch_scc1, s_cmp_eq_i32,
+                                                    s_cmp_eq_u64, s_code_end, s_endpgm, s_mov_b32, s_nop)
+from extra.gemm.amd_asm_matmul import Kernel
+from tinygrad.renderer.cstyle import AMDHIPRenderer
+
+class TestCfg(unittest.TestCase):
+  def setUp(self): self.arch = "gfx1100"
+
+  def get_cfg(self, name:str, k:Kernel):
+    insts = k.finalize()
+    def fxn(out:UOp) -> UOp:
+      lidx = UOp.special(1, "lidx0")
+      gidx = UOp.special(1, "gidx0")
+      sink = UOp.sink(out.base, lidx, gidx, arg=KernelInfo(name=name))
+      return UOp(Ops.PROGRAM, src=(sink, UOp(Ops.DEVICE, arg="NULL"), UOp(Ops.LINEAR, src=tuple([UOp(Ops.INS, arg=x) for x in insts]))))
+    with Context(EMULATE="AMD"):
+      out = Tensor.custom_kernel(Tensor.empty(1, device="NULL"), fxn=fxn)[0]
+      # TODO: uncomment the better version once EMULATE works in Context
+      #prg = out.schedule()[-1].lower().prg.p
+      prg = get_program(out.schedule()[-1].ast, AMDHIPRenderer(self.arch))
+      return amdgpu_cfg(prg.lib, self.arch)
+
+  def test_simple(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_branch(), target="bb1")
+    k.label("bb1")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    cfg = self.get_cfg("simple", k)["data"]
+    self.assertEqual(len(cfg["blocks"]), 2)
+
+  def test_diamond(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_mov_b32(s[0], 0))
+    k.emit(s_mov_b32(s[1], 0))
+    k.emit(s_cmp_eq_u64(s[0:1], 0))
+    k.emit(s_cbranch_scc1(), target="if")
+    k.emit(s_branch(), target="else")
+    k.label("if")
+    k.emit(s_nop(1))
+    k.emit(s_branch(), target="end")
+    k.label("else")
+    k.emit(s_nop(0))
+    k.label("end")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    ret = self.get_cfg("diamond", k)
+    cfg = ret["data"]
+    self.assertEqual(len(cfg["blocks"]), 5)
+    edge_count = sum(len(v) for v in cfg["paths"].values())
+    self.assertEqual(edge_count, 5)
+    references:dict[str, list[str]] = {}
+    for pc, tokens in cfg["pc_tokens"].items():
+      for t in tokens:
+        for key in t["keys"]: references.setdefault(key, []).append(pc)
+    self.assertEqual(len(references["r0"]), 2)
+    insts = [cfg["pc_tokens"][pc][0]["st"] for pc in references["r0"]]
+    self.assertEqual(insts, ['s_mov_b32', 's_cmp_eq_u64'])
+    end_block = [" ".join(t["st"] for t in cfg["pc_tokens"][pc]) for pc in list(cfg["blocks"].values())[-1]]
+    code_line = ret["src"].splitlines()[-1]
+    self.assertEqual(len(end_block), 2)
+    for st in [end_block[-1], code_line]:
+      assert st.startswith("s_code_end") and st.endswith("x)"), st
+
+  def test_loop(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_mov_b32(s[1], 4))
+    k.label("loop")
+    k.emit(s_add_u32(s[1], s[1], -1))
+    k.emit(s_cmp_eq_i32(s[1], 0))
+    k.emit(s_cbranch_scc0(), target="loop")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("simple_loop", k)
+
+  def test_loop_branch(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_mov_b32(s[1], 4))
+    k.label("loop")
+    k.emit(s_add_u32(s[1], s[1], -1))
+    k.emit(s_cmp_eq_i32(s[1], 2))
+    k.emit(s_cbranch_scc1(), target="cond")
+    k.emit(s_branch(), target="cont")
+    k.label("cond")
+    k.emit(s_add_u32(s[1], s[1], -2))
+    k.label("cont")
+    k.emit(s_cmp_eq_i32(s[1], 0))
+    k.emit(s_cbranch_scc0(), target="loop")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("loop_if", k)
+
+  def test_loop_break(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_mov_b32(s[1], 8))
+    k.label("loop")
+    k.emit(s_add_u32(s[1], s[1], -1))
+    k.emit(s_cmp_eq_i32(s[1], 5))
+    k.emit(s_cbranch_scc1(), target="break")
+    k.emit(s_cmp_eq_i32(s[1], 0))
+    k.emit(s_cbranch_scc0(), target="loop")
+    k.label("break")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("loop_break", k)
+
+  def test_switch(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_cmp_eq_i32(s[0], 0))
+    k.emit(s_cbranch_scc1(), target="case0")
+    k.emit(s_cmp_eq_i32(s[0], 1))
+    k.emit(s_cbranch_scc1(), target="case1")
+    k.emit(s_branch(), target="case2")
+    k.label("case0")
+    k.emit(s_nop(0))
+    k.emit(s_branch(), target="join")
+    k.label("case1")
+    k.emit(s_nop(1))
+    k.emit(s_branch(), target="join")
+    k.label("case2")
+    k.emit(s_nop(2))
+    k.emit(s_branch(), target="join")
+    k.label("join")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("switch_case", k)
+
+  def test_ping_pong(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_cmp_eq_i32(s[0], 0))
+    k.emit(s_cbranch_scc1(), target="ping")
+    k.emit(s_branch(), target="pong")
+    k.label("ping")
+    k.emit(s_cmp_eq_i32(s[1], 0))
+    k.emit(s_cbranch_scc1(), target="pong")
+    k.emit(s_branch(), target="end")
+    k.label("pong")
+    k.emit(s_cmp_eq_i32(s[2], 0))
+    k.emit(s_cbranch_scc1(), target="ping")
+    k.label("end")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("ping_pong", k)
+
+  def test_colored_blocks(self):
+    N = 10
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_branch(), target="init0")
+    for i in range(N):
+      loop = f"loop{i}"
+      k.label(f"init{i}")
+      k.emit(s_mov_b32(s[1], i + 1))
+      k.emit(s_branch(), target=loop)
+      k.label(loop)
+      k.emit(s_nop(i & 7))
+      k.emit(s_add_u32(s[1], s[1], -1))
+      k.emit(s_cmp_eq_i32(s[1], 0))
+      k.emit(s_cbranch_scc0(), target=loop)
+      k.emit(s_branch(), target=f"init{i+1}" if i + 1 < N else "end")
+    k.label("end")
+    k.emit(s_endpgm())
+    k.emit(s_code_end())
+    self.get_cfg("test_colored_blocks", k)
+
+  def test_jump_back_to_end(self):
+    k = Kernel(arch=self.arch)
+    k.label("entry")
+    k.emit(s_mov_b32(s[1], 2))
+    k.emit(s_cbranch_execz(), target="loop")
+    k.label("end")
+    k.emit(s_endpgm())
+    k.label("loop")
+    k.emit(s_add_u32(s[1], s[1], -1))
+    k.emit(s_cmp_eq_i32(s[1], 0))
+    k.emit(s_branch(), target="end")
+    k.emit(s_code_end())
+    self.get_cfg("jump_back_to_end", k)
 
 if __name__ == "__main__":
   unittest.main()

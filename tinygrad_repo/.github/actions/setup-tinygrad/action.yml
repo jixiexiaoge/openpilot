@@ -45,12 +45,16 @@ inputs:
     description: "Install mesa"
     required: false
     default: 'false'
+  tinydreno:
+    description: "Install tinydreno"
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
     - name: Set up Python ${{ inputs.python-version }}
       id: setup-python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -62,14 +66,14 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ github.workspace }}/.venv
-        key: venv-${{ runner.os }}-python-${{ steps.setup-python.outputs.python-version }}-${{ inputs.deps }}-${{ inputs.pydeps }}-${{ env.CACHE_VERSION }}
+        key: venv-${{ runner.os }}-${{ runner.arch }}-python-${{ steps.setup-python.outputs.python-version }}-${{ inputs.deps }}-${{ inputs.pydeps }}-${{ env.CACHE_VERSION }}
     - name: Cache Python packages
       if: github.event_name != 'pull_request'
       id: restore-venv
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ github.workspace }}/.venv
-        key: venv-${{ runner.os }}-python-${{ steps.setup-python.outputs.python-version }}-${{ inputs.deps }}-${{ inputs.pydeps }}-${{ env.CACHE_VERSION }}
+        key: venv-${{ runner.os }}-${{ runner.arch }}-python-${{ steps.setup-python.outputs.python-version }}-${{ inputs.deps }}-${{ inputs.pydeps }}-${{ env.CACHE_VERSION }}
 
     # **** Caching downloads ****
 
@@ -81,7 +85,7 @@ runs:
         key: downloads-${{ github.job }}-${{ inputs.key }}-${{ env.CACHE_VERSION }}
     - name: Cache downloads
       if: inputs.key != '' && github.event_name != 'pull_request'
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ runner.os == 'Linux' && '~/.cache/tinygrad/downloads/' || '~/Library/Caches/tinygrad/downloads/' }}
         key: downloads-${{ github.job }}-${{ inputs.key }}-${{ env.CACHE_VERSION }}
@@ -145,7 +149,7 @@ runs:
       run: |
         wget https://repo.radeon.com/rocm/rocm.gpg.key -O - | gpg --dearmor | sudo tee /etc/apt/keyrings/rocm.gpg > /dev/null
         sudo tee /etc/apt/sources.list.d/rocm.list <<EOF
-        deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/6.2 $(lsb_release -cs) main
+        deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/7.1 $(lsb_release -cs) main
         EOF
         echo -e 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600' | sudo tee /etc/apt/preferences.d/rocm-pin-600
 
@@ -195,13 +199,13 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: /var/cache/apt/archives/
-        key: ${{ runner.os }}-apt-${{ steps.apt-pkgs.outputs.hash }}-${{ env.CACHE_VERSION }}
+        key: ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-pkgs.outputs.hash }}-${{ env.CACHE_VERSION }}
     - name: Cache apt
       if: runner.os == 'Linux' && (inputs.opencl == 'true' || inputs.amd == 'true' || inputs.cuda == 'true' || inputs.webgpu == 'true' || inputs.llvm == 'true') && github.event_name != 'pull_request'
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: /var/cache/apt/archives/
-        key: ${{ runner.os }}-apt-${{ steps.apt-pkgs.outputs.hash }}-${{ env.CACHE_VERSION }}
+        key: ${{ runner.os }}-${{ runner.arch }}-apt-${{ steps.apt-pkgs.outputs.hash }}-${{ env.CACHE_VERSION }}
 
     - name: Run apt Update + Install
       if: runner.os == 'Linux' && (inputs.opencl == 'true' || inputs.amd == 'true' || inputs.cuda == 'true' || inputs.webgpu == 'true' || inputs.llvm == 'true')
@@ -233,7 +237,7 @@ runs:
       shell: bash
       run: |
         sudo mkdir -p /usr/local/lib
-        curl -s -H "Authorization: token $GH_TOKEN" curl -s https://api.github.com/repos/nimlgen/amdcomgr_dylib/releases/latest | \
+        curl -s -H "Authorization: token $GH_TOKEN" curl -s https://api.github.com/repos/tinygrad/amdcomgr_dylib/releases/latest | \
           jq -r '.assets[] | select(.name == "libamd_comgr.dylib").browser_download_url' | \
           sudo xargs curl -fL -o /usr/local/lib/libamd_comgr.dylib
         cargo build --release --manifest-path ./extra/remu/Cargo.toml
@@ -265,7 +269,7 @@ runs:
     - name: Cache gpuocelot
       if: inputs.ocelot == 'true' && github.event_name != 'pull_request'
       id: cache-build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       env:
         cache-name: cache-gpuocelot-build-1
       with:
@@ -283,6 +287,7 @@ runs:
 
         CMAKE_ARGS="-Wno-dev -G Ninja -DOCELOT_BUILD_TOOLS=OFF -DCMAKE_BUILD_ALWAYS=0 -DBUILD_TESTS_CUDA=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
         if [[ "${{ runner.os }}" == "macOS" ]]; then
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           CMAKE_ARGS="$CMAKE_ARGS -DBoost_INCLUDE_DIR=$(brew --prefix boost)/include -DBoost_LIBRARY_DIR=$(brew --prefix boost)/lib"
         fi
 
@@ -326,3 +331,9 @@ runs:
       if: inputs.mesa == 'true' && runner.os == 'macOS'
       shell: bash
       run: brew install sirhcm/tinymesa/tinymesa_cpu
+
+    # *** tinydreno ***
+    - name: Install tinydreno (linux)
+      if: inputs.tinydreno == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: sudo curl -fL https://github.com/sirhcm/tinydreno/raw/refs/heads/master/libllvm-qcom.so -o /usr/lib/libllvm-qcom.so

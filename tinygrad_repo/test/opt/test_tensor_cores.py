@@ -7,14 +7,14 @@ from tinygrad.tensor import _to_np_dtype
 from tinygrad.uop.ops import Ops
 from tinygrad.dtype import DType
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import AMX, AMD_LLVM, CPU_LLVM, Context
+from tinygrad.helpers import AMX, DEV, Context
 from test.helpers import slow
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.codegen.opt.tc import amd_cdna_1616128
 
 # TODO: write a clean version of this
-from test.test_linearizer import helper_realized_ast, helper_linearizer_opt
+from test.backend.test_linearizer import helper_realized_ast, helper_linearizer_opt
 
 # NOTE: get_program always passes in Device[Device.DEFAULT].renderer explicitly for process_replay!!!
 
@@ -75,9 +75,9 @@ class TestTensorCores(unittest.TestCase):
       a, b = Tensor.rand(m, k, dtype=tc.dtype_in), Tensor.rand(k, n, dtype=tc.dtype_in)
       r = a.matmul(b, dtype=tc.dtype_out)
       prg = get_program(r.schedule()[-1].ast, Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.TC, axis=0, arg=(-1, 2, 1))])
-      if Device.DEFAULT == "CPU" and CPU_LLVM:
+      if Device.DEFAULT == "CPU" and DEV.renderer == "LLVM":
         assert "0x201000" in prg.src
-      elif Device.DEFAULT == "AMD" and AMD_LLVM:
+      elif Device.DEFAULT == "AMD" and DEV.renderer == "LLVM":
         assert "@llvm.amdgcn.wmma" in prg.src
       elif Device[Device.DEFAULT].renderer.suffix == "PTX":
         assert "mma.sync.aligned" in prg.src
@@ -149,10 +149,10 @@ class TestTensorCores(unittest.TestCase):
         if _to_np_dtype(real_bufs[0].dtype) is None: continue
         real_bufs[0].copyin(np.zeros((real_bufs[0].size, ), dtype=_to_np_dtype(real_bufs[0].dtype)).data) # Zero to check that all values are filled
         prg.exec(real_bufs)
-        result = np.frombuffer(real_bufs[0].as_buffer(), _to_np_dtype(real_bufs[0].dtype))
+        result = np.frombuffer(real_bufs[0].as_memoryview(), _to_np_dtype(real_bufs[0].dtype))
 
         # ensure the results for each choice of axis matches
-        if golden_result is None: golden_result = np.frombuffer(real_bufs[0].as_buffer(), _to_np_dtype(real_bufs[0].dtype))
+        if golden_result is None: golden_result = np.frombuffer(real_bufs[0].as_memoryview(), _to_np_dtype(real_bufs[0].dtype))
         np.testing.assert_allclose(result, golden_result, atol=0.1, rtol=0.2)
 
   @Context(ALLOW_TF32=1)
