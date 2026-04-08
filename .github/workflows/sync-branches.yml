@@ -36,19 +36,16 @@ jobs:
 
           # Carrotpilot (c3-v9)
           add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
-          git fetch carrotpilot c3-v9 --no-tags || echo "⚠️ carrotpilot c3-v9 fetch failed"
+          git fetch carrotpilot c3-wip --no-tags || echo "⚠️ carrotpilot c3-v9 fetch failed"
 
           # Dragonpilot (pre-build)
           add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
           git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
 
-          # FrogPilot (FrogPilot)
-          add_or_update_remote frogpilot https://github.com/FrogAi/FrogPilot.git
-          git fetch frogpilot FrogPilot --no-tags || echo "⚠️ frogpilot FrogPilot fetch failed"
 
-          # ✅ 新增：机械小哥 (changan)
-          add_or_update_remote jixie https://github.com/liruifeng1120/jixiexiaoge.git
-          git fetch jixie changan --no-tags || echo "⚠️ jixie changan fetch failed"
+          # ✅ 新增：IQ Pilot (release-new)
+          add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
+          git fetch iqpilot release-new --no-tags || echo "⚠️ iqpilot release-new fetch failed"
 
       - name: Push branches to your repository (force sync)
         run: |
@@ -75,10 +72,9 @@ jobs:
 
           # ========= 分支同步 =========
 
-          sync_branch Carrotpilot carrotpilot/c3-v9
+          sync_branch Carrotpilot carrotpilot/c3-wip
           sync_branch Dragonpilot dragonpilot/pre-build
-          sync_branch FrogPilot frogpilot/FrogPilot
-          sync_branch Changan jixie/changan
+          sync_branch IQpilot iqpilot/release-new
 
       - name: Optional - Tag sync timestamp
         run: |
