@@ -24,7 +24,6 @@ MIN_STD_SANITY_CHECK = 1e-5  # m or rad
 MAX_FILTER_REWIND_TIME = 0.8  # s
 MAX_SENSOR_TIME_DIFF = 0.1  # s
 YAWRATE_CROSS_ERR_CHECK_FACTOR = 30
-MIN_YAWRATE_STD = 0.01  # camodo yaw std 최소 하한값 (threshold floor)
 INPUT_INVALID_LIMIT = 2.0 # 1 (camodo) / 9 (sensor) bad input[s] ignored
 INPUT_INVALID_RECOVERY = 10.0 # ~10 secs to resume after exceeding allowed bad inputs by one
 POSENET_STD_INITIAL_VALUE = 10.0
@@ -134,8 +133,7 @@ class LocationEstimator:
 
       gyro_bias = self.kf.x[States.GYRO_BIAS]
       gyro_camodo_yawrate_err = np.abs((meas[2] - gyro_bias[2]) - self.camodo_yawrate_distribution[0])
-      camodo_yaw_std = max(self.camodo_yawrate_distribution[1], MIN_YAWRATE_STD)
-      gyro_camodo_yawrate_err_threshold = YAWRATE_CROSS_ERR_CHECK_FACTOR * camodo_yaw_std
+      gyro_camodo_yawrate_err_threshold = YAWRATE_CROSS_ERR_CHECK_FACTOR * self.camodo_yawrate_distribution[1]
       gyro_valid = gyro_camodo_yawrate_err < gyro_camodo_yawrate_err_threshold
 
       if np.linalg.norm(meas) >= ROTATION_SANITY_CHECK or not gyro_valid:
