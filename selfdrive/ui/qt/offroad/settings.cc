@@ -828,17 +828,17 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   // 모델 선택 버튼
   QString currentModelName = QString::fromStdString(Params().get("DrivingModelName")).trimmed();
   auto hasValidCustomModel = []() {
-    static const QStringList requiredFiles = {
-      "driving_vision_tinygrad.pkl",
-      "driving_policy_tinygrad.pkl",
-      "driving_vision_metadata.pkl",
-      "driving_policy_metadata.pkl",
-    };
-    for (const QString &filename : requiredFiles) {
+    // vision 필수
+    for (const QString &filename : {"driving_vision_tinygrad.pkl", "driving_vision_metadata.pkl"}) {
       QFileInfo fi("/data/models/" + filename);
       if (!fi.exists() || fi.size() <= 0) return false;
     }
-    return true;
+    // policy: on_policy 또는 policy 둘 중 하나
+    bool hasOnPolicy = QFileInfo("/data/models/driving_on_policy_tinygrad.pkl").exists() &&
+                       QFileInfo("/data/models/driving_on_policy_metadata.pkl").exists();
+    bool hasPolicy = QFileInfo("/data/models/driving_policy_tinygrad.pkl").exists() &&
+                     QFileInfo("/data/models/driving_policy_metadata.pkl").exists();
+    return hasOnPolicy || hasPolicy;
   };
   bool hasCustomModel = hasValidCustomModel();
   QString modelBtnText = (hasCustomModel && !currentModelName.isEmpty()) ? currentModelName : tr("Default Model");
