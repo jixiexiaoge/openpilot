@@ -925,8 +925,8 @@ def _filter_branch_list(branches: list[str]) -> list[str]:
 
     # local branch: c3-xxx / c4-xxx
     # remote branch: origin/c3-xxx, ajouatom/c3-xxx, etc.
-    branch_name = name.split("/", 1)[-1] if "/" in name else name
-    if branch_name.startswith(prefix) or "carrot":
+    branch_name = name.rsplit("/", 1)[-1] if "/" in name else name
+    if branch_name.startswith(prefix) or "carrot" in branch_name:
       filtered.append(name)
 
   return sorted(set(filtered))
@@ -1062,6 +1062,16 @@ async def _run_tool_job(job: Dict[str, Any]) -> None:
         current_branch = ""
       current_branch = (current_branch or "").strip()
 
+      rc_remotes, remotes_out = await _tool_capture_exec(["git", "remote"], cwd=repo_dir, timeout=15)
+      remotes = remotes_out.split() if rc_remotes == 0 else ["origin"]
+      rc_remote_urls, remote_urls_out = await _tool_capture_exec(["git", "remote", "-v"], cwd=repo_dir, timeout=15)
+      remote_urls: dict[str, str] = {}
+      if rc_remote_urls == 0:
+        for remote_line in remote_urls_out.splitlines():
+          parts = remote_line.split()
+          if len(parts) >= 2 and parts[0] not in remote_urls:
+            remote_urls[parts[0]] = parts[1]
+
       branches: list[str] = []
       for line in out.splitlines():
         line = line.strip()
@@ -1069,6 +1079,8 @@ async def _run_tool_job(job: Dict[str, Any]) -> None:
           continue
         if line.startswith("remotes/"):
           line = line.replace("remotes/", "", 1)
+        if line in remotes:
+          continue
         branches.append(line)
 
       branches = _filter_branch_list(branches)
@@ -1080,6 +1092,8 @@ async def _run_tool_job(job: Dict[str, Any]) -> None:
         "fetch": (job.get("log") or "").strip(),
         "device_type": HARDWARE.get_device_type(),
         "branch_prefix": _get_branch_prefix(),
+        "remotes": remotes,
+        "remote_urls": remote_urls,
       }
       _tool_job_finish(job, ok=True, result=result)
       return
@@ -1597,6 +1611,16 @@ async def api_tools(request: web.Request) -> web.Response:
       rc_current, out_current = run(["git", "branch", "--show-current"], cwd=REPO_DIR)
       current_branch = out_current.strip() if rc_current == 0 else ""
 
+      rc_remotes, out_remotes = run(["git", "remote"], cwd=REPO_DIR)
+      remotes = out_remotes.split() if rc_remotes == 0 else ["origin"]
+      rc_remote_urls, out_remote_urls = run(["git", "remote", "-v"], cwd=REPO_DIR)
+      remote_urls: dict[str, str] = {}
+      if rc_remote_urls == 0:
+        for remote_line in out_remote_urls.splitlines():
+          parts = remote_line.split()
+          if len(parts) >= 2 and parts[0] not in remote_urls:
+            remote_urls[parts[0]] = parts[1]
+
       branches: list[str] = []
       for line in out.splitlines():
         line = line.strip()
@@ -1606,6 +1630,8 @@ async def api_tools(request: web.Request) -> web.Response:
           continue
         if line.startswith("remotes/"):
           line = line.replace("remotes/", "", 1)
+        if line in remotes:
+          continue
         branches.append(line)
 
       branches = _filter_branch_list(branches)
@@ -1617,6 +1643,8 @@ async def api_tools(request: web.Request) -> web.Response:
         "fetch": out0.strip(),
         "device_type": HARDWARE.get_device_type(),
         "branch_prefix": _get_branch_prefix(),
+        "remotes": remotes,
+        "remote_urls": remote_urls,
       })
     
 
