@@ -111,9 +111,7 @@ def get_lat_smooth_seconds_dynamic(model_output: dict[str, np.ndarray],
   except Exception:
     y_std_1s = 0.0
 
-  extra_smooth_seconds = float(np.interp(y_std_1s, [0.20, 0.45], [0.0, base_lat_smooth_seconds]))
-
-  extra_smooth_seconds = float(np.clip(extra_smooth_seconds, 0.0, min(base_lat_smooth_seconds, 0.25)))
+  extra_smooth_seconds = float(np.interp(y_std_1s, [0.15, 0.25], [0.0, base_lat_smooth_seconds]))
 
   dynamic_lat_smooth_seconds = float(np.clip(base_lat_smooth_seconds + extra_smooth_seconds, 0.0, 0.60))
 
@@ -552,7 +550,7 @@ def main(demo=False):
 
       frame_delay = DT_MDL # compensate for time passed since the frame was captured: current_time - timestamp_eof is 50ms on average
       action_delay = DT_MDL / 2 # middle of the interval between model output (current state) and next frame (expected state)
-      action = get_action_from_model(model_output, prev_action, lat_delay_dynamic + frame_delay + action_delay, long_delay + frame_delay + action_delay, v_ego, lat_smooth_seconds_dynamic, vEgoStopping)
+      action = get_action_from_model(model_output, prev_action, lat_delay_dynamic + frame_delay, long_delay + frame_delay, v_ego, lat_smooth_seconds_dynamic, vEgoStopping)
       prev_action = action
       fill_model_msg(drivingdata_send, modelv2_send, model_output, action,
                      publish_state, meta_main.frame_id, meta_extra.frame_id, frame_id,
