@@ -12,5 +12,5 @@ static const std::map<std::string, std::string> MODEL_SIGNING_KEYS = {
     {"key_2025_01", "yFPR4om9LyYvQjzRzSiyyso9wc2bP1egmg/PjKa79fg="},  // 현재 키
 };
 
-// 현재 모델 셀렉터 버전
-static const int MODEL_SELECTOR_VERSION = 2;
+// 현재 모델 셀렉터 버전 (OP11 호환 추가 시 3으로 bump)
+static const int MODEL_SELECTOR_VERSION = 3;
