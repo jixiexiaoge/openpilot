@@ -119,6 +119,35 @@ def get_lat_smooth_seconds_dynamic(model_output: dict[str, np.ndarray],
 
 def get_action_from_model(model_output: dict[str, np.ndarray], prev_action: log.ModelDataV2.Action,
                           lat_action_t: float, long_action_t: float, v_ego: float, lat_smooth_seconds: float, vEgoStopping: float) -> log.ModelDataV2.Action:
+    # op11: on_policy가 (curv_unscaled, accel)을 직접 산출. plan이 있으면 desired_velocity 만 plan에서 보강.
+    if 'action' in model_output:
+      desired_curv_unscaled, desired_accel = model_output['action'][0]
+      desired_curvature = float(desired_curv_unscaled) / 100.0
+      desired_accel = float(desired_accel)
+      should_stop = (v_ego < 0.3 and desired_accel < 0.1)
+
+      desired_accel = smooth_value(desired_accel, prev_action.desiredAcceleration, LONG_SMOOTH_SECONDS)
+      if v_ego > MIN_LAT_CONTROL_SPEED:
+        desired_curvature = smooth_value(desired_curvature, prev_action.desiredCurvature, lat_smooth_seconds)
+      else:
+        desired_curvature = prev_action.desiredCurvature
+
+      desired_velocity_now = prev_action.desiredVelocity
+      if 'plan' in model_output:
+        plan = model_output['plan'][0]
+        _, _, _, desired_velocity_now = get_accel_from_plan(plan[:, Plan.VELOCITY][:, 0],
+                                                            plan[:, Plan.ACCELERATION][:, 0],
+                                                            ModelConstants.T_IDXS,
+                                                            action_t=long_action_t,
+                                                            vEgoStopping=vEgoStopping)
+        desired_velocity_now = smooth_value(desired_velocity_now, prev_action.desiredVelocity, LONG_SMOOTH_SECONDS)
+
+      return log.ModelDataV2.Action(desiredCurvature=float(desired_curvature),
+                                    desiredAcceleration=float(desired_accel),
+                                    shouldStop=bool(should_stop),
+                                    desiredVelocity=float(desired_velocity_now))
+
+    # op7/legacy: plan 에서 curvature/accel 산출
     plan = model_output['plan'][0]
     desired_accel, should_stop, _, desired_velocity_now = get_accel_from_plan(plan[:,Plan.VELOCITY][:,0],
                                                      plan[:,Plan.ACCELERATION][:,0],
@@ -335,16 +364,31 @@ class ModelState:
     for k in [self.desire_key, 'features_buffer']:
       self.numpy_inputs[k][:] = self.full_input_queues.get(k)[k]
     self.numpy_inputs['traffic_convention'][:] = inputs['traffic_convention']
+    # op11 추가 입력: action_t (lat/long action_t 시간지평), prev_action (이전 출력)
+    # 모델 메타데이터에 입력 슬롯이 있을 때만 채움 → op7 모델은 영향 없음
+    if 'action_t' in self.numpy_inputs:
+      action_t_in = inputs.get('action_t')
+      if action_t_in is not None:
+        self.numpy_inputs['action_t'][:] = action_t_in
+      else:
+        self.numpy_inputs['action_t'][:] = 0
+    if 'prev_action' in self.numpy_inputs:
+      prev_action_in = inputs.get('prev_action')
+      if prev_action_in is not None:
+        self.numpy_inputs['prev_action'][:] = prev_action_in
+      else:
+        self.numpy_inputs['prev_action'][:] = 0
 
     self.policy_output = self.policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
     policy_outputs_dict = self.parser.parse_policy_outputs(self.slice_outputs(self.policy_output, self.policy_output_slices))
 
     # off-policy 모델 실행 (있을 때만)
+    # op11: plan만 off_policy에 있고 on_policy는 action만 산출 → off_policy plan을 유지해야 함.
+    # op7: 양쪽 모두 plan을 산출 → dict 머지 순서로 on_policy plan이 자동 우선됨.
     if self.has_off_policy:
       self.off_policy_output = self.off_policy_run(**self.policy_inputs).contiguous().realize().uop.base.buffer.numpy().flatten()
       off_policy_outputs_dict = self.parser.parse_off_policy_outputs(self.slice_outputs(self.off_policy_output, self.off_policy_output_slices))
-      off_policy_outputs_dict.pop('plan')  # off-policy의 plan은 버린다
-      # 합성 순서: vision → off_policy → policy (policy가 최종 덮어쓰기)
+      # 합성 순서: vision → off_policy → policy (policy가 공유 키를 덮어쓰지만, op11처럼 policy에 plan이 없으면 off_policy plan 유지)
       combined_outputs_dict = {**vision_outputs_dict, **off_policy_outputs_dict, **policy_outputs_dict}
     else:
       combined_outputs_dict = {**vision_outputs_dict, **policy_outputs_dict}
@@ -524,9 +568,20 @@ def main(demo=False):
 
     bufs = {name: buf_extra if 'big' in name else buf_main for name in model.vision_input_names}
     transforms = {name: model_transform_extra if 'big' in name else model_transform_main for name in model.vision_input_names}
+    frame_delay = DT_MDL # compensate for time passed since the frame was captured: current_time - timestamp_eof is 50ms on average
+    action_delay = DT_MDL / 2 # middle of the interval between model output (current state) and next frame (expected state)
+    if custom_lat_delay > 0.0:
+      lat_delay_now = custom_lat_delay + lat_smooth_seconds
+    else:
+      lat_delay_now = sm["liveDelay"].lateralDelay + lat_smooth_seconds
+    lat_action_t = lat_delay_now + frame_delay + action_delay
+    long_action_t = long_delay + frame_delay + action_delay
     inputs:dict[str, np.ndarray] = {
       model.desire_key: vec_desire,
       'traffic_convention': traffic_convention,
+      'action_t': np.array([lat_action_t, long_action_t], dtype=np.float32),
+      'prev_action': np.array([prev_action.desiredCurvature * max(1.0, v_ego)**2,
+                               prev_action.desiredAcceleration], dtype=np.float32),
     }
 
     mt1 = time.perf_counter()
