@@ -193,11 +193,11 @@ int ABGRToNV12(const uint8_t* src_abgr,
 // Check the OMX error code and assert if an error occurred.
 #define OMX_CHECK(_expr)                                                        \
   do {                                                                          \
-    OMX_ERRORTYPE err = (_expr);                                                \
-    if (err != OMX_ErrorNone) {                                                 \
-      screenrecord_report_error("OMX_CHECK", "%s failed: 0x%08x", #_expr, err);\
+    OMX_ERRORTYPE omx_check_err = (_expr);                                      \
+    if (omx_check_err != OMX_ErrorNone) {                                       \
+      screenrecord_report_error("OMX_CHECK", "%s failed: 0x%08x", #_expr, omx_check_err);\
     }                                                                           \
-    assert(OMX_ErrorNone == err);                                               \
+    assert(OMX_ErrorNone == omx_check_err);                                     \
   } while (0)
 
 extern ExitHandler do_exit;
