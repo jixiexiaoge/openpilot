@@ -107,6 +107,24 @@ class Car:
       if self.params.get_bool("dp_lat_alka"):
         dp_params |= structs.DPFlags.LatALKA
 
+      if self.params.get_bool("dp_toyota_door_auto_lock_unlock"):
+        dp_params |= structs.DPFlags.ToyotaLockCtrl
+
+      if self.params.get_bool("dp_toyota_tss1_sng"):
+        dp_params |= structs.DPFlags.ToyotaTSS1SnG
+
+      if self.params.get_bool("dp_toyota_stock_lon"):
+        dp_params |= structs.DPFlags.ToyotaStockLon
+
+      if self.params.get_bool("dp_vag_a0_sng"):
+        dp_params |= structs.DPFlags.VagA0SnG
+
+      if self.params.get_bool("dp_vag_avoid_eps_lockout"):
+        dp_params |= structs.DPFlags.VagAvoidEPSLockout
+
+      if self.params.get_bool("dp_honda_nidec_stock_long"):
+        dp_params |= structs.DPFlags.HondaNidecStockLong
+
       dp_fingerprint = str(self.params.get("dp_dev_model_selected") or "")
       # Defend against stale/garbage values (e.g. "0" persisted from older versions).
       if dp_fingerprint and dp_fingerprint not in interfaces:
