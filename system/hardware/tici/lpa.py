@@ -6,7 +6,8 @@ import math
 import os
 import serial
 import sys
-
+import json
+import subprocess
 from collections.abc import Generator
 
 from openpilot.system.hardware.base import LPABase, Profile
@@ -251,10 +252,23 @@ class TiciLPA(LPABase):
     if hasattr(self, '_client'):
       return
     self._client = AtClient(DEFAULT_DEVICE, DEFAULT_BAUD, DEFAULT_TIMEOUT, debug=DEBUG)
-    self._client.open_isdr()
-    atexit.register(self._client.close)
+    if "TICI_DOS" not in os.environ:
+      self._client.open_isdr()
+      atexit.register(self._client.close)
 
   def list_profiles(self) -> list[Profile]:
+    if "TICI_DOS" in os.environ:
+      env = os.environ.copy()
+      env.update({'LPAC_APDU': 'at', 'AT_DEVICE': DEFAULT_DEVICE})
+      res = subprocess.check_output(['sudo', '-E', 'lpac', 'profile', 'list'], env=env)
+      data = json.loads(res.decode().splitlines()[-1])
+      return [Profile(
+        iccid=p['iccid'],
+        nickname=p.get('profileNickname', ''),
+        enabled=p['profileState'] == 'enabled',
+        provider=p.get('serviceProviderName', '')
+      ) for p in data['payload']['data']]
+
     return [
       Profile(
         iccid=p.get("iccid", ""),
@@ -266,7 +280,7 @@ class TiciLPA(LPABase):
     ]
 
   def get_active_profile(self) -> Profile | None:
-    return None
+    return next((p for p in self.list_profiles() if p.enabled), None)
 
   def delete_profile(self, iccid: str) -> None:
     return None

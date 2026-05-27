@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 #include "common/params.h"
 #include "system/loggerd/encoder/encoder.h"
@@ -230,8 +231,22 @@ void loggerd_thread() {
   std::unique_ptr<Context> ctx(Context::create());
   std::unique_ptr<Poller> poller(Poller::create());
 
+  const bool lite = getenv("LITE");
+  static const std::set<std::string> ignore_names = {
+    "driverCameraState",
+    "driverEncodeIdx",
+    "driverStateV2",
+    "driverMonitoringState",
+    "driverEncodeData",
+    // audio logs
+    "soundPressure",
+    "rawAudioData",
+    "audioFeedback",
+  };
+
   // subscribe to all socks
   for (const auto& [_, it] : services) {
+    if (lite && ignore_names.count(it.name)) continue;
     const bool encoder = util::ends_with(it.name, "EncodeData");
     const bool livestream_encoder = util::starts_with(it.name, "livestream");
     const bool record_audio = (it.name == "rawAudioData") && Params().getBool("RecordAudio");
@@ -261,6 +276,7 @@ void loggerd_thread() {
   std::vector<RemoteEncoder*> encoders_with_audio;
   for (const auto &cam : cameras_logged) {
     for (const auto &encoder_info : cam.encoder_infos) {
+      if (lite && ignore_names.count(encoder_info.publish_name)) continue;
       encoder_infos_dict[encoder_info.publish_name] = encoder_info;
       s.max_waiting++;
     }

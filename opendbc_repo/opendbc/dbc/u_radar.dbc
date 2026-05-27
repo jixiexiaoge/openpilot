@@ -1,0 +1,85 @@
+
+
+VERSION ""
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: RADAR
+
+BO_ 513 RadarState: 8 XXX
+ SG_ NVMReadStatus : 6|1@0+ (1,0) [0|1] "" XXX
+ SG_ NVMWriteStatus : 7|1@0+ (1,0) [0|1] "" XXX
+ SG_ MaxDistanceCfg : 15|10@0+ (2,0) [0|2046] "m" XXX
+ SG_ RadarPowerCfg : 25|3@0+ (1,0) [0|7] "" XXX
+ SG_ SensorID : 34|3@0+ (1,0) [0|7] "" XXX
+ SG_ SortIndex : 38|3@0+ (1,0) [0|7] "" XXX
+ SG_ CtrlRelayCfg : 41|1@0+ (1,0) [0|1] "" XXX
+ SG_ OutputTypeCfg : 43|2@0+ (1,0) [0|3] "" XXX
+ SG_ QualityInfoCfg : 44|1@0+ (1,0) [0|1] "" XXX
+ SG_ ExtInfoCfg : 45|1@0+ (1,0) [0|1] "" XXX
+ SG_ CANBaudRate : 55|3@0+ (1,0) [0|7] "" XXX
+ SG_ InterfaceType : 57|2@0+ (1,0) [0|3] "" XXX
+ SG_ RCSThreshold : 58|3@1+ (1,0) [0|7] "" XXX
+ SG_ CalibrationEnabled : 63|2@0+ (1,0) [0|3] "" XXX
+
+VAL_ 513 NVMReadStatus 0 "Failed" 1 "Successful";
+VAL_ 513 NVMWriteStatus 0 "Failed" 1 "Successful";
+VAL_ 513 RadarPowerCfg 0 "Standard" 1 "-3dB Gain" 2 "-6dB Gain" 3 "-9dB Gain";
+VAL_ 513 SortIndex 0 "No Sorting" 1 "Sort By Range" 2 "Sort By RCS";
+VAL_ 513 CtrlRelayCfg 0 "Off" 1 "On";
+VAL_ 513 OutputTypeCfg 0 "None" 1 "Objects" 2 "Clusters";
+VAL_ 513 QualityInfoCfg 0 "Off" 1 "On";
+VAL_ 513 ExtInfoCfg 0 "Off" 1 "On";
+VAL_ 513 CANBaudRate 0 "500K" 1 "250K" 2 "1M";
+VAL_ 513 RCSThreshold 0 "Standard" 1 "High Sensitivity";
+VAL_ 513 CalibrationEnabled 1 "Enabled" 2 "Initial Recovery";
+
+BO_ 1546 Status: 8 RADAR
+ SG_ NoOfObjects : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ MeasCount : 15|16@0+ (1,0) [0|65535] "" XXX
+ SG_ InterfaceVersion : 31|4@0+ (1,0) [0|15] "" XXX
+
+BO_ 1547 ObjectData: 8 RADAR
+ SG_ ID : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ DistLong : 15|13@0+ (0.2,-500) [-500|1138.2] "m" XXX
+ SG_ DistLat : 18|11@0+ (0.2,-204.6) [-204.6|204.8] "m" XXX
+ SG_ VRelLong : 39|10@0+ (0.25,-128) [-128|127.75] "m/s" XXX
+ SG_ VRelLat : 45|9@0+ (0.25,-64) [-64|63.75] "m/s" XXX
+ SG_ DynProp : 50|3@0+ (1,0) [0|7] "" XXX
+ SG_ Class : 52|2@0+ (1,0) [0|3] "" XXX
+ SG_ RCS : 63|8@0+ (0.5,-64) [-64|63.75] "dBm2" XXX
+
+CM_ BO_ 1547 "Object detection and tracking information";
+VAL_ 1547 DynProp 0 "moving" 1 "stationary" 2 "oncoming" 3 "crossing_left" 4 "crossing_right" 5 "unknown" 6 "stopped";
+VAL_ 1547 Class 0 "point" 1 "vehicle";

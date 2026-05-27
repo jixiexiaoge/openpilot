@@ -1,7 +1,11 @@
 import time
 from contextlib import AbstractContextManager
 
-from panda import Panda
+import os
+if "TICI_DOS" in os.environ:
+  from panda_tici import Panda
+else:
+  from panda import Panda
 from opendbc.car.car_helpers import get_car
 from opendbc.car.can_definitions import CanData
 from opendbc.car.structs import CarParams, CarControl

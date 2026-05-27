@@ -1,0 +1,9 @@
+settings:
+  - key: dp_dev_disable_connect
+    type: toggle_item
+    title: "Disable Comma Connect"
+    description: "Disable Comma connect service if you do not wish to upload / being tracked by the service."
+    category: "Device"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"

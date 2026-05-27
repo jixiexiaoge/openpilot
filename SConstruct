@@ -82,7 +82,7 @@ env = Environment(
     "#common",
     "#msgq_repo",
     "#third_party",
-    "#selfdrive/pandad",
+    "#selfdrive/pandad_tici" if "TICI_DOS" in os.environ else "#selfdrive/pandad",
     "#rednose/helpers",
     f"#third_party/acados/{arch}/lib",
     [x.LIB_DIR for x in pkgs],
@@ -213,6 +213,7 @@ Export('messaging')
 
 # Build other submodules
 SConscript(['panda/SConscript'])
+SConscript(['panda_tici/SConscript'])
 
 # Build rednose library
 SConscript(['rednose/SConscript'])

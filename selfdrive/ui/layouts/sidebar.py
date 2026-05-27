@@ -8,6 +8,7 @@ from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos, F
 from openpilot.system.ui.lib.multilang import tr, tr_noop
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.widgets import Widget
+from dragonpilot.selfdrive.ui.dashy_qr import DashyQR
 
 SIDEBAR_WIDTH = 300
 METRIC_HEIGHT = 126
@@ -78,6 +79,10 @@ class Sidebar(Widget):
     self._settings_img = gui_app.texture("images/button_settings.png", SETTINGS_BTN.width, SETTINGS_BTN.height)
     self._mic_img = gui_app.texture("icons/microphone.png", 30, 30)
     self._mic_indicator_rect = rl.Rectangle(0, 0, 0, 0)
+
+    # QR code for dashy
+    self._qr = DashyQR()
+
     self._font_regular = gui_app.font(FontWeight.NORMAL)
     self._font_bold = gui_app.font(FontWeight.SEMI_BOLD)
 
@@ -110,7 +115,8 @@ class Sidebar(Widget):
     self._recording_audio = ui_state.recording_audio
     self._update_network_status(device_state)
     self._update_temperature_status(device_state)
-    self._update_connection_status(device_state)
+    if not ui_state.dp_dev_disable_connect:
+      self._update_connection_status(device_state)
     self._update_panda_status()
 
   def _update_network_status(self, device_state):
@@ -163,12 +169,19 @@ class Sidebar(Widget):
     tint = Colors.BUTTON_PRESSED if settings_down else Colors.BUTTON_NORMAL
     rl.draw_texture(self._settings_img, int(SETTINGS_BTN.x), int(SETTINGS_BTN.y), tint)
 
-    # Home/Flag button
-    flag_pressed = mouse_down and rl.check_collision_point_rec(mouse_pos, HOME_BTN)
-    button_img = self._flag_img if ui_state.started else self._home_img
+    # Show QR code when offroad
+    self._qr.update()
+    if self._qr.texture:
+      scale = HOME_BTN.width / self._qr.texture.width
+      pos = rl.Vector2(HOME_BTN.x, HOME_BTN.y)
+      rl.draw_texture_ex(self._qr.texture, pos, 0.0, scale, rl.WHITE)
+    else:
+      # Home/Flag button
+      flag_pressed = mouse_down and rl.check_collision_point_rec(mouse_pos, HOME_BTN)
+      button_img = self._flag_img if ui_state.started else self._home_img
 
-    tint = Colors.BUTTON_PRESSED if (ui_state.started and flag_pressed) else Colors.BUTTON_NORMAL
-    rl.draw_texture(button_img, int(HOME_BTN.x), int(HOME_BTN.y), tint)
+      tint = Colors.BUTTON_PRESSED if (ui_state.started and flag_pressed) else Colors.BUTTON_NORMAL
+      rl.draw_texture(button_img, int(HOME_BTN.x), int(HOME_BTN.y), tint)
 
     # Microphone button
     if self._recording_audio:
@@ -200,7 +213,9 @@ class Sidebar(Widget):
     rl.draw_text_ex(self._font_regular, tr(self._net_type), text_pos, FONT_SIZE, 0, Colors.WHITE)
 
   def _draw_metrics(self, rect: rl.Rectangle):
-    metrics = [(self._temp_status, 338), (self._panda_status, 496), (self._connect_status, 654)]
+    metrics = [(self._temp_status, 338), (self._panda_status, 496)]
+    if not ui_state.dp_dev_disable_connect:
+      metrics.append((self._connect_status, 654))
 
     for metric, y_offset in metrics:
       self._draw_metric(rect, metric, rect.y + y_offset)

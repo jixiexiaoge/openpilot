@@ -86,3 +86,6 @@ build/
 .context/
 PLAN.md
 TASK.md
+
+# rick - keep panda_tici standalone
+panda_tici/

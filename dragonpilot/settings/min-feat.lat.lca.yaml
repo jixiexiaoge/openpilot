@@ -1,0 +1,38 @@
+settings:
+  - key: dp_lat_lca_speed
+    type: spin_button_item
+    title: "Lane Change Assist At:"
+    description: "Off = Disable LCA.<br>1 mph = 1.2 km/h."
+    category: "Lateral"
+    default: 20
+    min_val: 0
+    max_val: 100
+    step: 5
+    suffix: "mph"
+    special_value_text: "Off"
+    on_change:
+      - target: dp_lat_lca_auto_sec
+        action: set_enabled
+        condition: "value > 0"
+    flags: PERSISTENT
+    param_type: INT
+    default: "20"
+
+  - key: dp_lat_lca_auto_sec
+    type: double_spin_button_item
+    title: "+ Auto Lane Change after:"
+    description: "Off = Disable Auto Lane Change."
+    category: "Lateral"
+    default: 0.0
+    min_val: 0.0
+    max_val: 5.0
+    step: 0.5
+    suffix: "sec"
+    special_value_text: "Off"
+    initially_enabled_by:
+      param: dp_lat_lca_speed
+      condition: "value > 0"
+      default: 20
+    flags: PERSISTENT
+    param_type: FLOAT
+    default: "0.0"

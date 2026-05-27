@@ -29,6 +29,8 @@ MM_MODEM = MM + ".Modem"
 MM_MODEM_SIMPLE = MM + ".Modem.Simple"
 MM_SIM = MM + ".Sim"
 
+LITE = os.getenv("LITE") is not None
+
 class MM_MODEM_STATE(IntEnum):
   FAILED        = -1
   UNKNOWN       = 0
@@ -94,7 +96,7 @@ class Tici(HardwareBase):
 
   @cached_property
   def amplifier(self):
-    if self.get_device_type() == "mici":
+    if self.get_device_type() == "mici" or LITE:
       return None
     return Amplifier()
 
@@ -125,7 +127,7 @@ class Tici(HardwareBase):
       return int(f.read())
 
   def set_ir_power(self, percent: int):
-    if self.get_device_type() == "tizi":
+    if self.get_device_type() in ("tici", "tizi"):
       return
 
     value = int((percent / 100) * 300)
@@ -210,7 +212,7 @@ class Tici(HardwareBase):
     return str(self.get_modem().Get(MM_MODEM, 'EquipmentIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT))
 
   def get_network_info(self):
-    if self.get_device_type() == "mici":
+    if self.get_device_type() == "mici" or LITE:
       return None
     try:
       modem = self.get_modem()
@@ -302,6 +304,8 @@ class Tici(HardwareBase):
       return None
 
   def get_modem_temperatures(self):
+    if LITE:
+      return []
     timeout = 0.2  # Default timeout is too short
     try:
       modem = self.get_modem()
@@ -371,7 +375,7 @@ class Tici(HardwareBase):
     if self.amplifier is not None:
       self.amplifier.set_global_shutdown(amp_disabled=powersave_enabled)
       if not powersave_enabled:
-        self.amplifier.initialize_configuration()
+        self.amplifier.initialize_configuration(self.get_device_type())
 
     # *** CPU config ***
 
@@ -406,7 +410,7 @@ class Tici(HardwareBase):
 
   def initialize_hardware(self):
     if self.amplifier is not None:
-      self.amplifier.initialize_configuration()
+      self.amplifier.initialize_configuration(self.get_device_type())
 
     # Allow hardwared to write engagement status to kmsg
     os.system("sudo chmod a+w /dev/kmsg")
@@ -448,11 +452,15 @@ class Tici(HardwareBase):
 
     # pandad core
     affine_irq(3, "spi_geni")         # SPI
+    # rick - for c3
+    if "tici" in self.get_device_type():
+      affine_irq(3, "xhci-hcd:usb3")  # aux panda USB (or potentially anything else on USB)
+      affine_irq(3, "xhci-hcd:usb1")  # internal panda USB (also modem)
     try:
       pid = subprocess.check_output(["pgrep", "-f", "spi0"], encoding='utf8').strip()
       subprocess.call(["sudo", "chrt", "-f", "-p", "1", pid])
       subprocess.call(["sudo", "taskset", "-pc", "3", pid])
-    except subprocess.CalledProcessException as e:
+    except subprocess.CalledProcessError as e:
       print(str(e))
 
   def configure_modem(self):
@@ -460,24 +468,46 @@ class Tici(HardwareBase):
 
     cmds = []
     modem = self.get_modem()
+    try:
+      manufacturer = str(modem.Get(MM_MODEM, 'Manufacturer', dbus_interface=DBUS_PROPS, timeout=TIMEOUT))
+    except Exception:
+      manufacturer = None
 
     # Quectel EG25
-    if self.get_device_type() in ("tizi", ):
+    # rick - for c3
+    if self.get_device_type() in ("tizi", "tici"):
       # clear out old blue prime initial APN
       os.system('mmcli -m any --3gpp-set-initial-eps-bearer-settings="apn="')
 
+      # rick - c3, only for tizi
+      if self.get_device_type() == "tizi":
+        cmds += [
+          # SIM hot swap
+          'AT+QSIMDET=1,0',
+          'AT+QSIMSTAT=1',
+        ]
+
       cmds += [
-        # SIM hot swap
-        'AT+QSIMDET=1,0',
-        'AT+QSIMSTAT=1',
+        # rick - move away, not for c3
+        # # SIM hot swap
+        # 'AT+QSIMDET=1,0',
+        # 'AT+QSIMSTAT=1',
 
         # configure modem as data-centric
         'AT+QNVW=5280,0,"0102000000000000"',
         'AT+QNVFW="/nv/item_files/ims/IMS_enable",00',
         'AT+QNVFW="/nv/item_files/modem/mmode/ue_usage_setting",01',
       ]
+    elif manufacturer == 'Cavli Inc.':
+      cmds += [
+        'AT^SIMSWAP=1',     # use SIM slot, instead of internal eSIM
+        'AT$QCSIMSLEEP=0',  # disable SIM sleep
+        'AT$QCSIMCFG=SimPowerSave,0',  # more sleep disable
 
-    # Quectel EG916
+        # ethernet config
+        'AT$QCPCFG=usbNet,0',
+        'AT$QCNETDEVCTL=3,1',
+      ]
     else:
       # this modem gets upset with too many AT commands
       if sim_id is None or len(sim_id) == 0:

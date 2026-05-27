@@ -1,0 +1,10 @@
+settings:
+  - key: dp_ui_rainbow
+    type: toggle_item
+    title: "Rainbow Driving Path like Tesla"
+    description: "Why not?"
+    category: "UI"
+    condition: "not MICI"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"

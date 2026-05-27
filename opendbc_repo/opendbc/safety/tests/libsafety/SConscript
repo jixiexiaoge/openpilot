@@ -17,6 +17,7 @@ env = Environment(
     '-O0',
     '-fno-omit-frame-pointer',
     '-DALLOW_DEBUG',
+    '-DCANFD',
   ],
   LINKFLAGS=[
     '-fsanitize=undefined',

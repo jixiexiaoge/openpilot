@@ -1,0 +1,14 @@
+settings:
+  - key: dp_dev_audible_alert_mode
+    type: text_spin_button_item
+    title: "Audible Alert"
+    description: "Std.: Stock behaviour.<br>Warning: Only emits sound when there is a warning.<br>Off: Does not emit any sound at all."
+    category: "Device"
+    condition: "not LITE"
+    default: 0
+    options:
+      - "Std."
+      - "Warning"
+      - "Off"
+    flags: PERSISTENT
+    param_type: INT

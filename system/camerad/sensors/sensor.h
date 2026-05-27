@@ -12,6 +12,8 @@
 #include "cereal/gen/cpp/log.capnp.h"
 #include "system/camerad/sensors/ox03c10_registers.h"
 #include "system/camerad/sensors/os04c10_registers.h"
+// rick - for c3
+#include "system/camerad/sensors/ar0231_registers.h"
 
 #define ANALOG_GAIN_MAX_CNT 55
 
@@ -102,4 +104,16 @@ public:
   std::vector<i2c_random_wr_payload> getExposureRegisters(int exposure_time, int new_exp_g, bool dc_gain_enabled) const override;
   float getExposureScore(float desired_ev, int exp_t, int exp_g_idx, float exp_gain, int gain_idx) const override;
   int getSlaveAddress(int port) const override;
+};
+
+// rick - for c3
+class AR0231 : public SensorInfo {
+public:
+  AR0231();
+  std::vector<i2c_random_wr_payload> getExposureRegisters(int exposure_time, int new_exp_g, bool dc_gain_enabled) const override;
+  float getExposureScore(float desired_ev, int exp_t, int exp_g_idx, float exp_gain, int gain_idx) const override;
+  int getSlaveAddress(int port) const override;
+
+private:
+  mutable std::map<uint16_t, std::pair<int, int>> ar0231_register_lut;
 };

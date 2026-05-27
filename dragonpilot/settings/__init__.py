@@ -53,6 +53,9 @@ SECTION_ORDER = [
   "Longitudinal",
   "UI",
   "Device",
+  # Upstream openpilot toggle mirrors (dashy-only, gated by `condition: "DASHY"`).
+  "Openpilot",
+  "Developer",
 ]
 
 # Brand-gated sections: the whole header + its items are hidden when the
@@ -72,6 +75,11 @@ _KNOWN_ITEM_KEYS = _UI_REQUIRED_KEYS | {
   "description", "default", "min_val", "max_val", "step", "suffix",
   "special_value_text", "options", "brands", "condition",
   "depends_on", "param_name", "callback",
+  # Dashy-only fields (no factory on the device dp panel; web UI consumes them).
+  # text_display_item: read-only render of a param's value.
+  # text_input_item: text field that POSTs typed value to the named action endpoint.
+  # action_item: button that POSTs to the named action endpoint with no payload.
+  "action",
   # Param-storage fields (consumed by generate_settings.py, ignored by UI)
   "flags", "param_type",
 }
