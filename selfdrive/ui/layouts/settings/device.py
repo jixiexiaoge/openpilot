@@ -280,5 +280,5 @@ class DeviceLayout(Widget):
 
       self._dp_on_off_road_btn.action_item.set_text(tr("Go Onroad") if not val else tr("Go Offroad"))
 
-    dialog = ConfirmDialog(tr("Are you sure you want to switch?"), tr("CONFIRM"))
-    gui_app.set_modal_overlay(dialog, callback=on_off_road)
+    dialog = ConfirmDialog(tr("Are you sure you want to switch?"), tr("CONFIRM"), callback=on_off_road)
+    gui_app.push_widget(dialog)

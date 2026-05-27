@@ -131,4 +131,5 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"Version", {PERSISTENT, STRING}},
     {"dp_dev_last_log", {CLEAR_ON_ONROAD_TRANSITION, STRING}},
     {"dp_dev_reset_conf", {CLEAR_ON_MANAGER_START, BOOL, "0"}},
+    {"dp_dev_go_off_road", {CLEAR_ON_MANAGER_START, BOOL, "0"}},
 };
