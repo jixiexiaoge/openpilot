@@ -173,8 +173,10 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"CarrotDSPPopupReady", {PERSISTENT, BOOL, "0"}},          // DSP: 팝업 신호
     {"CarrotDSPComplete", {PERSISTENT, BOOL, "0"}},            // DSP: 프로파일링 완료 여부
     {"ClusterHud", {PERSISTENT, INT, "0"}},
+    {"ClusterHudBrightness", {PERSISTENT, INT, "0"}},
     {"ClusterHudTheme", {PERSISTENT, INT, "0"}},
     {"ClusterHudLiveFps", {PERSISTENT, INT, "0"}},
+    {"ClusterHudScreenMode", {PERSISTENT, INT, "0"}},
     {"RecordRoadCam", {PERSISTENT, INT, "0"}},
     {"HDPuse", {PERSISTENT, INT, "0"}},
 
