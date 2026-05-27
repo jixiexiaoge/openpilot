@@ -69,12 +69,23 @@ class DragonpilotLayout(Widget):
     self._build_dependency_maps(settings_data)
 
     for i, section in enumerate(settings_data):
-      if self._check_condition(section.get("condition")):
-        formatted_title = f"### {section['title']} ###"
-        self._toggles[f"title_{i}"] = simple_item(title=formatted_title)
-        for setting in section.get("settings", []):
-          if self._check_condition(setting.get("condition")) and self._check_brands(setting.get("brands")):
-            self._create_item(setting)
+      if not self._check_condition(section.get("condition")):
+        continue
+
+      title_key = f"title_{i}"
+      self._toggles[title_key] = simple_item(title=f"### {section['title']} ###")
+      count_after_title = len(self._toggles)
+
+      for setting in section.get("settings", []):
+        if self._check_condition(setting.get("condition")) and self._check_brands(setting.get("brands")):
+          self._create_item(setting)
+
+      # Drop the header if nothing rendered under it: all items filtered out
+      # (brand/condition) or no device widget factory for the item type
+      # (e.g. dashy-only text_display/text_input/action items). Avoids an
+      # orphan "### Section ###" with no controls.
+      if len(self._toggles) == count_after_title:
+        del self._toggles[title_key]
 
   def _check_condition(self, condition):
     if not condition:
