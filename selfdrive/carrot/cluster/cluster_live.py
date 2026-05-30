@@ -37,7 +37,6 @@ LIVE_SERVICES_BASE = (
     "longitudinalPlan",
     "lateralPlan",
     "controlsState",
-    "selfdriveState",
     "carControl",
     "deviceState",
     "cameraOdometry",
@@ -144,15 +143,13 @@ class OpenpilotLiveSource:
         elif service == "lateralPlan":
             self.parser._update_lateral_plan(data)
         elif service in ("navInstruction", "navInstructionCarrot"):
-            self.parser._update_nav_instruction(data, event_t)
+            self.parser._update_nav_instruction(data)
         elif service == "longitudinalPlan":
             self.parser._update_longitudinal_plan(data)
         elif service == "controlsState":
             self.parser._update_controls_state(data)
-        elif service == "selfdriveState":
-            self.parser._update_selfdrive_state(data)
         elif service == "carControl":
-            self.parser._update_car_control(data)
+            return
         elif service == "cameraOdometry":
             self.parser._update_camera_odometry(data, self._service_valid(service))
         elif service == "radarState":
@@ -513,12 +510,8 @@ def standby_state() -> ClusterUiState:
         accel_mps2=0.0,
         steering=0.0,
         speed_limit_kph=None,
-        speed_limit_source=None,
         cruise_kph=None,
         cruise_display_state="off",
-        gear_text=None,
-        cruise_gap=None,
-        lfa_active=None,
         left_signal=False,
         right_signal=False,
         left_blindspot=False,
