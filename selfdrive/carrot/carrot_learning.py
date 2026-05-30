@@ -28,7 +28,6 @@ karpathy.md 원칙 준수: 최소 구현, 단일 목적.
 """
 
 import json
-import math
 import numpy as np
 from openpilot.common.params import Params
 from openpilot.common.conversions import Conversions as CV
@@ -149,23 +148,6 @@ class CarrotLearner:
     self._prev_a_ego = 0.0       # 이전 프레임 가속도
     self._accel_swing_count = 0  # 가감속 반전(Hunting) 카운트
 
-    # ── 주행 중 팝업 타이머 ─────────────────────────────────────────────
-    # Trigger 1: 인게이지 30분 경과 → 즉시 팝업 (주행 중 포함)
-    self._engaged_elapsed_sec = 0.0      # 인게이지 누적 시간
-    self._popup_interval_sec = 1800.0    # 30분 = 1800초
-    # Trigger 2: 5분 주기 추천 체크 → 정차 시 팝업
-    self._check_elapsed_sec = 0.0        # 추천 체크 타이머
-    self._check_interval_sec = 300.0     # 5분마다 체크
-    self._pending_popup = False          # 정차 대기 팝업 플래그
-    # 공통: 팝업 후 쿨다운 (중복 발동 방지)
-    self._popup_cooldown_sec = 0.0       # 팝업 발동 후 5분 쿨다운
-
-    # Phase 6 (Curve Decel Aggressiveness)
-    self._curve_override_gas_sec = 0.0
-    self._curve_override_brake_sec = 0.0
-    self._curve_override_brake_count = 0
-    self._curve_max_decel = 0.0
-
     self._load()
 
   # ------------------------------------------------------------------
@@ -180,7 +162,7 @@ class CarrotLearner:
              steer_deg: float = 0.0, steer_pressed: bool = False,
              brake_pressed: bool = False, lead_drel: float = 0.0, lead_v_kph: float = 0.0,
              a_ego: float = 0.0, lead_jlead: float = 0.0, v_cruise_kph: float = 0.0,
-             gas_val: float = 0.0, brake_val: float = 0.0, sm=None):
+             gas_val: float = 0.0, brake_val: float = 0.0):
     """
     매 프레임 호출.
     - Phase 1: engaged + gas_pressed → 속도구간 누적
@@ -191,11 +173,7 @@ class CarrotLearner:
     - gear_park=True → 추천 계산 및 Params 저장
     """
     if not self._is_active():
-      if self._params.get_bool("CarrotLearningPopupReady"):
-        self._params.put_bool("CarrotLearningPopupReady", False)
       return
-
-    prev_brake = self._prev_brake
 
     # UI로부터 초기화(Clear) 신호가 오면 내부 메모리를 비움
     if self._params.get_bool("CarrotLearningClear"):
@@ -314,81 +292,7 @@ class CarrotLearner:
       if v_ego_kph >= 80.0 and brake_pressed:
         self._tfollow_speed_brake_acc += _DT
 
-    # ── Phase 6: 가변 곡선 감속 학습 ──────────────────────────────────────────
-    if engaged and sm is not None and sm.alive.get('modelV2', False) and v_ego_kph >= 20.0:
-      modelData = sm['modelV2']
-      if len(modelData.position.x) >= 3:
-        x_pts = np.array(modelData.position.x)
-        y_pts = np.array(modelData.position.y)
-        n_points = len(x_pts)
-        
-        # Calculate maximum curvature along the predicted path
-        max_c = 0.0
-        for i in range(1, n_points - 1):
-          x1, y1 = x_pts[i-1], y_pts[i-1]
-          x2, y2 = x_pts[i], y_pts[i]
-          x3, y3 = x_pts[i+1], y_pts[i+1]
-          
-          dx1, dy1 = x2 - x1, y2 - y1
-          dx2, dy2 = x3 - x2, y3 - y2
-          
-          a_side = math.sqrt(dx1**2 + dy1**2)
-          b_side = math.sqrt(dx2**2 + dy2**2)
-          c_side = math.sqrt((x3 - x1)**2 + (y3 - y1)**2)
-          
-          cross = dx1 * dy2 - dy1 * dx2
-          if a_side * b_side * c_side > 1e-6:
-            curvature = (2.0 * abs(cross)) / (a_side * b_side * c_side)
-            max_c = max(max_c, curvature)
-
-        # Curve detected threshold: max_c > 0.0035 (radius < ~285m)
-        is_curve = (max_c > 0.0035)
-        no_lead = (lead_drel == 0.0 or lead_drel > 80.0) # no close lead car
-        
-        if is_curve and no_lead:
-          if gas_pressed:
-            self._curve_override_gas_sec += _DT
-          elif brake_pressed:
-            self._curve_override_brake_sec += _DT
-            # Track peak deceleration in curve
-            self._curve_max_decel = max(self._curve_max_decel, -a_ego)
-            
-            # Detect unique brake event in curve
-            if not prev_brake:
-              self._curve_override_brake_count += 1
-
-    # ── 주행 중 팝업 타이머 업데이트 ──────────────────────────────────
-    if engaged and not gear_park:
-      self._engaged_elapsed_sec += _DT
-      self._check_elapsed_sec += _DT
-
-    # 쿨다운 소모
-    if self._popup_cooldown_sec > 0:
-      self._popup_cooldown_sec -= _DT
-
-    # [Trigger 2-체크] 5분마다 추천사항 확인 → pending 플래그 세팅
-    if self._check_elapsed_sec >= self._check_interval_sec:
-      self._check_elapsed_sec = 0.0
-      if self._has_driven and self._popup_cooldown_sec <= 0:
-        recs = self._calc_recommendations()
-        if recs:
-          self._pending_popup = True
-
-    # [Trigger 2-발동] 정차 시 (v < 3 km/h) pending 팝업 표시
-    if (self._pending_popup and not gear_park
-        and self._has_driven and v_ego_kph < 3.0
-        and self._popup_cooldown_sec <= 0):
-      self._fire_popup(source="stop")
-      self._pending_popup = False
-
-    # [Trigger 1] 인게이지 30분 경과 → 즉시 팝업 (주행 중이라도)
-    if (self._engaged_elapsed_sec >= self._popup_interval_sec
-        and self._has_driven and self._popup_cooldown_sec <= 0):
-      self._fire_popup(source="timer")
-      self._engaged_elapsed_sec = 0.0
-      self._pending_popup = False  # 30분 팝업이 발동하면 pending 취소
-
-    # [Trigger 3] 주차 감지 (이전에 주차가 아니었고, 주행을 한 번이라도 한 경우에만 발동)
+    # 주차 감지 (이전에 주차가 아니었고, 주행을 한 번이라도 한 경우에만 발동)
     if gear_park and not self._prev_gear_park and self._has_driven:
       self._on_parking()
       self._has_driven = False  # 팝업 후 플래그 초기화
@@ -422,12 +326,6 @@ class CarrotLearner:
     self._brake_max_decel = 0.0
     self._brake_min_ttc = 999.0
     self._tfollow_min_gap = [999.0] * 4
-
-    # Phase 6 reset
-    self._curve_override_gas_sec = 0.0
-    self._curve_override_brake_sec = 0.0
-    self._curve_override_brake_count = 0
-    self._curve_max_decel = 0.0
 
     self._params.remove("CarrotLearningData")
     self._params.remove("CarrotLearningRecommend")
@@ -485,12 +383,6 @@ class CarrotLearner:
       p5 = data.get("phase5", {})
       self._dyn_brake_count = int(p5.get("dyn_brake_count", 0))
       self._decel_brake_count = int(p5.get("decel_brake_count", 0))
-      # Phase 6
-      p6 = data.get("phase6", {})
-      self._curve_override_gas_sec = float(p6.get("curve_override_gas_sec", 0.0))
-      self._curve_override_brake_sec = float(p6.get("curve_override_brake_sec", 0.0))
-      self._curve_override_brake_count = int(p6.get("curve_override_brake_count", 0))
-      self._curve_max_decel = float(p6.get("curve_max_decel", 0.0))
 
       # v3 Override Intensity & Dynamics Restore
       override = data.get("override_dynamics", {})
@@ -533,12 +425,6 @@ class CarrotLearner:
         "dyn_brake_count": self._dyn_brake_count,
         "decel_brake_count": self._decel_brake_count,
       },
-      "phase6": {
-        "curve_override_gas_sec": self._curve_override_gas_sec,
-        "curve_override_brake_sec": self._curve_override_brake_sec,
-        "curve_override_brake_count": self._curve_override_brake_count,
-        "curve_max_decel": self._curve_max_decel,
-      },
       "override_dynamics": {
         "gas_max_accel": self._gas_max_accel,
         "gas_max_pedal": self._gas_max_pedal,
@@ -549,24 +435,14 @@ class CarrotLearner:
     }
     self._params.put("CarrotLearningData", json.dumps(data).encode('utf8'))
 
-  def _fire_popup(self, source: str = "parking"):
-    """추천 계산 → Params 저장 → 팝업 신호.
-    source: 'parking' | 'stop' | 'timer'
-    """
+  def _on_parking(self):
+    """주차 전환 시: 저장 → 추천 계산 → 팝업 신호"""
     self._save()
     recommendations = self._calc_recommendations()
     if not recommendations:
       return
     self._params.put("CarrotLearningRecommend", json.dumps(recommendations).encode('utf8'))
-    self._params.put("CarrotLearningPopupSource", source)
     self._params.put_bool("CarrotLearningPopupReady", True)
-    self._popup_cooldown_sec = 300.0  # 5분 쿨다운 (중복 팝업 방지)
-
-  def _on_parking(self):
-    """주차 전환 시: _fire_popup 호출"""
-    self._fire_popup(source="parking")
-    self._engaged_elapsed_sec = 0.0
-    self._pending_popup = False
 
   def _calc_recommendations(self) -> dict:
     """Phase 1~4 추천값 계산. 추천 없으면 빈 dict 반환."""
@@ -579,31 +455,10 @@ class CarrotLearner:
     }
 
     # ── Phase 1: CruiseMaxVals ──────────────────────────────────────
-    drive_mode = self._params.get_int("MyDrivingMode") # 1: ECO, 2: SAFE, 3: NORMAL, 4: HIGH
     for i, acc_sec in enumerate(self._gas_acc):
       key = _ACCEL_KEYS[i]
       current_raw = self._params.get_int(key)
       if current_raw <= 0: continue
-
-      # 드라이브 모드별 동적 가속 제한 상한값 설정
-      max_limit = 250
-      if key == "CruiseMaxVals1":
-        if drive_mode in (1, 2):    # ECO, SAFE
-          max_limit = 180
-        elif drive_mode == 3:       # NORMAL
-          max_limit = 200
-        elif drive_mode == 4:       # HIGH
-          max_limit = 250
-      elif key == "CruiseMaxVals2":
-        if drive_mode in (1, 2):    # ECO, SAFE
-          max_limit = 150
-        elif drive_mode in (3, 4):  # NORMAL, HIGH
-          max_limit = 160
-      elif key == "CruiseMaxVals3":
-        if drive_mode in (1, 2):    # ECO, SAFE
-          max_limit = 110
-        elif drive_mode in (3, 4):  # NORMAL, HIGH
-          max_limit = 120
 
       total_dec = self._gas_dec_acc[i] + self._gas_dec_auto_acc[i]
       
@@ -622,27 +477,17 @@ class CarrotLearner:
       current_accel_limit = current_raw / 100.0
       accel_deficit = max_accel - current_accel_limit
 
-      recommended_raw = current_raw
-      reason = ""
-      sec = 0.0
-
-      if current_raw > max_limit:
-        # 현재 설정값이 동적 상한선보다 큰 경우 강제 상한 제한으로 하향 조치 트리거
-        recommended_raw = max_limit
-        reason = f"exceeds drive-mode limit ({max_limit})"
-        sec = 0.0
-      elif dampened_acc_sec >= _GAS_THRESHOLD_SEC and not is_auto_surging:
+      if dampened_acc_sec >= _GAS_THRESHOLD_SEC and not is_auto_surging:
         # 피크 가속도 부족분에 비례하는 가변 증가율 적용 (최소 5%, 최대 25%)
         if accel_deficit > 0.05:
           dynamic_ratio = float(np.clip(accel_deficit / current_accel_limit * 0.8, 0.05, 0.25))
         else:
           dynamic_ratio = _GAS_RECOMMEND_RATIO # 기본 10%
-        recommended_raw = min(max_limit, int(current_raw * (1.0 + dynamic_ratio)))
+        recommended_raw = min(250, int(current_raw * (1.0 + dynamic_ratio)))
         reason = f"gas help (deficit {accel_deficit:.2f}m/s^2, ratio {dynamic_ratio*100:.1f}%)"
         sec = dampened_acc_sec
       elif total_dec >= _GAS_REDUCE_THRESHOLD_SEC or (total_brake_events >= 8 and current_raw > 100) or is_auto_surging:
         recommended_raw = max(50, int(current_raw * (1.0 + _GAS_REDUCE_RATIO)))
-        recommended_raw = min(max_limit, recommended_raw)
         if is_auto_surging:
           reason = "excessive auto-surging penalty"
           sec = self._gas_dec_auto_acc[i] + self._brake_auto_count
@@ -842,37 +687,6 @@ class CarrotLearner:
       entry["band_kph"] = entry["band_kph"] + f" ※다음세션권고:{','.join(deferred_names)}"
       result[winner_group][winner_name] = entry
 
-    # ── Phase 6: Curve Speed Aggressiveness ─────────────────────────
-    key = "AutoCurveSpeedAggressiveness"
-    current_raw = self._params.get_int(key)
-    if current_raw <= 0:
-      current_raw = 100
-
-    recommended_raw = current_raw
-    reason = ""
-    sec = 0.0
-
-    # Brake overrides (Safety critical - takes priority)
-    if self._curve_override_brake_count >= 3 or self._curve_override_brake_sec >= 5.0:
-      recommended_raw = max(60, current_raw - 10)
-      reason = f"brake overrides (count {self._curve_override_brake_count}, peak decel {self._curve_max_decel:.2f}m/s^2)"
-      sec = self._curve_override_brake_sec
-    elif self._curve_override_gas_sec >= 10.0:
-      recommended_raw = min(150, current_raw + 10)
-      reason = f"gas overrides (acc {self._curve_override_gas_sec:.1f}s)"
-      sec = self._curve_override_gas_sec
-
-    if recommended_raw != current_raw:
-      if "곡선 (Curve)" not in result:
-        result["곡선 (Curve)"] = {}
-      result["곡선 (Curve)"][key] = {
-        "current": current_raw,
-        "recommended": recommended_raw,
-        "reason": reason,
-        "band_kph": "curve deceleration",
-        "sec": sec,
-      }
-
     return {k: v for k, v in result.items() if v}
 
   def apply_recommendations(self):
@@ -916,21 +730,8 @@ class CarrotLearner:
     self._brake_min_ttc = 999.0
     self._tfollow_min_gap = [999.0] * 4
 
-    # Phase 6 reset
-    self._curve_override_gas_sec = 0.0
-    self._curve_override_brake_sec = 0.0
-    self._curve_override_brake_count = 0
-    self._curve_max_decel = 0.0
-
-    # 주행 중 팝업 타이머 리셋 (적용 후 재학습 시작)
-    self._engaged_elapsed_sec = 0.0
-    self._check_elapsed_sec = 0.0
-    self._pending_popup = False
-    self._popup_cooldown_sec = 0.0
-
     self._params.remove("CarrotLearningData")
     self._params.remove("CarrotLearningRecommend")
-    self._params.remove("CarrotLearningPopupSource")
     self._params.put_bool("CarrotLearningPopupReady", False)
 
 
