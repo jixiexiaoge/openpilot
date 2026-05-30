@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from dataclasses import dataclass
 import gc
 import os
 import time
 from typing import Any
-
-
-GC_POST_FREEZE_THRESHOLDS = (3000, 30, 30)
 
 
 def _read_proc_status() -> dict[str, str]:
@@ -57,30 +52,11 @@ def _status_kb_to_mb(value: str) -> float | None:
         return None
 
 
-@dataclass(slots=True)
-class ProfileSampleStats:
-    total_ms: float = 0.0
-    max_ms: float = 0.0
-    last_ms: float = 0.0
-    count: int = 0
-
-    @property
-    def average_ms(self) -> float:
-        return self.total_ms / max(1, self.count)
-
-    def add(self, milliseconds: float) -> None:
-        self.total_ms += milliseconds
-        if self.count == 0 or milliseconds > self.max_ms:
-            self.max_ms = milliseconds
-        self.last_ms = milliseconds
-        self.count += 1
-
-
 class ProfileReporter:
     def __init__(self, enabled: bool, interval_s: float) -> None:
         self.enabled = enabled
         self.interval_s = max(0.2, interval_s)
-        self.samples: dict[str, ProfileSampleStats] = {}
+        self.samples: dict[str, list[float]] = {}
         self.last_report_time = time.perf_counter()
         self.last_process_time = time.process_time()
         self.last_system_cpu = _read_system_cpu_stat()
@@ -89,17 +65,13 @@ class ProfileReporter:
     def add(self, name: str, milliseconds: float) -> None:
         if not self.enabled:
             return
-        stats = self.samples.get(name)
-        if stats is None:
-            stats = ProfileSampleStats()
-            self.samples[name] = stats
-        stats.add(milliseconds)
+        self.samples.setdefault(name, []).append(milliseconds)
 
     def add_elapsed(self, name: str, start_time: float) -> None:
         if self.enabled:
             self.add(name, (time.perf_counter() - start_time) * 1000.0)
 
-    def add_samples(self, samples: Iterable[tuple[str, float]]) -> None:
+    def add_samples(self, samples: tuple[tuple[str, float], ...]) -> None:
         if not self.enabled:
             return
         for name, milliseconds in samples:
@@ -120,15 +92,16 @@ class ProfileReporter:
             print(f"  runtime {runtime_summary}", flush=True)
         ordered = sorted(
             self.samples.items(),
-            key=lambda item: item[1].average_ms,
+            key=lambda item: sum(item[1]) / max(1, len(item[1])),
             reverse=True,
         )
-        for name, stats in ordered:
-            if stats.count <= 0:
+        for name, values in ordered:
+            if not values:
                 continue
+            average = sum(values) / len(values)
             print(
-                f"  {name:<42} avg={stats.average_ms:7.2f}ms "
-                f"max={stats.max_ms:7.2f}ms last={stats.last_ms:7.2f}ms n={stats.count}",
+                f"  {name:<42} avg={average:7.2f}ms "
+                f"max={max(values):7.2f}ms last={values[-1]:7.2f}ms n={len(values)}",
                 flush=True,
             )
         self.samples.clear()
@@ -202,4 +175,3 @@ def freeze_gc_after_init(profile: ProfileReporter) -> None:
     profile_stage = time.perf_counter()
     freeze()
     profile.add_elapsed("gc.freeze_init.freeze", profile_stage)
-    gc.set_threshold(*GC_POST_FREEZE_THRESHOLDS)
