@@ -1,19 +1,14 @@
-Import('env', 'envCython', 'common', 'messaging')
+Import('env', 'common', 'messaging')
 
 libs = ['usb-1.0', common, messaging, 'pthread']
 panda = env.Library('panda', ['panda.cc', 'panda_comms.cc', 'spi.cc'])
 
 env.Program('pandad', ['main.cc', 'pandad.cc', 'panda_safety.cc'], LIBS=[panda] + libs)
 
-# can_list_to_can_capnp.cc is #included directly into pandad_api_impl.cpp via the
-# `cdef extern from "can_list_to_can_capnp.cc"` in the .pyx, so its symbols are
-# compiled straight into pandad_api_impl.o. No separate library is needed — the
-# old env.Library('libcan_list_to_can_capnp', ...) produced a .a whose members
-# were never actually linked (symbols already satisfied by the .o), and the
-# string LIBS=["can_list_to_can_capnp"] only caused a spurious LIBPATH lookup
-# that failed on c3X.
-pandad_python = envCython.Program('pandad_api_impl.so', 'pandad_api_impl.pyx', LIBS=['capnp', 'kj'] + envCython["LIBS"])
-Export('pandad_python')
+# pandad_api_impl is pure Python (selfdrive/pandad_tici/pandad_api_impl.py),
+# identical to the standard pandad/ impl — no Cython/C++ build needed. The CAN
+# capnp serialization is hardware-agnostic (shared cereal schema), so c3 and c3X
+# use the same code. This avoids the c3X link failure from the old Cython path.
 
 if GetOption('extras'):
   env.Program('tests/test_pandad_usbprotocol', ['tests/test_pandad_usbprotocol.cc'], LIBS=[panda] + libs)
