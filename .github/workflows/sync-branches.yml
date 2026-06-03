@@ -37,6 +37,14 @@ jobs:
           add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
           git fetch carrotpilot c3-wip --no-tags || echo "⚠️ carrotpilot c3-wip fetch failed"
 
+          # Carrot-WIP
+          add_or_update_remote carrotwip https://github.com/ajouatom/openpilot.git
+          git fetch carrotwip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
+
+          # Carrot c3-atune
+          add_or_update_remote c3-atune https://github.com/ajouatom/openpilot.git
+          git fetch c3-atune hoya/c3-atune --no-tags || echo "⚠️ c3-atune fetch failed"
+
           # IQpilot
           add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
           git fetch iqpilot release-new --no-tags || echo "⚠️ iqpilot fetch failed"
@@ -44,10 +52,6 @@ jobs:
           # Dragonpilot
           add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
           git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
-
-          # c3-ms
-          add_or_update_remote c3-ms https://github.com/happymaj11r/openpilot.git
-          git fetch c3-ms c3-ms --no-tags || echo "⚠️ c3-ms fetch failed"
 
       - name: Push branches to your repository (force sync)
         run: |
@@ -75,9 +79,10 @@ jobs:
           # ========= 分支同步 =========
 
           sync_branch Carrotpilot carrotpilot/c3-wip
+          sync_branch carrot-wip carrotwip/carrot-wip
+          sync_branch c3-atune c3-atune/hoya/c3-atune
           sync_branch release iqpilot/release-new
           sync_branch Dragonpilot dragonpilot/pre-build
-          sync_branch c3-ms c3-ms/c3-ms
 
       - name: Tag sync timestamp
         run: |
