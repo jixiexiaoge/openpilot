@@ -19,8 +19,8 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 from cereal import log
 
 # Hysteresis thresholds (km/h -> m/s)
-APM_ACTIVATE_SPEED = 30 * 1000 / 3600    # 30 km/h ~8.33 m/s — switch to aggressive below this
-APM_DEACTIVATE_SPEED = 40 * 1000 / 3600  # 40 km/h ~11.11 m/s — restore user personality above this
+APM_ACTIVATE_SPEED = 60 * 1000 / 3600    # 60 km/h — switch to aggressive below this
+APM_DEACTIVATE_SPEED = 70 * 1000 / 3600  # 70 km/h — restore user personality above this
 
 
 class APM:
