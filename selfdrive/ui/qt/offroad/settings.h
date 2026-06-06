@@ -115,6 +115,8 @@ private:
   QWidget* homeWidget;
   QVBoxLayout* carrotLayout;
 
+  QStackedWidget* content_stack = nullptr;
+
   ListWidget* cruiseToggles;
   ListWidget* latLongToggles;
   ListWidget* pathToggles;
@@ -135,6 +137,9 @@ class CValueControl : public AbstractControl {
 public:
   CValueControl(const QString& params, const QString& title, const QString& desc, int min, int max, int unit = 1);
 
+signals:
+  void valueChanged(int val);
+
 private slots:
   void increaseValue();
   void decreaseValue();
@@ -152,4 +157,67 @@ private:
   int m_min;
   int m_max;
   int m_unit;
+};
+
+#include <QMap>
+#include <QList>
+#include <QColor>
+
+class AutoTunerGraphWidget : public QWidget {
+  Q_OBJECT
+public:
+  explicit AutoTunerGraphWidget(QWidget *parent = nullptr);
+  void setData(const QList<QString> &timestamps, const QMap<QString, QList<double>> &param_histories, const QMap<QString, QColor> &colors);
+  void setSelectedParam(const QString &param);
+
+protected:
+  void paintEvent(QPaintEvent *event) override;
+  void mousePressEvent(QMouseEvent *event) override;
+
+private:
+  QList<QString> timestamps;
+  QMap<QString, QList<double>> param_histories;
+  QMap<QString, QColor> colors;
+  QString selected_param;
+  int selected_index = -1;
+};
+
+class AutoTunerCardListDialog : public DialogBase {
+  Q_OBJECT
+public:
+  explicit AutoTunerCardListDialog(QWidget *parent = nullptr);
+private slots:
+  void refreshHistory();
+  void deleteItem(const QString& id);
+  void restoreItem(const QString& id);
+private:
+  QVBoxLayout *list_layout;
+};
+
+class AutoTunerHistoryDialog : public DialogBase {
+  Q_OBJECT
+public:
+  explicit AutoTunerHistoryDialog(QWidget *parent = nullptr);
+};
+
+class AutoTunerHistoryPanel : public QFrame {
+  Q_OBJECT
+public:
+  explicit AutoTunerHistoryPanel(QWidget* parent = nullptr);
+public slots:
+  void refreshHistory();
+  void updateLabelColors();
+private slots:
+  void deleteItem(const QString& id);
+  void restoreItem(const QString& id);
+  void clearAll();
+private:
+  AutoTunerGraphWidget *graph_widget;
+  QVBoxLayout *param_list_layout;
+  QMap<QString, QLabel*> param_labels;
+  QString selected_param;
+  QString latest_id;
+  QMap<QString, QColor> param_colors;
+protected:
+  void showEvent(QShowEvent *event) override;
 };

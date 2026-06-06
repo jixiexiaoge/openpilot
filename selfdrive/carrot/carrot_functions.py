@@ -8,6 +8,7 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.selfdrived.events import Events
+from openpilot.selfdrive.carrot.carrot_learning import CarrotLearner, DrivingStyleProfiler
 
 EventName = log.OnroadEvent.EventName
 LaneChangeState = log.LaneChangeState
@@ -136,9 +137,13 @@ class CarrotPlanner:
     self.xDistToTurn = 0
     self.atcType = ""
     self.atc_active = False
+    self.tFollowSpeedFactor = 0.0 # 고속 주행 시 추가 차간 거리 가중치
 
     self._stop_x_rl = None
     self.last_event_time = 0.0
+    self.learner = CarrotLearner()
+    self.profiler = DrivingStyleProfiler()
+    self.filtered_j_lead = 0.0
 
   def _params_update(self):
     self.frame += 1
@@ -163,6 +168,7 @@ class CarrotPlanner:
       self.tFollowGap2 = self.params.get_float("TFollowGap2") / 100.
       self.tFollowGap3 = self.params.get_float("TFollowGap3") / 100.
       self.tFollowGap4 = self.params.get_float("TFollowGap4") / 100.
+      self.tFollowSpeedFactor = self.params.get_float("TFollowSpeedFactor") / 100.
       self.dynamicTFollow = self.params.get_float("DynamicTFollow") / 100.
       self.dynamicTFollowLC = self.params.get_float("DynamicTFollowLC") / 100.
       self.enableSpeedTF = self.params.get_int("EnableSpeedTF")
@@ -251,6 +257,12 @@ class CarrotPlanner:
       scale = (1.0 - reduce) + reduce * s
       tf_target *= scale
 
+    # 고속 주행 시 추가 차간 거리 가중치 (TFollowSpeedFactor)
+    # v_ego가 높을수록 차간 거리를 추가로 확보함
+    if self.tFollowSpeedFactor > 0:
+      speed_boost = float(np.clip((v_ego * CV.MS_TO_KPH - 60.0) / 100.0, 0.0, 1.0))
+      tf_target += speed_boost * self.tFollowSpeedFactor
+
     return float(tf_target)
 
 
@@ -312,12 +324,14 @@ class CarrotPlanner:
 
     # 일반 lead follow: lead.jLead 기반 동적 조절
     elif lead.status and self.dynamicTFollow > 0.0:
+      # lead.jLead 필터링을 통해 고주파 노이즈 제거
+      self.filtered_j_lead = 0.9 * self.filtered_j_lead + 0.1 * lead.jLead
       # lead.jLead < 0 : 앞차가 감속 방향으로 변함 -> 차간거리 증가
       # lead.jLead > 0 : 앞차가 가속 방향으로 변함 -> 차간거리 감소
-      t_follow += np.interp(lead.jLead, [-3.0, -0.5, 0.5, 2.0], [1.0, 0.0, 0.0, -1.0]) * self.dynamicTFollow
+      t_follow += np.interp(self.filtered_j_lead, [-3.0, -0.5, 0.5, 2.0], [1.0, 0.0, 0.0, -1.0]) * self.dynamicTFollow
 
       # 앞차가 풀어주는 상황에서는 jerk factor 약간 낮춰서 더 민첩하게
-      if lead.jLead > 0.2:
+      if self.filtered_j_lead > 0.2:
         self.jerk_factor_apply = self.jerk_factor * 0.5
 
       t_follow = np.clip(t_follow, 0.3, 2.0)
@@ -627,6 +641,35 @@ class CarrotPlanner:
     self.stop_dist = stop_dist
     self.mode = mode
     #return v_cruise, stop_dist, mode
+
+    # Auto-Tuner: 학습 데이터 수집
+    from cereal import car
+    gear_park = carstate.gearShifter == car.CarState.GearShifter.park
+    engaged = sm.alive.get('selfdriveState', False) and sm['selfdriveState'].enabled
+    
+    # 현재 GAP 단계 파악 (Personality 기반)
+    personality = sm['selfdriveState'].personality
+    current_gap = 2  # default standard
+    if personality == log.LongitudinalPersonality.moreRelaxed: current_gap = 4
+    elif personality == log.LongitudinalPersonality.relaxed: current_gap = 3
+    elif personality == log.LongitudinalPersonality.standard: current_gap = 2
+    elif personality == log.LongitudinalPersonality.aggressive: current_gap = 1
+    self.learner.set_current_gap(current_gap)
+
+    self.learner.update(v_ego_kph, carstate.gasPressed, engaged, gear_park,
+                        steer_deg=carstate.steeringAngleDeg, steer_pressed=carstate.steeringPressed,
+                        brake_pressed=carstate.brakePressed,
+                        lead_drel=leadOne.dRel if leadOne.status else 0.0,
+                        lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0,
+                        a_ego=a_ego, lead_jlead=leadOne.jLead if leadOne.status else 0.0,
+                        v_cruise_kph=v_cruise_kph,
+                        gas_val=carstate.gas, brake_val=carstate.brake, sm=sm)
+
+    # DSP: 수동 주행 성향 프로파일링 (오픈파일럿 미인게이지 상태에서만 수집)
+    self.profiler.update(v_ego_kph, engaged, gear_park,
+                         a_ego=a_ego, brake_pressed=carstate.brakePressed,
+                         lead_drel=leadOne.dRel if leadOne.status else 0.0,
+                         lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0)
 
     return v_cruise_kph
 

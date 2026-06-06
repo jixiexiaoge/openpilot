@@ -163,11 +163,15 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ShowPlotMode", {PERSISTENT, INT, "0"}},
     {"CarrotTireTrajectory", {PERSISTENT, INT, "0"}},
     {"CarrotLearningActive", {PERSISTENT, INT, "0"}},          // Auto-Tuner: 학습 활성화 (0=off, 1=on)
+    {"CarrotTunerApplyLat", {PERSISTENT, INT, "1"}},           // Auto-Tuner: 조향(LAT) 적용 여부 (0=off, 1=on)
+    {"CarrotTunerApplyLong", {PERSISTENT, INT, "1"}},          // Auto-Tuner: 가감속(LONG) 적용 여부 (0=off, 1=on)
     {"CarrotLearningData", {PERSISTENT, BYTES, ""}},           // Auto-Tuner: 누적 데이터 (JSON)
     {"CarrotLearningRecommend", {PERSISTENT, BYTES, ""}},      // Auto-Tuner: 추천값 (JSON)
     {"CarrotLearningPopupReady", {PERSISTENT, BOOL, "0"}},     // Auto-Tuner: 팝업 신호
     {"CarrotLearningClear", {PERSISTENT, BOOL, "0"}},          // Auto-Tuner: 데이터 초기화 신호
     {"CarrotLearningHistory", {PERSISTENT, BYTES, ""}},        // Auto-Tuner: 튜닝 이력 (JSON)
+    {"CarrotLearningPopupSource", {PERSISTENT, STRING, ""}},   // Auto-Tuner: 팝업 발생 소스 ("stop", "timer", "parking", etc.)
+    {"CarrotLearningAutoApply", {PERSISTENT, BOOL, "0"}},      // Auto-Tuner: 추천 파라미터 자동 적용 여부
     {"CarrotDSPData", {PERSISTENT, BYTES, ""}},                // DSP: 수동 주행 프로파일 데이터 (JSON)
     {"CarrotDSPRecommend", {PERSISTENT, BYTES, ""}},           // DSP: 초기값 추천 (JSON)
     {"CarrotDSPPopupReady", {PERSISTENT, BOOL, "0"}},          // DSP: 팝업 신호
@@ -193,6 +197,9 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"DisableMinSteerSpeed", {PERSISTENT, INT, "0"}},
     {"AutoCurveSpeedLowerLimit", {PERSISTENT, INT, "30"}},
     {"AutoCurveSpeedFactor", {PERSISTENT, INT, "120"}},
+    {"AutoCurveSpeedAggressiveness", {PERSISTENT, INT, "100"}},
+    {"WiperActive", {PERSISTENT, BOOL, "0"}},
+    {"CarrotRainWet", {PERSISTENT, BOOL, "0"}},
 
     {"AutoTurnControl", {PERSISTENT, INT, "0"}},
     {"AutoTurnControlSpeedTurn", {PERSISTENT, INT, "20"}},
@@ -281,6 +288,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"TFollowGap2", {PERSISTENT, INT, "120"}},
     {"TFollowGap3", {PERSISTENT, INT, "140"}},
     {"TFollowGap4", {PERSISTENT, INT, "160"}},
+    {"TFollowSpeedFactor", {PERSISTENT, INT, "0"}},
 
     {"DynamicTFollow", {PERSISTENT, INT, "0"}},
     {"DynamicTFollowLC", {PERSISTENT, INT, "100"}},

@@ -7,6 +7,13 @@
 
 #include <QDebug>
 #include <QProcess>
+#include <QScrollArea>
+#include <QScroller>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QPainter>
+#include <QPainterPath>
 
 #include "common/watchdog.h"
 #include "common/util.h"
@@ -460,6 +467,858 @@ void SettingsWindow::setCurrentPanel(int index, const QString &param) {
   nav_btns->buttons()[index]->setChecked(true);
 }
 
+AutoTunerGraphWidget::AutoTunerGraphWidget(QWidget *parent) : QWidget(parent) {
+  setAttribute(Qt::WA_OpaquePaintEvent, false);
+}
+
+void AutoTunerGraphWidget::setData(const QList<QString> &ts, const QMap<QString, QList<double>> &histories, const QMap<QString, QColor> &cols) {
+  timestamps = ts;
+  param_histories = histories;
+  colors = cols;
+  selected_index = -1;
+  update();
+}
+
+void AutoTunerGraphWidget::setSelectedParam(const QString &param) {
+  selected_param = param;
+  update();
+}
+
+void AutoTunerGraphWidget::mousePressEvent(QMouseEvent *event) {
+  if (timestamps.isEmpty()) return;
+  
+  int margin_left = 80;
+  int margin_right = 40;
+  QRect graph_rect = rect().adjusted(margin_left, 80, -margin_right, -40);
+  int steps_x = timestamps.size() - 1;
+  if (steps_x < 1) steps_x = 1;
+
+  int click_x = event->x();
+  int closest_idx = 0;
+  int min_dist = 999999;
+  
+  for (int i = 0; i < timestamps.size(); i++) {
+    int node_x = graph_rect.left() + i * graph_rect.width() / steps_x;
+    int dist = std::abs(click_x - node_x);
+    if (dist < min_dist) {
+      min_dist = dist;
+      closest_idx = i;
+    }
+  }
+
+  if (min_dist < 60) {
+    selected_index = closest_idx;
+  } else {
+    selected_index = -1;
+  }
+  update();
+}
+
+void AutoTunerGraphWidget::paintEvent(QPaintEvent *event) {
+  QPainter painter(this);
+  painter.setRenderHint(QPainter::Antialiasing);
+
+  // Background
+  painter.fillRect(rect(), QColor("#1f1f1f"));
+
+  if (timestamps.isEmpty() || param_histories.isEmpty()) {
+    painter.setPen(QColor("#888888"));
+    painter.setFont(QFont("Arial", 40));
+    painter.drawText(rect(), Qt::AlignCenter, tr("No historical data to display"));
+    return;
+  }
+
+  // Margin - bottom margin reduced to 40 since overlapping labels are removed
+  int margin_left = 80;
+  int margin_right = 40;
+  int margin_top = 80;
+  int margin_bottom = 40;
+
+  QRect graph_rect = rect().adjusted(margin_left, margin_top, -margin_right, -margin_bottom);
+
+  int steps_x = timestamps.size() - 1;
+  if (steps_x < 1) steps_x = 1;
+  
+  // Draw Grid Lines (Vertical & Horizontal)
+  painter.setPen(QPen(QColor("#2d2d2d"), 2, Qt::SolidLine));
+  
+  // X grid lines
+  for (int i = 0; i <= steps_x; i++) {
+    int x = graph_rect.left() + i * graph_rect.width() / steps_x;
+    painter.drawLine(x, graph_rect.top(), x, graph_rect.bottom());
+  }
+
+  // Y grid lines
+  int steps_y = 4;
+  for (int i = 0; i <= steps_y; i++) {
+    int y = graph_rect.top() + i * graph_rect.height() / steps_y;
+    painter.drawLine(graph_rect.left(), y, graph_rect.right(), y);
+  }
+
+  double global_min = 0.0;
+  double global_max = 0.0;
+  bool first_val = true;
+
+  // Always compute global min/max bounds across all parameters to keep consistent scaling
+  for (const QString &param : param_histories.keys()) {
+    QList<double> values = param_histories[param];
+    if (values.size() != timestamps.size()) continue;
+    for (double val : values) {
+      if (first_val) {
+        global_min = val;
+        global_max = val;
+        first_val = false;
+      } else {
+        if (val < global_min) global_min = val;
+        if (val > global_max) global_max = val;
+      }
+    }
+  }
+
+  // Draw Line Paths
+  painter.setBrush(Qt::NoBrush);
+  for (const QString &param : param_histories.keys()) {
+    QList<double> values = param_histories[param];
+    if (values.size() != timestamps.size()) continue;
+
+    // Always use global min/max bounds to maintain consistent scaling across all variables
+    double min_val = global_min;
+    double max_val = global_max;
+    double diff = max_val - min_val;
+
+    bool is_highlighted = selected_param.isEmpty() || (selected_param == param);
+    int opacity = 255;
+    int line_width = 4;
+    QColor color;
+
+    if (!selected_param.isEmpty()) {
+      if (selected_param == param) {
+        color = colors.value(param, QColor(Qt::white));
+        opacity = 255;
+        line_width = 8;
+      } else {
+        color = QColor("#444444"); // Dark gray for non-selected parameters
+        opacity = 80;
+        line_width = 2;
+      }
+    } else {
+      color = colors.value(param, QColor(Qt::white));
+      opacity = 255;
+      line_width = 4;
+    }
+    color.setAlpha(opacity);
+
+    QPen pen(color, line_width);
+    if (!selected_param.isEmpty() && selected_param != param) {
+      pen.setStyle(Qt::DotLine);
+    } else {
+      pen.setStyle(Qt::SolidLine);
+    }
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    QPainterPath path;
+    for (int i = 0; i < values.size(); i++) {
+      double val = values[i];
+      int x = graph_rect.left() + i * graph_rect.width() / steps_x;
+      int y;
+      if (diff < 1e-5) {
+        y = graph_rect.top() + graph_rect.height() / 2;
+      } else {
+        y = graph_rect.bottom() - (val - min_val) / diff * graph_rect.height();
+      }
+
+      if (i == 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
+    }
+    painter.drawPath(path);
+
+    // Draw Nodes and Value Labels
+    for (int i = 0; i < values.size(); i++) {
+      double val = values[i];
+      int x = graph_rect.left() + i * graph_rect.width() / steps_x;
+      int y;
+      if (diff < 1e-5) {
+        y = graph_rect.top() + graph_rect.height() / 2;
+      } else {
+        y = graph_rect.bottom() - (val - min_val) / diff * graph_rect.height();
+      }
+
+      painter.setBrush(color);
+      painter.setPen(Qt::NoPen);
+      int dot_size = (selected_param == param) ? 16 : 10;
+      painter.drawEllipse(QPoint(x, y), dot_size / 2, dot_size / 2);
+
+      if (is_highlighted && (selected_param == param || timestamps.size() <= 8 || i == 0 || i == values.size() - 1)) {
+        painter.setPen(QColor(is_highlighted ? "#ffffff" : "#aaaaaa"));
+        painter.setFont(QFont("Arial", (selected_param == param) ? 30 : 22, QFont::Bold));
+        QString val_str = QString::number(val, 'g', 4);
+        painter.drawText(QRect(x - 80, y - 48, 160, 40), Qt::AlignCenter, val_str);
+      }
+    }
+  }
+
+  // Draw Vertical Guide Line and Time Tooltip on touch/click
+  if (selected_index >= 0 && selected_index < timestamps.size()) {
+    int x = graph_rect.left() + selected_index * graph_rect.width() / steps_x;
+    
+    // Vertical Guide
+    painter.setPen(QPen(QColor("#ffaa00"), 2.5, Qt::DashLine));
+    painter.drawLine(x, graph_rect.top(), x, graph_rect.bottom());
+
+    // Tooltip Background & Text
+    QString date_str = timestamps[selected_index];
+    painter.setFont(QFont("Arial", 28, QFont::Bold));
+    
+    QFontMetrics fm = painter.fontMetrics();
+    int txt_w = fm.horizontalAdvance(date_str) + 30;
+    int txt_h = 50;
+
+    QRect tooltip_rect(x - txt_w / 2, margin_top - 65, txt_w, txt_h);
+    
+    // Boundary check
+    if (tooltip_rect.left() < 10) tooltip_rect.moveLeft(10);
+    if (tooltip_rect.right() > width() - 10) tooltip_rect.moveRight(width() - 10);
+
+    painter.setBrush(QColor("#2d2d2d"));
+    painter.setPen(QPen(QColor("#ffaa00"), 2));
+    painter.drawRoundedRect(tooltip_rect, 10, 10);
+
+    painter.setPen(QColor("#ffffff"));
+    painter.drawText(tooltip_rect, Qt::AlignCenter, date_str);
+  }
+}
+
+AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
+  QHBoxLayout *main_layout = new QHBoxLayout(this);
+  main_layout->setContentsMargins(20, 20, 20, 20);
+  main_layout->setSpacing(20);
+
+  // Left Column: Parameters List
+  QVBoxLayout *left_layout = new QVBoxLayout();
+  left_layout->setSpacing(15);
+
+  QLabel *list_title = new QLabel(tr("Parameters"));
+  list_title->setStyleSheet("font-size: 42px; font-weight: bold; color: white;");
+  left_layout->addWidget(list_title);
+
+  QScrollArea *scroll = new QScrollArea();
+  scroll->setWidgetResizable(true);
+  scroll->setFrameShape(QFrame::NoFrame);
+  scroll->setFixedWidth(340);
+  scroll->setStyleSheet("QScrollArea { background: transparent; } QWidget { background: transparent; }");
+  QScroller::grabGesture(scroll->viewport(), QScroller::LeftMouseButtonGesture);
+
+  QWidget *scroll_widget = new QWidget();
+  param_list_layout = new QVBoxLayout(scroll_widget);
+  param_list_layout->setContentsMargins(0, 0, 0, 0);
+  param_list_layout->setSpacing(8);
+  scroll->setWidget(scroll_widget);
+  left_layout->addWidget(scroll, 1);
+
+  QVBoxLayout *toggles_layout = new QVBoxLayout();
+  toggles_layout->setSpacing(10);
+  toggles_layout->setContentsMargins(0, 10, 0, 0);
+
+  QPushButton *lat_toggle = new QPushButton(this);
+  lat_toggle->setFixedHeight(75);
+
+  QPushButton *long_toggle = new QPushButton(this);
+  long_toggle->setFixedHeight(75);
+
+  auto updateToggles = [=]() {
+    bool apply_lat = Params().getBool("CarrotTunerApplyLat");
+    bool apply_long = Params().getBool("CarrotTunerApplyLong");
+    if (apply_lat) {
+      lat_toggle->setText(tr("Apply LAT (Steering): ON"));
+      lat_toggle->setStyleSheet("background-color: #bb3333; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+    } else {
+      lat_toggle->setText(tr("Apply LAT (Steering): OFF"));
+      lat_toggle->setStyleSheet("background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+    }
+
+    if (apply_long) {
+      long_toggle->setText(tr("Apply LONG (Accel): ON"));
+      long_toggle->setStyleSheet("background-color: #bb3333; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+    } else {
+      long_toggle->setText(tr("Apply LONG (Accel): OFF"));
+      long_toggle->setStyleSheet("background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+    }
+  };
+
+  updateToggles();
+
+  connect(lat_toggle, &QPushButton::clicked, this, [=]() {
+    bool current = Params().getBool("CarrotTunerApplyLat");
+    Params().putBool("CarrotTunerApplyLat", !current);
+    updateToggles();
+  });
+
+  connect(long_toggle, &QPushButton::clicked, this, [=]() {
+    bool current = Params().getBool("CarrotTunerApplyLong");
+    Params().putBool("CarrotTunerApplyLong", !current);
+    updateToggles();
+  });
+
+  toggles_layout->addWidget(lat_toggle);
+  toggles_layout->addWidget(long_toggle);
+  left_layout->addLayout(toggles_layout);
+
+  // Right Column: Chart + Controls
+  QVBoxLayout *right_layout = new QVBoxLayout();
+  right_layout->setSpacing(20);
+
+  QHBoxLayout *header_layout = new QHBoxLayout();
+  header_layout->addStretch();
+
+  QPushButton *btn_card_list = new QPushButton(tr("View Card Type"));
+  btn_card_list->setStyleSheet("background-color: #10b981; font-size: 40px; border-radius: 10px; color: white; font-weight: bold; padding: 0px 50px;");
+  btn_card_list->setFixedHeight(110);
+  connect(btn_card_list, &QPushButton::clicked, this, [=]() {
+    AutoTunerCardListDialog dlg(this);
+    dlg.exec();
+  });
+  header_layout->addWidget(btn_card_list);
+
+  QPushButton *btn_all = new QPushButton(tr("Show All Parameters"));
+  btn_all->setStyleSheet("background-color: #0ea5e9; font-size: 40px; border-radius: 10px; color: white; font-weight: bold; padding: 0px 50px;");
+  btn_all->setFixedHeight(110);
+  connect(btn_all, &QPushButton::clicked, this, [=]() {
+    if (graph_widget) graph_widget->setSelectedParam("");
+    selected_param = "";
+    updateLabelColors();
+  });
+  header_layout->addWidget(btn_all);
+
+  QPushButton *btn_clear = new QPushButton(tr("Clear All Logs"));
+  btn_clear->setStyleSheet("background-color: #eab308; font-size: 40px; border-radius: 10px; color: white; font-weight: bold; padding: 0px 50px;");
+  btn_clear->setFixedHeight(110);
+  connect(btn_clear, &QPushButton::clicked, this, &AutoTunerHistoryPanel::clearAll);
+  header_layout->addWidget(btn_clear);
+
+  QPushButton *close_btn = new QPushButton(tr("Close"));
+  close_btn->setStyleSheet("background-color: #bb3333; font-size: 40px; border-radius: 10px; color: white; font-weight: bold; padding: 0px 50px;");
+  close_btn->setFixedHeight(110);
+  connect(close_btn, &QPushButton::clicked, this, [=]() {
+    QWidget* w = this->window();
+    if (w) {
+      QDialog* dlg = qobject_cast<QDialog*>(w);
+      if (dlg) dlg->reject();
+      else w->close();
+    }
+  });
+  header_layout->addWidget(close_btn);
+
+  right_layout->addLayout(header_layout);
+
+  graph_widget = new AutoTunerGraphWidget(this);
+  graph_widget->setMinimumHeight(750);
+  right_layout->addWidget(graph_widget, 1);
+
+  main_layout->addLayout(left_layout);
+  main_layout->addLayout(right_layout, 1);
+
+  // Palette initialization
+  param_colors.clear();
+  QList<QColor> palette = {
+    QColor("#3b82f6"), // Blue (파랑)
+    QColor("#10b981"), // Mint (민트)
+    QColor("#fbbf24"), // Light Yellow (밝은 노랑)
+    QColor("#8b5cf6"), // Violet (보라)
+    QColor("#ec4899"), // Pink (분홍)
+    QColor("#06b6d4"), // Cyan (시안/하늘)
+    QColor("#84cc16"), // Lime (연두)
+    QColor("#f43f5e"), // Rose (장미)
+    QColor("#14b8a6"), // Teal (청록)
+    QColor("#ffffff"), // White (흰색)
+    QColor("#f97316"), // Orange (주황)
+    QColor("#a855f7"), // Purple (자주)
+    QColor("#60a5fa"), // Light Blue (연파랑)
+    QColor("#34d399"), // Light Green (연초록)
+    QColor("#e879f9")  // Light Magenta (연자주)
+  };
+  // Pre-seed common params to keep consistent colors
+  param_colors["CruiseMaxVals0"] = QColor("#3b82f6"); // Blue
+  param_colors["CruiseMaxVals1"] = QColor("#60a5fa"); // Light Blue
+  param_colors["CruiseMaxVals2"] = QColor("#10b981"); // Mint Green
+  param_colors["CruiseMaxVals3"] = QColor("#84cc16"); // Lime
+  param_colors["CruiseMaxVals4"] = QColor("#fbbf24"); // Yellow
+  param_colors["CruiseMaxVals5"] = QColor("#f97316"); // Orange
+  param_colors["CruiseMaxVals6"] = QColor("#ec4899"); // Pink
+  param_colors["JLeadFactor3"] = QColor("#8b5cf6");   // Violet
+  param_colors["TFollowGap1"] = QColor("#06b6d4");    // Cyan
+  param_colors["TFollowGap2"] = QColor("#14b8a6");    // Teal
+  param_colors["TFollowGap3"] = QColor("#ffffff");    // White
+  param_colors["TFollowGap4"] = QColor("#a855f7");    // Purple
+  param_colors["PathOffset"] = QColor("#e879f9");     // Light Magenta
+  param_colors["SteerActuatorDelay"] = QColor("#f43f5e"); // Rose
+  param_colors["AutoCurveSpeedAggressiveness"] = QColor("#ff5722"); // Highlight curve learning with unique red-orange
+
+  refreshHistory();
+}
+
+void AutoTunerHistoryPanel::showEvent(QShowEvent *event) {
+  refreshHistory();
+  QFrame::showEvent(event);
+}
+
+void AutoTunerHistoryPanel::refreshHistory() {
+  // Clear parameter list layout
+  QLayoutItem *child;
+  while ((child = param_list_layout->takeAt(0)) != nullptr) {
+    if (child->widget()) delete child->widget();
+    delete child;
+  }
+  param_labels.clear();
+
+  QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+  if (raw.isEmpty()) {
+    latest_id = "";
+    if (graph_widget) {
+      graph_widget->setData(QList<QString>(), QMap<QString, QList<double>>(), QMap<QString, QColor>());
+    }
+    return;
+  }
+
+  QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+  
+  // Set latest entry info
+  QJsonObject latest_item = arr[0].toObject();
+  latest_id = latest_item["id"].toString();
+
+  // Re-build historical timeline (max 10 points for readable chart)
+  int chart_limit = 10;
+  int n_points = std::min(arr.size(), chart_limit);
+
+  QList<QString> timestamps;
+  QList<QJsonObject> entries;
+  for (int i = n_points - 1; i >= 0; i--) {
+    QJsonObject item = arr[i].toObject();
+    timestamps.append(item["timestamp"].toString());
+    entries.append(item);
+  }
+
+  // 1. Gather all parameters present in the timeline
+  QSet<QString> param_set;
+  for (const auto& entry : entries) {
+    QJsonObject changes = entry["changes"].toObject();
+    for (const QString& group : changes.keys()) {
+      QJsonObject g_items = changes[group].toObject();
+      for (const QString& key : g_items.keys()) {
+        param_set.insert(key);
+      }
+    }
+  }
+
+  // 2. Extrapolate timeline values for each parameter
+  QMap<QString, QList<double>> param_histories;
+  QMap<QString, double> last_values;
+
+  for (int t = 0; t < n_points; t++) {
+    QJsonObject changes = entries[t]["changes"].toObject();
+    QMap<QString, double> current_changes;
+    for (const QString& group : changes.keys()) {
+      QJsonObject g_items = changes[group].toObject();
+      for (const QString& key : g_items.keys()) {
+        current_changes[key] = g_items[key].toObject()["recommended"].toDouble();
+      }
+    }
+
+    for (const QString& param : param_set) {
+      if (current_changes.contains(param)) {
+        double val = current_changes[param];
+        last_values[param] = val;
+        param_histories[param].append(val);
+      } else {
+        if (last_values.contains(param)) {
+          param_histories[param].append(last_values[param]);
+        } else {
+          // Find the first occurrence in the future to extract 'current' initial value
+          double initial_val = 0.0;
+          for (int future_t = t; future_t < n_points; future_t++) {
+            QJsonObject f_changes = entries[future_t]["changes"].toObject();
+            bool found = false;
+            for (const QString& group : f_changes.keys()) {
+              QJsonObject fg_items = f_changes[group].toObject();
+              if (fg_items.contains(param)) {
+                initial_val = fg_items[param].toObject()["current"].toDouble();
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
+          last_values[param] = initial_val;
+          param_histories[param].append(initial_val);
+        }
+      }
+    }
+  }
+
+  // Assign colors dynamically for new parameters
+  QList<QColor> palette = {
+    QColor("#3b82f6"), QColor("#10b981"), QColor("#f59e0b"), QColor("#8b5cf6"),
+    QColor("#ec4899"), QColor("#06b6d4"), QColor("#84cc16"), QColor("#f43f5e"),
+    QColor("#14b8a6"), QColor("#a855f7")
+  };
+  int color_idx = 0;
+  for (const QString &param : param_set) {
+    if (!param_colors.contains(param)) {
+      param_colors[param] = palette[color_idx % palette.size()];
+      color_idx++;
+    }
+  }
+
+  // Sort parameter list alphabetically as requested
+  QStringList sorted_params = param_set.toList();
+  sorted_params.sort(Qt::CaseInsensitive);
+
+  // Populate left scroll area with sorted parameter buttons
+  for (const QString &param : sorted_params) {
+    QColor color = param_colors[param];
+    
+    // Custom Parameter list item widget (contains color dot + param name)
+    QPushButton *btn = new QPushButton();
+    btn->setStyleSheet("text-align: left; padding: 0px 15px; border-radius: 10px; background-color: #252525; color: white; font-size: 28px;");
+    btn->setFixedHeight(55);
+    
+    QHBoxLayout *btn_layout = new QHBoxLayout(btn);
+    btn_layout->setContentsMargins(10, 0, 10, 0);
+    btn_layout->setSpacing(15);
+
+    // Color indicator dot
+    QLabel *dot = new QLabel();
+    dot->setFixedSize(20, 20);
+    dot->setStyleSheet(QString("background-color: %1; border-radius: 10px;").arg(color.name()));
+    btn_layout->addWidget(dot);
+
+    // Parameter name
+    QLabel *lbl = new QLabel(param);
+    lbl->setStyleSheet("color: white; font-size: 28px; font-weight: bold; background: transparent;");
+    btn_layout->addWidget(lbl, 1);
+    param_labels[param] = lbl;
+
+    connect(btn, &QPushButton::clicked, this, [=]() {
+      if (graph_widget) graph_widget->setSelectedParam(param);
+      selected_param = param;
+      updateLabelColors();
+    });
+
+    param_list_layout->addWidget(btn);
+  }
+  param_list_layout->addStretch();
+
+  if (graph_widget) {
+    graph_widget->setData(timestamps, param_histories, param_colors);
+  }
+
+  // Ensure selected_param is still valid
+  if (!param_set.contains(selected_param)) {
+    selected_param = "";
+    if (graph_widget) graph_widget->setSelectedParam("");
+  }
+  updateLabelColors();
+}
+
+void AutoTunerHistoryPanel::restoreItem(const QString& id) {
+  if (ConfirmationDialog::confirm(tr("Are you sure you want to restore the parameters to this state?"), tr("Restore"), this)) {
+    QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+    QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+    QJsonArray new_arr;
+    
+    for (int i = 0; i < arr.size(); i++) {
+      QJsonObject entry = arr[i].toObject();
+      if (entry["id"].toString() == id) {
+        QJsonObject changes = entry["changes"].toObject();
+        for (const QString& group : changes.keys()) {
+          QJsonObject g_items = changes[group].toObject();
+          for (const QString& key : g_items.keys()) {
+            int prev_val = g_items[key].toObject()["current"].toInt();
+            Params().putInt(key.toStdString(), prev_val);
+          }
+        }
+      } else {
+        new_arr.append(entry);
+      }
+    }
+    
+    if (new_arr.isEmpty()) {
+      Params().remove("CarrotLearningHistory");
+    } else {
+      Params().put("CarrotLearningHistory", QJsonDocument(new_arr).toJson(QJsonDocument::Compact).toStdString());
+    }
+    refreshHistory();
+    ConfirmationDialog::alert(tr("Restored to previous values successfully."), this);
+  }
+}
+
+void AutoTunerHistoryPanel::deleteItem(const QString& id) {
+  if (ConfirmationDialog::confirm(tr("Are you sure you want to delete this item?"), tr("Delete"), this)) {
+    QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+    QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+    QJsonArray new_arr;
+    for (int i = 0; i < arr.size(); i++) {
+      if (arr[i].toObject()["id"].toString() != id) {
+        new_arr.append(arr[i]);
+      }
+    }
+    if (new_arr.isEmpty()) {
+      Params().remove("CarrotLearningHistory");
+    } else {
+      Params().put("CarrotLearningHistory", QJsonDocument(new_arr).toJson(QJsonDocument::Compact).toStdString());
+    }
+    refreshHistory();
+  }
+}
+
+void AutoTunerHistoryPanel::clearAll() {
+  if (ConfirmationDialog::confirm(tr("Are you sure you want to delete all history and restore parameters to their factory default values?"), tr("Clear All"), this)) {
+    Params params;
+    std::map<std::string, std::string> defaults = {
+      {"CruiseMaxVals0", "160"},
+      {"CruiseMaxVals1", "200"},
+      {"CruiseMaxVals2", "160"},
+      {"CruiseMaxVals3", "130"},
+      {"CruiseMaxVals4", "110"},
+      {"CruiseMaxVals5", "95"},
+      {"CruiseMaxVals6", "80"},
+      {"JLeadFactor3", "0"},
+      {"TFollowGap1", "110"},
+      {"TFollowGap2", "120"},
+      {"TFollowGap3", "140"},
+      {"TFollowGap4", "160"},
+      {"DynamicTFollow", "0"},
+      {"TFollowDecelBoost", "10"},
+      {"PathOffset", "0"},
+      {"SteerActuatorDelay", "0"}
+    };
+    for (const auto& [key, val] : defaults) {
+      params.put(key, val);
+    }
+    params.remove("CarrotLearningHistory");
+    refreshHistory();
+  }
+}
+
+void AutoTunerHistoryPanel::updateLabelColors() {
+  for (auto k : param_labels.keys()) {
+    if (!param_labels[k]) continue;
+    if (selected_param.isEmpty()) {
+      param_labels[k]->setStyleSheet("color: white; font-size: 28px; font-weight: bold; background: transparent;");
+    } else if (k == selected_param) {
+      param_labels[k]->setStyleSheet("color: red; font-size: 28px; font-weight: bold; background: transparent;");
+    } else {
+      param_labels[k]->setStyleSheet("color: #777777; font-size: 28px; font-weight: bold; background: transparent;");
+    }
+  }
+}
+
+// AutoTunerHistoryDialog implementation
+AutoTunerHistoryDialog::AutoTunerHistoryDialog(QWidget *parent) : DialogBase(parent) {
+  QFrame *container = new QFrame(this);
+  container->setStyleSheet("QFrame { background-color: #1B1B1B; border-radius: 20px; }");
+  QVBoxLayout *main_layout = new QVBoxLayout(container);
+  main_layout->setContentsMargins(20, 20, 20, 20);
+  main_layout->setSpacing(20);
+
+  AutoTunerHistoryPanel *panel = new AutoTunerHistoryPanel(this);
+  main_layout->addWidget(panel, 1);
+
+  QVBoxLayout *outer_layout = new QVBoxLayout(this);
+  outer_layout->setContentsMargins(30, 30, 30, 30);
+  outer_layout->addWidget(container);
+}
+
+// AutoTunerCardListDialog implementation
+AutoTunerCardListDialog::AutoTunerCardListDialog(QWidget *parent) : DialogBase(parent) {
+  QFrame *container = new QFrame(this);
+  container->setStyleSheet("QFrame { background-color: #1B1B1B; border-radius: 20px; }");
+  QVBoxLayout *main_layout = new QVBoxLayout(container);
+  main_layout->setContentsMargins(50, 50, 50, 50);
+  main_layout->setSpacing(30);
+
+  // Header layout: Title and Close button
+  QHBoxLayout *header_layout = new QHBoxLayout();
+  QLabel *title = new QLabel(tr("Tuning History Card List"), this);
+  title->setStyleSheet("font-size: 60px; font-weight: bold; color: white;");
+  header_layout->addWidget(title);
+  header_layout->addStretch();
+
+  QPushButton *close_btn = new QPushButton(tr("Close"), this);
+  close_btn->setFixedSize(250, 100);
+  close_btn->setStyleSheet("background-color: #bb3333; font-size: 40px; border-radius: 10px; color: white;");
+  connect(close_btn, &QPushButton::clicked, this, &AutoTunerCardListDialog::reject);
+  header_layout->addWidget(close_btn);
+  main_layout->addLayout(header_layout);
+
+  // Scroll Area
+  QScrollArea *scroll = new QScrollArea(this);
+  scroll->setWidgetResizable(true);
+  scroll->setFrameShape(QFrame::NoFrame);
+  scroll->setStyleSheet("QScrollArea { background: transparent; } QWidget { background: transparent; }");
+  QScroller::grabGesture(scroll->viewport(), QScroller::LeftMouseButtonGesture);
+
+  QWidget *scroll_widget = new QWidget();
+  list_layout = new QVBoxLayout(scroll_widget);
+  list_layout->setContentsMargins(0, 0, 0, 0);
+  list_layout->setSpacing(10);
+  scroll->setWidget(scroll_widget);
+  main_layout->addWidget(scroll, 1);
+
+  QVBoxLayout *outer_layout = new QVBoxLayout(this);
+  outer_layout->setContentsMargins(100, 100, 100, 100);
+  outer_layout->addWidget(container);
+
+  refreshHistory();
+}
+
+void AutoTunerCardListDialog::refreshHistory() {
+  // Clear parameter list layout
+  QLayoutItem *child;
+  while ((child = list_layout->takeAt(0)) != nullptr) {
+    if (child->widget()) delete child->widget();
+    delete child;
+  }
+
+  QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+  if (raw.isEmpty()) {
+    QLabel *lbl = new QLabel(tr("No historical data to display"), this);
+    lbl->setStyleSheet("font-size: 45px; color: #888888;");
+    lbl->setAlignment(Qt::AlignCenter);
+    list_layout->addWidget(lbl);
+    list_layout->addStretch();
+    return;
+  }
+
+  QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+  for (int i = 0; i < arr.size(); i++) {
+    QJsonObject item = arr[i].toObject();
+    QString id = item["id"].toString();
+    QString time_str = item["timestamp"].toString();
+    QJsonObject changes = item["changes"].toObject();
+
+    QFrame *row = new QFrame();
+    row->setStyleSheet("background-color: #2b2b2b; border-radius: 15px; padding: 5px 25px;");
+    QHBoxLayout *row_layout = new QHBoxLayout(row);
+    row_layout->setContentsMargins(25, 5, 25, 5);
+
+    QString text = QString("<span style='font-size: 35px; color: #aaaaaa;'>%1</span><br>").arg(tr("[%1 Applied]").arg(time_str));
+    for (const QString& group : changes.keys()) {
+      QJsonObject g_items = changes[group].toObject();
+      QString short_group;
+      bool is_ko = (QString::fromStdString(Params().get("LanguageSetting")) == "main_ko");
+      if (!is_ko && group.contains("(")) {
+        short_group = group.split("(").last().replace(")", "");
+      } else {
+        short_group = group.split(" ").first();
+      }
+      for (const QString& key : g_items.keys()) {
+        QJsonObject info = g_items[key].toObject();
+        text += QString("<span style='font-size: 40px; color: white;'><span style='color:#aaaaaa;'>[%1]</span> <b>%2</b> <span style='font-size:35px; color:#bbbbbb;'>[%3]</span> &nbsp;:&nbsp; %4 ➔ <span style='color:#00ff00; font-weight:bold;'>%5</span></span><br>")
+                  .arg(short_group)
+                  .arg(key)
+                  .arg(info["band_kph"].toString())
+                  .arg(info["current"].toInt())
+                  .arg(info["recommended"].toInt());
+      }
+    }
+
+    QLabel *lbl = new QLabel(text);
+    lbl->setWordWrap(true);
+    row_layout->addWidget(lbl, 1);
+
+    bool is_latest = (i == 0);
+
+    QPushButton *btn_restore = new QPushButton(tr("Restore"));
+    if (is_latest) {
+      btn_restore->setStyleSheet("background-color: #178644; font-size: 40px; padding: 20px; border-radius: 10px; color: white; font-weight: bold;");
+    } else {
+      btn_restore->setStyleSheet("background-color: #333333; font-size: 40px; padding: 20px; border-radius: 10px; color: #666666;");
+    }
+    btn_restore->setEnabled(is_latest);
+    btn_restore->setFixedSize(220, 110);
+    connect(btn_restore, &QPushButton::clicked, this, [=]() { restoreItem(id); });
+    row_layout->addWidget(btn_restore);
+
+    QPushButton *btn_del = new QPushButton(tr("Delete"));
+    if (is_latest) {
+      btn_del->setStyleSheet("background-color: #555555; font-size: 40px; padding: 20px; border-radius: 10px; color: white; font-weight: bold;");
+    } else {
+      btn_del->setStyleSheet("background-color: #333333; font-size: 40px; padding: 20px; border-radius: 10px; color: #666666;");
+    }
+    btn_del->setEnabled(is_latest);
+    btn_del->setFixedSize(220, 110);
+    connect(btn_del, &QPushButton::clicked, this, [=]() { deleteItem(id); });
+    row_layout->addWidget(btn_del);
+
+    list_layout->addWidget(row);
+  }
+  list_layout->addStretch();
+}
+
+void AutoTunerCardListDialog::restoreItem(const QString& id) {
+  if (ConfirmationDialog::confirm(tr("Are you sure you want to restore the parameters to this state?"), tr("Restore"), this)) {
+    QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+    QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+    QJsonArray new_arr;
+    
+    for (int i = 0; i < arr.size(); i++) {
+      QJsonObject entry = arr[i].toObject();
+      if (entry["id"].toString() == id) {
+        QJsonObject changes = entry["changes"].toObject();
+        for (const QString& group : changes.keys()) {
+          QJsonObject g_items = changes[group].toObject();
+          for (const QString& key : g_items.keys()) {
+            int prev_val = g_items[key].toObject()["current"].toInt();
+            Params().putInt(key.toStdString(), prev_val);
+          }
+        }
+      } else {
+        new_arr.append(entry);
+      }
+    }
+    
+    if (new_arr.isEmpty()) {
+      Params().remove("CarrotLearningHistory");
+    } else {
+      Params().put("CarrotLearningHistory", QJsonDocument(new_arr).toJson(QJsonDocument::Compact).toStdString());
+    }
+    refreshHistory();
+    
+    // Trigger refresh of parent panel
+    AutoTunerHistoryPanel *p = qobject_cast<AutoTunerHistoryPanel*>(parent());
+    if (p) {
+      p->refreshHistory();
+    }
+    ConfirmationDialog::alert(tr("Restored to previous values successfully."), this);
+  }
+}
+
+void AutoTunerCardListDialog::deleteItem(const QString& id) {
+  if (ConfirmationDialog::confirm(tr("Are you sure you want to delete this item?"), tr("Delete"), this)) {
+    QString raw = QString::fromStdString(Params().get("CarrotLearningHistory"));
+    QJsonArray arr = QJsonDocument::fromJson(raw.toUtf8()).array();
+    QJsonArray new_arr;
+    for (int i = 0; i < arr.size(); i++) {
+      if (arr[i].toObject()["id"].toString() != id) {
+        new_arr.append(arr[i]);
+      }
+    }
+    if (new_arr.isEmpty()) {
+      Params().remove("CarrotLearningHistory");
+    } else {
+      Params().put("CarrotLearningHistory", QJsonDocument(new_arr).toJson(QJsonDocument::Compact).toStdString());
+    }
+    refreshHistory();
+    
+    // Trigger refresh of parent panel
+    AutoTunerHistoryPanel *p = qobject_cast<AutoTunerHistoryPanel*>(parent());
+    if (p) {
+      p->refreshHistory();
+    }
+  }
+}
+
 SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
   // setup two main layouts
@@ -649,7 +1508,6 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     updateButtonStyles();
   });
 
-
   updateButtonStyles();
 
   select_layout->addWidget(start_btn);
@@ -692,6 +1550,31 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   //cruiseToggles->addItem(new CValueControl("MyHighModeFactor", "DRIVEMODE: HIGH ratio(100%)", "AccelRatio control ratio", 100, 300, 10));
 
   latLongToggles = new ListWidget(this);
+
+  QPushButton* viewHistoryBtn = new QPushButton(tr("View Tuning History"));
+  viewHistoryBtn->setObjectName("viewHistoryBtn");
+  viewHistoryBtn->setStyleSheet(R"(
+    QPushButton {
+      margin-top: 10px; margin-bottom: 20px; padding: 10px; height: 120px; border-radius: 15px;
+      color: #FFFFFF; background-color: #2C2CE2;
+      font-size: 50px; font-weight: 400;
+    }
+    QPushButton:pressed {
+      background-color: #2424FF;
+    }
+  )");
+  connect(viewHistoryBtn, &QPushButton::clicked, this, [=]() {
+    AutoTunerHistoryDialog dlg(this);
+    dlg.exec();
+  });
+  latLongToggles->addItem(viewHistoryBtn);
+
+  CValueControl* learningActiveCtrl = new CValueControl("CarrotLearningActive", tr("Auto-Tuner: Driving-Based Learning"), tr("Learn from driver interventions (gas/brake) and recommend parameter adjustments when parking. 0=Off, 1=On"), 0, 1, 1);
+  connect(learningActiveCtrl, &CValueControl::valueChanged, this, [=](int val) {
+    viewHistoryBtn->setVisible(val == 1);
+  });
+  viewHistoryBtn->setVisible(Params().getBool("CarrotLearningActive"));
+  latLongToggles->addItem(learningActiveCtrl);
   latLongToggles->addItem(new CValueControl("UseLaneLineSpeed", tr("Laneline mode speed(0)"), tr("Laneline mode, lat_mpc control used"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("UseLaneLineCurveSpeed", tr("Laneline mode curve speed(0)"), tr("Laneline mode, high speed only"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("AdjustLaneOffset", tr("AdjustLaneOffset(0)cm"), "", 0, 500, 5));
@@ -883,7 +1766,11 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
   toggles_layout->addWidget(startToggles);
   toggles_layout->addWidget(speedToggles);
   ScrollView* toggles_view = new ScrollView(toggles, this);
-  carrotLayout->addWidget(toggles_view, 1);
+
+  content_stack = new QStackedWidget(this);
+  content_stack->addWidget(toggles_view);
+
+  carrotLayout->addWidget(content_stack, 1);
 
   homeScreen->setLayout(carrotLayout);
   main_layout->addWidget(homeScreen);
@@ -893,6 +1780,7 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
 }
 
 void CarrotPanel::togglesCarrot(int widgetIndex) {
+  content_stack->setCurrentIndex(0);
   startToggles->setVisible(widgetIndex == 0);
   cruiseToggles->setVisible(widgetIndex == 1);
   speedToggles->setVisible(widgetIndex == 2);
@@ -903,8 +1791,11 @@ void CarrotPanel::togglesCarrot(int widgetIndex) {
 
 void CarrotPanel::updateButtonStyles() {
   QString styleSheet = R"(
-      #start_btn, #cruise_btn, #speed_btn, #latLong_btn ,#disp_btn, #path_btn {
-        height: 120px; border-radius: 15px; background-color: #393939;
+      #start_btn, #cruise_btn, #speed_btn, #latLong_btn, #disp_btn, #path_btn {
+        height: 120px;
+        border-radius: 15px;
+        background-color: #393939;
+        color: #E4E4E4;
       }
       #start_btn:pressed, #cruise_btn:pressed, #speed_btn:pressed, #latLong_btn:pressed, #disp_btn:pressed, #path_btn:pressed {
         background-color: #4a4a4a;
@@ -978,7 +1869,9 @@ void CValueControl::showEvent(QShowEvent* event) {
 }
 
 void CValueControl::refresh() {
-  label.setText(QString::fromStdString(Params().get(m_params.toStdString())));
+  QString strVal = QString::fromStdString(Params().get(m_params.toStdString()));
+  label.setText(strVal);
+  emit valueChanged(strVal.toInt());
 }
 
 void CValueControl::adjustValue(int delta) {
@@ -986,6 +1879,7 @@ void CValueControl::adjustValue(int delta) {
   value = qBound(m_min, value + delta, m_max);
   Params().putInt(m_params.toStdString(), value);
   refresh();
+  emit valueChanged(value);
 }
 
 void CValueControl::increaseValue() {
