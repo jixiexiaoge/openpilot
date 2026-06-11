@@ -115,7 +115,7 @@ class PowerMonitoring:
       max_time_offroad_s = max_time_offroad_min * 60 if max_time_offroad_min is not None and max_time_offroad_min >= 0 else MAX_TIME_OFFROAD_S
     except Exception:
       max_time_offroad_s = MAX_TIME_OFFROAD_S
-    return 0 < max_time_offroad_s <= offroad_time
+    return 0 < max_time_offroad_s < offroad_time
 
   # See if we need to shutdown
   def should_shutdown(self, ignition: bool, in_car: bool, offroad_timestamp: float | None, started_seen: bool):

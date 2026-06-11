@@ -100,7 +100,7 @@ class TestPowerMonitoring:
     estimated_capacity = 0 - ((1/3600) * POWER_DRAW * 1e6)
     assert abs(pm.get_car_battery_capacity() - estimated_capacity) < 10
 
-  # Test to check policy of stopping charging after MaxTimeOffroadMin
+  # Test to check the device shutdown policy after MaxTimeOffroadMin
   def test_max_time_offroad(self, mocker):
     MOCKED_MAX_OFFROAD_TIME_MIN = 60
     MOCKED_MAX_OFFROAD_TIME = MOCKED_MAX_OFFROAD_TIME_MIN * 60
