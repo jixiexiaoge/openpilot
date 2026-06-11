@@ -87,7 +87,7 @@ jobs:
           sync_branch release-new iqpilot/release-new
           sync_branch DP dragonpilot/pre-build
           sync_branch Dragonpilot-0.11.0 dragonpilot011/0.11.0-pre-build
-          sync_branch tesla teslaunity/tesla-unity
+          sync_branch tesla-unity teslaunity/tesla-unity
 
       - name: Tag sync timestamp
         run: |
