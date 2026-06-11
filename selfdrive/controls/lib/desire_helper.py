@@ -279,9 +279,9 @@ class DesireHelper:
         )
       self.desireLog = (
         f"{side.name}:ALC={self.auto_lane_change_enable}, "
-        f"L={side.lane_available},E={side.edge_available}, "
-        f"T={side.lane_available_trigger},A={side.lane_appeared}, "
-        f"OBJ={side.side_object_detected},BSD={side.bsd_hold_counter>0}"
+        #f"L={side.lane_available},E={side.edge_available}, "
+        #f"T={side.lane_available_trigger},A={side.lane_appeared}, "
+        #f"OBJ={side.side_object_detected},BSD={side.bsd_hold_counter>0}"
       )
     else:
       self.auto_lane_change_enable = False
@@ -372,8 +372,8 @@ class DesireHelper:
             atc_line_release = (atc_driver_confirm or atc_geometry_release) and side_clear_without_line
 
             # 차선이 일정시간 이상 안보이면 auto 허용(원본 유지)
-            if (not side.lane_available) or (side.lane_exist_count.counter < int(2.0 / DT_MDL)):
-              self.auto_lane_change_enable = True
+            #if (not side.lane_available) or (side.lane_exist_count.counter < int(2.0 / DT_MDL)):
+            #  self.auto_lane_change_enable = True
 
             if not desire_enabled or below_lane_change_speed:
               self.lane_change_state = LaneChangeState.off
@@ -389,7 +389,7 @@ class DesireHelper:
               block_released_auto = block_released and not atc_lane_change_retry_line_blocked
               start_gate = (side.lane_change_available_geom and self.lane_change_delay == 0) or \
                            side.lane_line_info_edge_detect or solid_line_blocked or block_released_auto or atc_line_release
-
+                
               if start_gate:
                 if solid_line_blocked:
                   if atc_line_release or (torque_applied and not (bsd_active and block_lanechange_bsd)):

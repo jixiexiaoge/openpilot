@@ -468,10 +468,9 @@ class RadarD:
           self.tracks.pop(tid)
 
     # *** publish radarState ***
-    self.radar_state_valid = sm.all_checks()
-    if not self.radar_state_valid:
+    radar_state_valid = sm.all_checks()
+    if not radar_state_valid and self.radar_state_valid:
       print("radarState invalid: sm.all_checks() failed")
-
       for name in sm.data.keys():
         alive = sm.alive.get(name, None)
         valid = sm.valid.get(name, None)
@@ -486,6 +485,9 @@ class RadarD:
             f"freq_ok={freq_ok}, "
             f"updated={updated}"
           )
+
+    self.radar_state_valid = radar_state_valid
+    if not self.radar_state_valid:
       self.radar_state = log.RadarState.new_message()
 
     self.radar_state.mdMonoTime = sm.logMonoTime['modelV2']

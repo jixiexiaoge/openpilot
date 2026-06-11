@@ -56,9 +56,11 @@ class SideState:
   bsd_hold_counter: int = 0
   bsd_detected_now: bool = False
 
-  # computed “lane change available” (includes BSD+object)
+  # computed lane change availability (includes BSD+object)
   lane_change_available_geom: bool = False
   lane_change_available: bool = False
+  lane_change_available_last: bool = False
+  lane_change_available_released: bool = False
   lane_width_sum: float = 0.0
 
   def update_lane_geometry(self,
@@ -98,7 +100,7 @@ class SideState:
   def update_lane_line_info(self, lane_line_info_raw: int):
     self.lane_line_info_raw = int(lane_line_info_raw)
     mod = self.lane_line_info_raw % 10
-    # edge_detect: 0/5로 바뀌는 순간 (기존은 좌/우가 같은 self.lane_line_info 공유라 버그성)
+    # edge_detect: true on the transition into an allowed 0/5 lane-line type.
     self.lane_line_info_edge_detect = (mod in (0, 5)) and (self.last_lane_line_mod not in (0, 5))
     self.last_lane_line_mod = mod
     self.lane_line_info_mod = mod
@@ -109,7 +111,7 @@ class SideState:
                        blindspot: bool,      # carstate.leftBlindspot/rightBlindspot
                        ignore_bsd: bool,
                        bsd_hold_sec: float = 2.0):
-    # object_detected (radar 기반)
+    # object_detected from side radar.
     if radar_obj is not None and radar_obj.status:
       d = radar_obj.dRel
       v = radar_obj.vLead
@@ -125,7 +127,7 @@ class SideState:
 
     self.side_object_detected = self.object_detected_count > int(-0.3 / DT_MDL)
 
-    # BSD hold (요구사항: 검출 후 2초 유지)
+    # Hold BSD detection for a short period after it is observed.
     self.bsd_detected_now = bool(blindspot)
     if self.bsd_detected_now and not ignore_bsd:
       self.bsd_hold_counter = int(bsd_hold_sec / DT_MDL)
@@ -136,21 +138,23 @@ class SideState:
     # geometric availability
     self.lane_change_available_geom = (self.lane_available or self.edge_available) and lane_line_info_lt_20
 
-    # include bsd/object into lane_change_available (요구사항)
+    # Include BSD/object checks in final lane-change availability.
     bsd_active = (self.bsd_hold_counter > 0) and (not ignore_bsd)
     self.lane_change_available = self.lane_change_available_geom and (not self.side_object_detected) and (not bsd_active)
+    self.lane_change_available_released = self.lane_change_available and not self.lane_change_available_last
 
   def update_triggers(self):
-    # lane_available_trigger (기존 로직 유지)
+    # Preserve the existing lane_available_trigger behavior.
     self.lane_available_trigger = False
     if self.lane_width_diff > 0.8 and (self.lane_width < self.dist_to_edge):
       self.lane_available_trigger = True
 
-    # lane_appeared (bugfix: == 말고 >=가 자연스러움)
-    # + edge가 너무 멀면(교차로) lane_appeared를 과도하게 true로 만들지 않게 제한
+    # Use >= so the appeared state is not missed after the threshold.
+    # Limit distant edges so intersections do not over-trigger lane_appeared.
     appeared_now = self.lane_exist_count.counter >= int(0.2 / DT_MDL)
     self.lane_appeared = (self.lane_appeared or appeared_now) and (self.dist_to_edge < 4.0)
 
   def commit_last(self):
     self.lane_available_last = self.lane_available
     self.edge_available_last = self.edge_available
+    self.lane_change_available_last = self.lane_change_available
