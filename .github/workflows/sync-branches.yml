@@ -33,27 +33,31 @@ jobs:
 
           # ========= 上游仓库 =========
 
-          # Carrotpilot
+          # Carrotpilot - c3-wip
           add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
-          git fetch carrotpilot c3-wip --no-tags || echo "⚠️ carrotpilot c3-wip fetch failed"
+          git fetch carrotpilot c3-wip --no-tags || echo "carrotpilot c3-wip fetch failed"
 
-          # Carrot-WIP
-          add_or_update_remote carrotwip https://github.com/ajouatom/openpilot.git
-          git fetch carrotwip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
+          # Carrot - c3
+          add_or_update_remote carrotc3 https://github.com/ajouatom/openpilot.git
+          git fetch carrotc3 c3 --no-tags || echo "carrot c3 fetch failed"
 
-          # Carrot c3-atune
-          add_or_update_remote c3-atune https://github.com/ajouatom/openpilot.git
-          git fetch c3-atune hoya/c3-atune --no-tags || echo "⚠️ c3-atune fetch failed"
-
-          # IQpilot
+          # IQpilot - release-new
           add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
-          git fetch iqpilot release-new --no-tags || echo "⚠️ iqpilot fetch failed"
+          git fetch iqpilot release-new --no-tags || echo "iqpilot release-new fetch failed"
 
-          # Dragonpilot
+          # Dragonpilot - pre-build
           add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
-          git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
+          git fetch dragonpilot pre-build --no-tags || echo "dragonpilot pre-build fetch failed"
 
-      - name: Push branches to your repository (force sync)
+          # Dragonpilot - 0.11.0-pre-build
+          add_or_update_remote dragonpilot011 https://github.com/dragonpilot/dragonpilot.git
+          git fetch dragonpilot011 0.11.0-pre-build --no-tags || echo "dragonpilot 0.11.0-pre-build fetch failed"
+
+          # Tesla Unity
+          add_or_update_remote teslaunity https://github.com/xnor-tech/openpilot.git
+          git fetch teslaunity tesla-unity --no-tags || echo "tesla-unity fetch failed"
+
+      - name: Push branches to your repository force sync
         run: |
           set +e
           echo "=== Syncing branches to origin ==="
@@ -66,27 +70,28 @@ jobs:
 
             git rev-parse "$source_ref" >/dev/null 2>&1
             if [ $? -ne 0 ]; then
-              echo "⚠️ Source $source_ref not found, skipping"
+              echo "Source $source_ref not found, skipping"
               return
             fi
 
             git checkout -B "$target_branch" "$source_ref" \
               && git push origin "$target_branch" --force \
-              && echo "✅ Synced $target_branch" \
-              || echo "⚠️ Failed syncing $target_branch"
+              && echo "Synced $target_branch" \
+              || echo "Failed syncing $target_branch"
           }
 
           # ========= 分支同步 =========
 
-          sync_branch Carrotpilot carrotpilot/c3-wip
-          sync_branch carrot-wip carrotwip/carrot-wip
-          sync_branch c3-atune c3-atune/hoya/c3-atune
-          sync_branch release iqpilot/release-new
-          sync_branch Dragonpilot dragonpilot/pre-build
+          sync_branch CP carrotpilot/c3-wip
+          sync_branch c3 carrotc3/c3
+          sync_branch release-new iqpilot/release-new
+          sync_branch DP dragonpilot/pre-build
+          sync_branch Dragonpilot-0.11.0 dragonpilot011/0.11.0-pre-build
+          sync_branch tesla teslaunity/tesla-unity
 
       - name: Tag sync timestamp
         run: |
           set +e
           TAG_NAME="sync-$(date +%Y%m%d-%H%M)"
           git tag -f $TAG_NAME
-          git push origin $TAG_NAME --force || echo "⚠️ tag push failed"
+          git push origin $TAG_NAME --force || echo "tag push failed"
