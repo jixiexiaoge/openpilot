@@ -100,11 +100,12 @@ class TestPowerMonitoring:
     estimated_capacity = 0 - ((1/3600) * POWER_DRAW * 1e6)
     assert abs(pm.get_car_battery_capacity() - estimated_capacity) < 10
 
-  # Test to check policy of stopping charging after MAX_TIME_OFFROAD_S
+  # Test to check policy of stopping charging after MaxTimeOffroadMin
   def test_max_time_offroad(self, mocker):
-    MOCKED_MAX_OFFROAD_TIME = 3600
+    MOCKED_MAX_OFFROAD_TIME_MIN = 60
+    MOCKED_MAX_OFFROAD_TIME = MOCKED_MAX_OFFROAD_TIME_MIN * 60
     POWER_DRAW = 0 # To stop shutting down for other reasons
-    pm_patch(mocker, "MAX_TIME_OFFROAD_S", MOCKED_MAX_OFFROAD_TIME, constant=True)
+    self.params.put("MaxTimeOffroadMin", MOCKED_MAX_OFFROAD_TIME_MIN)
     pm_patch(mocker, "HARDWARE.get_current_power_draw", POWER_DRAW)
     pm = PowerMonitoring()
     pm.car_battery_capacity_uWh = CAR_BATTERY_CAPACITY_uWh
@@ -115,6 +116,42 @@ class TestPowerMonitoring:
       if (ssb - start_time) % 1000 == 0 and ssb < start_time + MOCKED_MAX_OFFROAD_TIME:
         assert not pm.should_shutdown(ignition, True, start_time, False)
     assert pm.should_shutdown(ignition, True, start_time, False)
+
+  # Test that MaxTimeOffroadMin=0 disables the timeout shutdown but keeps the low voltage shutdown
+  def test_max_time_offroad_disabled(self, mocker):
+    POWER_DRAW = 0 # To stop shutting down for other reasons
+    self.params.put("MaxTimeOffroadMin", 0)
+    pm_patch(mocker, "MAX_TIME_OFFROAD_S", 100, constant=True)
+    pm_patch(mocker, "HARDWARE.get_current_power_draw", POWER_DRAW)
+    pm = PowerMonitoring()
+    pm.car_battery_capacity_uWh = CAR_BATTERY_CAPACITY_uWh
+    ignition = False
+    start_time = ssb
+    # Well past the stock limit and the shutdown delay with good voltage: no timeout shutdown
+    for _ in range(DELAY_SHUTDOWN_TIME_S + 200):
+      pm.calculate(GOOD_VOLTAGE, ignition)
+    assert not pm.should_shutdown(ignition, True, start_time, True)
+    # The low voltage shutdown must remain active
+    for _ in range(10 * TEST_DURATION_S):
+      pm.calculate(VOLTAGE_BELOW_PAUSE_CHARGING, ignition)
+    assert pm.should_shutdown(ignition, True, start_time, True)
+
+  # Test that an invalid (negative) MaxTimeOffroadMin falls back to the stock MAX_TIME_OFFROAD_S
+  def test_max_time_offroad_fallback(self, mocker):
+    MOCKED_MAX_OFFROAD_TIME = 1000
+    POWER_DRAW = 0 # To stop shutting down for other reasons
+    self.params.put("MaxTimeOffroadMin", -1)
+    pm_patch(mocker, "MAX_TIME_OFFROAD_S", MOCKED_MAX_OFFROAD_TIME, constant=True)
+    pm_patch(mocker, "HARDWARE.get_current_power_draw", POWER_DRAW)
+    pm = PowerMonitoring()
+    pm.car_battery_capacity_uWh = CAR_BATTERY_CAPACITY_uWh
+    ignition = False
+    start_time = ssb
+    while ssb <= start_time + MOCKED_MAX_OFFROAD_TIME:
+      pm.calculate(GOOD_VOLTAGE, ignition)
+      if (ssb - start_time) % 100 == 0 and DELAY_SHUTDOWN_TIME_S < (ssb - start_time) < MOCKED_MAX_OFFROAD_TIME:
+        assert not pm.should_shutdown(ignition, True, start_time, True)
+    assert pm.should_shutdown(ignition, True, start_time, True)
 
   def test_car_voltage(self, mocker):
     POWER_DRAW = 0 # To stop shutting down for other reasons

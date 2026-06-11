@@ -1205,17 +1205,17 @@
       "group": "시작",
       "name": "MaxTimeOffroadMin",
       "title": "자동전원OFF(분)",
-      "descr": "시동이 꺼지고 해당 시간이 경과하면 콤마가 꺼집니다.",
+      "descr": "시동이 꺼지고 해당 시간이 경과하면 콤마가 꺼집니다. 0: 자동으로 전원을 끄지 않습니다.",
       "egroup": "START",
       "etitle": "PowerOffTime(min)",
-      "edescr": "When the engine is turned off and the specified time elapses, the comma device will shut down.",
+      "edescr": "When the engine is turned off and the specified time elapses, the comma device will shut down. 0: Never power off automatically.",
       "min": 0,
       "max": 3000,
       "default": 60,
       "unit": 10,
       "cgroup": "启动设置",
       "ctitle": "关机时间 (分钟)",
-      "cdescr": "发动机熄火且经过指定时间后，comma 设备将关机。"
+      "cdescr": "发动机熄火且经过指定时间后，comma 设备将关机。0：不自动关机。"
     },
     {
       "group": "시작",

@@ -106,6 +106,17 @@ class PowerMonitoring:
   def get_car_battery_capacity(self) -> int:
     return int(self.car_battery_capacity_uWh)
 
+  # Check if the configurable offroad time limit is exceeded (ported from sunnypilot).
+  # MaxTimeOffroadMin: >0 -> shutdown after that many minutes, 0 -> never shutdown on timeout,
+  # unset/negative/error -> fall back to stock MAX_TIME_OFFROAD_S.
+  def max_time_offroad_exceeded(self, offroad_time: float) -> bool:
+    try:
+      max_time_offroad_min = self.params.get("MaxTimeOffroadMin")
+      max_time_offroad_s = max_time_offroad_min * 60 if max_time_offroad_min is not None and max_time_offroad_min >= 0 else MAX_TIME_OFFROAD_S
+    except Exception:
+      max_time_offroad_s = MAX_TIME_OFFROAD_S
+    return 0 < max_time_offroad_s <= offroad_time
+
   # See if we need to shutdown
   def should_shutdown(self, ignition: bool, in_car: bool, offroad_timestamp: float | None, started_seen: bool):
     if offroad_timestamp is None:
@@ -116,8 +127,7 @@ class PowerMonitoring:
     offroad_time = (now - offroad_timestamp)
     low_voltage_shutdown = (self.car_voltage_mV < (VBATT_PAUSE_CHARGING * 1e3) and
                             offroad_time > VOLTAGE_SHUTDOWN_MIN_OFFROAD_TIME_S)
-    MAX_TIME_OFFROAD_S = Params().get_int("MaxTimeOffroadMin") * 60
-    should_shutdown |= offroad_time > MAX_TIME_OFFROAD_S
+    should_shutdown |= self.max_time_offroad_exceeded(offroad_time)
     should_shutdown |= low_voltage_shutdown
     should_shutdown |= (self.car_battery_capacity_uWh <= 0)
     should_shutdown &= not ignition
