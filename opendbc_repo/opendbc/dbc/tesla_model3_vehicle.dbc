@@ -197,14 +197,23 @@ BO_ 1001 DAS_bodyControls: 8 VEH
  SG_ DAS_headlightRequest : 0|2@1+ (1,0) [0|3] "" aps
  SG_ DAS_hazardLightRequest : 2|2@1+ (1,0) [0|3] "" aps
  SG_ DAS_wiperSpeed : 4|4@1+ (1,0) [0|15] "" aps
- SG_ DAS_turnIndicatorRequest : 8|2@1+ (1,0) [0|3] "" aps
- SG_ DAS_highLowBeamDecision : 10|2@1+ (1,0) [0|3] "" aps
- SG_ DAS_heaterRequest : 12|2@1+ (1,0) [0|2] "" aps
- SG_ DAS_turnIndicatorRequestReason : 17|4@1+ (1,0) [0|8] "" aps
- SG_ DAS_autopilotActive : 24|1@1+ (1,0) [0|1] "" XXX
- SG_ DAS_accActive : 29|1@1+ (1,0) [0|1] "" XXX
+ SG_ DAS_turnIndicatorRequest : 8|3@1+ (1,0) [0|4] "" aps
+ SG_ DAS_highLowBeamDecision : 11|2@1+ (1,0) [0|3] "" aps
+ SG_ DAS_heaterRequest : 13|2@1+ (1,0) [0|2] "" aps
+ SG_ DAS_highLowBeamOffReason : 15|3@1+ (1,0) [0|5] "" aps
+ SG_ DAS_turnIndicatorRequestReason : 18|4@1+ (1,0) [0|12] "" aps
+ SG_ DAS_dynamicBrakeLightRequest : 22|1@1+ (1,0) [0|1] "" aps
+ SG_ DAS_radarHeaterRequest : 23|1@1+ (1,0) [0|1] "" aps
+ SG_ DAS_ahlbOverride : 24|1@1+ (1,0) [0|1] "" aps
+ SG_ DAS_mirrorFoldRequest : 25|2@1+ (1,0) [0|3] "" aps
  SG_ DAS_bodyControlsCounter : 52|4@1+ (1,0) [0|15] "" aps
  SG_ DAS_bodyControlsChecksum : 56|8@1+ (1,0) [0|255] "" aps
+
+BO_ 994 VCLEFT_lightStatus: 7 VEH
+ SG_ VCLEFT_turnSignalStatus : 4|2@1+ (1,0) [0|3] "" XXX
+
+BO_ 995 VCRIGHT_lightStatus: 2 VEH
+ SG_ VCRIGHT_turnSignalStatus : 4|2@1+ (1,0) [0|3] "" XXX
 
 BO_ 1013 ID3F5VCFRONT_lighting: 8 VEH
  SG_ VCFRONT_lowBeamsCalibrated : 62|1@1+ (1,0) [0|1] ""  Receiver
@@ -277,6 +286,16 @@ BO_ 991 UI_status2: 8 VehicleBus
  SG_ UI_activeTouchPoints : 24|8@1+ (1,0) [0|255] ""  VehicleBus
  SG_ UI_linkState : 32|2@1+ (1,0) [0|3] ""  VehicleBus
  SG_ UI_sentryModeState : 34|3@1+ (1,0) [0|7] ""  VehicleBus
+
+BO_ 826 ID33AUI_rangeSOC: 8 VehicleBus
+ SG_ UI_Range : 0|10@1+ (1,0) [0|1023] "mi" Receiver
+ SG_ UI_SOC : 48|7@1+ (1,0) [0|127] "%" Receiver
+
+BO_ 306 ID132HVBattAmpVolt: 8 VehicleBus
+ SG_ BattVoltage132 : 0|16@1+ (0.01,0) [0|655.35] "V" Receiver
+
+BO_ 658 ID292BMS_SOC: 8 VehicleBus
+ SG_ SOCUI292 : 10|10@1+ (0.1,0) [0|102.3] "%" Receiver
 
 VAL_ 568 SpdCtrlLvr_Stat 32 "DN_1ST" 16 "UP_1ST" 8 "DN_2ND" 4 "UP_2ND" 2 "RWD" 1 "FWD" 0 "IDLE" ;
 VAL_ 568 DTR_Dist_Rq 255 "SNA" 200 "ACC_DIST_7" 166 "ACC_DIST_6" 133 "ACC_DIST_5" 100 "ACC_DIST_4" 66 "ACC_DIST_3" 33 "ACC_DIST_2" 0 "ACC_DIST_1" ;

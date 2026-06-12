@@ -36,7 +36,7 @@ class TeslaCarDocsHW4(CarDocs):
 
 @dataclass
 class TeslaPlatformConfig(PlatformConfig):
-  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.party: 'tesla_model3_party'})
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.party: 'tesla_model3_party', Bus.adas: 'tesla_model3_vehicle'})
 
 
 class CAR(Platforms):
@@ -47,7 +47,7 @@ class CAR(Platforms):
       TeslaCarDocsHW4("Tesla Model 3 (with HW4) 2024-25"),
     ],
     CarSpecs(mass=1899., wheelbase=2.875, steerRatio=12.0),
-    {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated'},
+    {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated', Bus.adas: 'tesla_model3_vehicle'},
   )
   TESLA_MODEL_Y = TeslaPlatformConfig(
     [
@@ -55,7 +55,7 @@ class CAR(Platforms):
       TeslaCarDocsHW4("Tesla Model Y (with HW4) 2024-25"),
     ],
     CarSpecs(mass=2072., wheelbase=2.890, steerRatio=12.0),
-    {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated'},
+    {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated', Bus.adas: 'tesla_model3_vehicle'},
   )
 
 
@@ -113,15 +113,20 @@ class CarControllerParams:
   ACCEL_MIN = -3.48  # m/s^2
   JERK_LIMIT_MAX = 4.9  # m/s^3, ACC faults at 5.0
   JERK_LIMIT_MIN = -4.9  # m/s^3, ACC faults at 5.0
+  JERK_UP = 1.0  # m/s^3
 
 
 class TeslaSafetyFlags(IntFlag):
   LONG_CONTROL = 1
+  # 2 is reserved for upstream FSD_14
+  VEHICLE_BUS = 4
 
 
 class TeslaFlags(IntFlag):
   LONG_CONTROL = 1
+  # 2 is reserved for upstream FSD_14
   MISSING_DAS_SETTINGS = 4
+  VEHICLE_BUS = 8
 
 
 DBC = CAR.create_dbc_map()

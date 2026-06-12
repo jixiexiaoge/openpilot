@@ -3,7 +3,7 @@ from opendbc.can import CANPacker
 from opendbc.car import Bus, apply_steer_angle_limits_vm, structs
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.tesla.teslacan import TeslaCAN
-from opendbc.car.tesla.values import CarControllerParams
+from opendbc.car.tesla.values import CarControllerParams, TeslaFlags
 from opendbc.car.tesla.coop_steering import CoopSteeringCarController
 from opendbc.car.vehicle_model import VehicleModel
 
@@ -23,6 +23,12 @@ class CarController(CarControllerBase):
     self.tesla_can = TeslaCAN(CP, self.packer)
     self.coop_steering = True
     self.coop_steer = CoopSteeringCarController()
+
+    # Nav blinker MITM over the vehicle bus harness
+    self.has_vehicle_bus = bool(CP.flags & TeslaFlags.VEHICLE_BUS)
+    self.body_controls_counter_last = -1
+    self.blinker_request_prev = False
+    self.blinker_cancel_frame = 0
 
     # Vehicle model used for lateral limiting
     self.VM = VehicleModel(get_safety_CP())
@@ -55,15 +61,41 @@ class CarController(CarControllerBase):
     # Longitudinal control
     if self.CP.openpilotLongitudinalControl:
       if self.frame % 4 == 0:
-        state = 13 if CC.cruiseControl.cancel else 4  # 4=ACC_ON, 13=ACC_CANCEL_GENERIC_SILENT
+        # Forward stock DAS cancel requests (e.g. ELDA/ELK) in addition to openpilot's own cancel
+        state = 13 if CC.cruiseControl.cancel or CS.das_accCancel else 4  # 4=ACC_ON, 13=ACC_CANCEL_GENERIC_SILENT
         accel = float(np.clip(actuators.accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX))
+        if not CC.longActive:
+          accel = 0.
         cntr = (self.frame // 4) % 8
-        can_sends.append(self.tesla_can.create_longitudinal_command(state, accel, cntr, CS.out.vEgo, CC.longActive))
+        can_sends.append(self.tesla_can.create_longitudinal_command(state, accel, cntr, CS.out.vEgo, CC.longActive, CS.cruise_override))
     else:
       # Increment counter so cancel is prioritized even without openpilot longitudinal
       if CC.cruiseControl.cancel:
         cntr = (CS.das_control["DAS_controlCounter"] + 1) % 8
-        can_sends.append(self.tesla_can.create_longitudinal_command(13, 0, cntr, CS.out.vEgo, False))
+        can_sends.append(self.tesla_can.create_longitudinal_command(13, 0, cntr, CS.out.vEgo, False, True))
+
+    # Nav blinker control via DAS_bodyControls on the vehicle bus, phase-locked to the car's
+    # counter. Cancel on the trailing edge since the body controller latches the signal.
+    stock_dat = getattr(CS, 'das_body_controls_dat', b"")
+    if self.has_vehicle_bus and len(stock_dat) >= 8:
+      left_blinker = CC.leftBlinker
+      right_blinker = CC.rightBlinker
+
+      driver_opposes = (left_blinker and CS.out.rightBlinker) or (right_blinker and CS.out.leftBlinker)
+      if driver_opposes:
+        left_blinker = right_blinker = False
+
+      nav_requesting = left_blinker or right_blinker
+
+      if self.blinker_request_prev and not nav_requesting and not driver_opposes:
+        self.blinker_cancel_frame = self.frame + 150  # ~1.5 s
+      self.blinker_request_prev = nav_requesting
+      cancel = not nav_requesting and not driver_opposes and self.frame < self.blinker_cancel_frame
+
+      body_counter = stock_dat[6] >> 4
+      if body_counter != self.body_controls_counter_last:
+        can_sends.append(self.tesla_can.create_body_controls(stock_dat, left_blinker, right_blinker, cancel))
+      self.body_controls_counter_last = body_counter
 
     # TODO: HUD control
     new_actuators = actuators.as_builder()
