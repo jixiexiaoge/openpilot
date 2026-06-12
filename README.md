@@ -25,6 +25,31 @@
 
 ---
 
+## 📢 开源公告与分支选择
+
+本项目现已公开并完全开源（100% 开源）。如果你对本项目感兴趣，可前往分支页面选择适合自己的版本：
+
+- **分支入口**：https://github.com/jixiexiaoge/navipilot/branches
+
+你可以直接下载代码后自行编译、生成并使用；也可以基于现有源码做剥离和二次开发，例如：
+
+- 高德专用版本
+- 腾讯专用版本
+- 百度移植版本
+- 谷歌地图版本及进一步完善版本
+
+这些分支均为开源分支，支持按需修改与移植。项目已持续开发一年多，全国已有近 1000 位用户体验，其中 200+ 用户给予了赞助和支持，感谢大家的长期信任。
+
+同时说明：
+
+- 早期老版本软件的使用不受影响。
+- 如有需求，可自行编译并使用新版本。
+- 若有人将本项目源码打包收费售卖，请谨慎甄别，避免上当。
+
+本软件当前已具备较强能力，包括多导航源桥接、NOO 导航分发、自动模式切换、模型切换、7000 端口 Web 控制等，并将持续完善。
+
+---
+
 ## 📖 目录 (Table of Contents)
 
 - [项目简介 (Introduction)](#项目简介)
@@ -34,6 +59,7 @@
 - [进阶专业特性 (Advanced Features)](#-进阶专业特性)
 - [下载与安装 (Download & Install)](#-下载与安装)
 - [分支说明 (Branch Guide)](#-分支说明)
+- [开源公告与分支选择 (Open-Source Notice)](#-开源公告与分支选择)
 - [使用指南 (User Guide)](#-使用指南)
 - [常见问题 (FAQ)](#-常见问题)
 - [技术规格 (Technical Specs)](#-技术规格)
@@ -332,6 +358,31 @@ i.carrotpilot.app/c3-wip
 - **Carrotpilot (CP)**: Latest CP branch intended for C3.
 - **carrotZ6**: Dedicated branch for Changan Z6, based on an older CP version.
 
+---
+
+## 📢 Open-Source Notice and Branch Selection
+
+This project is now public and fully open source (100% open source). If you are interested, choose the version that fits your needs from the branches page:
+
+- **Branches page**: https://github.com/jixiexiaoge/navipilot/branches
+
+You can download the code, build it yourself, and use it directly. You can also split and adapt the source for secondary development, such as:
+
+- AMAP-only editions
+- Tencent-only editions
+- Baidu-ported editions
+- Google Maps editions and further improvements
+
+All these branches are open-source branches and can be modified or ported as needed. The project has been developed for more than one year, with nearly 1,000 users across China having tried it, and more than 200 users providing sponsorship and support. Thank you for the long-term support.
+
+Please also note:
+
+- Early legacy versions are not affected and can still be used.
+- If needed, you can compile and use newer versions yourself.
+- If someone repackages this open-source code and charges for it, verify carefully and avoid scams.
+
+The software already provides strong capabilities, including multi-source navigation bridging, NOO data delivery, automatic mode switching, model switching, and port 7000 Web control, and it will continue to improve.
+
 ## 📋 Table of Contents
 
 - [Introduction](#introduction)
@@ -341,6 +392,7 @@ i.carrotpilot.app/c3-wip
 - [Advanced Features](#-advanced-professional-features)
 - [Download & Install](#-download--installation)
 - [Branch Guide](#-branch-guide)
+- [Open-Source Notice](#-open-source-notice-and-branch-selection)
 - [Quick Start Guide](#-quick-start-guide)
 - [Frequently Asked Questions](#-frequently-asked-questions)
 - [Technical Specifications](#-technical-specifications)
