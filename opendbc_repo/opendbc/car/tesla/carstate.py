@@ -1,9 +1,9 @@
 import copy
 from opendbc.can import CANDefine, CANParser
-from opendbc.car import Bus, structs
+from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD
+from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD, TeslaFlags
 
 ButtonType = structs.CarState.ButtonEvent.Type
 
@@ -15,7 +15,11 @@ class CarState(CarStateBase):
     self.shifter_values = self.can_define.dv["DI_systemStatus"]["DI_gear"]
 
     self.hands_on_level = 0
+    self.acc_state_last = 0
     self.das_control = None
+    self.das_body_controls_dat = b""
+    self.das_accCancel = False
+    self.cruise_override = False
     self.coop_steering = True
 
   def update(self, can_parsers) -> structs.CarState:
@@ -67,7 +71,7 @@ class CarState(CarStateBase):
     # Brake pedal position (0.0-1.0) from iBooster push-rod displacement [0,47] mm
     brake_rod = cp_party.vl["IBST_status"]["IBST_sInputRodDriver"]
     ret.brake = max(0.0, brake_rod / 47.0) if brake_rod > 0 else 0.0
-    ret.brakePressed = cp_party.vl["IBST_status"]["IBST_driverBrakeApply"] == 2
+    ret.brakePressed = cp_party.vl["ESP_status"]["ESP_driverBrakeApply"] == 2  # matches panda safety brake source
     ret.brakeLights = cp_party.vl["ESP_status"]["ESP_brakeLamp"] == 1
     ret.regenBraking = cp_party.vl["DI_systemStatus"]["DI_regenLight"] != 0
     ret.espDisabled = cp_party.vl["ESP_status"]["ESP_espFaultLamp"] != 0
@@ -94,8 +98,13 @@ class CarState(CarStateBase):
     cruise_state = self.can_define.dv["DI_state"]["DI_cruiseState"].get(int(cp_party.vl["DI_state"]["DI_cruiseState"]), None)
     speed_units_raw = int(cp_party.vl["DI_state"]["DI_speedUnits"])
     speed_units = self.can_define.dv["DI_state"]["DI_speedUnits"].get(speed_units_raw, speed_units_raw)
+    acc_state = cp_ap_party.vl["DAS_control"]["DAS_accState"]
+    # Respect all stock DAS cancel states, not just ACC_CANCEL_GENERIC_SILENT(13).
+    # ELDA/ELK triggers ACC_CANCEL_GENERIC(0) which must also be forwarded.
+    self.das_accCancel = acc_state in (0, 1, 2, 12, 13, 14, 15)
 
     ret.cruiseState.enabled = cruise_state in ("ENABLED", "STANDSTILL", "OVERRIDE", "PRE_FAULT", "PRE_CANCEL")
+    self.cruise_override = cruise_state == "OVERRIDE"
     if speed_units in ("KPH", "DI_SPEED_KPH"):
       cruise_is_kph = True
     elif speed_units in ("MPH", "DI_SPEED_MPH"):
@@ -108,8 +117,11 @@ class CarState(CarStateBase):
     ret.cruiseState.speed = max(ret.cruiseState.speedCluster, 1e-3)
     ret.cruiseState.available = cruise_state == "STANDBY" or ret.cruiseState.enabled
     ret.cruiseState.standstill = False  # This needs to be false, since we can resume from stop without sending anything special
-    ret.standstill = cruise_state == "STANDSTILL"
+    ret.standstill = cp_party.vl["ESP_B"]["ESP_vehicleStandstillSts"] == 1
     ret.accFaulted = cruise_state == "FAULT"
+
+    ret.buttonEvents = [*create_button_events(acc_state, self.acc_state_last, {0: ButtonType.cancel, 13: ButtonType.cancel})]
+    self.acc_state_last = acc_state
 
     # DAS_fusedSpeedLimit from DBC is always in kph (scale=5). Do NOT apply ui_is_kph conversion.
     speed_limit = cp_ap_party.vl["DAS_status"]["DAS_fusedSpeedLimit"]
@@ -152,11 +164,19 @@ class CarState(CarStateBase):
     # Messages needed by carcontroller
     self.das_control = copy.copy(cp_ap_party.vl["DAS_control"])
 
+    # Raw stock DAS_bodyControls bytes (bus 2), used to ride the blinker on the vehicle bus.
+    if Bus.cam in can_parsers:
+      self.das_body_controls_dat = bytes(can_parsers[Bus.cam].dat.get(0x3E9, b""))
+
     return ret
 
   @staticmethod
   def get_can_parsers(CP):
-    return {
+    parsers = {
       Bus.party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.party),
-      Bus.ap_party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.autopilot_party)
+      Bus.ap_party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.autopilot_party),
     }
+    # Stock DAS_bodyControls from the AP bus (bus 2) for the nav blinker.
+    if CP.flags & TeslaFlags.VEHICLE_BUS and Bus.adas in DBC[CP.carFingerprint]:
+      parsers[Bus.cam] = CANParser(DBC[CP.carFingerprint][Bus.adas], [("DAS_bodyControls", 2)], CANBUS.autopilot_party)
+    return parsers

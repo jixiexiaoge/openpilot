@@ -34,6 +34,13 @@ class CarInterface(CarInterfaceBase):
     # - Radar CAN lines must be tapped and connected to CAN bus 1 (normally not used for tesla vehicles)
     ret.radarUnavailable = RADAR_START_ADDR not in fingerprint[1] or Bus.radar not in DBC[candidate]
 
+    ret.enableBsm = True
+
+    # Vehicle bus harness tapped into CAN bus 1: enables nav blinker control via DAS_bodyControls
+    if 0x3DF in fingerprint[CANBUS.vehicle]:
+      ret.flags |= TeslaFlags.VEHICLE_BUS.value
+      ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.VEHICLE_BUS.value
+
     ret.alphaLongitudinalAvailable = True
     if alpha_long:
       ret.openpilotLongitudinalControl = True
