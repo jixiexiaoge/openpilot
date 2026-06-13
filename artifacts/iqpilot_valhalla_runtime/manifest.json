@@ -1,0 +1,234 @@
+{
+  "valhalla_runtime/bin/valhalla_service": {
+    "sha256": "6bef5c4ca7e1eb385ac1ae00d9ee20924a81a33f3e59c2b644d31430720d408d",
+    "size": 10754496
+  },
+  "valhalla_runtime/lib/libLerc.so.4": {
+    "sha256": "8148fbb2d121a08abf6ffe493a4994086eb43a785059871dbee1647ce115305b",
+    "size": 526288
+  },
+  "valhalla_runtime/lib/libbrotlicommon.so.1": {
+    "sha256": "016600f673a5d1a565cf98f608d8425033593ab78827eccc3384596f70386c8c",
+    "size": 198784
+  },
+  "valhalla_runtime/lib/libbrotlidec.so.1": {
+    "sha256": "b7895f0fd4ad47408cb01fcb959ae6792804c15512526166f9bf48358714d0b5",
+    "size": 67688
+  },
+  "valhalla_runtime/lib/libbsd.so.0": {
+    "sha256": "6c5348ee0e1777f13e148b7492fa311b6f65adb0dc21a001a67ebc18948e6b3e",
+    "size": 133944
+  },
+  "valhalla_runtime/lib/libcap.so.2": {
+    "sha256": "c2f7d3a8594ea3a24b8ffcea8f929e8fbd0d6c24256f8ece625f0be6a3d4e1f0",
+    "size": 67704
+  },
+  "valhalla_runtime/lib/libcom_err.so.2": {
+    "sha256": "6a9d07af8817ed06466027a77fc7f2e8972a4a0e68895738d9acdc35470f416e",
+    "size": 67432
+  },
+  "valhalla_runtime/lib/libcrypto.so.3": {
+    "sha256": "3d51e64ad7113b2ab863b9582866ad2b31e545d1fe9f197c634a65a8f2611786",
+    "size": 4597928
+  },
+  "valhalla_runtime/lib/libcurl-gnutls.so.4": {
+    "sha256": "d739419f4c0abc68119f407f24f3eca0283ad510ed022c90f5f7b0c2a04d249d",
+    "size": 732568
+  },
+  "valhalla_runtime/lib/libcurl.so.4": {
+    "sha256": "b9764fa500494d831b6b5766e9191d1946f1dcd76f2a011aee9707f0831f0828",
+    "size": 798104
+  },
+  "valhalla_runtime/lib/libczmq.so.4": {
+    "sha256": "5a066a2015cf9fd5fca00a82702802538c3500e5bc26123e60da433d421ef308",
+    "size": 526736
+  },
+  "valhalla_runtime/lib/libdeflate.so.0": {
+    "sha256": "fc8c2ebe21ec4eebfccabcd6618b216a1bcf9a55dfc38c5af26e3b0ab835f4eb",
+    "size": 67384
+  },
+  "valhalla_runtime/lib/libffi.so.8": {
+    "sha256": "9dd873a938c4d7df76912d01f6a28aa4aa73d583bd20485a0dbfe5aa9673a191",
+    "size": 67944
+  },
+  "valhalla_runtime/lib/libgcrypt.so.20": {
+    "sha256": "763eeb8f170de52b8bc7268eaf433f72f03c980c04511130229a338a0ee2bb06",
+    "size": 1000536
+  },
+  "valhalla_runtime/lib/libgeotiff.so.5": {
+    "sha256": "8777a15c365f87f0d20d177600bea9cf23633e04841914e5fba7245603bf59fa",
+    "size": 264144
+  },
+  "valhalla_runtime/lib/libgmp.so.10": {
+    "sha256": "39b6701812ed7135f28df49352b3f6664c7a9f56880a3fe50c1b87cd7681db9b",
+    "size": 526632
+  },
+  "valhalla_runtime/lib/libgnutls.so.30": {
+    "sha256": "6b12c4675dbf7fca76bd47228f22b19f4218bc8c72e2f8b5cb6de172dee14961",
+    "size": 2171912
+  },
+  "valhalla_runtime/lib/libgpg-error.so.0": {
+    "sha256": "ff2dccba4993ef97775b70c1ed1144f70dfe8581ee48c1eb25c76878c6cdfdf7",
+    "size": 198648
+  },
+  "valhalla_runtime/lib/libgssapi_krb5.so.2": {
+    "sha256": "35790a9f5a49b1368614a485cb6ba7cc54cb34560831da1bda657f2502641624",
+    "size": 334304
+  },
+  "valhalla_runtime/lib/libhogweed.so.6": {
+    "sha256": "0495ad11a2266d7300436d57859fc8ebceac79e5235a393c42ae91d6fc23ce84",
+    "size": 329656
+  },
+  "valhalla_runtime/lib/libidn2.so.0": {
+    "sha256": "34a2427db57d47458b460ab15a24e7de73b56fbc7b458af837556445f60ffb4e",
+    "size": 132968
+  },
+  "valhalla_runtime/lib/libjbig.so.0": {
+    "sha256": "edfa3b74da686481be974c3f514dbe8487ad8faf258b634ab4227d98b33cb888",
+    "size": 78448
+  },
+  "valhalla_runtime/lib/libjpeg.so.8": {
+    "sha256": "d45014b67ae6df2f15c8fb3e86d37b78375deede47ef73b7c61e8b6b28c8223f",
+    "size": 395264
+  },
+  "valhalla_runtime/lib/libk5crypto.so.3": {
+    "sha256": "35b10e68ef45885838026423e2ea0b4a9fc12fa804081f9806b95bc18512094f",
+    "size": 198920
+  },
+  "valhalla_runtime/lib/libkeyutils.so.1": {
+    "sha256": "a58e06275e8e2010be20f367b7f2263e56130c04cb83523f29ae94555705ea59",
+    "size": 67432
+  },
+  "valhalla_runtime/lib/libkrb5.so.3": {
+    "sha256": "b411523bb29d8aef30f208c91bcead2bd8b8a64067e891686e33fe6a00369663",
+    "size": 859904
+  },
+  "valhalla_runtime/lib/libkrb5support.so.0": {
+    "sha256": "05fe1c19d3717a12d3a6237daa8c71604237f30b723c0a9bc40b7b759a69f9a2",
+    "size": 68192
+  },
+  "valhalla_runtime/lib/liblber.so.2": {
+    "sha256": "92e756c779c3fa77c4e8ad1ef0d97ebc2eaeccb2f9829da521691c52df4129d5",
+    "size": 67792
+  },
+  "valhalla_runtime/lib/libldap.so.2": {
+    "sha256": "6d3332e01734a21c0b1b18e993d6117a31f8227d3859556397704f266e18e262",
+    "size": 396656
+  },
+  "valhalla_runtime/lib/liblz4.so.1": {
+    "sha256": "d1482a2f74152881d8b83708fedae7bca039f5608024f1178dc21a17df9887a7",
+    "size": 133136
+  },
+  "valhalla_runtime/lib/liblzma.so.5": {
+    "sha256": "cb4d37d810d354f1c3be46bd2897ba47c9f7388da7e6470a79e3accfa8e81f41",
+    "size": 198584
+  },
+  "valhalla_runtime/lib/libmd.so.0": {
+    "sha256": "30d117046ce9405745e0d0d4722cff121f532913180bbb9425b38d076319ac08",
+    "size": 67584
+  },
+  "valhalla_runtime/lib/libnettle.so.8": {
+    "sha256": "8fd8ed433f1b993fe8b8aa8d3fa5342955ab581dc5ce418381872cd3df3dbb11",
+    "size": 395272
+  },
+  "valhalla_runtime/lib/libnghttp2.so.14": {
+    "sha256": "943724df4606c5eaeb47b2371da22d08fa3870249cfe90c84cef8e57ed6d8db5",
+    "size": 198768
+  },
+  "valhalla_runtime/lib/libnorm.so.1": {
+    "sha256": "31ec03ead2addce2d5e017e641750bd9612a9250faac2b408b669de1182428b7",
+    "size": 395208
+  },
+  "valhalla_runtime/lib/libp11-kit.so.0": {
+    "sha256": "10a0b7558d6cac2d777cc39a673f85ada4bfc4be7d8a2f2516e00999154b68a4",
+    "size": 1889776
+  },
+  "valhalla_runtime/lib/libpgm-5.3.so.0": {
+    "sha256": "bd9cf5ac5a861376c67579b8b62357df29722242aa3b47c849ae1faec24e4e92",
+    "size": 330392
+  },
+  "valhalla_runtime/lib/libprime_server.so.0": {
+    "sha256": "e8a7afac9407ab2119bd1d4183037577dc19e87068a09bb7d0424895f07fa4f6",
+    "size": 6565856
+  },
+  "valhalla_runtime/lib/libproj.so.25": {
+    "sha256": "7db50e4d982d2535c39403f27596a53ac98f1bd5f9877d43f2bd828a023a732c",
+    "size": 3740296
+  },
+  "valhalla_runtime/lib/libprotobuf-lite.so.32": {
+    "sha256": "e87c7af5028f82824bbff41f892c7d6d1f9c844870890bc3621f338f280007b4",
+    "size": 854904
+  },
+  "valhalla_runtime/lib/libpsl.so.5": {
+    "sha256": "95bd0ee93925255421d4f2adc621ac26e451fae04f613c8edd368c288be43488",
+    "size": 132888
+  },
+  "valhalla_runtime/lib/libresolv.so.2": {
+    "sha256": "e79ba5df3dc6e7d1bc67b16a49f13337ba46bbb01be1c896f0bdfd8e91c8e9f7",
+    "size": 67720
+  },
+  "valhalla_runtime/lib/librtmp.so.1": {
+    "sha256": "0e449c6660fb3dc7e06c56034f41106e9cf48a3baf5d30c1e0b53a48276d0c51",
+    "size": 133928
+  },
+  "valhalla_runtime/lib/libsasl2.so.2": {
+    "sha256": "f936a889bcc2d8b5ac8b89e2b37e4359bbd87cbbe87bd2b2002358dfffe04cce",
+    "size": 133800
+  },
+  "valhalla_runtime/lib/libsharpyuv.so.0": {
+    "sha256": "aa4617020b4bc450ef4382ea93ab3d6bef6571433498794a9b88a5675d52fe6d",
+    "size": 67520
+  },
+  "valhalla_runtime/lib/libsodium.so.23": {
+    "sha256": "3b72f199720e9382acdc372a944fdee980dac2f7fe2e8f6b1eed38843bc6544f",
+    "size": 264384
+  },
+  "valhalla_runtime/lib/libsqlite3.so.0": {
+    "sha256": "43ba1659a6113bb4360f4a6da9e465bca6403d7d1f376015d5a57901ee5639b6",
+    "size": 1526192
+  },
+  "valhalla_runtime/lib/libssh.so.4": {
+    "sha256": "41b9c6f2b4ad8930bc089f8f8e3b483d2d8f0760f9a7aca721a207c1286e7bde",
+    "size": 466056
+  },
+  "valhalla_runtime/lib/libssl.so.3": {
+    "sha256": "f23c6de6c41fb0ecc159f1af052cae3b525de697fae242290e656a242e7bc25d",
+    "size": 737192
+  },
+  "valhalla_runtime/lib/libsystemd.so.0": {
+    "sha256": "f1db21e4bb449d1844ac033d7b6f2e3921e140f386370a4a32f9043ea1437b9e",
+    "size": 989464
+  },
+  "valhalla_runtime/lib/libtasn1.so.6": {
+    "sha256": "039d653f8fdfa01240882b0033aca6887e1e9e6dc39acbea51d658fa75437955",
+    "size": 133048
+  },
+  "valhalla_runtime/lib/libtiff.so.6": {
+    "sha256": "96c0ab894fc511a760a08d33e53083aa9fc95f7bdfd3c3bd81cfdbdf26b592db",
+    "size": 591816
+  },
+  "valhalla_runtime/lib/libunistring.so.5": {
+    "sha256": "639c4c15f94e960450b69475d7282e4760fd5895a6a4f4e85f44bb15b74e512c",
+    "size": 1771448
+  },
+  "valhalla_runtime/lib/libuuid.so.1": {
+    "sha256": "58d35ebee086e9f858cd3e597236f1d744e587a216330e3f1d5f1e9ad011c55c",
+    "size": 67576
+  },
+  "valhalla_runtime/lib/libwebp.so.7": {
+    "sha256": "d921459ab6508b3239218b0e4c2e44dbd2e702aeff4273190bf25d2036373930",
+    "size": 395616
+  },
+  "valhalla_runtime/lib/libz.so.1": {
+    "sha256": "170380b4e7ab28ec86eb090b48df90f84089392cb72fecd5067e5b7a4dc5239f",
+    "size": 133272
+  },
+  "valhalla_runtime/lib/libzmq.so.5": {
+    "sha256": "1d986e7d5a45493b6adce97808ec5307d6c625ea4921e074023481521c2af4d9",
+    "size": 659312
+  },
+  "valhalla_runtime/lib/libzstd.so.1": {
+    "sha256": "fe726238b170b83aa83bf1f8a79109b8b61b9eb45234304511d093bbe5f5fb20",
+    "size": 657432
+  }
+}

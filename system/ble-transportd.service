@@ -1,0 +1,35 @@
+# Copyright © IQ.Lvbs, apart of Project Teal Lvbs, All Rights Reserved, licensed under https://konn3kt.com/tos
+
+[Unit]
+Description=Konn3kt BLE Device Settings Transport
+Documentation=https://gitlvb.teallvbs.xyz/teal/iqpilot
+After=bluetooth.service dbus.service
+Wants=bluetooth.service dbus.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=comma
+AmbientCapabilities=CAP_SYS_NICE
+Environment="IQPILOT_SOURCE_ROOT=/data/openpilot/openpilot"
+Environment="PYTHONPATH=/data/openpilot"
+Environment="PATH=/usr/local/venv/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+WorkingDirectory=/data/openpilot
+# Wait for source files only — no build dependency so BLE transport starts
+# even when openpilot fails to compile (BLE must always be reachable).
+ExecStartPre=/bin/bash -c 'until [ -f /data/openpilot/iqpilot/konn3kt/hephaestus/ble_transportd.py ]; do echo "Waiting for ble_transportd source..."; sleep 5; done'
+ExecStartPre=/bin/bash -c 'if [ -f /data/openpilot/artifacts/runtime/ensure_private_installed.sh ]; then bash /data/openpilot/artifacts/runtime/ensure_private_installed.sh || true; fi'
+ExecStart=/usr/local/venv/bin/python3 -m iqpilot.konn3kt.hephaestus.ble_transportd
+TimeoutStartSec=600
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=yes
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectHome=no
+
+[Install]
+WantedBy=multi-user.target
