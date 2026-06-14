@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# iqpilot-reset: headless factory reset for IQ.OS.
+set -u
+
+USERDATA="/dev/disk/by-partlabel/userdata"
+MODE="user"
+case "${1:-}" in
+  --format)  MODE="format" ;;
+  --recover) MODE="recover" ;;
+esac
+
+if [ "$MODE" = "recover" ]; then
+  echo "iqpilot-reset: recover requested, leaving userdata intact"
+  exit 0
+fi
+
+echo "iqpilot-reset: factory reset (mode=$MODE)"
+
+if mountpoint -q /data; then
+  sudo rm -rf /data/* 2>/dev/null || true
+fi
+sudo umount "$USERDATA" 2>/dev/null || sudo umount -l "$USERDATA" 2>/dev/null || true
+yes | sudo mkfs.ext4 "$USERDATA"
+sync
+
+echo "iqpilot-reset: done, rebooting"
+sudo reboot

@@ -1,0 +1,60 @@
+import pyray as rl
+from openpilot.common.time_helpers import system_time_valid
+from openpilot.selfdrive.ui.ui_state import ui_state
+from openpilot.selfdrive.ui.widgets.pairing_dialog import PairingDialog
+from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
+from openpilot.system.ui.lib.multilang import tr
+from openpilot.system.ui.lib.wrap_text import wrap_text
+from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets.confirm_dialog import alert_dialog
+from openpilot.system.ui.widgets.button import Button, ButtonStyle
+
+
+class SetupWidget(Widget):
+  def __init__(self):
+    super().__init__()
+    self._pairing_dialog: PairingDialog | None = None
+    self._pair_device_btn = Button(lambda: tr("Pair device"), self._show_pairing, button_style=ButtonStyle.PRIMARY)
+
+  def _render(self, rect: rl.Rectangle):
+    if not ui_state.prime_state.is_paired():
+      self._render_registration(rect)
+
+  def _render_registration(self, rect: rl.Rectangle):
+    """Render registration prompt."""
+
+    rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, rect.height), 0.03, 20, rl.Color(51, 51, 51, 255))
+
+    x = rect.x + 64
+    y = rect.y + 48
+    w = rect.width - 128
+
+    # Title
+    font = gui_app.font(FontWeight.BOLD)
+    rl.draw_text_ex(font, tr("Finish Setup"), rl.Vector2(x, y), 75, 0, rl.WHITE)
+    y += 113  # 75 + 38 spacing
+
+    # Description
+    desc = tr("Pair your device in the Konn3kt app.")
+    light_font = gui_app.font(FontWeight.NORMAL)
+    wrapped = wrap_text(light_font, desc, 50, int(w))
+    for line in wrapped:
+      rl.draw_text_ex(light_font, line, rl.Vector2(x, y), 50, 0, rl.WHITE)
+      y += 50 * FONT_SCALE
+
+    button_rect = rl.Rectangle(x, y + 30, w, 200)
+    self._pair_device_btn.render(button_rect)
+
+  def _show_pairing(self):
+    if not system_time_valid():
+      dlg = alert_dialog(tr("Please connect to Wi-Fi to complete initial pairing"))
+      gui_app.set_modal_overlay(dlg)
+      return
+
+    if not self._pairing_dialog:
+      self._pairing_dialog = PairingDialog()
+    gui_app.set_modal_overlay(self._pairing_dialog, lambda result: setattr(self, '_pairing_dialog', None))
+
+  def __del__(self):
+    if self._pairing_dialog:
+      del self._pairing_dialog

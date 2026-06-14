@@ -1,0 +1,101 @@
+import os
+import glob
+
+Import('env', 'envCython', 'arch', 'cereal', 'messaging', 'common', 'visionipc')
+lenv = env.Clone()
+lenvCython = envCython.Clone()
+
+libs = [cereal, messaging, visionipc, common, 'capnp', 'kj', 'pthread']
+frameworks = []
+
+common_src = [
+  "models/commonmodel.cc",
+  "transforms/loadyuv.cc",
+  "transforms/transform.cc",
+]
+
+# OpenCL is a framework on Mac
+if arch == "Darwin":
+  frameworks += ['OpenCL']
+else:
+  libs += ['OpenCL']
+
+# Set path definitions
+for pathdef, fn in {'TRANSFORM': 'transforms/transform.cl', 'LOADYUV': 'transforms/loadyuv.cl'}.items():
+  for xenv in (lenv, lenvCython):
+    xenv['CXXFLAGS'].append(f'-D{pathdef}_PATH=\\"{File(fn).abspath}\\"')
+
+# Compile cython
+cython_libs = envCython["LIBS"] + libs
+commonmodel_lib = lenv.Library('commonmodel', common_src)
+lenvCython.Program('models/commonmodel_pyx.so', 'models/commonmodel_pyx.pyx', LIBS=[commonmodel_lib, *cython_libs], FRAMEWORKS=frameworks)
+tinygrad_files = ["#"+x for x in glob.glob(env.Dir("#tinygrad_repo").relpath + "/**", recursive=True, root_dir=env.Dir("#").abspath) if 'pycache' not in x]
+
+# Get model metadata
+PC = not os.path.isfile('/TICI')
+if PC:
+  inputs = tinygrad_files + [File(Dir("#iqpilot/modeld_v2").File("install_models_pc.py").abspath)]
+  outputs = []
+  model_dir = Dir("models").abspath
+  cmd = f'python3 {Dir("#iqpilot/modeld_v2").abspath}/install_models_pc.py {model_dir}'
+
+  for model_name in ['supercombo', 'driving_vision', 'driving_off_policy', 'driving_on_policy', 'driving_policy']:
+    if File(f"models/{model_name}.onnx").exists():
+        inputs.append(File(f"models/{model_name}.onnx"))
+        inputs.append(File(f"models/{model_name}_tinygrad.pkl"))
+        outputs.append(File(f"models/{model_name}_metadata.pkl"))
+  if outputs:
+    lenv.Command(outputs, inputs, cmd)
+
+def tg_compile(flags, model_name):
+  pythonpath_string = 'PYTHONPATH="${PYTHONPATH}:' + env.Dir("#tinygrad_repo").abspath + '"'
+  fn = File(f"models/{model_name}").abspath
+  return lenv.Command(
+    fn + "_tinygrad.pkl",
+    [fn + ".onnx"] + tinygrad_files,
+    f'{pythonpath_string} {flags} python3 {Dir("#tinygrad_repo").abspath}/examples/openpilot/compile3.py {fn}.onnx {fn}_tinygrad.pkl'
+  )
+
+# Compile small models
+for model_name in ['supercombo', 'driving_vision', 'driving_off_policy', 'driving_on_policy', 'driving_policy']:
+  if File(f"models/{model_name}.onnx").exists():
+    flags = {
+      'larch64': 'DEV=QCOM',
+      'Darwin': f'DEV=CPU HOME={os.path.expanduser("~")} IMAGE=0', # tinygrad calls brew which needs a $HOME in the env
+    }.get(arch, 'DEV=CPU CPU_LLVM=1 IMAGE=0')
+    tg_compile(flags, model_name)
+
+# Compile fused models (op_model16_deep style: warp+vision+on/off policy in one pkl).
+# IMAGE=2 (not upstream's IMAGE=1) for the Adreno the fleet runs. Opt-in: only builds
+# when the fused triplet onnx are dropped into models/.
+from openpilot.common.transformations.model import MEDMODEL_INPUT_SIZE
+from openpilot.common.transformations.camera import _ar_ox_fisheye, _os_fisheye
+FUSED_CAMERA_CONFIGS = [(_ar_ox_fisheye.width, _ar_ox_fisheye.height), (_os_fisheye.width, _os_fisheye.height)]
+FUSED_FRAME_SKIP = 4  # MODEL_RUN_FREQ // MODEL_CONTEXT_FREQ (20 // 5)
+FUSED_TRIPLET = ['driving_vision', 'driving_off_policy', 'driving_on_policy']
+
+def tg_compile_fused(file_prefix, flags):
+  pythonpath_string = 'PYTHONPATH="${PYTHONPATH}:' + env.Dir("#tinygrad_repo").abspath + '"'
+  mdir = Dir("models").abspath
+  model_w, model_h = MEDMODEL_INPUT_SIZE
+  cam_args = ' '.join(f'{cw}x{ch}' for cw, ch in FUSED_CAMERA_CONFIGS)
+  out_pkl = File(f"models/{file_prefix}driving_fused_tinygrad.pkl").abspath
+  onnx_deps = [File(f"models/{file_prefix}{m}.onnx") for m in FUSED_TRIPLET]
+  cmd = (f'{pythonpath_string} {flags} python3 {Dir("#iqpilot/modeld_v2").abspath}/compile_modeld.py '
+         f'--model-size {model_w}x{model_h} --camera-resolutions {cam_args} '
+         f'--vision-onnx {mdir}/{file_prefix}driving_vision.onnx '
+         f'--off-policy-onnx {mdir}/{file_prefix}driving_off_policy.onnx '
+         f'--on-policy-onnx {mdir}/{file_prefix}driving_on_policy.onnx '
+         f'--output {out_pkl} --frame-skip {FUSED_FRAME_SKIP}')
+  return lenv.Command(out_pkl, onnx_deps + tinygrad_files, cmd)
+
+if all(File(f"models/{m}.onnx").exists() for m in FUSED_TRIPLET):
+  fused_flags = {
+    'larch64': 'DEV=QCOM IMAGE=2 FLOAT16=1 NOLOCALS=1 JIT_BATCH_SIZE=0',
+    'Darwin': f'DEV=CPU HOME={os.path.expanduser("~")} IMAGE=0 FLOAT16=1',
+  }.get(arch, 'DEV=CPU CPU_LLVM=1 IMAGE=0 FLOAT16=1')
+  tg_compile_fused('', fused_flags)
+
+# usbgpu (eGPU): big vision on an external AMD GPU over USB, warp stays on QCOM
+if all(File(f"models/big_{m}.onnx").exists() for m in FUSED_TRIPLET):
+  tg_compile_fused('big_', 'DEV=USB+AMD:LLVM WARP_DEV=QCOM FLOAT16=1 JIT_BATCH_SIZE=0 GMMU=0')
