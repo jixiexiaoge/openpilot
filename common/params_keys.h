@@ -172,6 +172,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"CarrotLearningHistory", {PERSISTENT, BYTES, ""}},        // Auto-Tuner: 튜닝 이력 (JSON)
     {"CarrotLearningPopupSource", {PERSISTENT, STRING, ""}},   // Auto-Tuner: 팝업 발생 소스 ("stop", "timer", "parking", etc.)
     {"CarrotLearningAutoApply", {PERSISTENT, BOOL, "0"}},      // Auto-Tuner: 추천 파라미터 자동 적용 여부
+    {"CarrotTunerFactoryReset", {PERSISTENT, BOOL, "0"}},      // Auto-Tuner: 튜닝 파라미터 공장초기화 신호
     {"CarrotDSPData", {PERSISTENT, BYTES, ""}},                // DSP: 수동 주행 프로파일 데이터 (JSON)
     {"CarrotDSPRecommend", {PERSISTENT, BYTES, ""}},           // DSP: 초기값 추천 (JSON)
     {"CarrotDSPPopupReady", {PERSISTENT, BOOL, "0"}},          // DSP: 팝업 신호

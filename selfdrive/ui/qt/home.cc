@@ -373,8 +373,10 @@ void HomeWindow::updateState(const UIState &s) {
             QJsonObject group_items = obj[group].toObject();
             for (const QString& key : group_items.keys()) {
               QJsonObject info = group_items[key].toObject();
-              int recommended = info["recommended"].toInt(0);
-              if (recommended > 0) {
+              // 엔진이 이미 안전 범위로 클램프함. StoppingAccel 등 음수/0 추천도
+              // 적용되도록 양수 가드 대신 키 존재 여부로 판정.
+              if (info.contains("recommended")) {
+                int recommended = info["recommended"].toInt(0);
                 params.put(key.toStdString(), std::to_string(recommended));
               }
             }
@@ -429,8 +431,10 @@ void HomeWindow::updateState(const UIState &s) {
                 QJsonObject group_items = selected[group].toObject();
                 for (const QString& key : group_items.keys()) {
                   QJsonObject info = group_items[key].toObject();
-                  int recommended = info["recommended"].toInt(0);
-                  if (recommended > 0) {
+                  // 엔진이 이미 안전 범위로 클램프함. 음수/0 추천(StoppingAccel 등)도
+                  // 적용되도록 양수 가드 대신 키 존재 여부로 판정.
+                  if (info.contains("recommended")) {
+                    int recommended = info["recommended"].toInt(0);
                     p.put(key.toStdString(), std::to_string(recommended));
                   }
                 }

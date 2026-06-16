@@ -9,6 +9,7 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.common.filter_simple import MyMovingAverage
 from openpilot.selfdrive.selfdrived.events import Events
 from openpilot.selfdrive.carrot.carrot_learning import CarrotLearner, DrivingStyleProfiler
+from openpilot.common.swaglog import cloudlog
 
 EventName = log.OnroadEvent.EventName
 LaneChangeState = log.LaneChangeState
@@ -656,20 +657,25 @@ class CarrotPlanner:
     elif personality == log.LongitudinalPersonality.aggressive: current_gap = 1
     self.learner.set_current_gap(current_gap)
 
-    self.learner.update(v_ego_kph, carstate.gasPressed, engaged, gear_park,
-                        steer_deg=carstate.steeringAngleDeg, steer_pressed=carstate.steeringPressed,
-                        brake_pressed=carstate.brakePressed,
-                        lead_drel=leadOne.dRel if leadOne.status else 0.0,
-                        lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0,
-                        a_ego=a_ego, lead_jlead=leadOne.jLead if leadOne.status else 0.0,
-                        v_cruise_kph=v_cruise_kph,
-                        gas_val=carstate.gas, brake_val=carstate.brake, sm=sm)
+    # Auto-Tuner는 비핵심 학습 기능이므로, 여기서 예외가 나도 안전필수
+    # 종방향 플래너(plannerd)가 죽지 않도록 반드시 격리한다.
+    try:
+      self.learner.update(v_ego_kph, carstate.gasPressed, engaged, gear_park,
+                          steer_deg=carstate.steeringAngleDeg, steer_pressed=carstate.steeringPressed,
+                          brake_pressed=carstate.brakePressed,
+                          lead_drel=leadOne.dRel if leadOne.status else 0.0,
+                          lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0,
+                          a_ego=a_ego, lead_jlead=leadOne.jLead if leadOne.status else 0.0,
+                          v_cruise_kph=v_cruise_kph,
+                          gas_val=carstate.gas, brake_val=carstate.brake, sm=sm)
 
-    # DSP: 수동 주행 성향 프로파일링 (오픈파일럿 미인게이지 상태에서만 수집)
-    self.profiler.update(v_ego_kph, engaged, gear_park,
-                         a_ego=a_ego, brake_pressed=carstate.brakePressed,
-                         lead_drel=leadOne.dRel if leadOne.status else 0.0,
-                         lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0)
+      # DSP: 수동 주행 성향 프로파일링 (오픈파일럿 미인게이지 상태에서만 수집)
+      self.profiler.update(v_ego_kph, engaged, gear_park,
+                           a_ego=a_ego, brake_pressed=carstate.brakePressed,
+                           lead_drel=leadOne.dRel if leadOne.status else 0.0,
+                           lead_v_kph=leadOne.vLead * CV.MS_TO_KPH if leadOne.status else 0.0)
+    except Exception:
+      cloudlog.exception("CarrotLearner/Profiler update failed")
 
     return v_cruise_kph
 
