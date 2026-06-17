@@ -51,6 +51,9 @@ _PATH_OFFSET_DEG_THRESHOLD = 1.5  # 평균 편차가 이 이상이면 PathOffset
 _PATH_OFFSET_DEG_PER_UNIT = 0.1   # 1 도 편차 ≈ 10 units PathOffset 변화 (실험값)
 _CURVE_OVERRIDE_RATIO = 0.5     # 커브 진입의 50% 이상에서 override → SteerActuatorDelay 증가
 _DELAY_STEP_UNIT = 10           # SteerActuatorDelay 한 번 추천 시 변화량 (UI 단위, +0.1s)
+_SAD_LEARN_MIN = 15             # SteerActuatorDelay 학습 하한 (0.15s) — 과거 50은 너무 높았음
+_SAD_LEARN_MAX = 60             # 학습 상한 (0.60s) — 과거 300(=3s)은 비현실적
+_SAD_AUTO_BASELINE = 20         # 현재값 0(=liveDelay 자동)일 때 환산 기준 (0.20s)
 _SR_RATE_OVERRIDE_RATIO = 0.7   # 커브 진입의 70% 이상에서 override → SteerRatioRate 추가 추천
 _SR_RATE_STEP_UNIT = 3          # SteerRatioRate 한 번 추천 시 변화량 (+3%)
 
@@ -1098,15 +1101,17 @@ class CarrotLearner:
 
         # (1) SteerActuatorDelay
         current_delay = self._params.get_int("SteerActuatorDelay")
+        # 0 = liveDelay(자동, ~0.2s). 학습 조정 시 기준값으로 환산.
+        base_delay = current_delay if current_delay > 0 else _SAD_AUTO_BASELINE
         recommended_delay = current_delay
         if override_ratio >= 0.30:
           if understeer_ratio >= 0.60:
-            recommended_delay = min(300, current_delay + _DELAY_STEP_UNIT)
+            recommended_delay = min(_SAD_LEARN_MAX, base_delay + _DELAY_STEP_UNIT)
           elif inner_hugging_ratio >= 0.60:
-            recommended_delay = max(50, current_delay - _DELAY_STEP_UNIT)
-        elif override_ratio < 0.10: # 개입이 거의 없는 안정 상태 → 지연시간 소폭 감소로 최적점 수렴
-          recommended_delay = max(50, current_delay - 10)
-          
+            recommended_delay = max(_SAD_LEARN_MIN, base_delay - _DELAY_STEP_UNIT)
+        # 안정 상태(개입 적음)에서는 값을 변경하지 않는다.
+        # (과거: max(50, current-10)로 인해 초기화 직후 안정 주행이면 무조건 50으로 튀던 버그)
+
         if recommended_delay != current_delay:
           result["조향 (Steering)"]["SteerActuatorDelay"] = {
             "current": current_delay,
@@ -1150,15 +1155,16 @@ class CarrotLearner:
           inner_hugging_ratio = self._torque_curve_overrides_inner_hugging / self._torque_curve_overrides
 
         current_delay = self._params.get_int("SteerActuatorDelay")
+        # 0 = liveDelay(자동, ~0.2s). 학습 조정 시 기준값으로 환산.
+        base_delay = current_delay if current_delay > 0 else _SAD_AUTO_BASELINE
         recommended_delay = current_delay
         if override_ratio >= 0.30:
           if understeer_ratio >= 0.60:
-            recommended_delay = min(300, current_delay + 10)
+            recommended_delay = min(_SAD_LEARN_MAX, base_delay + _DELAY_STEP_UNIT)
           elif inner_hugging_ratio >= 0.60:
-            recommended_delay = max(50, current_delay - 10)
-        elif override_ratio < 0.10:
-          recommended_delay = max(50, current_delay - 10)
-          
+            recommended_delay = max(_SAD_LEARN_MIN, base_delay - _DELAY_STEP_UNIT)
+        # 안정 상태(개입 적음)에서는 값을 변경하지 않는다(50으로 튀던 버그 제거).
+
         if recommended_delay != current_delay:
           result["조향 (Steering)"]["SteerActuatorDelay"] = {
             "current": current_delay,
