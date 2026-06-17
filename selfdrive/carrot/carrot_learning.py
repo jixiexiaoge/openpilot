@@ -255,6 +255,7 @@ class CarrotLearner:
     self._curve_override_brake_count = 0
     self._curve_max_decel = 0.0
     self._curve_steer_error_sec = 0.0
+    self._curve_brake_min_v = 999.0
 
     # Phase 7 (정차/출발: StoppingAccel / VEgoStopping / StopDistanceCarrot)
     self._stop_events = 0            # 완전 정지 완료 횟수 (denominator)
@@ -580,7 +581,9 @@ class CarrotLearner:
             self._curve_override_brake_sec += _DT
             # Track peak deceleration in curve
             self._curve_max_decel = max(self._curve_max_decel, -a_ego)
-            
+            # 커브 제동 시 최저 속도(하한 도달 여부 판단용)
+            self._curve_brake_min_v = min(self._curve_brake_min_v, v_ego_kph)
+
             # Detect unique brake event in curve
             if not prev_brake:
               self._curve_override_brake_count += 1
@@ -735,6 +738,7 @@ class CarrotLearner:
     self._curve_override_brake_count = 0
     self._curve_max_decel = 0.0
     self._curve_steer_error_sec = 0.0
+    self._curve_brake_min_v = 999.0
 
     # Phase 7 / 8 reset
     self._stop_events = 0
@@ -834,6 +838,7 @@ class CarrotLearner:
       self._curve_override_brake_count = int(p6.get("curve_override_brake_count", 0))
       self._curve_max_decel = float(p6.get("curve_max_decel", 0.0))
       self._curve_steer_error_sec = float(p6.get("curve_steer_error_sec", 0.0))
+      self._curve_brake_min_v = float(p6.get("curve_brake_min_v", 999.0))
       # Phase 7
       p7 = data.get("phase7", {})
       self._stop_events = int(p7.get("stop_events", 0))
@@ -905,6 +910,7 @@ class CarrotLearner:
         "curve_override_brake_count": self._curve_override_brake_count,
         "curve_max_decel": self._curve_max_decel,
         "curve_steer_error_sec": self._curve_steer_error_sec,
+        "curve_brake_min_v": self._curve_brake_min_v,
       },
       "phase7": {
         "stop_events": self._stop_events,
@@ -1401,15 +1407,27 @@ class CarrotLearner:
     reason = ""
     sec = 0.0
 
+    # 하한(floor) 도달 여부: 커브에서 이미 하한속도까지 내려간 상태로 제동했다면
+    # AutoCurveSpeedFactor를 올려도 목표속도가 더 낮아지지 못해(=floor 클램프) 효과가 없다.
+    # → 이 경우 factor 상향 추천을 생략해 '헛도는 학습'(상한까지 무의미한 누적)을 방지.
+    lower_limit = self._params.get_int("AutoCurveSpeedLowerLimit")
+    if lower_limit <= 0:
+      lower_limit = 30
+    floor_bound = (self._curve_brake_min_v <= lower_limit + 3)
+
+    has_brake_signal = (self._curve_override_brake_count >= 3 or self._curve_override_brake_sec >= 5.0)
+    has_steer_signal = (self._curve_steer_error_sec >= 3.0)
+
     # 커브에서 제동/조향 개입 = 감속 부족 → Factor 상향(더 일찍 더 감속)
-    if apply_long and (self._curve_override_brake_count >= 3 or self._curve_override_brake_sec >= 5.0 or self._curve_steer_error_sec >= 3.0):
+    if apply_long and has_steer_signal:
       recommended_raw = _clamp_spec(key, current_raw + 10)
-      if self._curve_steer_error_sec >= 3.0:
-        reason = f"steering tracking error (accumulated {self._curve_steer_error_sec:.1f}s)"
-        sec = self._curve_steer_error_sec
-      else:
-        reason = f"brake in curve (count {self._curve_override_brake_count}, peak decel {self._curve_max_decel:.2f}m/s^2)"
-        sec = self._curve_override_brake_sec
+      reason = f"steering tracking error (accumulated {self._curve_steer_error_sec:.1f}s)"
+      sec = self._curve_steer_error_sec
+    elif apply_long and has_brake_signal and not floor_bound:
+      recommended_raw = _clamp_spec(key, current_raw + 10)
+      reason = f"brake in curve (count {self._curve_override_brake_count}, peak decel {self._curve_max_decel:.2f}m/s^2)"
+      sec = self._curve_override_brake_sec
+    # floor-bound(이미 하한속도에서 제동)면 factor 무효 → 추천 생략(헛도는 학습 방지)
     # 커브에서 가속 개입 = 과도한 감속 → Factor 하향(덜 감속)
     elif apply_long and self._curve_override_gas_sec >= 10.0:
       recommended_raw = _clamp_spec(key, current_raw - 10)
@@ -1627,6 +1645,7 @@ class CarrotLearner:
     self._curve_override_brake_count = 0
     self._curve_max_decel = 0.0
     self._curve_steer_error_sec = 0.0
+    self._curve_brake_min_v = 999.0
 
     # Phase 7 / 8 reset
     self._stop_events = 0
