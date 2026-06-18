@@ -858,5 +858,96 @@ class TestALKALatControlAllowed(unittest.TestCase):
                            f"alka_flag={alka_flag}, lkas_on={lkas_on}, vehicle_moving={vehicle_moving}")
 
 
+class TestALKAMG(TestALKABase):
+  """Test ALKA functionality for MG (MG ZS)."""
+
+  def setUp(self):
+    self.packer = CANPackerSafety("mg")
+    self.safety = libsafety_py.libsafety
+    self.safety.set_safety_hooks(CarParams.SafetyModel.mg, 4)  # NON_EV (MG ZS)
+    self.safety.init_tests()
+    self.safety.set_alternative_experience(ALTERNATIVE_EXPERIENCE.ALKA)
+
+  def _speed_msg(self, speed):
+    values = {"VehSpdAvgHSC2": speed * 3.6}
+    return self.packer.make_can_msg_safety("SCS_HSC2_FrP19", 0, values)
+
+  def _set_vehicle_moving(self, moving: bool):
+    speed = 10.0 if moving else 0.0
+    for _ in range(6):
+      self._rx(self._speed_msg(speed))
+
+  def _torque_cmd_msg(self, torque, steer_req=1):
+    values = {"LKAReqToqHSC2": torque, "LKAReqToqStsHSC2": steer_req}
+    return self.packer.make_can_msg_safety("FVCM_HSC2_FrP03", 0, values)
+
+  def _torque_driver_msg(self, torque):
+    values = {"DrvrStrgDlvrdToqHSC2": torque}
+    return self.packer.make_can_msg_safety("EPS_HSC2_FrP03", 0, values)
+
+  def _acc_main_msg(self, main_on):
+    # ACCSysSts: 0 = Off, 1 = Stand By (main on); any non-zero = main on
+    values = {"ACCSysSts_RadarHSC2": 1 if main_on else 0}
+    return self.packer.make_can_msg_safety("RADAR_HSC2_FrP00", 0, values)
+
+  def _set_prev_torque(self, t):
+    self.safety.set_desired_torque_last(t)
+    self.safety.set_rt_torque_last(t)
+
+  def test_alka_allowed_for_mg(self):
+    """alka_allowed is set in MG safety init."""
+    self.assertTrue(self.safety.get_alka_allowed())
+
+  def test_alka_lkas_on_from_acc_main(self):
+    """lkas_on tracks the ACC main state (any non-Off ACCSysSts)."""
+    self._rx(self._acc_main_msg(0))
+    self.assertFalse(self.safety.get_lkas_on())
+
+    self._rx(self._acc_main_msg(1))
+    self.assertTrue(self.safety.get_lkas_on())
+
+    self._rx(self._acc_main_msg(0))
+    self.assertFalse(self.safety.get_lkas_on())
+
+  def test_alka_lat_control_allowed_conditions(self):
+    """lat_control_allowed requires ALKA flag + lkas_on + vehicle_moving."""
+    self._reset_safety_hooks()
+    self.safety.set_controls_allowed(False)
+
+    # No ALKA flag -> follows controls_allowed (False)
+    self.safety.set_alternative_experience(ALTERNATIVE_EXPERIENCE.DEFAULT)
+    self._rx(self._acc_main_msg(1))
+    self._set_vehicle_moving(True)
+    self.assertFalse(self.safety.get_lat_control_allowed())
+
+    # ALKA flag but not moving
+    self.safety.set_alternative_experience(ALTERNATIVE_EXPERIENCE.ALKA)
+    self._set_vehicle_moving(False)
+    self.assertFalse(self.safety.get_lat_control_allowed())
+
+    # Moving but main off (lkas_on false)
+    self._set_vehicle_moving(True)
+    self._rx(self._acc_main_msg(0))
+    self.assertFalse(self.safety.get_lat_control_allowed())
+
+    # All conditions met
+    self._rx(self._acc_main_msg(1))
+    self._set_vehicle_moving(True)
+    self.assertTrue(self.safety.get_lat_control_allowed())
+
+  def test_alka_allows_steering_without_controls_allowed(self):
+    """Torque TX is allowed via ALKA even when controls_allowed=False."""
+    self._reset_safety_hooks()
+    self.safety.set_alternative_experience(ALTERNATIVE_EXPERIENCE.ALKA)
+    self._rx(self._acc_main_msg(1))
+    self._set_vehicle_moving(True)
+    self.safety.set_controls_allowed(False)
+
+    self._set_prev_torque(0)
+    for _ in range(6):
+      self._rx(self._torque_driver_msg(0))
+    self.assertTrue(self._tx(self._torque_cmd_msg(10, steer_req=1)))
+
+
 if __name__ == "__main__":
   unittest.main()
