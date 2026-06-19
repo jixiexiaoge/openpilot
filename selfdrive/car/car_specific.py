@@ -50,6 +50,7 @@ class CarSpecificEvents:
     self.mute_seatbelt = False
     self.vCruise_prev = 250
     self.carrotCruise_prev = False
+    self.tesla_lkas_button_prev = False
 
   def update_params(self):
     if self.frame % 100 == 0:
@@ -172,6 +173,14 @@ class CarSpecificEvents:
     else:
       events = self.create_common_events(CS, CS_prev)
 
+    # Tesla 3-finger infotainment press: toggle ExperimentalMode
+    if self.CP.brand == 'tesla':
+      lkas_pressed = any(b.type == ButtonType.lkas and b.pressed for b in CS.buttonEvents)
+      if lkas_pressed and not self.tesla_lkas_button_prev:
+        new_val = not self.params.get_bool("ExperimentalMode")
+        self.params.put_bool("ExperimentalMode", new_val)
+      self.tesla_lkas_button_prev = lkas_pressed
+
     if CC.enabled:
       if self.vCruise_prev == 0 and CS.vCruise > 0:
         events.add(EventName.audioPrompt)
@@ -208,6 +217,8 @@ class CarSpecificEvents:
       events.add(EventName.stockFcw)
     if CS.stockAeb:
       events.add(EventName.stockAeb)
+    if CS.steeringDisengage and not CS_prev.steeringDisengage:
+      events.add(EventName.steerDisengage)
     if CS.vEgo > MAX_CTRL_SPEED:
       events.add(EventName.speedTooHigh)
     if CS.cruiseState.nonAdaptive:

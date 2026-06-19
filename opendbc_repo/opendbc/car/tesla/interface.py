@@ -2,7 +2,7 @@ from opendbc.car import Bus, get_safety_config, structs
 from opendbc.car.interfaces import CarInterfaceBase
 from opendbc.car.tesla.carcontroller import CarController
 from opendbc.car.tesla.carstate import CarState
-from opendbc.car.tesla.values import TeslaSafetyFlags, TeslaFlags, CANBUS, DBC
+from opendbc.car.tesla.values import TeslaSafetyFlags, TeslaFlags, CANBUS, CAR, DBC, FSD_14_FW, Ecu
 from opendbc.car.tesla.radar_interface import RadarInterface, RADAR_START_ADDR
 
 
@@ -42,5 +42,16 @@ class CarInterface(CarInterfaceBase):
       ret.vEgoStopping = 0.1
       ret.vEgoStarting = 0.1
       ret.stoppingDecelRate = 0.3
+
+    fsd_14 = any(fw.ecu == Ecu.eps and fw.fwVersion in FSD_14_FW.get(candidate, []) for fw in car_fw)
+    if fsd_14:
+      ret.flags |= TeslaFlags.FSD_14.value
+      ret.safetyConfigs[0].safetyParam |= TeslaSafetyFlags.FSD_14.value
+
+    ret.dashcamOnly = candidate in (CAR.TESLA_MODEL_X,)  # dashcam only, pending find invalidLkasSetting signal
+
+    # Vehicle bus detection: 0x3DF (infotainment 3-finger press) on bus 1
+    if 0x3DF in fingerprint[CANBUS.vehicle]:
+      ret.flags |= TeslaFlags.HAS_VEHICLE_BUS.value
 
     return ret
