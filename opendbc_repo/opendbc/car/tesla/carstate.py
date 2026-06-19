@@ -177,6 +177,9 @@ class CarState(CarStateBase):
       Bus.ap_party: CANParser(DBC[CP.carFingerprint][Bus.party], [], CANBUS.autopilot_party),
     }
     # Stock DAS_bodyControls from the AP bus (bus 2) for the nav blinker.
+    # Use NaN frequency so this parser doesn't drag can_valid to false on harnesses where
+    # 0x3E9 doesn't reach bus 2 (the blinker MITM gracefully no-ops via the len(stock_dat)
+    # check in carcontroller; engagement must not depend on this optional feature).
     if CP.flags & TeslaFlags.VEHICLE_BUS and Bus.adas in DBC[CP.carFingerprint]:
-      parsers[Bus.cam] = CANParser(DBC[CP.carFingerprint][Bus.adas], [("DAS_bodyControls", 2)], CANBUS.autopilot_party)
+      parsers[Bus.cam] = CANParser(DBC[CP.carFingerprint][Bus.adas], [("DAS_bodyControls", float('nan'))], CANBUS.autopilot_party)
     return parsers
