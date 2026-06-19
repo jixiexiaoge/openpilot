@@ -41,7 +41,9 @@ class TeslaCAN:
     set_speed = max(v_ego * CV.MS_TO_KPH, 0)
     if active:
       self.l_jerk = 0 if cruise_override else (self.l_jerk + CarControllerParams.JERK_UP * DT_CTRL * 4)
-      set_speed = 0 if accel < 0 else V_CRUISE_MAX
+      # Ramp set_speed smoothly: follow current speed plus a safety margin,
+      # so DAS doesn't see an abrupt jump to 0 or V_CRUISE_MAX
+      set_speed = min(max(v_ego + accel, 0) * CV.MS_TO_KPH, V_CRUISE_MAX)
       if set_speed_kph is not None and accel >= 0:
         set_speed = max(0.0, min(V_CRUISE_MAX, float(set_speed_kph)))
     else:

@@ -24,7 +24,6 @@ static int tesla_get_steer_ctrl_type(const int ctrl_type) {
       steer_ctrl_type = 2;
     } else if (ctrl_type == 2) {
       steer_ctrl_type = 1;
-    } else {
     }
   }
   return steer_ctrl_type;
@@ -40,11 +39,6 @@ static void tesla_rx_hook(const CANPacket_t *to_push) {
       // Store it 1/10 deg to match steering request
       int angle_meas_new = (((GET_BYTE(to_push, 4) & 0x3FU) << 8) | GET_BYTE(to_push, 5)) - 8192U;
       update_sample(&angle_meas, angle_meas_new);
-
-      // Disengage on normal user override, or if high angle rate fault from user overriding extremely quickly
-      const int hands_on_level = GET_BYTE(to_push, 4) >> 6;      // EPAS3S_handsOnLevel
-      const int eac_status = GET_BYTE(to_push, 6) >> 5;          // EPAS3S_eacStatus
-      const int eac_error_code = GET_BYTE(to_push, 2) >> 4;      // EPAS3S_eacErrorCode
     }
 
     // Vehicle speed
@@ -288,9 +282,10 @@ static safety_config tesla_init(uint16_t param) {
   tesla_stock_aeb = false;
   tesla_stock_steering_control = false;
   tesla_stock_steering_control_prev = false;
-  // we need to assume Summon on startup since DI_state is a low freq msg.
-  // this is so that we don't fault if starting while these systems are active
-  tesla_summon = true;
+  // we used to assume Summon on startup; instead we tolerate a short
+  // window without TX (DI_state comes at 10 Hz). Panda safety will
+  // reject TX until the first DI_state message clears tesla_summon.
+  tesla_summon = false;
   tesla_summon_prev = false;
 
   static RxCheck tesla_model3_y_rx_checks[] = {
