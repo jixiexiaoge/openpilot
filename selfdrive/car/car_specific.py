@@ -176,7 +176,8 @@ class CarSpecificEvents:
     # Tesla 3-finger infotainment press: toggle ExperimentalMode
     if self.CP.brand == 'tesla':
       lkas_pressed = any(b.type == ButtonType.lkas and b.pressed for b in CS.buttonEvents)
-      if lkas_pressed and not self.tesla_lkas_button_prev:
+      # Only allow toggling once the user has acknowledged the experimental mode warning (matches UI gate)
+      if lkas_pressed and not self.tesla_lkas_button_prev and self.params.get_bool("ExperimentalModeConfirmed"):
         new_val = not self.params.get_bool("ExperimentalMode")
         self.params.put_bool("ExperimentalMode", new_val)
       self.tesla_lkas_button_prev = lkas_pressed

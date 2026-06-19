@@ -24,7 +24,7 @@ class CarState(CarStateBase):
     self.suspected_fsd14_clear_frames = 0
 
     self.hands_on_level = 0
-    self.acc_state_last = 0
+    self.acc_cancel_last = 0
     self.das_control = None
     self.das_body_controls_dat = b""
     self.das_accCancel = False
@@ -145,8 +145,12 @@ class CarState(CarStateBase):
     ret.standstill = cruise_state == "STANDSTILL"
     ret.accFaulted = cruise_state == "FAULT"
 
-    ret.buttonEvents = [*create_button_events(acc_state, self.acc_state_last, {0: ButtonType.cancel, 13: ButtonType.cancel})]
-    self.acc_state_last = acc_state
+    # Emit a single cancel button event on the rising edge of any stock DAS cancel state.
+    # Feeding the raw DAS_accState enum would emit spurious "unknown" events for normal
+    # states and miss cancel codes other than 0/13 that das_accCancel already covers.
+    acc_cancel = 1 if self.das_accCancel else 0
+    ret.buttonEvents = [*create_button_events(acc_cancel, self.acc_cancel_last, {1: ButtonType.cancel})]
+    self.acc_cancel_last = acc_cancel
 
     # DAS_fusedSpeedLimit from DBC is always in kph (scale=5). Do NOT apply ui_is_kph conversion.
     speed_limit = cp_ap_party.vl["DAS_status"]["DAS_fusedSpeedLimit"]

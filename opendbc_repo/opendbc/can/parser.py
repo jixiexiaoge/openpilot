@@ -139,6 +139,7 @@ class CANParser:
     self.vl: dict[int | str, dict[str, float]] = VLDict(self)
     self.vl_all: dict[int | str, dict[str, list[float]]] = {}
     self.ts_nanos: dict[int | str, dict[str, int]] = {}
+    self.dat: dict[int, bytes] = {}
     self.addresses: set[int] = set()
     self.message_states: dict[int, MessageState] = {}
     self.seen_addresses: set[int] = set()
@@ -244,6 +245,8 @@ class CANParser:
         state = self.message_states.get(address)
         if state is None or len(dat) > 64:
           continue
+        # Cache the most recent raw frame so consumers can MITM/ride alongside stock messages.
+        self.dat[address] = bytes(dat)
         if state.parse(t, dat):
           updated_addrs.add(address)
 
