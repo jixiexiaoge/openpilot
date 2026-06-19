@@ -45,7 +45,6 @@ static void tesla_rx_hook(const CANPacket_t *to_push) {
       const int hands_on_level = GET_BYTE(to_push, 4) >> 6;      // EPAS3S_handsOnLevel
       const int eac_status = GET_BYTE(to_push, 6) >> 5;          // EPAS3S_eacStatus
       const int eac_error_code = GET_BYTE(to_push, 2) >> 4;      // EPAS3S_eacErrorCode
-      steering_disengage = (hands_on_level >= 3) || ((eac_status == 0) && (eac_error_code == 9));
     }
 
     // Vehicle speed
@@ -107,7 +106,7 @@ static void tesla_rx_hook(const CANPacket_t *to_push) {
       bool tesla_stock_steering_control_now = steering_control_type != 0;  // any non-NONE
 
       // Only consider rising edges while controls are not allowed
-      if (tesla_stock_steering_control_now && !tesla_stock_steering_control_prev && !is_lat_active()) {
+      if (tesla_stock_steering_control_now && !tesla_stock_steering_control_prev && !controls_allowed) {
         tesla_stock_steering_control = true;
       }
       if (!tesla_stock_steering_control_now) {

@@ -39,12 +39,13 @@ class TeslaCAN:
     from opendbc.car.interfaces import V_CRUISE_MAX
 
     set_speed = max(v_ego * CV.MS_TO_KPH, 0)
-    self.l_jerk = 0.0
     if active:
       self.l_jerk = 0 if cruise_override else (self.l_jerk + CarControllerParams.JERK_UP * DT_CTRL * 4)
       set_speed = 0 if accel < 0 else V_CRUISE_MAX
       if set_speed_kph is not None and accel >= 0:
         set_speed = max(0.0, min(V_CRUISE_MAX, float(set_speed_kph)))
+    else:
+      self.l_jerk = 0.0
 
     values = {
       "DAS_setSpeed": set_speed,
@@ -80,11 +81,15 @@ class TeslaCAN:
 
     if left_blinker or right_blinker:
       turn_req = 1 if left_blinker else 2  # DAS_TURN_INDICATOR_LEFT / _RIGHT
-      dat[1] = (dat[1] & ~0x07) | (turn_req & 0x07)
-      dat[2] = (dat[2] & ~0x3C) | (1 << 2)  # DAS_ACTIVE_NAV_LANE_CHANGE
+      # DAS_turnIndicatorRequest: bits 8-9 = byte1 bits 0-1
+      dat[1] = (dat[1] & ~0x03) | (turn_req & 0x03)
+      # DAS_turnIndicatorRequestReason: bits 17-20 = byte2 bits 1-4, DAS_ACTIVE_NAV_LANE_CHANGE = 1
+      dat[2] = (dat[2] & ~0x1E) | (1 << 1)
     elif cancel:
-      dat[1] = (dat[1] & ~0x07) | 0x03  # DAS_TURN_INDICATOR_CANCEL
-      dat[2] = (dat[2] & ~0x3C) | (4 << 2)  # DAS_CANCEL_LANE_CHANGE
+      # DAS_TURN_INDICATOR_CANCEL = 3
+      dat[1] = (dat[1] & ~0x03) | 0x03
+      # DAS_CANCEL_LANE_CHANGE = 4
+      dat[2] = (dat[2] & ~0x1E) | (4 << 1)
 
     counter = (((dat[6] >> 4) + 1) & 0x0F)
     dat[6] = (dat[6] & ~0xF0) | (counter << 4)
