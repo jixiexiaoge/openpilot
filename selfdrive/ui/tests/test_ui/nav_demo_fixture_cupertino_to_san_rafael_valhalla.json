@@ -1,0 +1,426 @@
+{
+  "trip": {
+    "locations": [
+      {
+        "type": "break",
+        "lat": 37.337118,
+        "lon": -122.010805,
+        "name": "1 Apple Park Way",
+        "side_of_street": "right",
+        "original_index": 0
+      },
+      {
+        "type": "break",
+        "lat": 37.971362,
+        "lon": -122.531231,
+        "name": "1303 Second St",
+        "side_of_street": "right",
+        "original_index": 1
+      }
+    ],
+    "legs": [
+      {
+        "maneuvers": [
+          {
+            "type": 2,
+            "instruction": "Drive southwest.",
+            "verbal_succinct_transition_instruction": "Drive southwest. Then Turn right.",
+            "verbal_pre_transition_instruction": "Drive southwest. Then Turn right.",
+            "verbal_post_transition_instruction": "Continue for 60 meters.",
+            "bearing_after": 235,
+            "time": 9.854,
+            "length": 0.054,
+            "cost": 11.578,
+            "begin_shape_index": 0,
+            "end_shape_index": 3,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 10,
+            "instruction": "Turn right.",
+            "verbal_transition_alert_instruction": "Turn right.",
+            "verbal_succinct_transition_instruction": "Turn right.",
+            "verbal_pre_transition_instruction": "Turn right.",
+            "verbal_post_transition_instruction": "Continue for 100 meters.",
+            "bearing_before": 233,
+            "bearing_after": 319,
+            "time": 31.997,
+            "length": 0.149,
+            "cost": 65.813,
+            "begin_shape_index": 3,
+            "end_shape_index": 19,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 16,
+            "instruction": "Bear left.",
+            "verbal_transition_alert_instruction": "Bear left.",
+            "verbal_succinct_transition_instruction": "Bear left. Then Turn right.",
+            "verbal_pre_transition_instruction": "Bear left. Then Turn right.",
+            "verbal_post_transition_instruction": "Continue for 50 meters.",
+            "bearing_before": 357,
+            "bearing_after": 314,
+            "time": 39.122,
+            "length": 0.05,
+            "cost": 496.874,
+            "begin_shape_index": 19,
+            "end_shape_index": 26,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 10,
+            "instruction": "Turn right.",
+            "verbal_transition_alert_instruction": "Turn right.",
+            "verbal_succinct_transition_instruction": "Turn right. Then Turn left onto East Homestead Road.",
+            "verbal_pre_transition_instruction": "Turn right. Then Turn left onto East Homestead Road.",
+            "verbal_post_transition_instruction": "Continue for 50 meters.",
+            "bearing_before": 274,
+            "bearing_after": 9,
+            "time": 44.13,
+            "length": 0.046,
+            "cost": 517.729,
+            "begin_shape_index": 26,
+            "end_shape_index": 35,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto East Homestead Road.",
+            "verbal_transition_alert_instruction": "Turn left onto East Homestead Road.",
+            "verbal_succinct_transition_instruction": "Turn left. Then Turn left onto Wolfe Road.",
+            "verbal_pre_transition_instruction": "Turn left onto East Homestead Road. Then Turn left onto Wolfe Road.",
+            "verbal_post_transition_instruction": "Continue for 200 meters.",
+            "street_names": [
+              "East Homestead Road"
+            ],
+            "bearing_before": 0,
+            "bearing_after": 270,
+            "time": 12.958,
+            "length": 0.168,
+            "cost": 34.49,
+            "begin_shape_index": 35,
+            "end_shape_index": 41,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto Wolfe Road.",
+            "verbal_transition_alert_instruction": "Turn left onto Wolfe Road.",
+            "verbal_succinct_transition_instruction": "Turn left.",
+            "verbal_pre_transition_instruction": "Turn left onto Wolfe Road.",
+            "verbal_post_transition_instruction": "Continue for 600 meters.",
+            "street_names": [
+              "Wolfe Road"
+            ],
+            "bearing_before": 270,
+            "bearing_after": 178,
+            "time": 40.669,
+            "length": 0.562,
+            "cost": 79.651,
+            "begin_shape_index": 41,
+            "end_shape_index": 54,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 18,
+            "instruction": "Take the I 280 North ramp on the right.",
+            "verbal_transition_alert_instruction": "Take the I 280 North ramp on the right.",
+            "verbal_pre_transition_instruction": "Take the I 280 North ramp on the right.",
+            "verbal_post_transition_instruction": "Continue for 64 kilometers.",
+            "street_names": [
+              "I 280 North",
+              "Junipero Serra Freeway"
+            ],
+            "bearing_before": 180,
+            "bearing_after": 199,
+            "time": 2193.063,
+            "length": 63.859,
+            "cost": 2306.606,
+            "begin_shape_index": 54,
+            "end_shape_index": 1486,
+            "highway": true,
+            "sign": {
+              "exit_branch_elements": [
+                {
+                  "text": "I 280 North",
+                  "consecutive_count": 1
+                }
+              ]
+            },
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 24,
+            "instruction": "Keep left to take exit 49B onto CA 1/Junipero Serra Boulevard toward Golden Gate Bridge.",
+            "verbal_transition_alert_instruction": "Keep left to take exit 49B.",
+            "verbal_pre_transition_instruction": "Keep left to take exit 49B onto CA 1, Junipero Serra Boulevard toward Golden Gate Bridge.",
+            "verbal_post_transition_instruction": "Continue for 2 kilometers.",
+            "street_names": [
+              "CA 1",
+              "Junipero Serra Boulevard"
+            ],
+            "bearing_before": 357,
+            "bearing_after": 358,
+            "time": 82.985,
+            "length": 1.859,
+            "cost": 99.148,
+            "begin_shape_index": 1486,
+            "end_shape_index": 1564,
+            "highway": true,
+            "sign": {
+              "exit_number_elements": [
+                {
+                  "text": "49B"
+                }
+              ],
+              "exit_branch_elements": [
+                {
+                  "text": "CA 1 North"
+                },
+                {
+                  "text": "19th Avenue"
+                }
+              ],
+              "exit_toward_elements": [
+                {
+                  "text": "Golden Gate Bridge"
+                }
+              ]
+            },
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 24,
+            "instruction": "Keep left to stay on CA 1.",
+            "verbal_transition_alert_instruction": "Keep left to stay on CA 1.",
+            "verbal_pre_transition_instruction": "Keep left to stay on CA 1.",
+            "verbal_post_transition_instruction": "Continue for 6 kilometers.",
+            "street_names": [
+              "CA 1"
+            ],
+            "begin_street_names": [
+              "CA 1",
+              "19th Avenue"
+            ],
+            "bearing_before": 349,
+            "bearing_after": 334,
+            "time": 495.585,
+            "length": 6.12,
+            "cost": 549.988,
+            "begin_shape_index": 1564,
+            "end_shape_index": 1786,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 23,
+            "instruction": "Keep right to stay on CA 1.",
+            "verbal_transition_alert_instruction": "Keep right to stay on CA 1.",
+            "verbal_pre_transition_instruction": "Keep right to stay on CA 1.",
+            "verbal_post_transition_instruction": "Continue for 4 kilometers.",
+            "street_names": [
+              "CA 1"
+            ],
+            "begin_street_names": [
+              "CA 1",
+              "Park Presidio Bypass Drive"
+            ],
+            "bearing_before": 337,
+            "bearing_after": 346,
+            "time": 248.787,
+            "length": 3.899,
+            "cost": 271.707,
+            "begin_shape_index": 1786,
+            "end_shape_index": 1941,
+            "highway": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 24,
+            "instruction": "Keep left to take US 101 North toward Golden Gate Bridge.",
+            "verbal_transition_alert_instruction": "Keep left to take US 101 North.",
+            "verbal_pre_transition_instruction": "Keep left to take US 101 North toward Golden Gate Bridge.",
+            "verbal_post_transition_instruction": "Continue for 21 kilometers.",
+            "street_names": [
+              "US 101 North"
+            ],
+            "bearing_before": 1,
+            "bearing_after": 1,
+            "time": 908.592,
+            "length": 20.968,
+            "cost": 924.212,
+            "begin_shape_index": 1941,
+            "end_shape_index": 2702,
+            "highway": true,
+            "sign": {
+              "exit_branch_elements": [
+                {
+                  "text": "US 101 North",
+                  "consecutive_count": 1
+                }
+              ],
+              "exit_toward_elements": [
+                {
+                  "text": "Golden Gate Bridge"
+                }
+              ]
+            },
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 20,
+            "instruction": "Take exit 452 on the right toward Central San Rafael.",
+            "verbal_transition_alert_instruction": "Take exit 452 on the right.",
+            "verbal_pre_transition_instruction": "Take exit 452 on the right toward Central San Rafael.",
+            "verbal_post_transition_instruction": "Continue for 600 meters.",
+            "street_names": [
+              "Irwin Street"
+            ],
+            "bearing_before": 307,
+            "bearing_after": 312,
+            "time": 27.512,
+            "length": 0.552,
+            "cost": 64.377,
+            "begin_shape_index": 2702,
+            "end_shape_index": 2738,
+            "sign": {
+              "exit_number_elements": [
+                {
+                  "text": "452"
+                }
+              ],
+              "exit_toward_elements": [
+                {
+                  "text": "Central San Rafael"
+                }
+              ]
+            },
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto Third Street.",
+            "verbal_transition_alert_instruction": "Turn left onto Third Street.",
+            "verbal_succinct_transition_instruction": "Turn left.",
+            "verbal_pre_transition_instruction": "Turn left onto Third Street.",
+            "verbal_post_transition_instruction": "Continue for 1 kilometer.",
+            "street_names": [
+              "Third Street"
+            ],
+            "bearing_before": 12,
+            "bearing_after": 281,
+            "time": 107.988,
+            "length": 0.994,
+            "cost": 150.873,
+            "begin_shape_index": 2738,
+            "end_shape_index": 2782,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto D Street.",
+            "verbal_transition_alert_instruction": "Turn left onto D Street.",
+            "verbal_succinct_transition_instruction": "Turn left. Then, in 100 meters, Turn left onto Second Street.",
+            "verbal_pre_transition_instruction": "Turn left onto D Street. Then, in 100 meters, Turn left onto Second Street.",
+            "verbal_post_transition_instruction": "Continue for 100 meters.",
+            "street_names": [
+              "D Street"
+            ],
+            "bearing_before": 277,
+            "bearing_after": 187,
+            "time": 13.786,
+            "length": 0.107,
+            "cost": 23.885,
+            "begin_shape_index": 2782,
+            "end_shape_index": 2787,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto Second Street.",
+            "verbal_transition_alert_instruction": "Turn left onto Second Street.",
+            "verbal_succinct_transition_instruction": "Turn left. Then, in 100 meters, 1303 Second St will be on the right.",
+            "verbal_pre_transition_instruction": "Turn left onto Second Street. Then, in 100 meters, 1303 Second St will be on the right.",
+            "verbal_post_transition_instruction": "Continue for 100 meters.",
+            "street_names": [
+              "Second Street"
+            ],
+            "bearing_before": 186,
+            "bearing_after": 98,
+            "time": 12.444,
+            "length": 0.095,
+            "cost": 25.619,
+            "begin_shape_index": 2787,
+            "end_shape_index": 2792,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 5,
+            "instruction": "1303 Second St is on the right.",
+            "verbal_transition_alert_instruction": "1303 Second St will be on the right.",
+            "verbal_pre_transition_instruction": "1303 Second St is on the right.",
+            "bearing_before": 98,
+            "time": 0.0,
+            "length": 0.0,
+            "cost": 0.0,
+            "begin_shape_index": 2792,
+            "end_shape_index": 2792,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          }
+        ],
+        "summary": {
+          "has_time_restrictions": false,
+          "has_toll": false,
+          "has_highway": true,
+          "has_ferry": false,
+          "min_lat": 37.331427,
+          "min_lon": -122.532295,
+          "max_lat": 37.972524,
+          "max_lon": -122.010496,
+          "time": 4269.479,
+          "length": 99.483,
+          "cost": 5622.556
+        },
+        "shape": "igzefA~v|ugFn@dBtGtMdGlLqGlHmBpEi@vHNbH^~C{@lHs@lBgAfBkBpA{Ap@iCPqDq@kBw@mB{@{ED_@Rw@b@aAtA}@pBg@zBKzAFfNW`A}@g@_BKiA?qC@W?sB@]?o@?uE?BbT?jKD~Z@|QBbY@fJzGxEx_@g@lUJxk@Tve@^xI@|@?lE?dGFff@LhF@lo@Mzj@D`GnCnEZjLlBn[jD`Dl@hCbAzBfBnBhCtArCp@vCf@|D@rDOrDq@|Dc@jFg^z}@yQrg@t@jI{f@|kAyVtn@oOpf@kMjf@iLni@_Jxi@wG~j@qExh@_Dzk@sApg@MpOId[RbsBLxyAtAjfMxB~|HB`JRbsAKxsCFfd@j@pd@jAdd@tBxa@VhFnCr^vCd[jEn^tIlq@p`AbtHdKfx@|CrV`CbV|AzSlAvRtArd@P`f@u@zh@oClg@eFpg@qHfg@qKpe@mHvZkE|Peg@poB{FjUiClLgGd]mFx]{Dp_@yCnb@}Az^q@d_@Ifa@b@f\\J`Fj@bQZzFlBxYxCxZ~b@xeExCz^|Ad^`@d]Gd`@s@x\\eBp_@qCn]kEx^wFp]qHx[mInZeJbYaLnYkMbX_OxWsPdWi}AjyB{PlX_OxW}MxWaLxUmeCbqF_L~W}K`YiQzd@iFdO_W|o@uMp[yLzWiMvUcMxSwOfU_cBdrBgP`TkOnUgNvV{L|ViLjX}J~XccCdwHeKrXmLvWiMjU{NjUaPxTyJtLoKfLmKbK}LpJqM~I{|@nj@uf@j`@kSlOuHzGsHvGmQ`RiNfPqOhS{F`JuGbJyPpZmMjWiL~W_K|XeJpY}HdZ}Gb[iGn\\iF`\\uTpuAeFlZcGb[oHd[iItYgJvYeKfXoLzWkM|Vi[bh@e]lc@sGrH}P~OqRjPgSlOmSzMqTrLwq@t]}hAhm@eW|MkOzIeNrJeO~LoNlNgQvRiP~ScO|UwMpV{MxX{KbWgDjJoNni@qGl\\iFx[_Ef\\sCv\\_Bp\\w@n]Ul]OduAQr^g@h^eBj\\eDh^iFn^qGj]i_A`vEkDxPuT`hAcIt^}Jv^oLv^qMz\\uNx[wPd[{P~X}RxX_SfV_UhU}TrSw{AnrAcKzIq{AdrAok@pg@iV|SiV|TsT~T}P`R{RdUmaChrCoMbOgMpMwLvK}L`KaN`KqMvI{MjIuMjHqL`GeNjG{NzFqNzEoMzDkLzCoOnDsOzCkOzBsP~Bo|B~Y{QtCuOdDgO`EaOnEcOjFcO|GyO`IkOdJiNfKqJfIuG~FqHpH{NlP_OxRsKtPcMzUoJ|ScKnW{I~YkHfYqEdToLdu@ZpFkNpmBcGln@yA|TyC~[iDjZiF~[gGhY}G|WeHpUuFvPuGrPuHlQgIbQkk@`gAuJxScJ~SoHfSsG`TaG`VyEbUsGzUkCnUmBvXqBra@s@n_@cDv`BcAlX{A`VaCpWaDrWkExXoHj_@eJh]cM``@{Mn\\uOxZ}NhW{PbVoQrTwS~SguGjqGso@|n@iNhNec@jc@{|Cl~C{uC~xCmTbUqRlT}QbV}PtWqRt\\gRb_@_M~Z_CfG{AzDyJhZqI~ZiId]sUrdAsYhsAikApmFmEfSwKzf@ms@dfDqiAhhFsHhZ_J~ZcLh[gMlYcM~UcMbTeNvSsMxPqO`Q_c@rc@{c@~c@us@n|@kAjBqMtSuLrTuJbT{JbV{HxTqHfWsG~WsFhX}EhY_Ez[oCrY{]joEqEdb@cGz^cGn[iHbZ}HxX}ItWiLlXuL~VqMlUgMhSuzA|cCo[ph@qvBvkDsQxXePfUaRdWyhBz_CoMlQaNlRwMbSmLbRgdAlcB{pAnwBeVp_@qT~[{q@t|@u|DdcF_\\ja@{xC`vDgn@~x@qj@lu@cb@bl@gtBzwCyN|TaNrUoM~VuLbXmKnX}JhZuIhZqHjYoGb[kPpeAmArN_Cn[eBh[mAh\\e@n[?j[\\h\\z@~ZxObqEjCpu@j@hV\\rW@f]W|]cAd^aBb^aCf]cD~\\aEx\\iFt\\aFtWmFvVeE|PkEbPyHfXqH`UuKlYoLtXmMdXkNfWyNfVqwCvxE_Xzb@gSv\\mTj_@yjBlbDcsGlcLeLjRwLpQqMbQsMnOsNhOsNfNcPnNiPhMiP~K{RtLsStKyNfH{QnH_PxF_StF{I|BaJvBgLpB{LtBoOlBkP^aOzBaQj@}QRiwAdBy`@n@mLRgOv@aOx@wQnA_O|A}NtBqHdAcHrA{P`DeOlDmOvDqNvDmN`EuOnFgNzF{LpFiNtGmL~FyMnHyNvIcJ~F_LbI{LbJwLxJyLfKuLtKuK`KaM|LoKnK}xApyAgTjTwh@|i@aRjR{JzJuK|JwKnJsJpHgMbJ{L~HqL`HoLfG_NnG_NrFwM`FgMdEmNbE{MdDwMxCgNdCsNtBsNdB}MrAcP`AuMf@}NTkNGaNWgOm@yM{@ul@wFmnB}OwxDk^yo@mFqOs@aPc@sOE{OD_PZeRj@oQrA}OtAkOfBeP~ByNrCePjD{NhEwPzFoMlF_NhGcNpGaNhHqMvHcNpIwMlJ_MdJuL`K{KhKcLhLaLzLyKrMmKvMmJhMoIbM}IdNiJzOwIfPqHbPgH~PyFlOeGrQiGbSaG`TcFnS{EtTaEhTgEdVa[dpBoMf{@mTnyAgGd\\{Gl[iLng@wPdm@_InW}J|YsK`ZoLvXoL|Wkx@tfBgIhQiUxf@qKlVaIdScIzTuHfViI|X}ElQmK`d@qIle@cGbe@sEja@sDzd@eC`d@uA`c@y@tc@wDtyBsAvb@qCdc@yDda@qF`a@oI`f@wDbRmE|QaFrQoFnQ{FdQeGtP{GlPcH~OuHrOmY`h@oyAzuC}HlOahApxB_IpOeSz_@_IlO{HbOoGxLeVfe@sOhZcc@nz@}f@p`A_NpWeItOaI~NkIdOqI~NqIpNaJzN}IjNeJdNgJzMsJbNuJtMwJlM_KjM_K~LyqCfgDsfFlhGsQ`SqPbQaPrOaQvOiQ~OeSbPka@hYiIdFyEzCiI|EgJjFaQ`IiRjJqSlJyeBhv@kRfJiPtIyPlKmPfLaQ`NcPlNwzArqAePxM_RlMwOvJeKrFkFhCqFbCuF~BuFvBqFpB}FlBuFhBeGlBkFbBsExAyiGrpBq_Blh@}FlBsFjByFnBsFnBsFpBsFpBsFtBuFvBoFxB_G~BuF~BqF|BuFbCiF|B{FhCiF`CoFfCsFjCkFhCoFnCaN~GolF~lCiFlCiFpCeFnCmFxCoF`DcFxCeF|CeF`DkFdDcFhD_FfDiFrDyEhD_FnDyEnDwEpD{ExDyExDyE~DyE~DsE~DuEbEsEfEqEfEuEnEoElEkEnEiElE}KjLu`BpcB{yBh~B{MnN_gDtlDoEtEaEfEsEvEmEpEoElEmEfEqEjEoEjEyEnEkE`EqEbEsEdEoE|DwEbEuE`E_FdEsEvDoEpDiF`EwEpDaFtD{EjD{EhDiFpD{EdDcFhD_FdDaFdD_FbDoFjDgFbDaFzCgF~CgF|CeFzCgFxCmF~CmuDrwBgFxCeFxCkFzCeF|CmFdDuExCgFjDgFnDyEhDwEnD_FxDwErDyE~D{EbEoEzDuEfEqEfEeEbEmEjEa{Hn{HeEhEcEpEeEzEaEbFyDfFuDjFsDrFmDtFiD|FeDdGaDfGyCjGsCjGqCvGkCvGeCxG_CzG{BfHuBdHmBhHkBnHw[ntAgBrHkBzHmBpHsBtHyBlH}BjHeCnHiCfHmCfHuCdHuCzG}CzGyChGwC`GeDdGeD~FiDzFoDzFoDpFuDlF}DnFyDbFeEdFeE|EkEzEiErEoEpEuEhEasGhfGsEdEsEbEwE~D{ExD}ErD}EjD_FfDgFbDcFzCoFxCsFvCgFhCsFfCmF|BuFzBwFpB{FnB{FjBekAl^{~Alh@sFjB{FpBsFrBwFxByF~BiF|BqFdCkFfCiFlCmFpCgFtCgFvCgF~CgF`DiFhD}EfDcFjD}EhDq_@~WuOtK}`BxiAaFnD}ElD{EjD{ErDcFxDoEnD_F`EuEzDwE~DuEdEqEdEqEhEoEfEiEfEkElEoEtEkEvEgEtEeEvEcE|EcEzEeEfFwDxE}DbF}DfFyDfF{DnFsDfFwDtFqDnFsDvFkDrFoDxFiDvFwn@ffAeDrFiD|FmD|FoDtFsDvFuDjF{DnF_ElFyD|E_E|EeE|EgEvEeEnEoErEqEnE_~@`}@oKjKqz@ry@{`Eb~DggCdeCkEjEqEnE}M`NuEzEsE`FqBvBeEvEgEzE_EvE_ExEaE|E_EdF{D|EcEjF_EjF}DhF_EjFmkA`}AoeApuAi^be@k~@`lA}DbF_E~E_EtEgEzEkEnEqEtEmEdEsEfEsEzDyE|D}EvD_FpD}EjDaFdDeF`DiF|CgFvCiFnCmFlCwFjCoF~BuF|BwFrBwFrBqFfB_GhBqGdB{FvAeFnAaGlAaGhAaG`AaG|@gGv@kGr@sGn@gF^kG\\kGZgGRoGLsFDgG@gGCeGIkGOcGUcG[gGa@cGe@eGm@gGs@aGs@gGy@cG{@aG}@eGaAeGgA_GgAiGmAwFoA_GsAyFuA{FwA{F}A{FcByFcBuFgBaGmBsFmB{FqBkFqByF{ByF_CqF}BqFcCgFaCmFeCoFmCmFoCmFsCkFyCgFuCeF{CiFaD_F_DcFaDk_Aam@iFcD}E}CiF}CoFwCeFkCyFoCqF_CkFwBsFsB{FoBsFeB}FaBwF}AsG{AqFiA_GiA}F_AcGu@aGu@qBUcIq@gGa@cG[gGSgGMaGGiGAoGF_GLeGReGZgG`@eGf@_Gj@_Gv@}Fx@gAPcBXuFbA{FhAmEbAqCt@uBj@}GpByFhByFlBwFrBqFxBmF~BqFhCmFlCeFnCkFvCsMlHgfBtaAcpAhs@k_Bb}@gVbNiBbAmFtCkFxCiEdCkGpDaFvCeF~CeF`DaFdD}EfDcFnD}EjDaFtD}ErDuEvD{EzDwE|DqEzDuEbEkE|DwElEiEfEiEhEqErEwB|B}GlHsKzL}DtE{DxE}D`FmFbHmFfH}DpFwDjFulAfgBuDnFy`@pk@qDlFuDlFwNrSwVr\\oRrXwDrFoDfFwDlF{DhF_EhF}D~EcE`FcEvEeEvEgEpEkEpEiEhEqEfEsEbEsE`EyE|DwEtD{EtDgFxDyEdDaFfDaF~CcF~CeFzCmFxCmFtCkFnCmFhCiFbCmF|BsF~B{FxBsFrBq_Bbm@mz@v[_GhCkFhCoFrCmFvCeFzCgF~CcFdDeFhDyEhD}EnD{ErD{E~DwExDuEzDyE~Deo@|h@qP|N_tAhiA{EbEoEbEsEjEmEhEkEnEkExEiExE}DtEaEbF_EdF}DhFyDlFuDlFoDrFmDrFmDzFiD~FeD~FaD`G_DfG}CnGwCjGsCnGqCpGem@dvAmClGuCrGsCnGyClGaDhGaDxFmD~FiDrFuDrFsDhF}DhF}DzEcEzEeEpEgEnEgE~DeDtCkDxCsDtCuEjD}ElD}E~CeF~CkFvCiFnCc{F|vCoFnCmFpCiFtCiF|CcF`DcFfDcFlD}ErDaF|DkEpDcFnEoEbEiEfEiEnEyEhFeEvE}DzEaCvCkClDqD`FyDjFecLzyOiPbU{DhF{D`FcE|EiExEgElEoEfEsEdEuE|DyEvD_FlDaFjDcF`DeFxCiFrCmFnCqFdCoF|BsFtBwFnBuFbB{FbBaGvAaGrA{FfA}F~@_Gz@aGn@cGh@eGb@iGVcGPcEDgGFuKDsb@HeqDj@eOHoOVkOh@mOv@kOfAiOxAiOdBaOxBiObCgGlA{IlBoJvByNnDcNzDcOvEmN|EkNnFoOrGuLrF{NhHoN~HsMxHqN~IgMxIeLpI{MbKwd@j]gh@``@_OhM}Y~TedAnw@qEhDwEhD{DhCmFfDoEjCgFlCoFlCaElBkFxBuFvB_FfB_GjBoGjBgFrAmFhAsFfAsF`AsFv@_Gr@cGl@qFb@eG\\}DN}FNcGF{F?_GCaGIk_FgK{~@_Deg@gAmXm@qWi@cGMwFU_G[}Fa@aGg@_Gm@{Fs@}F{@aGaAyFiAsFkAcGqAkdAwU{FsAuFqAiFiAaGmAgF}@yFy@iGw@wFm@eGg@wF]gGWeGO{FKaGAewBr@iu@Tgy@VaGD_GB_GDcGHcGR_GZuF^{Ff@cGp@{Ft@gG`AoF`AgGrAeGvAaFrAwFxAkBf@kCr@in@fP}FvA{FrA}Bd@}EbAiEx@gGdA{Fv@eGp@}Ff@aGZcGRcGJgGJeeCrFs[j@_`A~Aah@z@qORmNRyOBiOIaOQgO_@oOm@kOy@sPcAcN}@m~@yFckAoHgG_@aG_@iG]kGYmGOmGEeG?mFBoC@k]X}[JaPD}LD{B@oYHiPBs[HgGD_GHmGJkGNmGPmGTaGVkGXiDR}AHuGf@eGh@qFd@mCXcGp@gGr@eGv@_Gx@mG`AcGbA_GdAoOxBeGvAyFnA_GvA}FzA}F~AaG|A}F~Aow@dTaFvAgGzAo@Ly@TcB^sBb@gB\\uB^oB\\wCd@mDf@mHdAoBXo@JwDj@uDj@uFtC_Bz@qAv@aAr@kA~@w@r@{@v@aE|DoCpCeBdBgBlB_CfCcDnDoEnE{BvByyAruA{EfE_DdCkDxCiD`BkEfB}DfAyDp@qEb@eDJeFCuWw@iBEaDEkBEkFQqCMsRSga@_AczBkEaq@uAyZo@aGSwGW}FUkGYiFSyDOmEGgc@cAqGOqEIcIQw]o@kh@cAiO_@oGUcCGgCE}BAmCAkC@eCFcCHcCFmPh@cGRuMd@sOj@oGP_JXcZdAaCH}DJwDH}z@fCY?oITaFBcFPuS|@up@lBih@zAoFLi@@aDJoIZuDJuL^ec@bAcXp@ae@hAek@rA{ADsDL{ENydBdFgABeDLyDJihBdFmDN_EN_M\\cm@x@qGJmGNmZt@{ADgAD_@@a@@mBFw@BqHRk~AxEgDJyDLaLZ_yAbEiABsDLyDLadBdFcCFmDHwDLmfB`F}@DqDNkDJghBjFO?gDJcELsELeEJ_ENqrAtDwAFgDN}DJ}fBfFe@@qDJ}DJgfBjF}@ByDNkD@ylAlDwYx@kELaELaT`AeeA|FkJf@q@DwAHoAF_@BW@oAH}AHqb@~BaGZeGTe[|@wQf@yBD}@BuD@sDNuM\\ieAzC_M\\iELwELgELySj@}ADkADsDRsD\\uDb@sCh@{Ct@iCv@eCz@kCjAcCpAeCtAaC~A_RrLkC~AwC|AeClAgCfAgC`AqCbAqCz@qCt@yCp@{Cn@cDf@qC^kCX{CToCLu]xAaEReERgE\\kDb@kDh@eDl@yCr@{Ct@gD`AqC`AsCfAqCjAaPrH{f@`U_RjI}CtAoElB{C~@{Bb@_CXgCPmC@oBIoBU_C_@}Bk@yBy@uB_AmBmAsB_BeBcBeBwBwAwBuAgCeAcC{@_Cu@sCg@cCc@uCYkCYiDSsDQqGKmHiC{xAO_JYwJ[iJ_@mJg@wJo@aKs@uJYcEWcEQwDIsDG{DAmEFqELaFRmF\\yFfBmXf@eIf@yJ`@qJbBmk@JmEBeEMoEi@wEy@yDoAqD_B_DiBsCgCkCyCwBsCqAoD{@_D[uCGyA@c@?S@wDFsEHuL`@}@BywAjEsDLsELagBnFyDLwELmOd@aCHyrA~DwDLcELwVt@soAvD_ENsFPoEJmOh@qvAdE}DNgEJogBpF}DLcELyJXgCH_Z|@gHVcHReHJuG@yGMyGSmFUaEW{EUsHq@aGu@aG{@_GgA{FkA}FuA{F{AaCq@YIgBg@yFcByFkBuFoBqCkAkFeC}EaCyF_DaF{CaF_D{EcDcFkDe^kVwWoQiW}PoVaP{CqBcFyCgFsCcEsBe@UoFaCoFuBuFmBuFcByFwA}FqA{FcA_G}@_Gq@aGg@aGY_GSeGGiGEg~EeC}fAe@ixBgAqo@YwDAwJCyy@g@_f@Uov@e@}DAsA@sA@{AFyAH_BJkC^iCf@qCt@iCz@mCdAqCxA{BrAkBxAiB~AcBdB_BjB_BlByArBuAzBoAzBkAdCgAdCcAlC}@lCu@pCq@tCk@xCg@|C_@jCc@hD[pCa@lD[xC_@`D[|C_@~Cc@hDc@rCg@`Di@pCk@rCo@xCw@fDu@lCs@fC}@tC}@lCcAlCaAfCiAnCcA`CgA~BoAlCsAlCmA|BkAxBwAdCsA|BuAzBsAtB{AzBeDxEeDpEyTf[gG`HgEvE_EnEaFtFcH`IaCjCeCnCsAtAwAvAqDdD}@z@yE`EuEvDuEzD{@v@}@x@k@f@k@j@iEjEgErEc@d@kF~FgCrCsDjEORgDvEGHaDdF_H`LiAnBcBxCmAzBsDtFeAvAiAzAiAnAaF|EyEfEgFjEuEfDuExCeFpCcF`CyF|BeFdBoEhAiE`AyEt@yEj@sE^aig@~uCiHb@}Hf@mGf@_Gt@oGdA}FtAcGbByFlBaGbCmFjC{ChBoBhAkFpDuEjDwEbE{ExE_E|DeFdGgDpEmDjFiDzF}CdGwClGoCjGkLjXkLvXuCpGqC|FuCxFkD~F}DrGyCjEuC|DsDzEyDrEcErEgEhEmE|DkEpDsElDcFnDyExC{EnCcFlCcFlCiZzNau@t_@gFjCmFpC{EjCoFzCgFzCkDrB}FnDk`Afl@{EnCmFjC{EnB_GlBeG|AcGhAgGv@_Gb@iGReGDaGOaGa@cGq@aGcAuFqAsFcBuFsBsFcCiFuCcFaDu[wScFaDcF_DkFqCoFcC{FqBwF_B_GqA}F{@eGo@gG[gGEeGJeGX{Fl@iG~@uEx@mhDbk@qFdAeG|A{FjBoFzBqFpCkF|CcFjDyExDyDvDiEpEcEhF}ClEcDhFu[~h@wN~UmDtFoDnFyDdFiExEkEdEuE~D}EnD_F~CmFpCmF|BqFlB_G~AyFlAaGhA{F~@{VzD{FbA{FpAuF|AuFjBuFvBmFfCeFtC}E~C{EnDuExDoEdEiErEyDxEyDfFqDpFiDvF_^fo@eDxFqDtFsDfF_E`FgEvEmEhEwE~D{EnD_F`DiFvCmFhCqFzBwFrBkdA|^sFrBqFvBkFfCiFtC_FzC{EnDwE|DmEdEoCvCu@x@_E~EqDlFkDpFaD~FyCjGoCnGaCzG{B~GmBhHcBhHyAxHiArHcA|HqMzdAgA|HoA~HsApHcBpHkBnHuBdH_CbHeCvGoCpGyClG_D`GiD|FkDjFcErFyDzEcErEoEpEqE`Eum@fi@eLdKoEfEiElEiEvEaExE}D|EwDbFyDpFoDpFoDrFkDxFcD|F}CjGwCfGwClGsCpGkCzGeCtGaCzGeCzGoTln@cC~GaCvGcCrGmBpEoBtEwClGyCbGeDfGcDxFkDzFmDtFqDnF{DjF{D`FeE~EgEtEiEpEiEfEuEfEsEzD{EvD{ElD_FfDaFbDiFzCeFpCwFpCmFbCkFxBwFrBsFjBuFdByF~A}FtA_GnA}FfA_G~@gGx@cGp@}Ff@gG^aGVgGReGPeGLgGHcGFiGB_uFx@w_@FeGBkGFcGHeGRkG^_Gd@}Ff@}Fr@}Fx@}F~@wFbA}FnA}FvAoFxAsFfBqFjBoFpBgFtBoFbCeFfCgFlCeFrC_FzCaFdDyEfD{EnDsEpDqE|DmE|DgEdEgEpEeEtE_ExE{DzEwDbFsD`FuDfFwDhFmU~[gw@xgAiJnMqDfFoDjFiDjFmDxFgDtFcDvFcDzF_D~FaD`G{C|F}CfGyC~FyC`GsClGuC`HoB~EoCnGkChGkClGmCpGmCnGoCrGqCjGsCfGqCrFmDrGcDpFmDjF_DpEcC`DeAjAoE`FqFnFcFzEeFhEoF`E{F|DwFhDyF`D{FtCmGrCmGbCqG~BgGjBoG~AqGvAyGjA_H`AsGt@qGd@qH\\yGTcGDwbHpBih@JcODeOJcOFaOB_OFkO@{NCgOKeOQcO[aOa@eOe@aOi@egAoDmpGcTowCyJkgAoDkgBeGmoC_J_GQcGU}FSaGW_GW}FYaGa@{Fa@eGk@yFm@qPqBeVoDaNgCiFeAoFqA{FyA{F{AqF{AsF_BoFcBsFgBoFgBeNwEqp@wTquA}d@iNuEcNoEeNqEgNmE_NeEmNgEmNcEoN}DmN{DmNsDsNsDeNkDwNmDmNcDq}@sSmlBsb@uFmAaGqAqFiAwFmAaGeA}FaAcG}@iGw@_Gq@eGo@cGg@iGe@cG_@eGYkGScGKkGK_GCkG?kGFcGJeGNkGVeGZcG^gGd@eGl@cGp@aGv@aGz@_G~@aGdAaGhA_GnAcGtAyFxA_G~AuF`BuFfB}FnBaGvBkFpBgN~FqF`C_jB`y@yj@vViM`GiWfL}s@b\\sF~BqF~BuF|ByF|BuFvBsFrBcGvBmFlByFjByFfByKrC}Ar@{F~A_GzA}FzA{FtA_GrA_GnA_GlAaGlA_GfAaG`AcG|@eG|@_Gx@eGv@cGr@aGp@gGn@eGl@cGl@ebDv\\}_AzJcp@dHohB|ScHx@cFf@eGl@cGb@c@DeFZcGZgGRkGLeGDgGBsAAuDAeGIkGKaGSiGYeG_@gGg@aGk@eGq@cGu@gG}@{FaAeGeAeGkA}FgA}FkA_GgA}TcEsBa@qCg@wF_A_G_AaG}@qN}Bm]wFeIoAsf@kIyn@iKsoC{d@_GcA_GgAyFmAcGwAwFuAgGeBmF{AwFiBuFoBsFsBuFwBqF}BsFcCoFiCkFmCkHuDemB{aAmlA}m@gFmCiFmCmFyCeFyCeFgD{EcD}EoDyEyDqEyDmE_EoEkEmEsEaEqEyDsEiEgFcgAusAaE{EeEwEsEmE{E}DcFuDyEcDoF}CcFmCaGkCuFsBaGgB{F{A_GqAgGcAgGy@cGe@eGWiGMiGAgGHgGVaGf@kGn@qkC`YmlDb`@_bA|JcGn@gGr@_Gr@cG~@{FhA_GzA}FjByFzBoFfCiFnCeFdDaFlD_FzDwEfEiEpE_ExEyD~EwDrFkDtFaDvF}ChG{CnGm[fr@g[`r@k[vq@g[pq@aRt`@qHzOyHzOiRv_@khAz{ByYfd@mWxa@cDjFuDzF}IfNqDrFuDtFuDpF}DfFaEpEyE`FmF`FoExDyElDeFlDgF~CuDhB}Ax@kCzAwBt@oBr@eBj@}A\\uAV}BJ{@B{AAqAE_C[mGsAiDw@}Co@]IaGgA}\\mGqB_@mD~a@MfBmApOmA|Oc@xF_@~F]hFcAlN[rEMdBOzBk@vISrCUfDgB`XqAxRUpD[`EyBzZmCz`@y@lL]pFcAjPSjDu@|Fi@nIcA`RwAl]k@~Ny@bUQrCc@tIuAj]W~DSdEeF`gA}Bxg@qBpc@_AnUkA|VI|AS|Fw@jPOfDhCR`QpAtMbArGd@vMbAxAsYR}DVsEjAaWNgC"
+      }
+    ],
+    "summary": {
+      "has_time_restrictions": false,
+      "has_toll": false,
+      "has_highway": true,
+      "has_ferry": false,
+      "min_lat": 37.331427,
+      "min_lon": -122.532295,
+      "max_lat": 37.972524,
+      "max_lon": -122.010496,
+      "time": 4269.479,
+      "length": 99.483,
+      "cost": 5622.556
+    },
+    "status_message": "Found route between points",
+    "status": 0,
+    "units": "kilometers",
+    "language": "en-US"
+  }
+}
