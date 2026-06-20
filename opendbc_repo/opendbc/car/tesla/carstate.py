@@ -4,7 +4,6 @@ from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.carlog import carlog
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.tesla.teslacan import get_steer_ctrl_type
 from opendbc.car.tesla.values import DBC, CANBUS, GEAR_MAP, STEER_THRESHOLD, TeslaFlags
 
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -188,9 +187,6 @@ class CarState(CarStateBase):
 
     # LKAS
     # On FSD 14+, ANGLE_CONTROL behavior changed to allow user winddown while actuating.
-    lkas_ctrl_type = get_steer_ctrl_type(self.CP.flags, 2)
-    ret.stockLkas = cp_ap_party.vl["DAS_steeringControl"]["DAS_steeringControlType"] == lkas_ctrl_type  # LANE_KEEP_ASSIST
-
     # Stock Autosteer should be off (includes FSD)
     # TODO: find for TESLA_MODEL_X and HW2.5 vehicles
     if not (self.CP.flags & TeslaFlags.MISSING_DAS_SETTINGS):
@@ -250,5 +246,6 @@ class CarState(CarStateBase):
     }
     if CP.flags & TeslaFlags.HAS_VEHICLE_BUS:
       parsers[Bus.adas] = CANParser("tesla_model3_vehicle", [("UI_status2", 2)], CANBUS.vehicle)
+    if CP.flags & TeslaFlags.HAS_DAS_BODY_CONTROLS:
       parsers[Bus.cam] = CANParser("tesla_model3_vehicle", [("DAS_bodyControls", 2)], CANBUS.autopilot_party)
     return parsers

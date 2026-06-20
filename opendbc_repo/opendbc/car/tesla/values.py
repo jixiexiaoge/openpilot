@@ -147,6 +147,7 @@ class TeslaFlags(IntFlag):
   FSD_14 = 2
   MISSING_DAS_SETTINGS = 4
   HAS_VEHICLE_BUS = 8
+  HAS_DAS_BODY_CONTROLS = 16
 
 
 DBC = CAR.create_dbc_map()
