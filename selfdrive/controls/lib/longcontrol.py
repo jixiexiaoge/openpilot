@@ -116,8 +116,10 @@ class LongControl:
 
       stopAccel = self.stopping_accel if self.stopping_accel < 0.0 else self.CP.stopAccel
       if output_accel > stopAccel:
+        # 저속일수록 감속 rate를 줄여서 정차 직전 꿀렁임 방지
+        speed_factor = np.interp(CS.vEgo, [0.0, 0.5, 2.0], [0.3, 0.5, 1.0])
         output_accel = min(output_accel, 0.0)
-        output_accel -= self.CP.stoppingDecelRate * DT_CTRL
+        output_accel -= self.CP.stoppingDecelRate * speed_factor * DT_CTRL
       self.reset()
 
     elif self.long_control_state == LongCtrlState.starting:
