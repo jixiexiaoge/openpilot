@@ -96,6 +96,14 @@ typedef struct {
 } AngleSteeringLimits;
 
 typedef struct {
+  const int max_curvature;
+  const float curvature_to_can;
+  const float send_rate;
+  const bool inactive_curvature_is_zero;
+  const int max_power;
+} CurvatureSteeringLimits;
+
+typedef struct {
   // acceleration cmd limits
   const int max_accel;
   const int min_accel;
@@ -188,6 +196,8 @@ void gen_crc_lookup_table_16(uint16_t poly, uint16_t crc_lut[]);
 void generic_rx_checks(bool stock_ecu_detected);
 bool steer_torque_cmd_checks(int desired_torque, int steer_req, const TorqueSteeringLimits limits);
 bool steer_angle_cmd_checks(int desired_angle, bool steer_control_enabled, const AngleSteeringLimits limits);
+bool steer_power_cmd_checks(int desired_steer_power, bool steer_control_enabled, const CurvatureSteeringLimits limits);
+bool steer_curvature_cmd_checks_average(int desired_curvature, bool steer_control_enabled, const CurvatureSteeringLimits limits);
 bool longitudinal_accel_checks(int desired_accel, const LongitudinalLimits limits);
 bool longitudinal_speed_checks(int desired_speed, const LongitudinalLimits limits);
 bool longitudinal_gas_checks(int desired_gas, const LongitudinalLimits limits);
@@ -291,4 +301,5 @@ extern const safety_hooks tesla_hooks;
 extern const safety_hooks toyota_hooks;
 extern const safety_hooks volkswagen_mqb_hooks;
 extern const safety_hooks volkswagen_pq_hooks;
+extern const safety_hooks volkswagen_meb_hooks;
 extern const safety_hooks rivian_hooks;

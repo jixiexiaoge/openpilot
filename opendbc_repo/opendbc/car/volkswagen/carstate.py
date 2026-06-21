@@ -5,6 +5,12 @@ from opendbc.car.interfaces import CarStateBase
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.volkswagen.values import DBC, CANBUS, NetworkLocation, TransmissionType, GearShifter, \
                                                       CarControllerParams, VolkswagenFlags
+from opendbc.car.volkswagen.mebutils import map_speed_to_acc_tempolimit
+
+
+class MebExtraSignals:
+  fwd_radar_messages = [("MEB_ACC_01", 25), ("ACC_18", 25)]
+  bsm_radar_messages = [("MEB_Side_Assist_01", 20)]
 
 
 class MqbExtraSignals:
@@ -56,12 +62,16 @@ class CarState(CarStateBase):
   def update(self, can_parsers) -> structs.CarState:
     pt_cp = can_parsers[Bus.pt]
     cam_cp = can_parsers[Bus.cam]
-    ext_cp = pt_cp if self.CP.networkLocation == NetworkLocation.fwdCamera else cam_cp
 
     if self.CP.flags & VolkswagenFlags.PQ:
+      ext_cp = pt_cp if self.CP.networkLocation == NetworkLocation.fwdCamera else cam_cp
       return self.update_pq(pt_cp, cam_cp, ext_cp)
 
-    ret = structs.CarState()
+    if self.CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      ext_cp = can_parsers.get(Bus.aux, cam_cp)
+      return self.update_meb(pt_cp, cam_cp, ext_cp)
+
+    ext_cp = pt_cp if self.CP.networkLocation == NetworkLocation.fwdCamera else cam_cp
 
     if self.CP.transmissionType == TransmissionType.direct:
       ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Motor_EV_01"]["MO_Waehlpos"], None))
@@ -268,6 +278,9 @@ class CarState(CarStateBase):
     if CP.flags & VolkswagenFlags.PQ:
       return CarState.get_can_parsers_pq(CP)
 
+    if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      return CarState.get_can_parsers_meb(CP)
+
     # another case of the 1-50Hz
     pt_messages = [
       ("LWI_01", 100),      # From J500 Steering Assist with integrated sensors
@@ -354,7 +367,6 @@ class CarState(CarStateBase):
       ]
 
     if CP.networkLocation == NetworkLocation.gateway:
-      # Radars are here on CANBUS.cam
       cam_messages += PqExtraSignals.fwd_radar_messages
       if CP.enableBsm:
         cam_messages += PqExtraSignals.bsm_radar_messages
@@ -362,5 +374,108 @@ class CarState(CarStateBase):
     return {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CANBUS.pt),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, CANBUS.cam),
+    }
+
+
+  def update_meb(self, pt_cp, cam_cp, ext_cp) -> structs.CarState:
+    ret = structs.CarState()
+
+    # Wheel speeds from ESC_51 (MEB uses VL/VR/HL/HR_Radgeschw)
+    ret.wheelSpeeds = self.get_wheel_speeds(
+      pt_cp.vl["ESC_51"]["VL_Radgeschw"],
+      pt_cp.vl["ESC_51"]["VR_Radgeschw"],
+      pt_cp.vl["ESC_51"]["HL_Radgeschw"],
+      pt_cp.vl["ESC_51"]["HR_Radgeschw"],
+    )
+    ret.vEgoRaw = float(np.mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr]))
+    ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
+    ret.standstill = bool(pt_cp.vl["ESC_50"]["Standstill"])
+
+    # Steering
+    ret.steeringAngleDeg = pt_cp.vl["LWI_01"]["LWI_Lenkradwinkel"] * (1, -1)[int(pt_cp.vl["LWI_01"]["LWI_VZ_Lenkradwinkel"])]
+    ret.steeringRateDeg = pt_cp.vl["LWI_01"]["LWI_Lenkradw_Geschw"] * (1, -1)[int(pt_cp.vl["LWI_01"]["LWI_VZ_Lenkradw_Geschw"])]
+    ret.steeringTorque = pt_cp.vl["LH_EPS_03"]["EPS_Lenkmoment"] * (1, -1)[int(pt_cp.vl["LH_EPS_03"]["EPS_VZ_Lenkmoment"])]
+    ret.steeringPressed = abs(ret.steeringTorque) > self.CCP.STEER_DRIVER_ALLOWANCE
+    hca_status = self.CCP.hca_status_values.get(pt_cp.vl["QFK_01"]["LatCon_HCA_Status"])
+    ret.steerFaultTemporary, ret.steerFaultPermanent = self.update_hca_state(hca_status, False)
+    ret.yawRate = -pt_cp.vl["ESC_50"]["Yaw_Rate"] * (1, -1)[int(pt_cp.vl["ESC_50"]["Yaw_Rate_Sign"])] * CV.DEG_TO_RAD
+
+    # Gas and brake
+    ret.gasPressed = pt_cp.vl["Motor_51"]["Accel_Pedal_Pressure"] > 0
+    ret.brakePressed = bool(pt_cp.vl["Motor_14"]["MO_Fahrer_bremst"])
+    ret.brake = pt_cp.vl["ESC_51"]["Brake_Pressure"]
+    ret.parkingBrake = pt_cp.vl["ESC_50"]["EPB_Status"] in (1, 4)
+
+    # Gear from Getriebe_11 (MEB uses Getriebe_11.GE_Fahrstufe)
+    ret.gearShifter = self.parse_gear_shifter(self.CCP.shifter_values.get(pt_cp.vl["Getriebe_11"]["GE_Fahrstufe"], None))
+
+    # Doors
+    doors = pt_cp.vl["ZV_02"] if bool(pt_cp.vl["Gateway_72"]["ZV_02_alt"]) else pt_cp.vl["Gateway_72"]
+    ret.doorOpen = any([doors["ZV_FT_offen"],
+                        doors["ZV_BT_offen"],
+                        doors["ZV_HFS_offen"],
+                        doors["ZV_HBFS_offen"],
+                        doors["ZV_HD_offen"]])
+    ret.seatbeltUnlatched = pt_cp.vl["Airbag_02"]["AB_Gurtschloss_FA"] != 3
+
+    # Blinkers from SMLS_01
+    ret.leftBlinker = bool(pt_cp.vl["SMLS_01"]["BH_Blinker_li"])
+    ret.rightBlinker = bool(pt_cp.vl["SMLS_01"]["BH_Blinker_re"])
+
+    # Blindspot from MEB_Side_Assist_01
+    if self.CP.enableBsm:
+      bsm = pt_cp.vl["MEB_Side_Assist_01"]
+      ret.leftBlindspot = bool(bsm.get("Blind_Spot_Info_Left", 0)) or bool(bsm.get("Blind_Spot_Warn_Left", 0))
+      ret.rightBlindspot = bool(bsm.get("Blind_Spot_Info_Right", 0)) or bool(bsm.get("Blind_Spot_Warn_Right", 0))
+
+    # Cruise state (TSK status is in Motor_51 on MEB)
+    ret.cruiseState.available = pt_cp.vl["Motor_51"]["TSK_Status"] in (2, 3, 4, 5)
+    ret.cruiseState.enabled = pt_cp.vl["Motor_51"]["TSK_Status"] in (3, 4, 5)
+    ret.accFaulted = pt_cp.vl["Motor_51"]["TSK_Status"] in (6, 7)
+
+    # ACC set speed
+    acc_values = ext_cp.vl["MEB_ACC_01"]
+    ret.cruiseState.speed = float(int(round(acc_values.get("ACC_Wunschgeschw_02", 0)))) * CV.KPH_TO_MS
+    if ret.cruiseState.speed > 90:
+      ret.cruiseState.speed = 0
+
+    # ESP
+    ret.espDisabled = bool(pt_cp.vl["ESP_21"]["ESP_Tastung_passiv"])
+    ret.espActive = bool(pt_cp.vl["ESP_21"]["ESP_Eingriff"])
+    self.esp_hold_confirmation = ret.standstill and ret.cruiseState.enabled
+
+    self.eps_stock_values = pt_cp.vl["LH_EPS_03"]
+    self.ldw_stock_values = cam_cp.vl["LDW_02"] if self.CP.networkLocation == NetworkLocation.fwdCamera else {}
+    self.gra_stock_values = pt_cp.vl["GRA_ACC_01"]
+
+    ret.buttonEvents = self.create_button_events(pt_cp, self.CCP.BUTTONS)
+    self.frame += 1
+    return ret
+
+  @staticmethod
+  def get_can_parsers_meb(CP):
+    pt_messages = [
+      ("LWI_01", 100), ("LH_EPS_03", 100), ("ESC_51", 50),
+      ("ESC_50", 50), ("Motor_51", 50), ("Motor_14", 10),
+      ("QFK_01", 50), ("Getriebe_11", 100), ("Gateway_72", 10),
+      ("ZV_02", 10), ("Airbag_02", 5), ("Blinkmodi_02", 1),
+      ("SMLS_01", 50), ("GRA_ACC_01", 33), ("ESP_21", 50),
+      ("KLR_01", 50), ("TA_01", 50),
+    ]
+    if CP.enableBsm:
+      pt_messages.append(("MEB_Side_Assist_01", 20))
+
+    if CP.networkLocation == NetworkLocation.fwdCamera:
+      pt_messages += MebExtraSignals.fwd_radar_messages
+    else:
+      pt_messages += MebExtraSignals.fwd_radar_messages
+
+    cam_messages = [("LDW_02", 10)]
+    ext_messages = [("MEB_ACC_01", 25), ("ACC_18", 25)]
+
+    return {
+      Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CANBUS.pt),
+      Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, CANBUS.cam),
+      Bus.aux: CANParser(DBC[CP.carFingerprint][Bus.pt], ext_messages, CANBUS.aux),
     }
 

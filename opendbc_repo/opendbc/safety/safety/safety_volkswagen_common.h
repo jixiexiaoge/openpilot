@@ -2,11 +2,28 @@
 
 extern const uint16_t FLAG_VOLKSWAGEN_LONG_CONTROL;
 const uint16_t FLAG_VOLKSWAGEN_LONG_CONTROL = 1;
+extern const uint16_t FLAG_VOLKSWAGEN_ALT_CRC_VARIANT_1;
+const uint16_t FLAG_VOLKSWAGEN_ALT_CRC_VARIANT_1 = 2;
+extern const uint16_t FLAG_VOLKSWAGEN_NO_GAS_OFFSET;
+const uint16_t FLAG_VOLKSWAGEN_NO_GAS_OFFSET = 4;
+extern const uint16_t FLAG_VOLKSWAGEN_ALLOW_LONG_ACCEL_WITH_GAS_PRESSED;
+const uint16_t FLAG_VOLKSWAGEN_ALLOW_LONG_ACCEL_WITH_GAS_PRESSED = 8;
+extern const uint16_t FLAG_VOLKSWAGEN_PQ_ALC_MODULE;
+const uint16_t FLAG_VOLKSWAGEN_PQ_ALC_MODULE = 32;
 
 static uint8_t volkswagen_crc8_lut_8h2f[256]; // Static lookup table for CRC8 poly 0x2F, aka 8H2F/AUTOSAR
 
 extern bool volkswagen_longitudinal;
 bool volkswagen_longitudinal = false;
+
+extern bool volkswagen_alt_crc_variant_1;
+bool volkswagen_alt_crc_variant_1 = false;
+
+extern bool volkswagen_no_gas_offset;
+bool volkswagen_no_gas_offset = false;
+
+extern bool volkswagen_allow_long_accel_with_gas_pressed;
+bool volkswagen_allow_long_accel_with_gas_pressed = false;
 
 extern bool volkswagen_set_button_prev;
 bool volkswagen_set_button_prev = false;
@@ -14,6 +31,33 @@ bool volkswagen_set_button_prev = false;
 extern bool volkswagen_resume_button_prev;
 bool volkswagen_resume_button_prev = false;
 
+extern bool volkswagen_brake_pedal_switch;
+extern bool volkswagen_brake_pressure_detected;
+bool volkswagen_brake_pedal_switch = false;
+bool volkswagen_brake_pressure_detected = false;
+
+// IQ ALC integration variables (stub, not used without IQ private modules)
+extern float vw_iq_apd_steer_ratio;
+extern float vw_iq_apd_wheelbase;
+extern bool vw_iq_apd_params_valid;
+float vw_iq_apd_steer_ratio = 0.0f;
+float vw_iq_apd_wheelbase = 0.0f;
+bool vw_iq_apd_params_valid = false;
+
+extern float vw_iq_measured_angle_deg;
+float vw_iq_measured_angle_deg = 0.0f;
+
+extern bool vw_iq_aol_active;
+bool vw_iq_aol_active = false;
+
+extern float vw_iq_angle_offset_deg;
+float vw_iq_angle_offset_deg = 0.0f;
+
+extern float vw_iq_alc_desired_angle_deg;
+float vw_iq_alc_desired_angle_deg = 0.0f;
+
+extern bool vw_iq_alc_active;
+bool vw_iq_alc_active = false;
 
 #define MSG_LH_EPS_03        0x09F   // RX from EPS, for driver steering torque
 #define MSG_ESP_19           0x0B2   // RX from ABS, for wheel speeds
@@ -28,22 +72,54 @@ bool volkswagen_resume_button_prev = false;
 #define MSG_LDW_02           0x397   // TX by OP, Lane line recognition and text alerts
 #define MSG_MOTOR_14         0x3BE   // RX from ECU, for brake switch status
 
+// MLB only messages
+#define MSG_ESP_03      0x103U
+#define MSG_LS_01       0x10BU
+#define MSG_MOTOR_03    0x105U
+#define MSG_TSK_02      0x10CU
+#define MSG_ACC_05      0x10DU
+#define MSG_ACC_01      0x109U
+
+
+static void volkswagen_common_init(void) {
+  volkswagen_set_button_prev = false;
+  volkswagen_resume_button_prev = false;
+  volkswagen_brake_pedal_switch = false;
+  volkswagen_brake_pressure_detected = false;
+  volkswagen_alt_crc_variant_1 = false;
+  volkswagen_no_gas_offset = false;
+  volkswagen_allow_long_accel_with_gas_pressed = false;
+  vw_iq_apd_steer_ratio = 0.0f;
+  vw_iq_apd_wheelbase = 0.0f;
+  vw_iq_apd_params_valid = false;
+  vw_iq_aol_active = false;
+  vw_iq_angle_offset_deg = 0.0f;
+  vw_iq_alc_desired_angle_deg = 0.0f;
+  vw_iq_alc_active = false;
+  vw_iq_measured_angle_deg = 0.0f;
+  gen_crc_lookup_table_8(0x2F, volkswagen_crc8_lut_8h2f);
+  return;
+}
+
+bool volkswagen_longitudinal_accel_checks(int desired_accel, const LongitudinalLimits limits) {
+  bool accel_valid = controls_allowed &&
+                     (volkswagen_allow_long_accel_with_gas_pressed || !gas_pressed_prev) &&
+                     !safety_max_limit_check(desired_accel, limits.max_accel, limits.min_accel);
+  bool accel_inactive = desired_accel == limits.inactive_accel;
+  return !(accel_valid || accel_inactive);
+}
 
 static uint32_t volkswagen_mqb_meb_get_checksum(const CANPacket_t *to_push) {
   return (uint8_t)GET_BYTE(to_push, 0);
 }
 
 static uint8_t volkswagen_mqb_meb_get_counter(const CANPacket_t *to_push) {
-  // MQB/MEB message counters are consistently found at LSB 8.
   return (uint8_t)GET_BYTE(to_push, 1) & 0xFU;
 }
 
 static uint32_t volkswagen_mqb_meb_compute_crc(const CANPacket_t *to_push) {
   int addr = GET_ADDR(to_push);
   int len = GET_LEN(to_push);
-
-  // This is CRC-8H2F/AUTOSAR with a twist. See the OpenDBC implementation
-  // of this algorithm for a version with explanatory comments.
 
   uint8_t crc = 0xFFU;
   for (int i = 1; i < len; i++) {
@@ -68,4 +144,22 @@ static uint32_t volkswagen_mqb_meb_compute_crc(const CANPacket_t *to_push) {
   crc = volkswagen_crc8_lut_8h2f[crc];
 
   return (uint8_t)(crc ^ 0xFFU);
+}
+
+static int volkswagen_mlb_mqb_driver_input_torque(const CANPacket_t *msg) {
+  int torque_driver_new = GET_BYTE(msg, 5) | ((GET_BYTE(msg, 6) & 0x1FU) << 8);
+  bool sign = GET_BIT(msg, 55U);
+  if (sign) {
+    torque_driver_new *= -1;
+  }
+  return torque_driver_new;
+}
+
+static int volkswagen_mlb_mqb_steering_control_torque(const CANPacket_t *msg) {
+  int desired_torque = GET_BYTE(msg, 2) | ((GET_BYTE(msg, 3) & 0x1U) << 8);
+  bool sign = GET_BIT(msg, 31U);
+  if (sign) {
+    desired_torque *= -1;
+  }
+  return desired_torque;
 }

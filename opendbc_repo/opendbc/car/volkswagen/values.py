@@ -2,7 +2,8 @@ from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntFlag, StrEnum
 
-from opendbc.car import Bus, CarSpecs, DbcDict, PlatformConfig, Platforms, structs, uds
+from opendbc.car import ACCELERATION_DUE_TO_GRAVITY, Bus, CarSpecs, DbcDict, PlatformConfig, Platforms, structs, uds
+from opendbc.car.lateral import AngleSteeringLimits, ISO_LATERAL_ACCEL, ISO_LATERAL_JERK
 from opendbc.can import CANDefine
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.docs_definitions import CarFootnote, CarHarness, CarDocs, CarParts, Column, \
@@ -72,6 +73,46 @@ class CarControllerParams:
         "laneAssistDeactivTrailer": 5,  # "Lane Assist: no function with trailer"
       }
 
+    elif CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      self.LDW_STEP = 10
+      self.ACC_HUD_STEP = 6
+      self.STEER_DRIVER_ALLOWANCE = 60
+      self.STEER_DRIVER_MAX = 300
+      self.STEERING_POWER_MAX = 90
+      self.STEERING_POWER_MIN = 4
+      self.STEERING_POWER_STEP = 2
+
+      self.CURVATURE_PID: structs.CarParams.LateralPIDTuning = structs.CarParams.LateralPIDTuning(
+        kpBP=[10., 40.],
+        kiBP=[10., 40.],
+        kf=1.,
+        kpV=[0., 1.45],
+        kiV=[0., 0.12],
+      )
+
+      self.shifter_values = can_define.dv["Getriebe_11"]["GE_Fahrstufe"]
+      self.hca_status_values = can_define.dv["QFK_01"]["LatCon_HCA_Status"]
+
+      self.BUTTONS = [
+        Button(structs.CarState.ButtonEvent.Type.setCruise, "GRA_ACC_01", "GRA_Tip_Setzen", [1]),
+        Button(structs.CarState.ButtonEvent.Type.resumeCruise, "GRA_ACC_01", "GRA_Tip_Wiederaufnahme", [1]),
+        Button(structs.CarState.ButtonEvent.Type.accelCruise, "GRA_ACC_01", "GRA_Tip_Hoch", [1]),
+        Button(structs.CarState.ButtonEvent.Type.decelCruise, "GRA_ACC_01", "GRA_Tip_Runter", [1]),
+        Button(structs.CarState.ButtonEvent.Type.cancel, "GRA_ACC_01", "GRA_Abbrechen", [1]),
+      ]
+
+      self.LDW_MESSAGES = {
+        "none": 0,
+        "laneAssistUnavailChime": 1,
+        "laneAssistUnavailNoSensorChime": 3,
+        "laneAssistTakeOverUrgent": 4,
+        "emergencyAssistUrgent": 6,
+        "laneAssistTakeOverChime": 7,
+        "laneAssistTakeOver": 8,
+        "emergencyAssistChangingLanes": 9,
+        "laneAssistDeactivated": 10,
+      }
+
     else:
       self.LDW_STEP = 10                  # LDW_02 message frequency 10Hz
       self.ACC_HUD_STEP = 6               # ACC_02 message frequency 16Hz
@@ -107,9 +148,40 @@ class CarControllerParams:
       }
 
 
-class CANBUS:
-  pt = 0
-  cam = 2
+class CanBus:
+  def __init__(self, CP=None, fingerprint=None) -> None:
+    self.offset = 0
+
+  @property
+  def pt(self) -> int:
+    return 0
+
+  @property
+  def aux(self) -> int:
+    return 1
+
+  @property
+  def main(self) -> int:
+    return 1
+
+  @property
+  def cam(self) -> int:
+    return 2
+
+  @property
+  def ext(self) -> int:
+    return 2
+
+  @property
+  def eps(self) -> int:
+    return 4
+
+  @property
+  def car(self) -> int:
+    return 6
+
+
+CANBUS = CanBus()
 
 
 class WMI(StrEnum):
@@ -135,21 +207,37 @@ class WMI(StrEnum):
 
 class VolkswagenSafetyFlags(IntFlag):
   LONG_CONTROL = 1
+  ALT_CRC_VARIANT_1 = 2
+  NO_GAS_OFFSET = 4
+  ALLOW_LONG_ACCEL_WITH_GAS_PRESSED = 8
+  DISABLE_RADAR = 16
+  PQ_ALC_MODULE = 32
 
 
 class VolkswagenFlags(IntFlag):
   # Detected flags
   STOCK_HCA_PRESENT = 1
+  KOMBI_PRESENT = 4
 
   # Static flags
   PQ = 2
+  MLB = 8
+  MEB = 256
+  MEB_GEN2 = 512
+  MQB_EVO = 1024
+
+  # Detected flags (MEB/MQBevo)
+  STOCK_KLR_PRESENT = 2048
+  STOCK_PSD_PRESENT = 4096
+  STOCK_PSD_06_PRESENT = 8192
+  STOCK_DIAGNOSE_01_PRESENT = 16384
+  ALT_GEAR = 32768
+  DISABLE_RADAR = 65536
 
 
 @dataclass
 class VolkswagenMQBPlatformConfig(PlatformConfig):
   dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'vw_mqb'})
-  # Volkswagen uses the VIN WMI and chassis code to match in the absence of the comma power
-  # on camera-integrated cars, as we lose too many ECUs to reliably identify the vehicle
   chassis_codes: set[str] = field(default_factory=set)
   wmis: set[WMI] = field(default_factory=set)
 
@@ -160,6 +248,29 @@ class VolkswagenPQPlatformConfig(VolkswagenMQBPlatformConfig):
 
   def init(self):
     self.flags |= VolkswagenFlags.PQ
+
+
+@dataclass
+class VolkswagenMEBPlatformConfig(PlatformConfig):
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'vw_meb', Bus.radar: 'vw_meb'})
+  chassis_codes: set[str] = field(default_factory=set)
+  wmis: set[WMI] = field(default_factory=set)
+  model_years: set[str] = field(default_factory=set)
+
+  def init(self):
+    self.flags |= VolkswagenFlags.MEB
+    if self.flags & VolkswagenFlags.MEB_GEN2:
+      self.dbc_dict = {Bus.pt: 'vw_meb_2024', Bus.radar: 'vw_meb_2024'}
+
+
+@dataclass
+class VolkswagenMQBevoPlatformConfig(PlatformConfig):
+  dbc_dict: DbcDict = field(default_factory=lambda: {Bus.pt: 'vw_mqbevo', Bus.radar: 'vw_mqbevo'})
+  chassis_codes: set[str] = field(default_factory=set)
+  wmis: set[WMI] = field(default_factory=set)
+
+  def init(self):
+    self.flags |= VolkswagenFlags.MQB_EVO
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -212,7 +323,7 @@ class VWCarDocs(CarDocs):
 # FW_VERSIONS for that existing CAR.
 
 class CAR(Platforms):
-  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig
+  config: VolkswagenMQBPlatformConfig | VolkswagenPQPlatformConfig | VolkswagenMEBPlatformConfig | VolkswagenMQBevoPlatformConfig
 
   VOLKSWAGEN_ARTEON_MK1 = VolkswagenMQBPlatformConfig(
     [
@@ -439,6 +550,55 @@ class CAR(Platforms):
     [VWCarDocs("Škoda Superb 2015-22")],
     VolkswagenCarSpecs(mass=1505, wheelbase=2.84),
     chassis_codes={"3V", "NP"},
+    wmis={WMI.SKODA},
+  )
+
+  # MQBevo platforms
+  VOLKSWAGEN_GOLF_MK8 = VolkswagenMQBevoPlatformConfig(
+    [VWCarDocs("Volkswagen Golf 2020-25")],
+    VolkswagenCarSpecs(mass=1397, wheelbase=2.62),
+    chassis_codes={"CD"},
+    wmis={WMI.VOLKSWAGEN_EUROPE_CAR},
+  )
+
+  # MEB platforms
+  VOLKSWAGEN_ID3_MK1 = VolkswagenMEBPlatformConfig(
+    [
+      VWCarDocs("Volkswagen ID.3 2020-23"),
+    ],
+    VolkswagenCarSpecs(mass=1935, wheelbase=2.77),
+    chassis_codes={"E1"},
+    wmis={WMI.VOLKSWAGEN_USA_SUV, WMI.VOLKSWAGEN_EUROPE_CAR},
+    model_years={"L", "M", "N", "P"},
+  )
+  VOLKSWAGEN_ID4_MK1 = VolkswagenMEBPlatformConfig(
+    [
+      VWCarDocs("Volkswagen ID.4 2021-23"),
+      VWCarDocs("Volkswagen ID.5 2022-23"),
+    ],
+    VolkswagenCarSpecs(mass=2224, wheelbase=2.77),
+    chassis_codes={"E2"},
+    wmis={WMI.VOLKSWAGEN_USA_SUV, WMI.VOLKSWAGEN_EUROPE_CAR, WMI.VOLKSWAGEN_EUROPE_SUV},
+  )
+  AUDI_Q4_MK1 = VolkswagenMEBPlatformConfig(
+    [VWCarDocs("Audi Q4 2021-23")],
+    VolkswagenCarSpecs(mass=1965, wheelbase=2.764),
+    chassis_codes={"FZ"},
+    wmis={WMI.AUDI_EUROPE_MPV},
+    model_years={"M", "N", "P"},
+  )
+  CUPRA_BORN_MK1 = VolkswagenMEBPlatformConfig(
+    [VWCarDocs("CUPRA Born 2022-23")],
+    VolkswagenCarSpecs(mass=1950, wheelbase=2.766, steerRatio=15.9),
+    chassis_codes={"K1"},
+    model_years={"N", "P"},
+    wmis={WMI.SEAT},
+  )
+  SKODA_ENYAQ_MK1 = VolkswagenMEBPlatformConfig(
+    [VWCarDocs("Škoda Enyaq 2021-23")],
+    VolkswagenCarSpecs(mass=1965, wheelbase=2.77),
+    chassis_codes={"NY"},
+    model_years={"M", "N", "P"},
     wmis={WMI.SKODA},
   )
 

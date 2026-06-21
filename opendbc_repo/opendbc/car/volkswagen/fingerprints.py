@@ -1244,4 +1244,81 @@ FW_VERSIONS = {
       b'\xf1\x875Q0907572S \xf1\x890780',
     ],
   },
+
+  # MQBevo
+  CAR.VOLKSWAGEN_GOLF_MK8: {
+    (Ecu.engine, 0x7e0, None): [],
+    (Ecu.transmission, 0x7e1, None): [],
+    (Ecu.srs, 0x715, None): [],
+    (Ecu.eps, 0x730, None): [
+      b'\xf1\x875WA980653D \xf1\x893405',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x875WA980653D \xf1\x893405',
+    ],
+  },
+
+  # MEB
+  CAR.VOLKSWAGEN_ID3_MK1: {
+    (Ecu.inverter, 0x17fc007c, None): [
+      b'\xf1\x871EA907121AH\xf1\x896050\xf1\x82010\x00',
+    ],
+    (Ecu.engine, 0x17fc0076, None): [
+      b'\xf1\x871EA907121AH\xf1\x896050\xf1\x82010\x00',
+    ],
+    (Ecu.eps, 0x730, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+  },
+  CAR.VOLKSWAGEN_ID4_MK1: {
+    (Ecu.inverter, 0x17fc007c, None): [
+      b'\xf1\x871EA907121BE\xf1\x896046\xf1\x82020\x00',
+    ],
+    (Ecu.engine, 0x17fc0076, None): [
+      b'\xf1\x871EA907121BE\xf1\x896046\xf1\x82020\x00',
+    ],
+    (Ecu.eps, 0x730, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+  },
+  CAR.AUDI_Q4_MK1: {
+    (Ecu.inverter, 0x17fc007c, None): [],
+    (Ecu.engine, 0x17fc0076, None): [],
+    (Ecu.transmission, 0x7e1, None): [],
+    (Ecu.srs, 0x715, None): [],
+    (Ecu.eps, 0x730, None): [],
+    (Ecu.fwdCamera, 0x760, None): [],
+    (Ecu.fwdRadar, 0x757, None): [],
+    (Ecu.parkingAdas, 0x70a, None): [],
+  },
+  CAR.CUPRA_BORN_MK1: {
+    (Ecu.inverter, 0x17fc007c, None): [
+      b'\xf1\x871EA907121AJ\xf1\x893510\xf1\x8201S\x00',
+    ],
+    (Ecu.engine, 0x17fc0076, None): [
+      b'\xf1\x871EA907121AJ\xf1\x893510\xf1\x8201S\x00',
+    ],
+    (Ecu.eps, 0x730, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+    (Ecu.fwdRadar, 0x757, None): [
+      b'\xf1\x871EA907572H \xf1\x890234',
+    ],
+  },
+  CAR.SKODA_ENYAQ_MK1: {
+    (Ecu.inverter, 0x17fc007c, None): [],
+    (Ecu.engine, 0x17fc0076, None): [],
+    (Ecu.transmission, 0x7e1, None): [],
+    (Ecu.srs, 0x715, None): [],
+    (Ecu.eps, 0x730, None): [],
+    (Ecu.fwdCamera, 0x760, None): [],
+    (Ecu.fwdRadar, 0x757, None): [],
+    (Ecu.parkingAdas, 0x70a, None): [],
+  },
 }

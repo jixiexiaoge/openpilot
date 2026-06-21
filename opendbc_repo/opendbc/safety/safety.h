@@ -19,6 +19,7 @@
 #include "safety/safety_nissan.h"
 #include "safety/safety_volkswagen_mqb.h"
 #include "safety/safety_volkswagen_pq.h"
+#include "safety/safety_volkswagen_meb.h"
 #include "safety/safety_elm327.h"
 #include "safety/safety_body.h"
 
@@ -56,6 +57,13 @@
 #define SAFETY_HYUNDAI_CANFD 28U
 #define SAFETY_RIVIAN 33U
 #define SAFETY_VOLKSWAGEN_MEB 34U
+#define SAFETY_VOLKSWAGEN_MQBEVO 35U
+
+#define SAFETY_UNUSED(x) ((void)(x))
+
+static bool safety_max_limit_check(int val, const int MAX_VAL, const int MIN_VAL) {
+  return (val > MAX_VAL) || (val < MIN_VAL);
+}
 
 uint32_t GET_BYTES(const CANPacket_t *msg, int start, int len) {
   uint32_t ret = 0U;
@@ -423,6 +431,7 @@ int set_safety_hooks(uint16_t mode, uint16_t param) {
     {SAFETY_BODY, &body_hooks},
     {SAFETY_FORD, &ford_hooks},
     {SAFETY_RIVIAN, &rivian_hooks},
+    {SAFETY_VOLKSWAGEN_MEB, &volkswagen_meb_hooks},
 #ifdef CANFD
     {SAFETY_HYUNDAI_CANFD, &hyundai_canfd_hooks},
 #endif
@@ -430,6 +439,7 @@ int set_safety_hooks(uint16_t mode, uint16_t param) {
     {SAFETY_TESLA, &tesla_hooks},
     {SAFETY_SUBARU_PREGLOBAL, &subaru_preglobal_hooks},
     {SAFETY_VOLKSWAGEN_PQ, &volkswagen_pq_hooks},
+    {SAFETY_VOLKSWAGEN_MQBEVO, &volkswagen_meb_hooks},
     {SAFETY_ALLOUTPUT, &alloutput_hooks},
 #endif
   };
@@ -655,6 +665,89 @@ bool longitudinal_interceptor_checks(const CANPacket_t *to_send) {
 }
 
 // Safety checks for torque-based steering commands
+#ifndef SAFETY_MAX
+#define SAFETY_MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define SAFETY_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define SAFETY_CLAMP(val, lo, hi) (SAFETY_MIN(SAFETY_MAX(val, lo), hi))
+#endif
+
+static bool is_lat_active(void) {
+  return controls_allowed;
+}
+
+// Safety checks for curvature/power steering commands (MEB/MQBevo)
+static const float ISO_LATERAL_ACCEL = 3.0;  // m/s^2
+static const float ISO_LATERAL_JERK = 5.0;  // m/s^3
+
+bool steer_power_cmd_checks(int desired_steer_power, bool steer_control_enabled, const CurvatureSteeringLimits limits) {
+  bool violation = false;
+
+  if (is_lat_active()) {
+    if (steer_control_enabled) {
+      violation |= safety_max_limit_check(desired_steer_power, limits.max_power, 0);
+    } else {
+      violation |= desired_steer_power != 0;
+    }
+  } else {
+    violation |= steer_control_enabled;
+  }
+
+  return violation;
+}
+
+bool steer_curvature_cmd_checks_average(int desired_curvature, bool steer_control_enabled, const CurvatureSteeringLimits limits) {
+  bool violation = false;
+
+  if (is_lat_active()) {
+    violation |= safety_max_limit_check(desired_curvature, limits.max_curvature, -limits.max_curvature);
+
+    const float fudged_speed = SAFETY_MAX(vehicle_speed.min / VEHICLE_SPEED_FACTOR, 1.0);
+
+    if (steer_control_enabled) {
+      const float max_curvature_rate_sec = ISO_LATERAL_JERK / (fudged_speed * fudged_speed);
+      const float max_curvature_delta = max_curvature_rate_sec * limits.send_rate;
+      const int max_curvature_delta_can = (max_curvature_delta * limits.curvature_to_can) + 1;
+
+      int highest_desired_curvature = desired_angle_last + max_curvature_delta_can;
+      int lowest_desired_curvature = desired_angle_last - max_curvature_delta_can;
+
+      float max_curvature = (ISO_LATERAL_ACCEL / (fudged_speed * fudged_speed)) * limits.curvature_to_can;
+      const int max_curvature_can = (int)max_curvature + 1;
+
+      highest_desired_curvature = SAFETY_CLAMP(highest_desired_curvature, -max_curvature_can, max_curvature_can) + 1;
+      lowest_desired_curvature = SAFETY_CLAMP(lowest_desired_curvature, -max_curvature_can, max_curvature_can) - 1;
+
+      violation |= safety_max_limit_check(desired_curvature, highest_desired_curvature, lowest_desired_curvature);
+    }
+  }
+
+  desired_angle_last = desired_curvature;
+
+  if (!steer_control_enabled) {
+    if (limits.inactive_curvature_is_zero) {
+      violation |= desired_curvature != 0;
+    } else {
+      const int max_inactive_curvature = SAFETY_CLAMP(angle_meas.max, -limits.max_curvature, limits.max_curvature) + 1;
+      const int min_inactive_curvature = SAFETY_CLAMP(angle_meas.min, -limits.max_curvature, limits.max_curvature) - 1;
+      violation |= safety_max_limit_check(desired_curvature, max_inactive_curvature, min_inactive_curvature);
+    }
+  }
+
+  if (!is_lat_active()) {
+    violation |= steer_control_enabled;
+  }
+
+  if (violation || !is_lat_active()) {
+    if (limits.inactive_curvature_is_zero) {
+      desired_angle_last = 0;
+    } else {
+      desired_angle_last = SAFETY_CLAMP(angle_meas.values[0], -limits.max_curvature, limits.max_curvature);
+    }
+  }
+
+  return violation;
+}
+
 bool steer_torque_cmd_checks(int desired_torque, int steer_req, const TorqueSteeringLimits limits) {
   bool violation = false;
   uint32_t ts = microsecond_timer_get();
