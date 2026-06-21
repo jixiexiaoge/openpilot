@@ -3,6 +3,12 @@
 #include "safety_declarations.h"
 #include "can.h"
 
+#define SAFETY_UNUSED(x) ((void)(x))
+
+static bool safety_max_limit_check(int val, const int MAX_VAL, const int MIN_VAL) {
+  return (val > MAX_VAL) || (val < MIN_VAL);
+}
+
 // include the safety policies.
 #include "safety/safety_defaults.h"
 #include "safety/safety_honda.h"
@@ -58,12 +64,6 @@
 #define SAFETY_RIVIAN 33U
 #define SAFETY_VOLKSWAGEN_MEB 34U
 #define SAFETY_VOLKSWAGEN_MQBEVO 35U
-
-#define SAFETY_UNUSED(x) ((void)(x))
-
-static bool safety_max_limit_check(int val, const int MAX_VAL, const int MIN_VAL) {
-  return (val > MAX_VAL) || (val < MIN_VAL);
-}
 
 uint32_t GET_BYTES(const CANPacket_t *msg, int start, int len) {
   uint32_t ret = 0U;

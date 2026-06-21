@@ -94,47 +94,47 @@ static uint32_t volkswagen_meb_gen2_compute_crc(const CANPacket_t *msg) {
 
 static safety_config volkswagen_meb_init(uint16_t param) {
   static const CanMsg VOLKSWAGEN_MEB_STOCK_TX_MSGS[] = {
-    {MSG_HCA_03, 0, 24, .check_relay = true},
-    {MSG_GRA_ACC_01, 0, 8, .check_relay = false},
-    {MSG_EA_01, 0, 8, .check_relay = false},
-    {MSG_EA_02, 0, 8, .check_relay = true},
-    {MSG_KLR_01, 0, 8, .check_relay = false},
-    {MSG_KLR_01, 2, 8, .check_relay = true},
-    {MSG_GRA_ACC_01, 2, 8, .check_relay = false},
-    {MSG_LDW_02, 0, 8, .check_relay = true},
+    {MSG_HCA_03, 0, 24},
+    {MSG_GRA_ACC_01, 0, 8},
+    {MSG_EA_01, 0, 8},
+    {MSG_EA_02, 0, 8},
+    {MSG_KLR_01, 0, 8},
+    {MSG_KLR_01, 2, 8},
+    {MSG_GRA_ACC_01, 2, 8},
+    {MSG_LDW_02, 0, 8},
   };
 
   static const CanMsg VOLKSWAGEN_MEB_LONG_TX_MSGS[] = {
-    {MSG_HCA_03, 0, 24, .check_relay = true},
-    {MSG_MEB_ACC_01, 0, 48, .check_relay = true},
-    {MSG_ACC_18, 0, 32, .check_relay = true},
-    {MSG_EA_01, 0, 8, .check_relay = false},
-    {MSG_EA_02, 0, 8, .check_relay = true},
-    {MSG_KLR_01, 0, 8, .check_relay = false},
-    {MSG_KLR_01, 2, 8, .check_relay = true},
-    {MSG_LDW_02, 0, 8, .check_relay = true},
-    {MSG_TA_01, 0, 8, .check_relay = true},
-    {MSG_AWV_03, 0, 48, .check_relay = false},
-    {MSG_MEB_DISTANCE_01, 0, 64, .check_relay = false},
-    {MSG_UDS_FUNCTIONAL, 0, 8, .check_relay = false},
+    {MSG_HCA_03, 0, 24},
+    {MSG_MEB_ACC_01, 0, 48},
+    {MSG_ACC_18, 0, 32},
+    {MSG_EA_01, 0, 8},
+    {MSG_EA_02, 0, 8},
+    {MSG_KLR_01, 0, 8},
+    {MSG_KLR_01, 2, 8},
+    {MSG_LDW_02, 0, 8},
+    {MSG_TA_01, 0, 8},
+    {MSG_AWV_03, 0, 48},
+    {MSG_MEB_DISTANCE_01, 0, 64},
+    {MSG_UDS_FUNCTIONAL, 0, 8},
   };
 
   static RxCheck volkswagen_meb_rx_checks[] = {
-    {.msg = {{MSG_LH_EPS_03, 0, 8, 100U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_MOTOR_14, 0, 8, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_GRA_ACC_01, 0, 8, 33U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_QFK_01, 0, 32, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_Motor_51, 0, 32, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_ESC_51, 0, 48, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+    {.msg = {{MSG_LH_EPS_03, 0, 8, 100U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_MOTOR_14, 0, 8, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_GRA_ACC_01, 0, 8, 33U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_QFK_01, 0, 32, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_Motor_51, 0, 32, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_ESC_51, 0, 48, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
   };
 
   static RxCheck volkswagen_meb_gen2_rx_checks[] = {
-    {.msg = {{MSG_LH_EPS_03, 0, 8, 100U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_MOTOR_14, 0, 8, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_GRA_ACC_01, 0, 8, 33U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_QFK_01, 0, 32, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_Motor_51, 0, 48, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
-    {.msg = {{MSG_ESC_51, 0, 64, 50U, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+    {.msg = {{MSG_LH_EPS_03, 0, 8, 100U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_MOTOR_14, 0, 8, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_GRA_ACC_01, 0, 8, 33U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_QFK_01, 0, 32, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_Motor_51, 0, 48, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
+    {.msg = {{MSG_ESC_51, 0, 64, 50U, .max_counter = 15U, .quality_flag = false}, { 0 }, { 0 }}},
   };
 
   volkswagen_common_init();
@@ -170,15 +170,9 @@ static void volkswagen_meb_rx_hook(const CANPacket_t *msg) {
     return;
   }
 
-  if (msg->addr == MSG_ESC_51) {
-    const uint32_t fr = msg->data[10] | (msg->data[11] << 8);
-    const uint32_t rl = msg->data[12] | (msg->data[13] << 8);
-    const uint32_t rr = msg->data[14] | (msg->data[15] << 8);
-    const uint32_t fl = msg->data[8] | (msg->data[9] << 8);
-
-    vehicle_moving = (fr > 0U) || (rr > 0U) || (rl > 0U) || (fl > 0U);
-    UPDATE_VEHICLE_SPEED(((fr + rr + rl + fl) / 4U) * 0.0075f / 3.6f);
-  }
+  // NOTE: ESC_51 and Motor_51 are >8 bytes; only first 8 bytes accessible on F4 firmware.
+  // Wheel speed / vehicle speed / acc_status from >8 bytes are NOT read here.
+  // openpilot handles speed estimation via CANParser.
 
   if (msg->addr == MSG_QFK_01) {
     int current_curvature = ((msg->data[6] & 0x7FU) << 8) | msg->data[5];
@@ -194,18 +188,7 @@ static void volkswagen_meb_rx_hook(const CANPacket_t *msg) {
   }
 
   if (msg->addr == MSG_Motor_51) {
-    const int acc_status = ((msg->data[11] >> 0) & 0x07U);
-    const bool cruise_engaged = (acc_status == 3) || (acc_status == 4) || (acc_status == 5);
-    acc_main_on = cruise_engaged || (acc_status == 2);
-
-    if (!volkswagen_longitudinal) {
-      pcm_cruise_check(cruise_engaged);
-    }
-
-    if (!acc_main_on) {
-      controls_allowed = false;
-    }
-
+    // Accel_Pedal_Pressure: bits 12-20 (bytes 1-2), within 8 bytes
     const int accel_pedal_value = ((msg->data[1] >> 4) & 0x0FU) | ((msg->data[2] & 0x1FU) << 4);
     gas_pressed = accel_pedal_value > 0;
   }

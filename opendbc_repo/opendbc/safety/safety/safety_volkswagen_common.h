@@ -155,11 +155,4 @@ static int volkswagen_mlb_mqb_driver_input_torque(const CANPacket_t *msg) {
   return torque_driver_new;
 }
 
-static int volkswagen_mlb_mqb_steering_control_torque(const CANPacket_t *msg) {
-  int desired_torque = GET_BYTE(msg, 2) | ((GET_BYTE(msg, 3) & 0x1U) << 8);
-  bool sign = GET_BIT(msg, 31U);
-  if (sign) {
-    desired_torque *= -1;
-  }
-  return desired_torque;
-}
+// steering_control_torque not used by current safety modules (MQB/PQ/MEB)
