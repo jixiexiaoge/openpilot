@@ -12,7 +12,7 @@ from pathlib import Path
 import psutil
 
 import cereal.messaging as messaging
-from cereal import log
+from cereal import car, log
 from cereal.services import SERVICE_LIST
 from openpilot.common.dict_helpers import strip_deprecated_keys
 from openpilot.common.filter_simple import FirstOrderFilter
@@ -177,6 +177,32 @@ def update_restart_condition(current_time, restart_triggered_ts, params, onroad_
       restart_triggered_ts = current_time
   return restart_triggered_ts
 
+
+class _CarParamsCache:
+  def __init__(self, refresh_s: float = 5.0):
+    self._refresh_s = refresh_s
+    self._last_check = 0.0
+    self._last_bytes: bytes | None = None
+    self.is_tesla = False
+
+  def update(self, params: Params) -> None:
+    now = time.monotonic()
+    if (now - self._last_check) < self._refresh_s:
+      return
+    self._last_check = now
+
+    cp_bytes = params.get("CarParams")
+    if not cp_bytes or cp_bytes == self._last_bytes:
+      return
+    self._last_bytes = cp_bytes
+
+    try:
+      CP = messaging.log_from_bytes(cp_bytes, car.CarParams)
+      self.is_tesla = (CP.brand == "tesla")
+    except Exception:
+      self.is_tesla = False
+
+
 def hardware_thread(end_event, hw_queue) -> None:
   pm = messaging.PubMaster(['deviceState'])
   sm = messaging.SubMaster(["peripheralState", "gpsLocationExternal", "selfdriveState", "pandaStates"], poll="pandaStates")
@@ -212,6 +238,7 @@ def hardware_thread(end_event, hw_queue) -> None:
   engaged_prev = False
 
   params = Params()
+  cp_cache = _CarParamsCache()
   power_monitor = PowerMonitoring()
 
   HARDWARE.initialize_hardware()
@@ -364,6 +391,16 @@ def hardware_thread(end_event, hw_queue) -> None:
       except Exception:
         pass
 
+    # Tesla vehicles keep CAN bus powered when parked, so don't put the device to sleep
+    cp_cache.update(params)
+    tesla_no_sleep = cp_cache.is_tesla
+
+    if should_start != should_start_prev or (count == 0):
+      params.put_bool("IsEngaged", False)
+      engaged_prev = False
+      if not tesla_no_sleep:
+        HARDWARE.set_power_save(not should_start)
+
     if should_start:
       off_ts = None
       if started_ts is None:
@@ -397,8 +434,8 @@ def hardware_thread(end_event, hw_queue) -> None:
     statlog.sample("som_power_draw", som_power_draw)
     msg.deviceState.somPowerDrawW = som_power_draw
 
-    # Check if we need to shut down
-    if power_monitor.should_shutdown(onroad_conditions["ignition"], in_car, off_ts, started_seen):
+    # Check if we need to shut down (Tesla keeps CAN powered, so never auto-shutdown)
+    if (not tesla_no_sleep) and power_monitor.should_shutdown(onroad_conditions["ignition"], in_car, off_ts, started_seen):
       cloudlog.warning(f"shutting device down, offroad since {off_ts}")
       params.put_bool("DoShutdown", True)
 
