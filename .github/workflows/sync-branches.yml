@@ -87,12 +87,9 @@ jobs:
           # ========= 分支同步 =========
 
           sync_branch CP carrotpilot/c3-wip
-          sync_branch c3 carrotc3/c3
           sync_branch atune atune/hoya/c3-atune
           sync_branch release-new iqpilot/release-new
           sync_branch DP dragonpilot/pre-build
-          sync_branch Dragonpilot-0.11.0 dragonpilot011/0.11.0-pre-build
-          sync_branch xnor-c3 xnor/xnor-c3
 
       - name: Tag sync timestamp
         run: |
