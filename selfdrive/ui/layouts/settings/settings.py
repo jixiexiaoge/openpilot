@@ -13,6 +13,7 @@ from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wifi_manager import WifiManager
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.network import NetworkUI
+from dragonpilot.selfdrive.ui.layouts.settings.dragonpilot import DragonpilotLayout
 
 # Constants
 SIDEBAR_WIDTH = 500
@@ -37,6 +38,7 @@ class PanelType(IntEnum):
   SOFTWARE = 3
   FIREHOSE = 4
   DEVELOPER = 5
+  DRAGONPILOT = 6
 
 
 @dataclass
@@ -62,6 +64,7 @@ class SettingsLayout(Widget):
       PanelType.SOFTWARE: PanelInfo(tr_noop("Software"), SoftwareLayout()),
       PanelType.FIREHOSE: PanelInfo(tr_noop("Firehose"), FirehoseLayout()),
       PanelType.DEVELOPER: PanelInfo(tr_noop("Developer"), DeveloperLayout()),
+      PanelType.DRAGONPILOT: PanelInfo("dp", DragonpilotLayout()),
     }
 
     self._font_medium = gui_app.font(FontWeight.MEDIUM)

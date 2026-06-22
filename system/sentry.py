@@ -12,9 +12,9 @@ from openpilot.system.version import get_build_metadata, get_version
 
 class SentryProject(Enum):
   # python project
-  SELFDRIVE = "https://6f3c7076c1e14b2aa10f5dde6dda0cc4@o33823.ingest.sentry.io/77924"
+  SELFDRIVE = "https://980a0cba712a4c3593c33c78a12446e1@o273754.ingest.sentry.io/1488600"
   # native project
-  SELFDRIVE_NATIVE = "https://3e4b586ed21a4479ad5d85083b639bc6@o33823.ingest.sentry.io/157615"
+  SELFDRIVE_NATIVE = "https://980a0cba712a4c3593c33c78a12446e1@o273754.ingest.sentry.io/1488600"
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
@@ -26,11 +26,16 @@ def report_tombstone(fn: str, message: str, contents: str) -> None:
     sentry_sdk.capture_message(message=message)
     sentry_sdk.flush()
 
+def save_exception(exc_text):
+  log = "\n".join(exc_text.splitlines()) + "\n"
+  Params().put("dp_dev_last_log", log)
 
 def capture_exception(*args, **kwargs) -> None:
   cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
 
   try:
+    import traceback
+    save_exception(traceback.format_exc())
     sentry_sdk.capture_exception(*args, **kwargs)
     sentry_sdk.flush()  # https://github.com/getsentry/sentry-python/issues/291
   except Exception:

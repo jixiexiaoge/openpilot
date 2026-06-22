@@ -2,12 +2,17 @@ from openpilot.common.params import Params
 from openpilot.selfdrive.ui.widgets.ssh_key import ssh_key_item
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.widgets.list_view import toggle_item
+from openpilot.system.ui.widgets.list_view import toggle_item, button_item
 from openpilot.system.ui.widgets.scroller_tici import Scroller
 from openpilot.system.ui.widgets.confirm_dialog import ConfirmDialog
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.multilang import tr, tr_noop
 from openpilot.system.ui.widgets import DialogResult
+
+# rick - for show error logs
+from openpilot.system.ui.widgets.html_render import HtmlModal
+import os
+from openpilot.common.basedir import BASEDIR
 
 # Description constants
 DESCRIPTIONS = {
@@ -33,6 +38,7 @@ class DeveloperLayout(Widget):
     super().__init__()
     self._params = Params()
     self._is_release = self._params.get_bool("IsReleaseBranch")
+    self._last_error_log_dialog: HtmlModal | None = None
 
     # Build items and keep references for callbacks/state updates
     self._adb_toggle = toggle_item(
@@ -99,6 +105,7 @@ class DeveloperLayout(Widget):
       self._lat_maneuver_toggle,
       self._alpha_long_toggle,
       self._ui_debug_toggle,
+      button_item(lambda: tr("Show Last Errors"), lambda: tr("Show"), callback=self._on_show_last_errors),
     ], line_separator=True, spacing=0)
 
     # Toggles should be not available to change in onroad state
@@ -203,3 +210,8 @@ class DeveloperLayout(Widget):
       self._params.put_bool("AlphaLongitudinalEnabled", False, block=True)
       self._params.put_bool("OnroadCycleRequested", True, block=True)
       self._update_toggles()
+
+  def _on_show_last_errors(self):
+    if not self._last_error_log_dialog:
+      self._last_error_log_dialog = HtmlModal(text=(self._params.get("dp_dev_last_log") or ""))
+    gui_app.push_widget(self._last_error_log_dialog)

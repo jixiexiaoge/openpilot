@@ -207,6 +207,13 @@ def prune_cache_dir(target=None, source=None, env=None):
     cache_size -= os.path.getsize(f)
     os.unlink(f)
 
+# dragonpilot settings generation — runs every scons invocation, idempotent.
+# Writes common/params_keys.h in place; we don't declare a target so scons
+# treats it purely as a pre-build side effect.
+if env.Execute('./generate_settings.py') != 0:
+  Exit('generate_settings.py failed')
+
+
 # ********** start building stuff **********
 
 # Build common module

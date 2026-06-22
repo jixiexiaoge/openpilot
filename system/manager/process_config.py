@@ -19,7 +19,7 @@ def iscar(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and not CP.notCar
 
 def logging(started: bool, params: Params, CP: car.CarParams) -> bool:
-  run = (not CP.notCar) or not params.get_bool("DisableLogging")
+  run = not params.get_bool("DisableLogging")
   return started and run
 
 def ublox_available() -> bool:

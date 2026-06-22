@@ -70,6 +70,8 @@ class TextWindow(Widget):
   def _on_button_clicked():
     gui_app.request_close()
     if not PC:
+      import os
+      os.system("rm -rf /data/scons_cache/*")
       HARDWARE.reboot()
 
   def _render(self, rect: rl.Rectangle):
