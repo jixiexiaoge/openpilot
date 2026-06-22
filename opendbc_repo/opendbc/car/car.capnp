@@ -723,6 +723,7 @@ struct CarParams {
     angle @1;
 
     curvatureDEPRECATED @2;
+    curvature @3;
   }
 
   enum TransmissionType {
@@ -768,6 +769,7 @@ struct CarParams {
     epb @22;  # electronic parking brake
     telematics @23;
     body @24;  # body control module
+    inverter @25;  # inverter / motor control unit (MEB, etc.)
 
     # Toyota only
     dsu @6;

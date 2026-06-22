@@ -53,6 +53,16 @@ legend = ["LAT_ACCEL_FACTOR", "MAX_LAT_ACCEL_MEASURED", "FRICTION"]
 "VOLKSWAGEN_CADDY_MK3" = [1.2, 1.2, 0.1]
 "VOLKSWAGEN_PASSAT_NMS" = [2.5, 2.5, 0.1]
 "VOLKSWAGEN_SHARAN_MK2" = [2.5, 2.5, 0.1]
+
+# MQBevo (curvature control)
+"VOLKSWAGEN_GOLF_MK8" = [nan, 2.0, nan]
+
+# MEB (curvature control)
+"VOLKSWAGEN_ID3_MK1" = [nan, 2.0, nan]
+"VOLKSWAGEN_ID4_MK1" = [nan, 2.0, nan]
+"AUDI_Q4_MK1" = [nan, 2.0, nan]
+"CUPRA_BORN_MK1" = [nan, 2.0, nan]
+"SKODA_ENYAQ_MK1" = [nan, 2.0, nan]
 "HYUNDAI_SANTA_CRUZ_1ST_GEN" = [2.7, 2.7, 0.1]
 "KIA_SPORTAGE_5TH_GEN" = [2.6, 2.6, 0.1]
 "GENESIS_GV70_1ST_GEN" = [2.42, 2.42, 0.1]

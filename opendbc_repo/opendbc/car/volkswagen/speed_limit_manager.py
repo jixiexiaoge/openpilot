@@ -3,7 +3,7 @@ import math
 
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.volkswagen.values import VolkswagenFlags
-from opendbc.car.lateral import ISO_LATERAL_ACCEL
+from opendbc.car import ISO_LATERAL_ACCEL
 
 NOT_SET = 0
 SPEED_SUGGESTED_MAX_HIGHWAY_GER_KPH = 130
