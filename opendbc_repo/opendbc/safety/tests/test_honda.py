@@ -338,6 +338,47 @@ class TestHondaNidecPcmSafety(HondaPcmEnableBase, TestHondaNidecSafetyBase):
     pass
 
 
+class TestHondaNidecStockLongSafety(HondaPcmEnableBase, TestHondaNidecSafetyBase):
+  """
+    Covers Honda Nidec with stock longitudinal control
+  """
+  TX_MSGS = [[0xE4, 0], [0x194, 0], [0x33D, 0]]
+  FWD_BLACKLISTED_ADDRS = {2: [0xE4, 0x194, 0x33D]}
+  RELAY_MALFUNCTION_ADDRS = {0: (0xE4, 0x194, 0x33D)}
+
+  def setUp(self):
+    self.packer = CANPackerSafety("honda_civic_touring_2016_can_generated")
+    self.safety = libsafety_py.libsafety
+    self.safety.set_safety_hooks(CarParams.SafetyModel.hondaNidec, HondaSafetyFlags.NIDEC_STOCK_LONG)
+    self.safety.init_tests()
+
+  # Nidec doesn't disengage on falling edge of cruise
+  def test_disable_control_allowed_from_cruise(self):
+    pass
+
+  # No-op longitudinal tests (stock handles it)
+  def test_brake_safety_check(self):
+    pass
+
+  def test_acc_hud_safety_check(self):
+    pass
+
+  def test_fwd_hook(self):
+    pass
+
+  def test_honda_fwd_brake_latching(self):
+    pass
+
+  def _send_brake_msg(self, brake, aeb_req=0, bus=0):
+    pass
+
+  def _rx_brake_msg(self, brake, aeb_req=0):
+    pass
+
+  def _send_acc_hud_msg(self, pcm_gas, pcm_speed):
+    pass
+
+
 class TestHondaNidecPcmAltSafety(TestHondaNidecPcmSafety):
   """
     Covers the Honda Nidec safety mode with alt SCM messages

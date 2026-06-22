@@ -51,6 +51,8 @@ class CarController(CarControllerBase):
     self.apply_torque_last = 0
     self.gra_acc_counter_last = None
     self.hca_mitigation = HCAMitigation(self.CCP)
+    self._dp_vag_a0_sng = bool(self.CP.flags & VolkswagenFlags.A0SnG)
+    self.dp_avoid_eps_lockout = CP.flags & VolkswagenFlags.AVOID_EPS_LOCKOUT
 
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
@@ -62,7 +64,13 @@ class CarController(CarControllerBase):
     if self.frame % self.CCP.STEER_STEP == 0:
       apply_torque = 0
       if CC.latActive:
-        new_torque = int(round(actuators.torque * self.CCP.STEER_MAX))
+        if self.dp_avoid_eps_lockout:
+          #根據速度縮放new_torque扭力上限
+          torque_scale = np.interp(CS.out.vEgo, [0.4, 3.5, 4.0], [0.8, 0.95, 1.0])
+          scaled_steer_max = self.CCP.STEER_MAX * torque_scale
+          new_torque = int(round(actuators.torque * scaled_steer_max))
+        else:
+          new_torque = int(round(actuators.torque * self.CCP.STEER_MAX))
         apply_torque = apply_driver_steer_torque_limits(new_torque, self.apply_torque_last, CS.out.steeringTorque, self.CCP)
 
       apply_torque = self.hca_mitigation.update(apply_torque, self.apply_torque_last)
@@ -117,11 +125,22 @@ class CarController(CarControllerBase):
                                                        lead_distance, hud_control.leadDistanceBars))
 
     # **** Stock ACC Button Controls **************************************** #
+    if self._dp_vag_a0_sng:
+      if self.CP.pcmCruise and CS.gra_stock_values["COUNTER"] != self.gra_acc_counter_last:
+        standing_resume_spam = CS.out.standstill
+        spam_window = self.frame % 50 < 15
 
-    gra_send_ready = self.CP.pcmCruise and CS.gra_stock_values["COUNTER"] != self.gra_acc_counter_last
-    if gra_send_ready and (CC.cruiseControl.cancel or CC.cruiseControl.resume):
-      can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, self.CAN.ext, CS.gra_stock_values,
-                                                           cancel=CC.cruiseControl.cancel, resume=CC.cruiseControl.resume))
+        send_cancel = CC.cruiseControl.cancel
+        send_resume = CC.cruiseControl.resume or (standing_resume_spam and spam_window)
+
+        if send_cancel or send_resume:
+          can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, self.CAN.ext, CS.gra_stock_values,
+                                                               cancel=send_cancel, resume=send_resume))
+    else:
+      gra_send_ready = self.CP.pcmCruise and CS.gra_stock_values["COUNTER"] != self.gra_acc_counter_last
+      if gra_send_ready and (CC.cruiseControl.cancel or CC.cruiseControl.resume):
+        can_sends.append(self.CCS.create_acc_buttons_control(self.packer_pt, self.CAN.ext, CS.gra_stock_values,
+                                                             cancel=CC.cruiseControl.cancel, resume=CC.cruiseControl.resume))
 
     new_actuators = actuators.as_builder()
     new_actuators.torque = self.apply_torque_last / self.CCP.STEER_MAX

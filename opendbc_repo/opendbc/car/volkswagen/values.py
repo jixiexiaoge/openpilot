@@ -189,6 +189,8 @@ class VolkswagenFlags(IntFlag):
   PQ = 2
   MLB = 8
 
+  A0SnG = 2 ** 10
+  AVOID_EPS_LOCKOUT = 2 ** 11
 
 @dataclass
 class VolkswagenMLBPlatformConfig(PlatformConfig):
