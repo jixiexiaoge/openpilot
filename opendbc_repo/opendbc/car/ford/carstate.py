@@ -113,6 +113,9 @@ class CarState(CarStateBase):
       *create_button_events(self.lc_button, prev_lc_button, {1: ButtonType.lkas}),
     ]
 
+    # dp - ALKA: direct tracking - lkas_on follows acc_main (cruiseState.available)
+    self.lkas_on = ret.cruiseState.available
+
     return ret
 
   @staticmethod

@@ -1,0 +1,20 @@
+settings:
+  - key: dp_dev_is_rhd
+    type: toggle_item
+    title: "Enable Right-Hand Drive Mode"
+    description: "Allow openpilot to obey right-hand traffic conventions on right driver seat."
+    category: "Device"
+    condition: "LITE"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"
+
+  - key: dp_dev_beep
+    type: toggle_item
+    title: "Enable Beep (Warning)"
+    description: "Use Buzzer for audiable alerts."
+    category: "Device"
+    condition: "LITE"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"

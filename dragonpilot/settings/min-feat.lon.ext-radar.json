@@ -1,0 +1,14 @@
+{
+  "settings": [
+    {
+      "key": "dp_lon_ext_radar",
+      "type": "toggle_item",
+      "title": "Use External Radar",
+      "description": "See https://github.com/eFiniLan/openpilot-ext-radar-addon for more information.",
+      "category": "Device",
+      "flags": "PERSISTENT",
+      "param_type": "BOOL",
+      "default": "0"
+    }
+  ]
+}

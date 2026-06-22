@@ -155,8 +155,15 @@ static void ford_rx_hook(const CANPacket_t *msg) {
       brake_pressed = ((msg->data[0] >> 4) & 0x3U) == 2U;
 
       // Signal: CcStat_D_Actl
+      // 0=Off, 1=Denied, 2=Standby_Denied, 3=Standby, 4=Active_Que_Assist, 5=Active
       unsigned int cruise_state = msg->data[1] & 0x07U;
       bool cruise_engaged = (cruise_state == 4U) || (cruise_state == 5U);
+      // dp - ALKA: Ford ACC main on when in Standby (3) or Active states (4, 5)
+      acc_main_on = (cruise_state == 3U) || cruise_engaged;
+      // dp - ALKA: ACC main on = ALKA enabled
+      if (alka_allowed && ((alternative_experience & ALT_EXP_ALKA) != 0)) {
+        lkas_on = acc_main_on;
+      }
       pcm_cruise_check(cruise_engaged);
     }
   }
@@ -283,6 +290,8 @@ static bool ford_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config ford_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Ford
+
   // warning: quality flags are not yet checked in openpilot's CAN parser,
   // this may be the cause of blocked messages
   static RxCheck ford_rx_checks[] = {

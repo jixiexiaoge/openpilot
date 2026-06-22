@@ -10,6 +10,7 @@ from openpilot.selfdrive.ui.body.layouts.onroad import BodyLayout
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.scroller import Scroller
 from openpilot.system.ui.lib.application import gui_app
+from dragonpilot.selfdrive.ui.mici.layouts.dashy_qrcode import DashyQRCode
 
 
 ONROAD_DELAY = 2.5  # seconds
@@ -31,15 +32,19 @@ class MiciMainLayout(Scroller):
     self._alerts_layout = MiciOffroadAlerts()
     self._settings_layout = SettingsLayout()
     self._car_onroad_layout = AugmentedRoadView(bookmark_callback=self._on_bookmark_clicked)
+
+    # dp dashy
+    self._dashy_qrcode_layout = DashyQRCode()
     self._body_onroad_layout = BodyLayout()
 
     # Initialize widget rects
     for widget in (self._home_layout, self._alerts_layout, self._settings_layout,
-                   self._car_onroad_layout, self._body_onroad_layout):
+                   self._car_onroad_layout, self._body_onroad_layout, self._dashy_qrcode_layout):
       # TODO: set parent rect and use it if never passed rect from render (like in Scroller)
       widget.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
 
     self._scroller.add_widgets([
+      self._dashy_qrcode_layout,
       self._alerts_layout,
       self._home_layout,
       self._car_onroad_layout,
@@ -93,7 +98,8 @@ class MiciMainLayout(Scroller):
       if self._alerts_layout.active_alerts() > 0:
         self._scroller.scroll_to(self._alerts_layout.rect.x)
       else:
-        self._scroller.scroll_to(self._rect.width)
+        # dp - home is at index 2 in scroller: [dashy_qrcode, alerts, home, onroad]
+        self._scroller.scroll_to(self._rect.width * 2)
       self._setup = True
 
     # Render

@@ -9,10 +9,11 @@ ACTIVE_STATES = (State.enabled, State.softDisabling, State.overriding)
 ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 
 class StateMachine:
-  def __init__(self):
+  def __init__(self, alka=False):
     self.current_alert_types = [ET.PERMANENT]
     self.state = State.disabled
     self.soft_disable_timer = 0
+    self.alka = alka
 
   def update(self, events: Events):
     # decrement the soft disable timer at every step, as it's reset on
@@ -92,7 +93,8 @@ class StateMachine:
     # Check if openpilot is engaged and actuators are enabled
     enabled = self.state in ENABLED_STATES
     active = self.state in ACTIVE_STATES
-    if active:
+    # dp - ALKA: show warnings when ALKA is enabled (for safety alerts during lane keeping)
+    if active or self.alka:
       self.current_alert_types.append(ET.WARNING)
     return enabled, active
 

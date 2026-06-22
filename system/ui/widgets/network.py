@@ -154,6 +154,13 @@ class AdvancedNetworkSettings(Widget):
 
     self._scroller = Scroller(items, line_separator=True, spacing=0)
 
+    # dp - retain tethering after reboot
+    # same logic as _toggle_tethering()
+    if self._params.get_bool("dp_dev_tethering"):
+      self._tethering_action.set_enabled(False)
+      self._wifi_metered_action.set_enabled(False)
+      self._wifi_manager.set_tethering_active(True)
+
   def _on_network_updated(self, networks: list[Network]):
     self._tethering_action.set_enabled(True)
     self._tethering_action.set_state(self._wifi_manager.is_tethering_active())
@@ -169,6 +176,7 @@ class AdvancedNetworkSettings(Widget):
 
   def _toggle_tethering(self):
     checked = self._tethering_action.get_state()
+    self._params.put_bool_nonblocking("dp_dev_tethering", checked)
     self._tethering_action.set_enabled(False)
     if checked:
       self._wifi_metered_action.set_enabled(False)

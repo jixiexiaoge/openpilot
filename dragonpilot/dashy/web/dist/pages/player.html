@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HLS Player</title>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; background-color: #000; }
+    #video { width: 100%; height: 100%; }
+  </style>
+  <script src="/lib/hls.js"></script>
+</head>
+<body>
+  <video id="video" controls autoplay></video>
+  <script>
+    var v = document.getElementById('video');
+    var s = '/api/manifest.m3u8?file={{FILE_PATH}}';
+    if (Hls.isSupported()) {
+      var h = new Hls();
+      h.loadSource(s);
+      h.attachMedia(v);
+    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+      v.src = s;
+    }
+  </script>
+</body>
+</html>

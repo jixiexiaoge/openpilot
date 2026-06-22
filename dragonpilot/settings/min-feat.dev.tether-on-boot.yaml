@@ -1,0 +1,6 @@
+settings:
+  - key: dp_dev_tethering
+    category: "Device"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"

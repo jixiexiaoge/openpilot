@@ -7,6 +7,34 @@ from openpilot.common.i2c import SMBus
 # https://datasheets.maximintegrated.com/en/ds/MAX98089.pdf
 
 AmpConfig = namedtuple('AmpConfig', ['name', 'value', 'register', 'offset', 'mask'])
+EQParams = namedtuple('EQParams', ['K', 'k1', 'k2', 'c1', 'c2'])
+
+def configs_from_eq_params(base, eq_params):
+  return [
+    AmpConfig("K (high)", (eq_params.K >> 8), base, 0, 0xFF),
+    AmpConfig("K (low)", (eq_params.K & 0xFF), base + 1, 0, 0xFF),
+    AmpConfig("k1 (high)", (eq_params.k1 >> 8), base + 2, 0, 0xFF),
+    AmpConfig("k1 (low)", (eq_params.k1 & 0xFF), base + 3, 0, 0xFF),
+    AmpConfig("k2 (high)", (eq_params.k2 >> 8), base + 4, 0, 0xFF),
+    AmpConfig("k2 (low)", (eq_params.k2 & 0xFF), base + 5, 0, 0xFF),
+    AmpConfig("c1 (high)", (eq_params.c1 >> 8), base + 6, 0, 0xFF),
+    AmpConfig("c1 (low)", (eq_params.c1 & 0xFF), base + 7, 0, 0xFF),
+    AmpConfig("c2 (high)", (eq_params.c2 >> 8), base + 8, 0, 0xFF),
+    AmpConfig("c2 (low)", (eq_params.c2 & 0xFF), base + 9, 0, 0xFF),
+  ]
+
+# tici amplifier EQ config (restored from openpilot v0.10.0)
+TICI_CONFIG = [
+  AmpConfig("Right speaker output from right DAC", 0b1, 0x2C, 0, 0b11111111),
+  AmpConfig("Right Speaker Mixer Gain", 0b00, 0x2D, 2, 0b00001100),
+  AmpConfig("Right speaker output volume", 0x1c, 0x3E, 0, 0b00011111),
+  AmpConfig("DAI2 EQ enable", 0b1, 0x49, 1, 0b00000010),
+  *configs_from_eq_params(0x84, EQParams(0x274F, 0xC0FF, 0x3BF9, 0x0B3C, 0x1656)),
+  *configs_from_eq_params(0x8E, EQParams(0x1009, 0xC6BF, 0x2952, 0x1C97, 0x30DF)),
+  *configs_from_eq_params(0x98, EQParams(0x0F75, 0xCBE5, 0x0ED2, 0x2528, 0x3E42)),
+  *configs_from_eq_params(0xA2, EQParams(0x091F, 0x3D4C, 0xCE11, 0x1266, 0x2807)),
+  *configs_from_eq_params(0xAC, EQParams(0x0A9E, 0x3F20, 0xE573, 0x0A8B, 0x3A3B)),
+]
 
 CONFIG = [
   AmpConfig("MCLK prescaler", 0b01, 0x10, 4, 0b00110000),
@@ -109,15 +137,20 @@ class Amplifier:
   def set_global_shutdown(self, amp_disabled: bool) -> bool:
     return self.set_configs([self._get_shutdown_config(amp_disabled), ])
 
-  def initialize_configuration(self) -> bool:
+  def initialize_configuration(self, model: str = "") -> bool:
     cfgs = [
       self._get_shutdown_config(True),
       *CONFIG,
+      *(TICI_CONFIG if model == "tici" else []),
       self._get_shutdown_config(False),
     ]
     return self.set_configs(cfgs)
 
 
 if __name__ == "__main__":
+  with open("/sys/firmware/devicetree/base/model") as f:
+    model = f.read().strip('\x00')
+  model = model.split('comma ')[-1]
+
   amp = Amplifier()
-  amp.initialize_configuration()
+  amp.initialize_configuration(model)

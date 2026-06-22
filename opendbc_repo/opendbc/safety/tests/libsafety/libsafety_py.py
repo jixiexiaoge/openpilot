@@ -18,7 +18,7 @@ def _build_libsafety() -> str:
   cflags = [
     '-Wall', '-Wextra', '-Werror', '-nostdlib', '-fno-builtin',
     '-std=gnu11', '-Wfatal-errors', '-Wno-pointer-to-int-cast',
-    '-g', '-O0', '-fno-omit-frame-pointer', '-DALLOW_DEBUG',
+    '-g', '-O0', '-fno-omit-frame-pointer', '-DALLOW_DEBUG', '-DCANFD',
     '-fprofile-arcs', '-ftest-coverage',
   ]
   ldflags = [
@@ -72,7 +72,12 @@ void set_gas_pressed_prev(bool);
 bool get_brake_pressed_prev(void);
 bool get_regen_braking_prev(void);
 bool get_steering_disengage_prev(void);
+void set_steering_disengage(bool c);
 bool get_acc_main_on(void);
+bool get_alka_allowed(void);
+bool get_lkas_on(void);
+void set_lkas_on(bool c);
+bool get_lat_control_allowed(void);
 float get_vehicle_speed_min(void);
 float get_vehicle_speed_max(void);
 int get_current_safety_mode(void);

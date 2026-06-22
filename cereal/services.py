@@ -93,6 +93,10 @@ _services: dict[str, tuple] = {
   "livestreamRoadEncodeData": (False, 20., None, QueueSize.MEDIUM),
   "livestreamDriverEncodeData": (False, 20., None, QueueSize.MEDIUM),
   "customReservedRawData0": (True, 0.),
+  "controlsStateExt": (True, 100.),
+  "carStateExt": (True, 100.),
+  "modelExt": (True, 20.),
+  "dashyState": (True, 0.),    # Aggregated dashy UI state (optional)
 }
 SERVICE_LIST = {name: Service(*vals) for
                 idx, (name, vals) in enumerate(_services.items())}

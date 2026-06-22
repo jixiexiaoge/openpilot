@@ -1,0 +1,21 @@
+settings:
+  - key: dp_dev_dashy
+    type: toggle_item
+    title: "dashy HUD"
+    description: "dashy - dragonpilot's all-in-one system hub for you.<br><br>Visit http://<device_ip>:5088 to access.<br><br>Enable this to use Tesla HUD."
+    category: "Device"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"
+  - key: dp_maa_route
+    category: "Device"
+    flags: CLEAR_ON_MANAGER_START
+    param_type: JSON
+  - key: dp_maa_destination
+    category: "Device"
+    flags: PERSISTENT
+    param_type: JSON
+  - key: dp_maa_places
+    category: "Device"
+    flags: PERSISTENT
+    param_type: JSON

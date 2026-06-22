@@ -32,6 +32,11 @@ static void subaru_preglobal_rx_hook(const CANPacket_t *msg) {
     // enter controls on rising edge of ACC, exit controls on ACC off
     if (msg->addr == MSG_SUBARU_PG_CruiseControl) {
       bool cruise_engaged = (msg->data[6] >> 1) & 1U;
+      // dp - ALKA: Cruise_On (bit 48) - use ACC main for LKAS state
+      acc_main_on = GET_BIT(msg, 48U);
+      if (alka_allowed && (alternative_experience & ALT_EXP_ALKA)) {
+        lkas_on = acc_main_on;
+      }
       pcm_cruise_check(cruise_engaged);
     }
 
@@ -78,6 +83,8 @@ static bool subaru_preglobal_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config subaru_preglobal_init(uint16_t param) {
+  alka_allowed = true;  // dp - ALKA enabled for Subaru preglobal
+
   static const CanMsg SUBARU_PG_TX_MSGS[] = {
     {MSG_SUBARU_PG_ES_Distance, SUBARU_PG_MAIN_BUS, 8, .check_relay = true},
     {MSG_SUBARU_PG_ES_LKAS,     SUBARU_PG_MAIN_BUS, 8, .check_relay = true}

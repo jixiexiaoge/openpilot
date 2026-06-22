@@ -23,6 +23,8 @@ class NetworkLayoutMici(NavScroller):
 
     # ******** Tethering ********
     def tethering_toggle_callback(checked: bool):
+      # dp - persist user's tethering preference so it survives reboot
+      ui_state.params.put_bool_nonblocking("dp_dev_tethering", checked)
       self._tethering_toggle_btn.set_enabled(False)
       self._tethering_password_btn.set_enabled(False)
       self._network_metered_btn.set_enabled(False)
@@ -87,6 +89,13 @@ class NetworkLayoutMici(NavScroller):
       self._cellular_metered_btn,
       # */
     ])
+
+    # dp - retain tethering after reboot (mirrors comma3/3x logic in system/ui/widgets/network.py)
+    if ui_state.params.get_bool("dp_dev_tethering"):
+      self._tethering_toggle_btn.set_enabled(False)
+      self._tethering_password_btn.set_enabled(False)
+      self._network_metered_btn.set_enabled(False)
+      self._wifi_manager.set_tethering_active(True)
 
   def _update_state(self):
     super()._update_state()

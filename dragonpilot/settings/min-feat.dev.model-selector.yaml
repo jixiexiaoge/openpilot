@@ -1,0 +1,9 @@
+settings:
+  - key: dp_dev_model_selected
+    category: "Device"
+    flags: PERSISTENT
+    param_type: STRING
+  - key: dp_dev_model_list
+    category: "Device"
+    flags: PERSISTENT
+    param_type: STRING

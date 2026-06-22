@@ -1,0 +1,15 @@
+settings:
+  - key: dp_ui_hide_hud_speed_kph
+    type: spin_button_item
+    title: "Hide HUD When Moves above:"
+    description: "To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.<br>Off = Stock Behavior<br>1 km/h = 0.6 mph"
+    category: "UI"
+    condition: "not MICI"
+    default: 0
+    min_val: 0
+    max_val: 120
+    step: 5
+    suffix: "km/h"
+    special_value_text: "Off"
+    flags: PERSISTENT
+    param_type: INT
