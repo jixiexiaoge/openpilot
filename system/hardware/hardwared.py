@@ -236,6 +236,7 @@ def hardware_thread(end_event, hw_queue) -> None:
   should_start_prev = False
   in_car = False
   engaged_prev = False
+  pwrsave = False
 
   params = Params()
   cp_cache = _CarParamsCache()
@@ -377,7 +378,6 @@ def hardware_thread(end_event, hw_queue) -> None:
     if should_start != should_start_prev or (count == 0):
       params.put_bool("IsEngaged", False)
       engaged_prev = False
-      HARDWARE.set_power_save(not should_start)
 
     if sm.updated['selfdriveState']:
       engaged = sm['selfdriveState'].enabled
@@ -395,11 +395,12 @@ def hardware_thread(end_event, hw_queue) -> None:
     cp_cache.update(params)
     tesla_no_sleep = cp_cache.is_tesla
 
-    if should_start != should_start_prev or (count == 0):
-      params.put_bool("IsEngaged", False)
-      engaged_prev = False
-      if not tesla_no_sleep:
-        HARDWARE.set_power_save(not should_start)
+    # Power save decision: independent of should_start
+    # For Tesla: never power save (CAN stays alive when parked)
+    should_pwrsave = (not tesla_no_sleep) and (not onroad_conditions["ignition"] and msg.deviceState.screenBrightnessPercent < 1e-3)
+    if should_pwrsave != pwrsave or (count == 0):
+      HARDWARE.set_power_save(should_pwrsave)
+    pwrsave = should_pwrsave
 
     if should_start:
       off_ts = None
@@ -420,6 +421,11 @@ def hardware_thread(end_event, hw_queue) -> None:
       started_ts = None
       if off_ts is None:
         off_ts = time.monotonic()
+
+    # On Tesla, keep started_ts valid even when parked so the manager
+    # does NOT kill selfdrive/controls processes (CAN stays alive).
+    if tesla_no_sleep and started_ts is None and started_seen:
+      started_ts = time.monotonic()
 
     # Offroad power monitoring
     voltage = None if peripheralState.pandaType == log.PandaState.PandaType.unknown else peripheralState.voltage
