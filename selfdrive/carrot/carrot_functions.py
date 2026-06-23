@@ -323,19 +323,30 @@ class CarrotPlanner:
       t_follow *= dynamicTFollowLC
       self.jerk_factor_apply = self.jerk_factor * dynamicTFollowLC
 
-    # 일반 lead follow: lead.jLead 기반 동적 조절
-    elif lead.status and self.dynamicTFollow > 0.0:
-      # lead.jLead 필터링을 통해 고주파 노이즈 제거
-      self.filtered_j_lead = 0.9 * self.filtered_j_lead + 0.1 * lead.jLead
-      # lead.jLead < 0 : 앞차가 감속 방향으로 변함 -> 차간거리 증가
-      # lead.jLead > 0 : 앞차가 가속 방향으로 변함 -> 차간거리 감소
-      t_follow += np.interp(self.filtered_j_lead, [-3.0, -0.5, 0.5, 2.0], [1.0, 0.0, 0.0, -1.0]) * self.dynamicTFollow
+    # 일반 lead follow:
+    elif lead.status:
+      if self.dynamicTFollow > 0.0:
+        # lead.jLead 필터링을 통해 고주파 노이즈 제거
+        self.filtered_j_lead = 0.9 * self.filtered_j_lead + 0.1 * lead.jLead
+        # lead.jLead < 0 : 앞차가 감속 방향으로 변함 -> 차간거리 증가
+        # lead.jLead > 0 : 앞차가 가속 방향으로 변함 -> 차간거리 감소
+        t_follow += np.interp(self.filtered_j_lead, [-3.0, -0.5, 0.5, 2.0], [1.0, 0.0, 0.0, -1.0]) * self.dynamicTFollow
+        t_follow = np.clip(t_follow, 0.3, 2.0)
 
-      # 앞차가 풀어주는 상황에서는 jerk factor 약간 낮춰서 더 민첩하게
-      if self.filtered_j_lead > 0.2:
-        self.jerk_factor_apply = self.jerk_factor * 0.5
-
-      t_follow = np.clip(t_follow, 0.3, 2.0)
+      # Dynamic Jerk Control for early & gentle braking:
+      # If lead deceleration is detected and we are not braking hard, increase jerk penalty (make it smoother/gentler).
+      # Relax it back to normal jerk factor as distance error grows or ego deceleration increases.
+      if lead.aLeadK < -0.5 or lead.jLead < -0.2:
+        dist_err = desired_follow_distance - lead.dRel
+        prev_a_scalar = float(prev_a[0]) if hasattr(prev_a, "__len__") else float(prev_a)
+        scale_err = float(np.interp(dist_err, [0.0, 5.0], [1.8, 1.0]))
+        scale_decel = float(np.interp(prev_a_scalar, [-1.5, -0.5], [1.0, 1.8]))
+        jerk_scale = min(scale_err, scale_decel)
+        self.jerk_factor_apply = self.jerk_factor * jerk_scale
+      elif self.filtered_j_lead > 0.5:
+        # 선행차가 가속하며 멀어짐: jerk penalty를 약간 낮춰 재가속을 민첩하게 (부분 복원).
+        # 원래(0.2/0.5)보다 둔감한 임계(0.5)·완화(0.7)로 토크 surge를 피하면서 회복성만 보강.
+        self.jerk_factor_apply = self.jerk_factor * 0.7
 
     return self.apply_t_follow(t_follow, 0.0)
 
@@ -610,6 +621,10 @@ class CarrotPlanner:
       mode = 'blended' if self.xState in [XState.e2ePrepare] else 'acc'
 
     self.comfort_brake *= self.mySafeFactor
+    # Low-Speed Comfort Brake Scaling
+    v_ego_kph = v_ego * CV.MS_TO_KPH
+    low_speed_factor = float(np.interp(v_ego_kph, [2.0, 10.0], [0.7, 1.0]))
+    self.comfort_brake *= low_speed_factor
     self.actual_stop_distance = max(0, self.actual_stop_distance - (v_ego * DT_MDL))
 
     if stop_model_x == 1000.0: ##  e2eCruise, lead�ΰ��

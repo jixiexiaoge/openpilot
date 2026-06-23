@@ -412,7 +412,9 @@ class LongitudinalMpc:
                                  v_upper)
       cruise_obstacle = np.cumsum(T_DIFFS * v_cruise_clipped) + get_safe_obstacle_distance(v_cruise_clipped, t_follow, comfort_brake, stop_distance)
 
-      adjust_dist = carrot.trafficStopDistanceAdjust if v_ego > 0.1 else -2.0
+      # 최종 정차(v<=0.1)는 파라미터 대신 하드코딩 보정 사용. 0에 가까울수록 정지점에 더 바짝 정차.
+      # 정지차(모델 인식)도 이 경로를 타므로 안전여유 확보 필요 → -1.5 (과거 -2.0은 너무 멀고, -1.0은 추돌위험).
+      adjust_dist = carrot.trafficStopDistanceAdjust if v_ego > 0.1 else -1.5
       if 50 < stop_x + adjust_dist < cruise_obstacle[0]:
         stop_x = cruise_obstacle[0] - adjust_dist
       x2 = stop_x * np.ones(N+1) + adjust_dist

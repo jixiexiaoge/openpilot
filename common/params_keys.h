@@ -179,6 +179,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"CarrotDSPRecommend", {PERSISTENT, BYTES, ""}},           // DSP: 초기값 추천 (JSON)
     {"CarrotDSPPopupReady", {PERSISTENT, BOOL, "0"}},          // DSP: 팝업 신호
     {"CarrotDSPComplete", {PERSISTENT, BOOL, "0"}},            // DSP: 프로파일링 완료 여부
+    {"TimezoneName", {PERSISTENT, STRING, ""}},                // 로컬 타임존 IANA 이름 (예: "Asia/Seoul"), 앱/WiFi/GPS로 해석되면 기록
+    {"TimezoneSource", {PERSISTENT, STRING, ""}},              // 타임존 출처 우선순위 추적 ("app" > "wifi" > "gps")
     {"ShowCustomBrightness", {PERSISTENT, INT, "100"}},
     {"ShowModelView", {PERSISTENT, INT, "0"}},
     {"ClusterHud", {PERSISTENT, INT, "0"}},
@@ -309,7 +311,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"TFollowDecelBoost", {PERSISTENT, INT, "10"}},
     {"EnableSpeedTF", {PERSISTENT, INT, "0"}},
     {"AChangeCostStarting", {PERSISTENT, INT, "10"}},
-    {"TrafficStopDistanceAdjust", {PERSISTENT, INT, "-150"}},
+    {"TrafficStopDistanceAdjust", {PERSISTENT, INT, "-100"}},
 
     {"HapticFeedbackWhenSpeedCamera", {PERSISTENT, INT, "0"}},
     {"UseLaneLineSpeed", {PERSISTENT, INT, "0"}},

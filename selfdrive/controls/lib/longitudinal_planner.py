@@ -237,7 +237,20 @@ class LongitudinalPlanner:
 
     # Interpolate 0.05 seconds and save as starting point for next iteration
     a_prev = self.a_desired
-    self.a_desired = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
+    a_target = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
+    if a_target > a_prev:
+      v_ego_kph = v_ego * CV.MS_TO_KPH
+      if a_prev < 0.0:
+        # 감속 해제(brake release): 선행차가 다시 멀어질 때 계속 감속하다 정지 직전
+        # 급가속하는 문제를 막기 위해, 음수 가속도를 0으로 푸는 구간은 jerk를 크게 허용한다.
+        max_positive_jerk = 3.0
+      else:
+        # 진짜 가속 build-up만 부드럽게 제한 (원래 의도 유지)
+        jerk_speed = float(np.interp(v_ego_kph, [0.0, 30.0, 80.0], [0.6, 1.0, 1.4]))
+        jerk_accel = float(np.interp(a_prev, [0.0, 1.0], [1.0, 0.7]))
+        max_positive_jerk = jerk_speed * jerk_accel
+      a_target = min(a_target, a_prev + max_positive_jerk * self.dt)
+    self.a_desired = a_target
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
 
     longitudinalActuatorDelay = self.params.get_float("LongActuatorDelay")*0.01

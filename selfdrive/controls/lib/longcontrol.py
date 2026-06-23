@@ -116,10 +116,13 @@ class LongControl:
 
       stopAccel = self.stopping_accel if self.stopping_accel < 0.0 else self.CP.stopAccel
       if output_accel > stopAccel:
-        # 저속일수록 감속 rate를 줄여서 정차 직전 꿀렁임 방지
-        speed_factor = np.interp(CS.vEgo, [0.0, 0.5, 2.0], [0.3, 0.5, 1.0])
+        # 저속일수록 감속 rate를 줄여서 정차 직전 꿀렁임 방지 (속도 비례 감속 한계 조절)
+        speed_factor = float(np.interp(CS.vEgo, [0.0, 0.2, 0.5, 1.5], [0.05, 0.1, 0.3, 1.0]))
+        # Brake Cushion: stopAccel에 가까워질수록 감속 rate를 더 줄여서 부드럽게 안착
+        accel_margin = max(output_accel - stopAccel, 0.01)
+        cushion_factor = float(np.interp(accel_margin, [0.0, 0.3, 1.0], [0.15, 0.5, 1.0]))
         output_accel = min(output_accel, 0.0)
-        output_accel -= self.CP.stoppingDecelRate * speed_factor * DT_CTRL
+        output_accel -= self.CP.stoppingDecelRate * speed_factor * cushion_factor * DT_CTRL
       self.reset()
 
     elif self.long_control_state == LongCtrlState.starting:

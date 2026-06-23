@@ -782,20 +782,23 @@ AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
   auto updateToggles = [=]() {
     bool apply_lat = Params().getBool("CarrotTunerApplyLat");
     bool apply_long = Params().getBool("CarrotTunerApplyLong");
+    // 활성(ON)=초록, 비활성(OFF)=회색
+    QString on_style = "background-color: #178644; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;";
+    QString off_style = "background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;";
     if (apply_lat) {
       lat_toggle->setText(tr("Apply LAT (Steering): ON"));
-      lat_toggle->setStyleSheet("background-color: #bb3333; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+      lat_toggle->setStyleSheet(on_style);
     } else {
       lat_toggle->setText(tr("Apply LAT (Steering): OFF"));
-      lat_toggle->setStyleSheet("background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+      lat_toggle->setStyleSheet(off_style);
     }
 
     if (apply_long) {
       long_toggle->setText(tr("Apply LONG (Accel): ON"));
-      long_toggle->setStyleSheet("background-color: #bb3333; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+      long_toggle->setStyleSheet(on_style);
     } else {
       long_toggle->setText(tr("Apply LONG (Accel): OFF"));
-      long_toggle->setStyleSheet("background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+      long_toggle->setStyleSheet(off_style);
     }
   };
 
@@ -815,6 +818,42 @@ AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
 
   toggles_layout->addWidget(lat_toggle);
   toggles_layout->addWidget(long_toggle);
+
+  // 공장초기화: 좌측 하단(Apply LONG 아래)에 배치. 모든 튜너 파라미터를
+  // params_keys.h 기본값으로 복원하고 학습 데이터/이력을 삭제한다.
+  QPushButton *factoryResetBtn = new QPushButton(tr("Factory Reset"), this);
+  factoryResetBtn->setFixedHeight(75);
+  factoryResetBtn->setStyleSheet("background-color: #8a1d1d; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
+  connect(factoryResetBtn, &QPushButton::clicked, this, [=]() {
+    if (ConfirmationDialog::confirm(
+          tr("Reset all auto-tuned parameters to factory defaults and delete learning data/history?"),
+          tr("Factory Reset"), this)) {
+      Params p;
+      static const std::vector<std::string> tunerKeys = {
+        "CruiseMaxVals0", "CruiseMaxVals1", "CruiseMaxVals2", "CruiseMaxVals3",
+        "CruiseMaxVals4", "CruiseMaxVals5", "CruiseMaxVals6",
+        "JLeadFactor3", "TFollowGap1", "TFollowGap2", "TFollowGap3", "TFollowGap4",
+        "TFollowSpeedFactor", "DynamicTFollow", "TFollowDecelBoost",
+        "PathOffset", "SteerActuatorDelay", "SteerRatioRate",
+        "LateralTorqueAccelFactor", "LateralTorqueKf", "LateralTorqueFriction",
+        "LateralTorqueKiV", "LateralTorqueKpV",
+        "AutoCurveSpeedFactor", "AutoCurveSpeedAggressiveness",
+        "StoppingAccel", "VEgoStopping", "StopDistanceCarrot",
+        "LongTuningKf", "LongTuningKpV", "LongActuatorDelay",
+      };
+      for (const auto &key : tunerKeys) {
+        auto def = p.getKeyDefaultValue(key);
+        if (def.has_value()) p.put(key, *def);
+      }
+      p.remove("CarrotLearningData");
+      p.remove("CarrotLearningRecommend");
+      p.remove("CarrotLearningHistory");
+      p.putBool("CarrotLearningPopupReady", false);
+      p.putBool("CarrotTunerFactoryReset", true);
+      ConfirmationDialog::alert(tr("Factory reset applied. Tuning parameters restored to defaults."), this);
+    }
+  });
+  toggles_layout->addWidget(factoryResetBtn);
   left_layout->addLayout(toggles_layout);
 
   // Right Column: Chart + Controls
@@ -1621,62 +1660,13 @@ CarrotPanel::CarrotPanel(QWidget* parent) : QWidget(parent) {
     dlg.exec();
   });
   latLongToggles->addItem(viewHistoryBtn);
-
-  // 공장초기화: 오토튜닝 결과가 마음에 들지 않을 때 모든 튜닝 파라미터를
-  // 설치 기본값으로 되돌리고 학습 데이터/이력을 삭제한다. (적용과 완전 분리)
-  QPushButton* factoryResetBtn = new QPushButton(tr("Auto-Tuner: Factory Reset"));
-  factoryResetBtn->setStyleSheet(R"(
-    QPushButton {
-      margin-top: 10px; margin-bottom: 20px; padding: 10px; height: 120px; border-radius: 15px;
-      color: #FFFFFF; background-color: #8a1d1d;
-      font-size: 50px; font-weight: 400;
-    }
-    QPushButton:pressed {
-      background-color: #B33333;
-    }
-  )");
-  connect(factoryResetBtn, &QPushButton::clicked, this, [=]() {
-    if (ConfirmationDialog::confirm(
-          tr("Reset all auto-tuned parameters to factory defaults and delete learning data/history?"),
-          tr("Factory Reset"), this)) {
-      Params p;
-      // 오토튜너가 변경할 수 있는 모든 파라미터를 params_keys.h 기본값(단일 출처)으로 즉시 복원.
-      // (설정 화면은 오프로드라 Python 루프가 안 돌 수 있으므로 C++에서 직접 복원)
-      static const std::vector<std::string> tunerKeys = {
-        "CruiseMaxVals0", "CruiseMaxVals1", "CruiseMaxVals2", "CruiseMaxVals3",
-        "CruiseMaxVals4", "CruiseMaxVals5", "CruiseMaxVals6",
-        "JLeadFactor3", "TFollowGap1", "TFollowGap2", "TFollowGap3", "TFollowGap4",
-        "TFollowSpeedFactor", "DynamicTFollow", "TFollowDecelBoost",
-        "PathOffset", "SteerActuatorDelay", "SteerRatioRate",
-        "LateralTorqueAccelFactor", "LateralTorqueKf", "LateralTorqueFriction",
-        "LateralTorqueKiV", "LateralTorqueKpV",
-        "AutoCurveSpeedFactor", "AutoCurveSpeedAggressiveness",
-        "StoppingAccel", "VEgoStopping", "StopDistanceCarrot",
-        "LongTuningKf", "LongTuningKpV", "LongActuatorDelay",
-      };
-      for (const auto &key : tunerKeys) {
-        auto def = p.getKeyDefaultValue(key);
-        if (def.has_value()) p.put(key, *def);
-      }
-      // 학습 데이터/추천/이력 삭제
-      p.remove("CarrotLearningData");
-      p.remove("CarrotLearningRecommend");
-      p.remove("CarrotLearningHistory");
-      p.putBool("CarrotLearningPopupReady", false);
-      // 온로드로 실행 중인 학습 인스턴스의 in-memory 누적값도 재동기화
-      p.putBool("CarrotTunerFactoryReset", true);
-      ConfirmationDialog::alert(tr("Factory reset applied. Tuning parameters restored to defaults."), this);
-    }
-  });
-  latLongToggles->addItem(factoryResetBtn);
+  // 공장초기화(Factory Reset) 버튼은 튜닝 이력 그래프 화면 좌측 하단으로 이동함.
 
   CValueControl* learningActiveCtrl = new CValueControl("CarrotLearningActive", tr("Auto-Tuner: Driving-Based Learning"), tr("Learn from driver interventions (gas/brake) and recommend parameter adjustments when parking. 0=Off, 1=On"), 0, 1, 1);
   connect(learningActiveCtrl, &CValueControl::valueChanged, this, [=](int val) {
     viewHistoryBtn->setVisible(val == 1);
-    factoryResetBtn->setVisible(val == 1);
   });
   viewHistoryBtn->setVisible(Params().getBool("CarrotLearningActive"));
-  factoryResetBtn->setVisible(Params().getBool("CarrotLearningActive"));
   latLongToggles->addItem(learningActiveCtrl);
   latLongToggles->addItem(new CValueControl("UseLaneLineSpeed", tr("Laneline mode speed(0)"), tr("Laneline mode, lat_mpc control used"), 0, 200, 5));
   latLongToggles->addItem(new CValueControl("UseLaneLineCurveSpeed", tr("Laneline mode curve speed(0)"), tr("Laneline mode, high speed only"), 0, 200, 5));
