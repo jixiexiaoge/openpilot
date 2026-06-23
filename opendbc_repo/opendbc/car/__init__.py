@@ -98,6 +98,7 @@ class Bus(StrEnum):
   pt = auto()
   cam = auto()
   radar = auto()
+  aux = auto()
   adas = auto()
   alt = auto()
   body = auto()
