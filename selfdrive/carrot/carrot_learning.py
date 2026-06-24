@@ -178,6 +178,23 @@ _FACTORY_DEFAULTS = {
 }
 
 
+# 추천 키 → 소속 Phase. '적용'된 Phase의 누적치만 선택적으로 리셋하기 위한 매핑.
+# (과거: 적용 여부와 무관하게 전체 Phase를 리셋 → 느리게 쌓이는 조향 학습이
+#  무관한 longitudinal 적용 시마다 초기화되어 문턱에 도달하지 못했음)
+_KEY_RESET_PHASE = {
+  **{k: 1 for k in _ACCEL_KEYS},
+  "PathOffset": 2, "SteerActuatorDelay": 2, "SteerRatioRate": 2,
+  "LateralTorqueAccelFactor": 2, "LateralTorqueKf": 2, "LateralTorqueFriction": 2,
+  "LateralTorqueKiV": 2, "LateralTorqueKpV": 2,
+  "JLeadFactor3": 3,
+  **{k: 4 for k in _TFOLLOW_KEYS}, "TFollowSpeedFactor": 4,
+  "DynamicTFollow": 5, "TFollowDecelBoost": 5,
+  "AutoCurveSpeedFactor": 6,
+  "StoppingAccel": 7, "VEgoStopping": 7, "StopDistanceCarrot": 7,
+  "LongTuningKf": 8, "LongActuatorDelay": 8, "LongTuningKpV": 8,
+}
+
+
 def _speed_band(v_ego_kph: float) -> int:
   """속도에 해당하는 가장 가까운 하위 구간 인덱스 반환"""
   for i in range(_NUM_BANDS - 1, -1, -1):
@@ -734,12 +751,22 @@ class CarrotLearner:
 
     self._prev_gear_park = gear_park
 
-  def _clear_all_data(self):
-    """모든 누적 데이터를 0으로 초기화하고 DB에서도 삭제"""
+  # ── Phase별 누적 데이터 리셋 헬퍼 (단일 출처) ──────────────────────
+  # 과거 apply_recommendations()의 리셋 목록이 _clear_all_data()와 어긋나
+  # understeer/inner_hugging·torque 카운터가 '적용' 후에도 남아, 분모(curve_overrides)만
+  # 0이 되어 비율(understeer_ratio 등)이 오염되던 버그가 있었다.
+  # 모든 리셋 경로를 아래 헬퍼로 일원화해 재발을 막는다.
+  def _reset_phase1(self):
+    """가속 (CruiseMaxVals0~6)"""
     self._gas_acc = [0.0] * _NUM_BANDS
     self._gas_dec_acc = [0.0] * _NUM_BANDS
     self._gas_dec_auto_acc = [0.0] * _NUM_BANDS
     self._band_sec = [0.0] * _NUM_BANDS
+    self._gas_max_accel = [0.0] * _NUM_BANDS
+    self._gas_max_pedal = [0.0] * _NUM_BANDS
+
+  def _reset_phase2(self):
+    """조향 (PathOffset/SteerActuatorDelay/SteerRatioRate + 토크 조향) — 방향 카운터 포함"""
     self._steer_acc = 0.0
     self._steer_count = 0
     self._curve_entries = 0
@@ -753,30 +780,36 @@ class CarrotLearner:
     self._torque_straight_entries = 0
     self._torque_straight_overrides = 0
     self._torque_error_count = 0
+
+  def _reset_phase3(self):
+    """JLeadFactor3 (수동/자율 제동)"""
     self._brake_count = 0
     self._brake_auto_count = 0
     self._jlead_gas_acc = 0.0
+    self._jlead_sec = 0.0
+    self._brake_max_decel = 0.0
+    self._brake_min_ttc = 999.0
+    self._prev_brake = False
+    self._prev_auto_brake = False
+
+  def _reset_phase4(self):
+    """TFollowGap1~4 / TFollowSpeedFactor"""
     self._tfollow_gas_acc = [0.0] * 4
     self._tfollow_brake_acc = [0.0] * 4
     self._tfollow_brake_auto_acc = [0.0] * 4
     self._tfollow_speed_brake_acc = 0.0
+    self._speed_factor_sec = 0.0
+    self._tfollow_min_gap = [999.0] * 4
+
+  def _reset_phase5(self):
+    """DynamicTFollow / TFollowDecelBoost"""
     self._dyn_brake_count = 0
     self._decel_brake_count = 0
     self._dyn_sec = 0.0
     self._decel_sec = 0.0
-    self._jlead_sec = 0.0
-    self._speed_factor_sec = 0.0
-    self._prev_brake = False
-    self._prev_auto_brake = False
 
-    # v3 Override Intensity & Dynamics variables reset
-    self._gas_max_accel = [0.0] * _NUM_BANDS
-    self._gas_max_pedal = [0.0] * _NUM_BANDS
-    self._brake_max_decel = 0.0
-    self._brake_min_ttc = 999.0
-    self._tfollow_min_gap = [999.0] * 4
-
-    # Phase 6 reset
+  def _reset_phase6(self):
+    """AutoCurveSpeedFactor (커브 감속)"""
     self._curve_override_gas_sec = 0.0
     self._curve_override_brake_sec = 0.0
     self._curve_override_brake_count = 0
@@ -785,7 +818,8 @@ class CarrotLearner:
     self._curve_brake_min_v = 999.0
     self._curve_active_sec = 0.0
 
-    # Phase 7 / 8 reset
+  def _reset_phase7(self):
+    """정차/출발 (StoppingAccel/VEgoStopping/StopDistanceCarrot)"""
     self._stop_events = 0
     self._stop_brake_sec = 0.0
     self._stop_gas_sec = 0.0
@@ -794,12 +828,28 @@ class CarrotLearner:
     self._stop_lead_gap_count = 0
     self._stop_approaching = False
     self._stop_max_jerk = 0.0
+
+  def _reset_phase8(self):
+    """종방향 PID (LongTuningKf/LongActuatorDelay/LongTuningKpV)"""
     self._long_samples = 0
     self._long_err_sum = 0.0
     self._long_lag_count = 0
     self._long_overshoot_count = 0
     self._prev_long_err = 0.0
 
+  def _reset_all_phases(self):
+    self._reset_phase1()
+    self._reset_phase2()
+    self._reset_phase3()
+    self._reset_phase4()
+    self._reset_phase5()
+    self._reset_phase6()
+    self._reset_phase7()
+    self._reset_phase8()
+
+  def _clear_all_data(self):
+    """모든 누적 데이터를 0으로 초기화하고 DB에서도 삭제"""
+    self._reset_all_phases()
     self._params.remove("CarrotLearningData")
     self._params.remove("CarrotLearningRecommend")
 
@@ -1066,10 +1116,11 @@ class CarrotLearner:
         total_dec = self._gas_dec_acc[i] + self._gas_dec_auto_acc[i]
         
         # [상호 억제 로직: Accel Penalty Discount]
-        # 주행 중 브레이크 개입(수동+자동)이 많았다면, 가속이 굼떴던 느낌(gas help)보다
-        # 차량이 거칠어 브레이크를 밟은 상황(instability)이 우선이므로 가속 누적 신호를 깎아줍니다.
-        total_brake_events = self._brake_count + self._brake_auto_count
-        dampened_acc_sec = max(0.0, acc_sec - (total_brake_events * 0.5)) # 브레이크 1회당 가속 누적 0.5초 감쇄 (2.5 -> 0.5 완화)
+        # 가속 중 '실제 제동'(gas_dec_acc — 선행차 추종 제동은 수집 단계에서 제외됨)이
+        # 있었다면 가속이 굼떴다는 신호(gas help)를 그만큼 깎는다.
+        # (과거: 선행차 추종 제동까지 포함한 brake_count로 깎아, 선행차 급감속 때문에
+        #  밟은 브레이크가 가속 한계를 잠식하던 신호 오귀속 버그 → gas_dec_acc[i] 기반으로 분리)
+        dampened_acc_sec = max(0.0, acc_sec - self._gas_dec_acc[i])
 
         # 자율 가감속 요동(Auto-Surging) 방지:
         # 운전자가 페달을 밟지 않았어도 자율 급가속과 자율 급감속이 동시에 잦은 경우, 가속 한계치를 최우선적으로 낮춥니다.
@@ -1098,15 +1149,17 @@ class CarrotLearner:
           recommended_raw = min(max_limit, int(current_raw * (1.0 + dynamic_ratio)))
           reason = f"gas help (deficit {accel_deficit:.2f}m/s^2, ratio {dynamic_ratio*100:.1f}%)"
           sec = dampened_acc_sec
-        elif total_dec >= _GAS_REDUCE_THRESHOLD_SEC or (total_brake_events >= 8 and current_raw > 100) or is_auto_surging:
+        elif total_dec >= _GAS_REDUCE_THRESHOLD_SEC or is_auto_surging:
+          # 하향 신호는 가속-중-제동(gas_dec_acc, 선행차 제외) + 자율 급가속(gas_dec_auto_acc)
+          # + 가감속 요동(auto-surging)만 사용. 선행차 추종 제동은 더 이상 가속을 깎지 않는다.
           recommended_raw = max(50, int(current_raw * (1.0 + _GAS_REDUCE_RATIO)))
           recommended_raw = min(max_limit, recommended_raw)
           if is_auto_surging:
             reason = "excessive auto-surging penalty"
             sec = self._gas_dec_auto_acc[i] + self._brake_auto_count
           else:
-            reason = "excessive braking penalty" if total_brake_events >= 8 else ("aggressive accel (auto)" if self._gas_dec_auto_acc[i] > self._gas_dec_acc[i] else "too aggressive (manual)")
-            sec = max(total_dec, total_brake_events)
+            reason = "aggressive accel (auto)" if self._gas_dec_auto_acc[i] > self._gas_dec_acc[i] else "too aggressive (manual)"
+            sec = total_dec
         elif (i in _LOWBAND_DECAY_BANDS
               and self._band_sec[i] >= _LOWBAND_DECAY_MIN_SEC
               and acc_sec < _LOWBAND_DECAY_GAS_DEADBAND
@@ -1197,8 +1250,11 @@ class CarrotLearner:
             recommended_sr = min(150, current_sr_rate + _SR_RATE_STEP_UNIT)
           elif inner_hugging_ratio >= 0.60:
             recommended_sr = max(90, current_sr_rate - _SR_RATE_STEP_UNIT)
-        elif override_ratio < 0.15: # 개입이 적은 경우 → 조향비 소폭 감소하여 더 완만하고 부드럽게
-          recommended_sr = max(90, current_sr_rate - 2)
+        elif override_ratio < 0.15 and current_sr_rate > 100:
+          # 개입이 적은 안정 상태 → 과거 '강화분'(>100)만 기본값(100) 쪽으로 소폭 환원.
+          # (과거: 90까지 내려 기본값보다 약한 조향=언더스티어를 유발 → 커브 바깥 쏠림 악화.
+          #  inner_hugging 보정으로 100 미만이 된 경우는 정당한 약화이므로 건드리지 않는다.)
+          recommended_sr = max(100, current_sr_rate - 2)
           
         if recommended_sr != current_sr_rate:
           result["조향 (Steering)"]["SteerRatioRate"] = {
@@ -1586,7 +1642,9 @@ class CarrotLearner:
       sec = self._curve_override_brake_sec
     # floor-bound(이미 하한속도에서 제동)면 factor 무효 → 추천 생략(헛도는 학습 방지)
     # (C) 커브에서 가속 개입 = 과도한 감속 → Factor 하향(덜 감속). 임계 10s→5s로 완화.
-    elif apply_long and self._curve_override_gas_sec >= 5.0:
+    #     단, 커브 조향 추적오차(언더스티어)가 누적된 상태(≥5s)면 '더 빠른 커브 진입'은
+    #     바깥 쏠림을 악화시키므로 하향을 보류한다(횡방향 튜닝이 먼저 해결되어야 함).
+    elif apply_long and self._curve_override_gas_sec >= 5.0 and self._curve_steer_error_sec < 5.0:
       recommended_raw = _clamp_spec(key, current_raw - 10)
       reason = f"gas in curve (acc {self._curve_override_gas_sec:.1f}s)"
       sec = self._curve_override_gas_sec
@@ -1774,61 +1832,23 @@ class CarrotLearner:
       self._params.put("CarrotLearningHistory", json.dumps(history_arr).encode('utf8'))
 
 
-    # 데이터 초기화
-    self._gas_acc = [0.0] * _NUM_BANDS
-    self._gas_dec_acc = [0.0] * _NUM_BANDS
-    self._gas_dec_auto_acc = [0.0] * _NUM_BANDS
-    self._band_sec = [0.0] * _NUM_BANDS
-    self._steer_acc = 0.0
-    self._steer_count = 0
-    self._curve_entries = 0
-    self._curve_overrides = 0
-    self._brake_count = 0
-    self._brake_auto_count = 0
-    self._jlead_gas_acc = 0.0
-    self._tfollow_gas_acc = [0.0] * 4
-    self._tfollow_brake_acc = [0.0] * 4
-    self._tfollow_brake_auto_acc = [0.0] * 4
-    self._tfollow_speed_brake_acc = 0.0
-    self._dyn_brake_count = 0
-    self._decel_brake_count = 0
-    self._dyn_sec = 0.0
-    self._decel_sec = 0.0
-    self._jlead_sec = 0.0
-    self._speed_factor_sec = 0.0
-    self._prev_brake = False
-    self._prev_auto_brake = False
-
-    # v3 Override Intensity & Dynamics variables reset
-    self._gas_max_accel = [0.0] * _NUM_BANDS
-    self._gas_max_pedal = [0.0] * _NUM_BANDS
-    self._brake_max_decel = 0.0
-    self._brake_min_ttc = 999.0
-    self._tfollow_min_gap = [999.0] * 4
-
-    # Phase 6 reset
-    self._curve_override_gas_sec = 0.0
-    self._curve_override_brake_sec = 0.0
-    self._curve_override_brake_count = 0
-    self._curve_max_decel = 0.0
-    self._curve_steer_error_sec = 0.0
-    self._curve_brake_min_v = 999.0
-    self._curve_active_sec = 0.0
-
-    # Phase 7 / 8 reset
-    self._stop_events = 0
-    self._stop_brake_sec = 0.0
-    self._stop_gas_sec = 0.0
-    self._stop_harsh_count = 0
-    self._stop_lead_gap_sum = 0.0
-    self._stop_lead_gap_count = 0
-    self._stop_approaching = False
-    self._stop_max_jerk = 0.0
-    self._long_samples = 0
-    self._long_err_sum = 0.0
-    self._long_lag_count = 0
-    self._long_overshoot_count = 0
-    self._prev_long_err = 0.0
+    # ── 적용된 Phase의 누적치만 선택적으로 리셋 ─────────────────────
+    # 적용되지 않은 Phase(특히 느리게 쌓이는 조향)는 데이터를 보존해
+    # 무관한 적용 때문에 학습 진척이 초기화되지 않도록 한다.
+    # (제동 3종 충돌 방지로 '다음 세션 권고'된 항목의 근거 데이터도 자연히 이월됨)
+    applied_phases = set()
+    for group in applied_changes:
+      for key in applied_changes[group]:
+        ph = _KEY_RESET_PHASE.get(key)
+        if ph is not None:
+          applied_phases.add(ph)
+    phase_reset = {
+      1: self._reset_phase1, 2: self._reset_phase2, 3: self._reset_phase3,
+      4: self._reset_phase4, 5: self._reset_phase5, 6: self._reset_phase6,
+      7: self._reset_phase7, 8: self._reset_phase8,
+    }
+    for ph in applied_phases:
+      phase_reset[ph]()
 
     # 주행 중 팝업 타이머 리셋 (적용 후 재학습 시작)
     self._engaged_elapsed_sec = 0.0
@@ -1836,7 +1856,8 @@ class CarrotLearner:
     self._pending_popup = False
     self._popup_cooldown_sec = 0.0
 
-    self._params.remove("CarrotLearningData")
+    # 보존된 Phase 데이터가 재부팅에도 살아남도록 즉시 저장(remove 대신 _save).
+    self._save()
     self._params.remove("CarrotLearningRecommend")
     self._params.remove("CarrotLearningPopupSource")
     self._params.put_bool("CarrotLearningPopupReady", False)
