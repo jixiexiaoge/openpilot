@@ -122,6 +122,16 @@ _LONG_KP_STEP = 5               # LongTuningKpV 변화량
 _LONG_KF_STEP = 3               # LongTuningKf 변화량
 _LONG_DELAY_STEP = 5            # LongActuatorDelay 변화량
 
+# ── Phase 9 상수 (수동주행 기준분포 로거 → LongCoastBand 추천) ──────────
+# 인게이지 '개입 카운팅'과 달리, 사람이 직접 운전하는 동안의 (상황 → 가감속/추종거리/
+# 페달상태)를 통째로 누적하여 '사람이라면 어떻게 했을까'의 기준분포(정답)로 삼는다.
+# 1차 적용: 무페달(코스팅) 구간의 자연 감속(회생제동/엔진브레이크)을 측정하여
+# 종방향 코스팅 데드밴드(LongCoastBand)를 직접 보정 — 역문제가 없는 깨끗한 학습 대상.
+_MANUAL_MIN_V_KPH = 20.0        # 수동주행 기준분포 수집 최소 속도 (정체 stop&go 잡음 배제)
+_MANUAL_COAST_MIN_N = 300       # LongCoastBand 추천 발동 최소 코스팅 표본 (~30초)
+_MANUAL_COAST_MIN_SEC = 60.0    # LongCoastBand 추천 발동 최소 누적 코스팅 시간
+_MANUAL_COAST_GAIN = 0.25       # 측정 코스팅 감속 → 데드밴드 변환 계수(차의 코스트 권한 일부만 사용)
+
 # ── 공통 ─────────────────────────────────────────────────────────────
 _DT = 0.1  # update() 호출 주기 (초)
 
@@ -140,6 +150,8 @@ _PARAM_SPEC = {
   "LongTuningKiV":      {"min": 0,    "max": 2000, "default": 0,   "conv": 0.001, "direction": 1,  "apply": "long"},
   "LongTuningKf":       {"min": 0,    "max": 200,  "default": 100, "conv": 0.01,  "direction": 1,  "apply": "long"},
   "LongActuatorDelay":  {"min": 0,    "max": 200,  "default": 20,  "conv": 0.01,  "direction": 1,  "apply": "long"},
+  # 코스팅 데드밴드(0=비활성). 값↑ = 더 넓은 무가감속 구간 → 코스팅(회생제동) 더 적극 사용
+  "LongCoastBand":      {"min": 0,    "max": 40,   "default": 0,   "conv": 0.01,  "direction": 1,  "apply": "long"},
   # 커브 감속 (문서1/실제 knob: vturn_speed의 AutoCurveSpeedFactor)
   # 값↑ = 곡률을 더 민감하게 인식 → 커브 목표속도↓ → 더 일찍/충분히 감속
   # 안전 학습 밴드는 80~200 (params_keys.h 절대범위 50~300 내)
@@ -178,6 +190,7 @@ _FACTORY_DEFAULTS = {
   "AutoCurveSpeedFactor": 120, "AutoCurveSpeedAggressiveness": 100,
   "StoppingAccel": 0, "VEgoStopping": 50, "StopDistanceCarrot": 550,
   "LongTuningKf": 100, "LongTuningKpV": 100, "LongActuatorDelay": 20,
+  "LongCoastBand": 0,
 }
 
 
@@ -195,6 +208,7 @@ _KEY_RESET_PHASE = {
   "AutoCurveSpeedFactor": 6,
   "StoppingAccel": 7, "VEgoStopping": 7, "StopDistanceCarrot": 7,
   "LongTuningKf": 8, "LongActuatorDelay": 8, "LongTuningKpV": 8,
+  "LongCoastBand": 9,
 }
 
 
@@ -312,6 +326,18 @@ class CarrotLearner:
     self._long_lag_count = 0         # 둔감(추종 지연) 표본 수
     self._long_overshoot_count = 0   # 진동(부호 반전) 표본 수
     self._prev_long_err = 0.0        # 이전 프레임 추종 오차
+
+    # Phase 9 (수동주행 기준분포 로거 → LongCoastBand)
+    # 모두 밴드별(_NUM_BANDS) 누적. 사람이 직접 운전하는 동안의 '정답' 분포.
+    self._manual_coast_sec = [0.0] * _NUM_BANDS        # 무페달(코스팅) 주행 누적 시간
+    self._manual_coast_decel_sum = [0.0] * _NUM_BANDS  # 코스팅 중 자연 감속 크기 합 (m/s², 양수)
+    self._manual_coast_decel_n = [0] * _NUM_BANDS      # 코스팅 중 감속 표본 수
+    self._manual_gas_accel_sum = [0.0] * _NUM_BANDS    # 가속페달 시 사람의 가속도 합 (m/s²)
+    self._manual_gas_n = [0] * _NUM_BANDS              # 가속페달 표본 수
+    self._manual_brake_decel_sum = [0.0] * _NUM_BANDS  # 브레이크 시 사람의 감속 크기 합 (m/s², 양수)
+    self._manual_brake_n = [0] * _NUM_BANDS            # 브레이크 표본 수
+    self._manual_gap_sum = 0.0       # 수동 추종 차간시간(time gap) 합 (s)
+    self._manual_gap_n = 0           # 수동 추종 표본 수
 
     self._load()
 
@@ -712,6 +738,34 @@ class CarrotLearner:
       except Exception:
         pass
 
+    # ── Phase 9: 수동주행 기준분포 로거 ──────────────────────────────
+    # openpilot 비인게이지(=사람이 직접 운전) 주행 중, 상황별 사람의 가감속·추종거리·
+    # 페달상태를 통째로 누적한다. 핵심은 '무페달(코스팅)' 구간의 자연 감속을 측정해
+    # 이 차/이 운전자의 회생제동 권한과 코스팅 선호를 직접 식별하는 것(역문제 없음).
+    if (not engaged) and not gear_park and v_ego_kph >= _MANUAL_MIN_V_KPH:
+      band = _speed_band(v_ego_kph)
+      if gas_pressed:
+        # 사람이 선택한 가속(과도 가속은 학습 제외 기준 재사용)
+        if not extreme_acceleration:
+          self._manual_gas_accel_sum[band] += a_ego
+          self._manual_gas_n[band] += 1
+      elif brake_pressed:
+        # 사람이 선택한 감속 크기(양수로 저장)
+        self._manual_brake_decel_sum[band] += max(-a_ego, 0.0)
+        self._manual_brake_n[band] += 1
+      else:
+        # 무페달 = 코스팅(자연 회생제동/엔진브레이크). 이 구간의 감속률을 측정.
+        self._manual_coast_sec[band] += _DT
+        if a_ego < 0.0:
+          self._manual_coast_decel_sum[band] += -a_ego
+          self._manual_coast_decel_n[band] += 1
+      # 수동 추종 차간시간(time gap) 기준 분포 (선행차 존재 시)
+      if 0.0 < lead_drel < _TFOLLOW_MAX_LEAD_DREL and v_ego_kph >= _TFOLLOW_MIN_V_KPH:
+        v_ms = v_ego_kph / 3.6
+        if v_ms > 1.0:
+          self._manual_gap_sum += lead_drel / v_ms
+          self._manual_gap_n += 1
+
     # 이전 프레임 상태 갱신 (Phase 4 swing 감지 + Phase 7 저크 계산 공용)
     self._prev_a_ego = a_ego
     self._prev_v_kph = v_ego_kph
@@ -840,6 +894,18 @@ class CarrotLearner:
     self._long_overshoot_count = 0
     self._prev_long_err = 0.0
 
+  def _reset_phase9(self):
+    """수동주행 기준분포 로거 (LongCoastBand)"""
+    self._manual_coast_sec = [0.0] * _NUM_BANDS
+    self._manual_coast_decel_sum = [0.0] * _NUM_BANDS
+    self._manual_coast_decel_n = [0] * _NUM_BANDS
+    self._manual_gas_accel_sum = [0.0] * _NUM_BANDS
+    self._manual_gas_n = [0] * _NUM_BANDS
+    self._manual_brake_decel_sum = [0.0] * _NUM_BANDS
+    self._manual_brake_n = [0] * _NUM_BANDS
+    self._manual_gap_sum = 0.0
+    self._manual_gap_n = 0
+
   def _reset_all_phases(self):
     self._reset_phase1()
     self._reset_phase2()
@@ -849,6 +915,7 @@ class CarrotLearner:
     self._reset_phase6()
     self._reset_phase7()
     self._reset_phase8()
+    self._reset_phase9()
 
   def _clear_all_data(self):
     """모든 누적 데이터를 0으로 초기화하고 DB에서도 삭제"""
@@ -959,6 +1026,22 @@ class CarrotLearner:
       self._long_err_sum = float(p8.get("long_err_sum", 0.0))
       self._long_lag_count = int(p8.get("long_lag_count", 0))
       self._long_overshoot_count = int(p8.get("long_overshoot_count", 0))
+      # Phase 9 (밴드별 리스트는 길이 검증 후 복원)
+      p9 = data.get("phase9", {})
+      def _load_band_list(key, cast, default):
+        v = p9.get(key, None)
+        if isinstance(v, list) and len(v) == _NUM_BANDS:
+          return [cast(x) for x in v]
+        return [default] * _NUM_BANDS
+      self._manual_coast_sec = _load_band_list("manual_coast_sec", float, 0.0)
+      self._manual_coast_decel_sum = _load_band_list("manual_coast_decel_sum", float, 0.0)
+      self._manual_coast_decel_n = _load_band_list("manual_coast_decel_n", int, 0)
+      self._manual_gas_accel_sum = _load_band_list("manual_gas_accel_sum", float, 0.0)
+      self._manual_gas_n = _load_band_list("manual_gas_n", int, 0)
+      self._manual_brake_decel_sum = _load_band_list("manual_brake_decel_sum", float, 0.0)
+      self._manual_brake_n = _load_band_list("manual_brake_n", int, 0)
+      self._manual_gap_sum = float(p9.get("manual_gap_sum", 0.0))
+      self._manual_gap_n = int(p9.get("manual_gap_n", 0))
 
       # v3 Override Intensity & Dynamics Restore
       override = data.get("override_dynamics", {})
@@ -1037,6 +1120,17 @@ class CarrotLearner:
         "long_err_sum": self._long_err_sum,
         "long_lag_count": self._long_lag_count,
         "long_overshoot_count": self._long_overshoot_count,
+      },
+      "phase9": {
+        "manual_coast_sec": self._manual_coast_sec,
+        "manual_coast_decel_sum": self._manual_coast_decel_sum,
+        "manual_coast_decel_n": self._manual_coast_decel_n,
+        "manual_gas_accel_sum": self._manual_gas_accel_sum,
+        "manual_gas_n": self._manual_gas_n,
+        "manual_brake_decel_sum": self._manual_brake_decel_sum,
+        "manual_brake_n": self._manual_brake_n,
+        "manual_gap_sum": self._manual_gap_sum,
+        "manual_gap_n": self._manual_gap_n,
       },
       "override_dynamics": {
         "gas_max_accel": self._gas_max_accel,
@@ -1784,6 +1878,27 @@ class CarrotLearner:
             "samples": self._long_samples,
           }
 
+    # ── Phase 9: 수동주행 코스팅 측정 → LongCoastBand 추천 ────────────
+    # 사람이 무페달로 코스팅할 때의 자연 감속(회생제동/엔진브레이크)을 측정하여,
+    # 종방향 코스팅 데드밴드를 차의 코스트 권한 일부 범위 내에서 직접 보정한다.
+    if apply_long:
+      coast_n = sum(self._manual_coast_decel_n)
+      coast_sec = sum(self._manual_coast_sec)
+      if coast_n >= _MANUAL_COAST_MIN_N and coast_sec >= _MANUAL_COAST_MIN_SEC:
+        mean_coast_decel = sum(self._manual_coast_decel_sum) / coast_n  # m/s² (양수)
+        # 데드밴드(m/s²) = 측정 코스팅 감속 × 게인, 안전범위로 클램프 후 cm/s² 정수화
+        rec_band = _clamp_spec("LongCoastBand",
+                               round(np.clip(mean_coast_decel * _MANUAL_COAST_GAIN, 0.15, 0.40) * 100))
+        cur_band = self._params.get_int("LongCoastBand")
+        # 5cm/s²(=0.05 m/s²) 이상 차이날 때만 추천(미세 변동 잡음 억제)
+        if abs(rec_band - cur_band) >= 5:
+          result["주행 (Driving)"]["LongCoastBand"] = {
+            "current": cur_band,
+            "recommended": rec_band,
+            "band_kph": f"수동 코스팅 감속 {mean_coast_decel:.2f}m/s² 측정 → 코스팅(회생제동) 데드밴드 보정",
+            "samples": coast_n,
+          }
+
     return {k: v for k, v in result.items() if v}
 
   def apply_recommendations(self):
@@ -1859,7 +1974,7 @@ class CarrotLearner:
     phase_reset = {
       1: self._reset_phase1, 2: self._reset_phase2, 3: self._reset_phase3,
       4: self._reset_phase4, 5: self._reset_phase5, 6: self._reset_phase6,
-      7: self._reset_phase7, 8: self._reset_phase8,
+      7: self._reset_phase7, 8: self._reset_phase8, 9: self._reset_phase9,
     }
     for ph in applied_phases:
       phase_reset[ph]()

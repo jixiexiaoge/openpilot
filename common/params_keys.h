@@ -279,6 +279,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"LongTuningKf", {PERSISTENT, INT, "100"}},
     {"LongActuatorDelay", {PERSISTENT, INT, "20"}},
     {"VEgoStopping", {PERSISTENT, INT, "50"}},
+    {"LongCoastBand", {PERSISTENT, INT, "0"}},
 
     {"RadarReactionFactor", {PERSISTENT, INT, "100"}},
     {"EnableRadarTracks", {PERSISTENT, INT, "0"}},
