@@ -67,6 +67,9 @@ _SR_RATE_STEP_UNIT = 3          # SteerRatioRate 한 번 추천 시 변화량 (+
 # ── Phase 3 상수 ─────────────────────────────────────────────────────
 _BRAKE_MIN_COUNT = 6            # 추천을 위한 최소 수동 브레이크 횟수 (5 -> 6, 민감도 완화)
 _JLEAD_LATE_TTC = 3.5          # 이 TTC(초) 미만의 제동만 '늦은 제동'으로 인정(정상 제동 누적 방지)
+_JLEAD_PROACTIVE_TTC = 6.0     # 선제적 '교육용' 제동으로 인정할 TTC 상한 (3.5~6.0s)
+_JLEAD_PROACTIVE_DECEL = 1.0   # 선제 제동이 '굼뜬 반응' 신호로 인정될 최소 감속도 (m/s^2)
+_JLEAD_PROACTIVE_STEP = 5      # 선제 제동 1회 추천 시 약한 증가량 (정상 제동 과누적 방지)
 _JLEAD_STEP_UNIT = 20           # JLeadFactor3 한 번 추천 시 변화량 (강화: 10 -> 20)
 _JLEAD_REDUCE_STEP = -7         # 제동 과다 시 변화량
 _JLEAD_GAS_THRESHOLD_SEC = 5.0  # 제동 중 가속 개입 누적 기준 (초)
@@ -1414,19 +1417,30 @@ class CarrotLearner:
       #  - 자율 급제동(brake_auto_count): 시스템이 늦게 스스로 급제동 = 명백한 지연 신호
       #  - 수동 제동이라도 TTC가 충분히 낮을 때만(늦은 시점) 인정
       late_braking = (self._brake_auto_count >= 3) or (self._brake_min_ttc < _JLEAD_LATE_TTC)
-      if total_brake >= _BRAKE_MIN_COUNT and late_braking:
+      # 선제적 '교육용' 제동: 위험할 만큼 늦지는 않지만(TTC 3.5~6s) 선행차에 접근하며
+      # 운전자가 직접, 약하지 않은 감속(≥1.0m/s^2)으로 반복 제동 = '시스템 반응이 굼뜨다'를
+      # 가르치는 신호. (과거: TTC<3.5의 위험한 늦은 제동만 인정해 이 교육이 무시됐음)
+      proactive_braking = (not late_braking
+                           and _JLEAD_LATE_TTC <= self._brake_min_ttc < _JLEAD_PROACTIVE_TTC
+                           and self._brake_max_decel >= _JLEAD_PROACTIVE_DECEL)
+      if total_brake >= _BRAKE_MIN_COUNT and (late_braking or proactive_braking):
         current_jlead = self._params.get_int("JLeadFactor3")
-        
-        # TTC와 감속량을 반영한 동적 증가 계산
-        ttc_factor = float(np.clip((4.5 - self._brake_min_ttc) / 2.0, 0.0, 1.0))
-        decel_factor = float(np.clip((self._brake_max_decel - 0.8) / 1.0, 0.0, 1.0))
-        dynamic_step = int(10 + 25 * max(ttc_factor, decel_factor))
-        # Max Delta Cap: 1회당 변화폭을 최대 15로 제한
-        dynamic_step = min(15, dynamic_step)
-        
+
+        if late_braking:
+          # TTC와 감속량을 반영한 동적 증가 계산
+          ttc_factor = float(np.clip((4.5 - self._brake_min_ttc) / 2.0, 0.0, 1.0))
+          decel_factor = float(np.clip((self._brake_max_decel - 0.8) / 1.0, 0.0, 1.0))
+          dynamic_step = int(10 + 25 * max(ttc_factor, decel_factor))
+          # Max Delta Cap: 1회당 변화폭을 최대 15로 제한
+          dynamic_step = min(15, dynamic_step)
+          reason = "late braking (auto)" if self._brake_auto_count > self._brake_count else "approaching lead (manual)"
+        else:
+          # 선제 교육 제동은 약하게(+5)만 반영 → 정상 여유 제동의 과도 누적 방지
+          dynamic_step = _JLEAD_PROACTIVE_STEP
+          reason = "proactive braking (manual)"
+
         recommended = min(80, current_jlead + dynamic_step) # 상한 100 -> 80
         if recommended != current_jlead:
-          reason = "late braking (auto)" if self._brake_auto_count > self._brake_count else "approaching lead (manual)"
           jlead_candidate = {
             "current": current_jlead,
             "recommended": recommended,
