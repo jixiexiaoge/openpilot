@@ -1,7 +1,7 @@
 #pragma once
 
-#include "safety_declarations.h"
-#include "modes/volkswagen_common.h"
+#include "opendbc/safety/declarations.h"
+#include "opendbc/safety/modes/volkswagen_common.h"
 
 #define MSG_ESC_51           0xFCU    // RX, for wheel speeds
 #define MSG_HCA_03           0x303U   // TX by OP, Heading Control Assist steering torque
@@ -38,16 +38,16 @@
   {.msg = {{MSG_ESC_51, 0, 64, .max_counter = 15U, .ignore_quality_flag = true}, { 0 }, { 0 }}},    \
 
 #define VW_MEB_LONG_TX_MSGS                                                            \
-  {MSG_HCA_03, 0, 24},                                            \
-  {MSG_ACC_19, 0, 48}, {MSG_ACC_18, 0, 32},  \
-  {MSG_EA_01, 0, 8}, {MSG_EA_02, 0, 8},     \
-  {MSG_KLR_01, 0, 8}, {MSG_KLR_01, 2, 8},   \
-  {MSG_LDW_02, 0, 8}, {MSG_TA_01, 0, 8},     \
+  {MSG_HCA_03, 0, 24, .check_relay = true},                                            \
+  {MSG_ACC_19, 0, 48, .check_relay = true}, {MSG_ACC_18, 0, 32, .check_relay = true},  \
+  {MSG_EA_01, 0, 8, .check_relay = false}, {MSG_EA_02, 0, 8, .check_relay = true},     \
+  {MSG_KLR_01, 0, 8, .check_relay = false}, {MSG_KLR_01, 2, 8, .check_relay = true},   \
+  {MSG_LDW_02, 0, 8, .check_relay = true}, {MSG_TA_01, 0, 8, .check_relay = true},     \
 
 #define VW_MEB_RADAR_TX_MSGS                        \
-  {MSG_AWV_03, 0, 48},         \
-  {MSG_MEB_AWV_01, 0, 8},      \
-  {MSG_Strukturen_01, 0, 64},  \
+  {MSG_AWV_03, 0, 48, .check_relay = true},         \
+  {MSG_MEB_AWV_01, 0, 8, .check_relay = true},      \
+  {MSG_Strukturen_01, 0, 64, .check_relay = true},  \
 
 
 static uint8_t volkswagen_crc8_lut_8h2f[256]; // Static lookup table for CRC8 poly 0x2F, aka 8H2F/AUTOSAR
@@ -145,10 +145,10 @@ static uint32_t volkswagen_meb_gen2_compute_crc(const CANPacket_t *msg) {
 
 static safety_config volkswagen_meb_init(uint16_t param) {
   // Transmit of GRA_ACC_01 is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-  static const CanMsg VOLKSWAGEN_MEB_STOCK_TX_MSGS[] = {{MSG_HCA_03, 0, 24}, {MSG_GRA_ACC_01, 0, 8},
-                                                        {MSG_EA_01, 0, 8}, {MSG_EA_02, 0, 8},
-                                                        {MSG_KLR_01, 0, 8}, {MSG_KLR_01, 2, 8},
-                                                        {MSG_GRA_ACC_01, 2, 8}, {MSG_LDW_02, 0, 8}};
+  static const CanMsg VOLKSWAGEN_MEB_STOCK_TX_MSGS[] = {{MSG_HCA_03, 0, 24, .check_relay = true}, {MSG_GRA_ACC_01, 0, 8, .check_relay = false},
+                                                        {MSG_EA_01, 0, 8, .check_relay = false}, {MSG_EA_02, 0, 8, .check_relay = true},
+                                                        {MSG_KLR_01, 0, 8, .check_relay = false}, {MSG_KLR_01, 2, 8, .check_relay = true},
+                                                        {MSG_GRA_ACC_01, 2, 8, .check_relay = false}, {MSG_LDW_02, 0, 8, .check_relay = true}};
   
   static const CanMsg VOLKSWAGEN_MEB_LONG_TX_MSGS[] = {
 	VW_MEB_LONG_TX_MSGS
@@ -157,7 +157,7 @@ static safety_config volkswagen_meb_init(uint16_t param) {
   static const CanMsg VOLKSWAGEN_MEB_LONG_NO_RADAR_TX_MSGS[] = {
 	VW_MEB_LONG_TX_MSGS
 	VW_MEB_RADAR_TX_MSGS
-	{MSG_DIAGNOSTIC, 0, 8},
+	{MSG_DIAGNOSTIC, 0, 8, .check_relay = false},
   };
 
   static RxCheck volkswagen_meb_rx_checks[] = {

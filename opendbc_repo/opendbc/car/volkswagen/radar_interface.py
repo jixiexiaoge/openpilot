@@ -1,7 +1,6 @@
 import math
 
 from opendbc.can import CANParser
-from opendbc.can.dbc import DBC as DBCLoader
 from opendbc.car import Bus, structs
 from opendbc.car.interfaces import RadarInterfaceBase
 from opendbc.car.common.conversions import Conversions as CV
@@ -24,15 +23,8 @@ SIGNAL_SETS = tuple(
 
 
 def get_radar_can_parser(CP):
-  if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
-    dbc_name = DBC[CP.carFingerprint][Bus.radar]
-    dbc = DBCLoader(dbc_name)
-    if "Strukturen_01" in dbc.name_to_msg:
-      messages = [("Strukturen_01", 25)]
-    elif "MEB_Distance_01" in dbc.name_to_msg:
-      messages = [("MEB_Distance_01", 25)]
-    else:
-      return None
+  if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO) and not (CP.flags & (VolkswagenFlags.DISABLE_RADAR | VolkswagenFlags.MQB_EVO_GEN2)):
+    messages = [("Strukturen_01", 25)]
   else:
     return None
 
@@ -40,8 +32,8 @@ def get_radar_can_parser(CP):
 
 
 class RadarInterface(RadarInterfaceBase):
-  def __init__(self, CP):
-    super().__init__(CP)
+  def __init__(self, CP, CP_SP):
+    super().__init__(CP, CP_SP)
 
     self.updated_messages: set[int] = set()
     self.trigger_msg: int = RADAR_ADDR
@@ -53,6 +45,7 @@ class RadarInterface(RadarInterfaceBase):
     self._pts = self.pts
 
   def update(self, can_strings):
+    """Entry‑point called by the vehicle loop every CAN tick."""
     if self.radar_off_can or self.rcp is None:
       return super().update(None)
 
@@ -76,7 +69,7 @@ class RadarInterface(RadarInterfaceBase):
       ret.errors.canError = True
       return ret
 
-    msg = self.rcp.vl["Strukturen_01"] if "Strukturen_01" in self.rcp.vl else self.rcp.vl["MEB_Distance_01"]
+    msg = self.rcp.vl["Strukturen_01"]
     get = msg.__getitem__
 
     active_objects: dict[int, tuple[float, float, float]] = {}
@@ -90,9 +83,9 @@ class RadarInterface(RadarInterfaceBase):
         return ret
 
       active_objects[obj_id] = (
-        get(long_sig),
-        get(lat_sig),
-        get(vel_sig),
+        get(long_sig),  # dRel
+        get(lat_sig),   # yRel
+        get(vel_sig),   # vRel
       )
 
     for obj_id, (d_rel, y_rel, v_rel) in active_objects.items():

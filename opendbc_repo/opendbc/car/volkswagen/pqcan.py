@@ -2,7 +2,7 @@ def create_steering_control(packer, bus, apply_torque, lkas_enabled):
   values = {
     "LM_Offset": abs(apply_torque),
     "LM_OffSign": 1 if apply_torque < 0 else 0,
-    "HCA_Status": 5 if (lkas_enabled and apply_torque != 0) else 3,
+    "HCA_Status": 7 if (lkas_enabled and apply_torque != 0) else 3,
     "Vib_Freq": 16,
   }
 
@@ -21,6 +21,7 @@ def create_lka_hud_control(packer, bus, ldw_stock_values, lat_active, steering_p
     ]}
 
   values.update({
+    "LDW_Kameratyp": 1,
     "LDW_Lampe_gelb": 1 if lat_active and steering_pressed else 0,
     "LDW_Lampe_gruen": 1 if lat_active and not steering_pressed else 0,
     "LDW_Lernmodus_links": 3 if hud_control.leftLaneDepart else 1 + hud_control.leftLaneVisible,
@@ -31,18 +32,20 @@ def create_lka_hud_control(packer, bus, ldw_stock_values, lat_active, steering_p
   return packer.make_can_msg("LDW_Status", bus, values)
 
 
-def create_acc_buttons_control(packer, bus, gra_stock_values, cancel=False, resume=False):
+def create_acc_buttons_control(packer, bus, gra_stock_values, cancel=False, resume=False, up=False, down=False):
   values = {s: gra_stock_values[s] for s in [
     "GRA_Hauptschalt",      # ACC button, on/off
     "GRA_Typ_Hauptschalt",  # ACC button, momentary vs latching
     "GRA_Kodierinfo",       # ACC button, configuration
+    "GRA_Sportschalter",
     "GRA_Sender",           # ACC button, CAN message originator
   ]}
 
   values.update({
     "COUNTER": (gra_stock_values["COUNTER"] + 1) % 16,
-    "GRA_Abbrechen": cancel,
-    "GRA_Recall": resume,
+    "GRA_Abbrechen": cancel or gra_stock_values["GRA_Abbrechen"],
+    "GRA_Recall": resume or up,
+    "GRA_Neu_Setzen": down,
   })
 
   return packer.make_can_msg("GRA_Neu", bus, values)
