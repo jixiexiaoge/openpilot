@@ -250,6 +250,15 @@ class LongitudinalPlanner:
         jerk_accel = float(np.interp(a_prev, [0.0, 1.0], [1.0, 0.7]))
         max_positive_jerk = jerk_speed * jerk_accel
       a_target = min(a_target, a_prev + max_positive_jerk * self.dt)
+    elif a_target < a_prev:
+      # 제동 진입(braking build-up) jerk 제한: 선행차 감지 등으로 a_target이
+      # 한 스텝에 급강하할 때 초기 제동을 부드럽게 한다(탁 밟는 이질감 완화).
+      # 단, 목표 감속이 깊을수록(긴급) 한도를 키워 안전 제동은 그대로 확보한다.
+      #   -1.2m/s^2(완만): 2.0m/s^3 → 0~-1.2까지 0.6s에 부드럽게
+      #   -2.5m/s^2(강함): 5.0m/s^3
+      #   -4.0m/s^2(긴급): 12.0m/s^3 → 사실상 무제한(0~-4까지 0.33s)
+      max_negative_jerk = float(np.interp(a_target, [-4.0, -2.5, -1.2], [12.0, 5.0, 2.0]))
+      a_target = max(a_target, a_prev - max_negative_jerk * self.dt)
     self.a_desired = a_target
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
 

@@ -70,6 +70,8 @@ _JLEAD_LATE_TTC = 3.5          # 이 TTC(초) 미만의 제동만 '늦은 제동
 _JLEAD_PROACTIVE_TTC = 6.0     # 선제적 '교육용' 제동으로 인정할 TTC 상한 (3.5~6.0s)
 _JLEAD_PROACTIVE_DECEL = 1.0   # 선제 제동이 '굼뜬 반응' 신호로 인정될 최소 감속도 (m/s^2)
 _JLEAD_PROACTIVE_STEP = 5      # 선제 제동 1회 추천 시 약한 증가량 (정상 제동 과누적 방지)
+_JLEAD_AUTO_TTC = 6.0          # 자율 제동을 '늦은 제동'으로 셀 TTC 상한 (이상이면 여유 감속으로 간주, 누적 제외)
+_JLEAD_AUTO_PANIC_DECEL = -2.5 # TTC와 무관하게 늦은 제동으로 인정할 패닉 감속도 (m/s^2)
 _JLEAD_STEP_UNIT = 20           # JLeadFactor3 한 번 추천 시 변화량 (강화: 10 -> 20)
 _JLEAD_REDUCE_STEP = -7         # 제동 과다 시 변화량
 _JLEAD_GAS_THRESHOLD_SEC = 5.0  # 제동 중 가속 개입 누적 기준 (초)
@@ -562,10 +564,20 @@ class CarrotLearner:
           ttc = lead_drel / -v_rel_ms
           self._brake_min_ttc = min(self._brake_min_ttc, ttc)
       # (2) 자율 주행 중 너무 늦게 급제동 발생 -> 제동 시점 앞당기기 필요
+      #  단, TTC(위급도)를 함께 본다. 잘 예측된 '여유 있는' 중간 감속(TTC 충분)은
+      #  늦은 제동이 아니므로 제외 — onset jerk 완화로 생긴 정상 감속이 JLeadFactor3를
+      #  끌어올려 다시 제동을 날카롭게 만드는 악순환을 차단한다.
       elif not brake_pressed and a_ego < -1.7:
-        is_auto_braking = True
-        if not self._prev_auto_brake:
-          self._brake_auto_count += 1
+        v_ego_ms = v_ego_kph / 3.6
+        lead_v_ms = lead_v_kph / 3.6
+        v_rel_ms = lead_v_ms - v_ego_ms
+        ttc = lead_drel / -v_rel_ms if v_rel_ms < 0 else 999.0
+        # 실제 '늦은 제동' 조건: TTC가 낮아 위급(접근)하거나, 패닉 수준 급제동
+        if ttc < _JLEAD_AUTO_TTC or a_ego < _JLEAD_AUTO_PANIC_DECEL:
+          is_auto_braking = True
+          self._brake_min_ttc = min(self._brake_min_ttc, ttc)
+          if not self._prev_auto_brake:
+            self._brake_auto_count += 1
     
     self._prev_auto_brake = is_auto_braking
     
