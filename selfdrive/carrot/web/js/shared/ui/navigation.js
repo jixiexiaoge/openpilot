@@ -286,7 +286,6 @@ function syncSettingSplitLayoutClass(enabled = shouldUseSettingSplitLayout()) {
     el.classList.remove("hidden");
     el.removeAttribute("aria-hidden");
   });
-  if (settingSubnavWrap) settingSubnavWrap.style.display = "none";
 }
 
 function getPageHistoryState(page) {
@@ -683,15 +682,11 @@ function showSettingScreen(which, pushHistory = false) {
       history.replaceState({ page: "setting", screen: "items", group: CURRENT_GROUP || null }, "");
     }
     if (settingScreenHost) settingScreenHost.style.minHeight = "";
-    if (typeof syncSettingSubnavFixedOffset === "function") {
-      requestAnimationFrame(syncSettingSubnavFixedOffset);
-    }
     return;
   }
 
   if (btnBackGroups) btnBackGroups.style.display = "none";
   settingTitle.textContent = isGroups ? (UI_STRINGS[LANG].setting || "Setting") : ((UI_STRINGS[LANG].setting || "Setting") + " - " + currentGroupLabel);
-  if (settingSubnavWrap) settingSubnavWrap.style.display = (isGroups || isProfileItems) ? "none" : "";
 
   const reduceMotion = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const canSlide =
@@ -723,9 +718,6 @@ function showSettingScreen(which, pushHistory = false) {
   }
 
   if (settingScreenHost && !didSlide) settingScreenHost.style.minHeight = "";
-  if (typeof syncSettingSubnavFixedOffset === "function") {
-    requestAnimationFrame(syncSettingSubnavFixedOffset);
-  }
   if (isGroups && typeof setSettingItemsScrollTop === "function") {
     requestAnimationFrame(() => setSettingItemsScrollTop(0));
   }
@@ -795,7 +787,6 @@ function isSettingItemsScreenActive() {
 
 function prepareSettingBackFrame() {
   if (!settingScreenHost || !screenItems || !screenGroups) return null;
-  if (typeof stopSettingSubnavMotion === "function") stopSettingSubnavMotion();
 
   [screenItems, screenGroups].forEach((el) => {
     clearPageTransitionClasses(el);
