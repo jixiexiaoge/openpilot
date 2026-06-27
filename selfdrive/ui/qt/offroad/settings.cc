@@ -821,13 +821,13 @@ AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
 
   // 공장초기화: 좌측 하단(Apply LONG 아래)에 배치. 모든 튜너 파라미터를
   // params_keys.h 기본값으로 복원하고 학습 데이터/이력을 삭제한다.
-  QPushButton *factoryResetBtn = new QPushButton(tr("Factory Reset"), this);
+  QPushButton *factoryResetBtn = new QPushButton(tr("Parameter Init. Reset"), this);
   factoryResetBtn->setFixedHeight(75);
   factoryResetBtn->setStyleSheet("background-color: #8a1d1d; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;");
   connect(factoryResetBtn, &QPushButton::clicked, this, [=]() {
     if (ConfirmationDialog::confirm(
           tr("Reset all auto-tuned parameters to factory defaults and delete learning data/history?"),
-          tr("Factory Reset"), this)) {
+          tr("Parameter Init. Reset"), this)) {
       Params p;
       static const std::vector<std::string> tunerKeys = {
         "CruiseMaxVals0", "CruiseMaxVals1", "CruiseMaxVals2", "CruiseMaxVals3",
@@ -979,7 +979,7 @@ void AutoTunerHistoryPanel::refreshHistory() {
   latest_id = latest_item["id"].toString();
 
   // Re-build historical timeline (max 30 points)
-  int chart_limit = 30;
+  int chart_limit = 50;
   int n_points = std::min(arr.size(), chart_limit);
 
   QList<QString> timestamps;
