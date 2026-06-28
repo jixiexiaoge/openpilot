@@ -120,6 +120,13 @@ _LONG_MIN_SAMPLES = 300         # 추천 발동 최소 샘플 수 (~30초 자율
 _LONG_ERR_THRESHOLD = 0.4       # 추종 오차(지령-실측 가속도) 유의 임계값 (m/s^2)
 _LONG_LAG_RATIO = 0.30          # 둔감(lag) 비율 임계값 → Kf/Delay 상향
 _LONG_OVERSHOOT_RATIO = 0.30    # 진동(overshoot) 비율 임계값 → KpV 하향
+# lag는 '지령이 변하는 중(transient)'에서만 측정한다. 정상상태(정속)에서 남는 추종오차는
+# 도로 경사(aEgo가 중력성분 포함)·게인 오프셋이라 '시간지연(lag)'이 아니며, 이를 lag로
+# 오인하면 LongActuatorDelay/Kf를 잘못된 방향으로 무한 상향한다. (로그 분석으로 확인:
+# 지령을 시간이동해도 오차가 안 줄고, 같은 코드라도 도로에 따라 오차가 크게 달라짐)
+_LONG_CMD_CHANGE = 0.03         # 지령가속도가 1스텝(_DT)에 이만큼(m/s^2) 변하면 transient 시작
+_LONG_TRANS_HOLD_STEPS = 8      # 지령 변화 후 transient로 유지할 스텝 수 (8*_DT=0.8s, 추종 정착)
+_LONG_TRANS_MIN = 120           # transient lag_ratio를 신뢰할 최소 transient 표본 수
 _LONG_KP_STEP = 5               # LongTuningKpV 변화량
 _LONG_KF_STEP = 3               # LongTuningKf 변화량
 _LONG_DELAY_STEP = 5            # LongActuatorDelay 변화량
@@ -323,11 +330,16 @@ class CarrotLearner:
     self._prev_v_kph = 0.0           # 이전 프레임 속도
 
     # Phase 8 (종방향 PID: LongTuningKpV / LongTuningKf / LongActuatorDelay)
-    self._long_samples = 0           # 자율 가감속 추종 표본 수
-    self._long_err_sum = 0.0         # |지령가속도 - 실측가속도| 누적
-    self._long_lag_count = 0         # 둔감(추종 지연) 표본 수
+    self._long_samples = 0           # 자율 가감속 추종 표본 수(전체)
+    self._long_err_sum = 0.0         # |지령가속도 - 실측가속도| 누적(전체, 참고용)
+    self._long_lag_count = 0         # 둔감 표본 수(전체, 참고용)
     self._long_overshoot_count = 0   # 진동(부호 반전) 표본 수
     self._prev_long_err = 0.0        # 이전 프레임 추종 오차
+    self._prev_cmd_accel = 0.0       # 이전 프레임 지령가속도 (transient 감지용)
+    self._long_trans_hold = 0        # transient 유지 카운터(스텝)
+    self._long_trans_samples = 0     # transient(지령 변화 중) 표본 수 → lag 분모
+    self._long_trans_lag = 0         # transient 중 lag(둔감) 표본 수
+    self._long_trans_err_sum = 0.0   # transient 중 |추종오차| 누적
 
     # Phase 9 (수동주행 기준분포 로거 → LongCoastBand)
     # 모두 밴드별(_NUM_BANDS) 누적. 사람이 직접 운전하는 동안의 '정답' 분포.
@@ -740,9 +752,23 @@ class CarrotLearner:
         long_err = cmd_accel - a_ego
         self._long_samples += 1
         self._long_err_sum += abs(long_err)
-        # 둔감(lag): 추종 오차가 크게 지속 → 가감속이 굼뜸
         if abs(long_err) >= _LONG_ERR_THRESHOLD:
-          self._long_lag_count += 1
+          self._long_lag_count += 1   # 전체 lag(참고용)
+
+        # 지령이 변하면 이후 잠시(HOLD)를 transient로 간주 — 실측이 따라붙는 정착 구간.
+        if abs(cmd_accel - self._prev_cmd_accel) >= _LONG_CMD_CHANGE:
+          self._long_trans_hold = _LONG_TRANS_HOLD_STEPS
+        self._prev_cmd_accel = cmd_accel
+
+        # 둔감(lag)은 transient(지령 변화 추종) 구간에서만 측정한다.
+        # → 정속(정상상태)에서 남는 경사·게인 오프셋을 lag로 오인하지 않음.
+        if self._long_trans_hold > 0:
+          self._long_trans_samples += 1
+          self._long_trans_err_sum += abs(long_err)
+          if abs(long_err) >= _LONG_ERR_THRESHOLD:
+            self._long_trans_lag += 1
+          self._long_trans_hold -= 1
+
         # 진동(overshoot): 오차 부호가 반전하며 진폭이 큼 → 과반응
         if long_err * self._prev_long_err < 0 and abs(long_err) >= 0.3:
           self._long_overshoot_count += 1
@@ -905,6 +931,11 @@ class CarrotLearner:
     self._long_lag_count = 0
     self._long_overshoot_count = 0
     self._prev_long_err = 0.0
+    self._prev_cmd_accel = 0.0
+    self._long_trans_hold = 0
+    self._long_trans_samples = 0
+    self._long_trans_lag = 0
+    self._long_trans_err_sum = 0.0
 
   def _reset_phase9(self):
     """수동주행 기준분포 로거 (LongCoastBand)"""
@@ -1038,6 +1069,9 @@ class CarrotLearner:
       self._long_err_sum = float(p8.get("long_err_sum", 0.0))
       self._long_lag_count = int(p8.get("long_lag_count", 0))
       self._long_overshoot_count = int(p8.get("long_overshoot_count", 0))
+      self._long_trans_samples = int(p8.get("long_trans_samples", 0))
+      self._long_trans_lag = int(p8.get("long_trans_lag", 0))
+      self._long_trans_err_sum = float(p8.get("long_trans_err_sum", 0.0))
       # Phase 9 (밴드별 리스트는 길이 검증 후 복원)
       p9 = data.get("phase9", {})
       def _load_band_list(key, cast, default):
@@ -1132,6 +1166,9 @@ class CarrotLearner:
         "long_err_sum": self._long_err_sum,
         "long_lag_count": self._long_lag_count,
         "long_overshoot_count": self._long_overshoot_count,
+        "long_trans_samples": self._long_trans_samples,
+        "long_trans_lag": self._long_trans_lag,
+        "long_trans_err_sum": self._long_trans_err_sum,
       },
       "phase9": {
         "manual_coast_sec": self._manual_coast_sec,
@@ -1848,9 +1885,15 @@ class CarrotLearner:
 
     # ── Phase 8: 종방향 PID (LongTuningKf / LongActuatorDelay / LongTuningKpV) ──
     if apply_long and self._long_samples >= _LONG_MIN_SAMPLES:
-      lag_ratio = self._long_lag_count / self._long_samples
+      # lag(둔감)는 transient(지령 변화 추종) 구간에서만 평가한다. transient 표본이
+      # 충분치 않으면 0으로 둬서 Kf/Delay를 헛상향하지 않는다. (정속 경사 오프셋 배제)
+      if self._long_trans_samples >= _LONG_TRANS_MIN:
+        lag_ratio = self._long_trans_lag / self._long_trans_samples
+        mean_abs_err = self._long_trans_err_sum / self._long_trans_samples
+      else:
+        lag_ratio = 0.0
+        mean_abs_err = self._long_err_sum / self._long_samples
       overshoot_ratio = self._long_overshoot_count / self._long_samples
-      mean_abs_err = self._long_err_sum / self._long_samples
 
       if lag_ratio >= _LONG_LAG_RATIO and lag_ratio > overshoot_ratio:
         # 둔감(추종 지연) 우세 → 피드포워드/지연보정 상향 (선제 가감속)

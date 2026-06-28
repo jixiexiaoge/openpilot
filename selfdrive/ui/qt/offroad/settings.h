@@ -162,6 +162,8 @@ private:
 #include <QMap>
 #include <QList>
 #include <QColor>
+#include <QSet>
+#include <QStringList>
 
 class AutoTunerGraphWidget : public QWidget {
   Q_OBJECT
@@ -169,6 +171,7 @@ public:
   explicit AutoTunerGraphWidget(QWidget *parent = nullptr);
   void setData(const QList<QString> &timestamps, const QMap<QString, QList<double>> &param_histories, const QMap<QString, QColor> &colors);
   void setSelectedParam(const QString &param);
+  void setHiddenParams(const QSet<QString> &params);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -179,6 +182,7 @@ private:
   QMap<QString, QList<double>> param_histories;
   QMap<QString, QColor> colors;
   QString selected_param;
+  QSet<QString> hidden_params;
   int selected_index = -1;
 };
 
@@ -212,12 +216,20 @@ private slots:
   void restoreItem(const QString& id);
   void clearAll();
 private:
+  void rebuildParamList();
+  void toggleGroup(const QString &group);
+  void applyHiddenParams();
   AutoTunerGraphWidget *graph_widget;
   QVBoxLayout *param_list_layout;
   QMap<QString, QLabel*> param_labels;
   QString selected_param;
   QString latest_id;
   QMap<QString, QColor> param_colors;
+  // 좌측 파라미터 리스트를 그룹(가속/조향/거리/주행 등)으로 묶어
+  // 그룹 헤더 클릭 시 접기/펴기 + 그래프 표시 토글을 지원하기 위한 상태
+  QStringList group_order;                  // 표시 순서대로 정렬된 그룹 라벨
+  QMap<QString, QStringList> group_params;  // 그룹 라벨 → 소속 파라미터들
+  QSet<QString> collapsed_groups;           // 접혀있는(그래프 숨김) 그룹 라벨
 protected:
   void showEvent(QShowEvent *event) override;
 };

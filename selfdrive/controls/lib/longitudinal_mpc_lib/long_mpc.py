@@ -59,6 +59,14 @@ T_DIFFS = np.diff(T_IDXS, prepend=[0.])
 COMFORT_BRAKE = 2.5
 STOP_DISTANCE = 6.0
 
+# 고속 + 선행차 접근 시 제동 명령을 앞당김 — 고속 늦은 감지로 인한 충돌 우려 대응.
+# 정속 추종·저속에서는 무동작(고속·접근·TTC 삼중 게이트)이라 평상시 부드러움은 유지.
+HIGH_SPEED_BRAKE_KPH = 70.0            # 이 속도(km/h) 이상에서만 선제 제동 강화 적용
+HIGH_SPEED_BRAKE_TTC = 7.0            # 접근 TTC(초)가 이 값 미만이면 활성
+HIGH_SPEED_TF_BOOST = 0.45           # Lever A: 추종거리(t_follow) 최대 선제 확대량(초)
+HIGH_SPEED_JLF_GAIN_BP = [60.0, 100.0]   # Lever C: JLeadFactor3 속도연동 보간 속도(km/h)
+HIGH_SPEED_JLF_GAIN_V = [1.0, 1.8]       # 위 속도에서의 j_lead_factor 배율
+
 def get_jerk_factor(personality=log.LongitudinalPersonality.standard):
   if personality==log.LongitudinalPersonality.moreRelaxed:
     return 1.0
@@ -373,7 +381,10 @@ class LongitudinalMpc:
     else:
       self.j_lead = 0.0
 
-    lead_xv_0, lead_v_0 = self.process_lead(radarstate.leadOne, np.clip(self.j_lead * carrot.j_lead_factor, -1.0, 1.0))
+    # Lever C: 고속에서 선행차 감속 예측(JLeadFactor3=j_lead_factor)을 증폭 → 제동을 앞당김.
+    #          (선행차가 '감속 중'일 때 효과. 정속 선행차는 Lever A가 담당)
+    jlf = carrot.j_lead_factor * float(np.interp(v_ego * 3.6, HIGH_SPEED_JLF_GAIN_BP, HIGH_SPEED_JLF_GAIN_V))
+    lead_xv_0, lead_v_0 = self.process_lead(radarstate.leadOne, np.clip(self.j_lead * jlf, -1.0, 1.0))
     lead_xv_1, _ = self.process_lead(radarstate.leadTwo, 0.0)
 
     mode = self.mode
@@ -386,6 +397,14 @@ class LongitudinalMpc:
       v_cruise, stop_x, mode = carrot.v_cruise, carrot.stop_dist, carrot.mode
       desired_distance = desired_follow_distance(v_ego, lead_v_0, comfort_brake, stop_distance, t_follow)
       t_follow = carrot.dynamic_t_follow(t_follow, radarstate.leadOne, desired_distance, self.prev_a)
+      # Lever A: 고속 + 선행차 접근(TTC 낮음) → 추종거리를 선제 확대해 제동 명령을 앞당김.
+      #          (vRel<0 & TTC<임계 & 고속 삼중 게이트 → 정속 추종·저속에선 무동작)
+      _lead = radarstate.leadOne
+      if _lead.status and v_ego * 3.6 >= HIGH_SPEED_BRAKE_KPH and _lead.dRel > 0.0 and _lead.vRel < 0.0:
+        _ttc = _lead.dRel / -_lead.vRel
+        _tf_boost = float(np.interp(_ttc, [3.0, HIGH_SPEED_BRAKE_TTC], [HIGH_SPEED_TF_BOOST, 0.0]))
+        _tf_boost *= float(np.interp(v_ego * 3.6, [HIGH_SPEED_BRAKE_KPH, 110.0], [0.5, 1.0]))
+        t_follow += _tf_boost
 
     # To estimate a safe distance from a moving lead, we calculate how much stopping
     # distance that lead needs as a minimum. We can add that to the current distance
