@@ -408,6 +408,14 @@ class CarrotLearner:
         self._params.put_bool("CarrotLearningPopupReady", False)
       return
 
+    # Apply 토글(LAT/LONG)이 꺼져 있으면 해당 카테고리의 학습(데이터 누적)도 멈춘다.
+    # (과거: 토글은 추천 계산/적용만 막고 누적은 계속됨 → 끈 동안 쌓인 데이터가
+    #  재활성화 시 한꺼번에 반영되던 문제. 이제 OFF면 누적 자체를 건너뛴다.)
+    #   - apply_lat  : Phase 2(조향) 누적 게이트
+    #   - apply_long : Phase 1/3/4/5/6/7/8/9(가속·제동·추종·곡선·정차·PID·수동분포) 게이트
+    apply_lat = self._params.get_bool("CarrotTunerApplyLat") if self._params.get("CarrotTunerApplyLat") is not None else True
+    apply_long = self._params.get_bool("CarrotTunerApplyLong") if self._params.get("CarrotTunerApplyLong") is not None else True
+
     # 조향 제어 방식 lazy loading 감지
     if self.is_angle_control is None:
       self._detect_steer_control_type()
@@ -461,12 +469,12 @@ class CarrotLearner:
 
     # ── Phase 1: 가속 개입 ────────────────────────────────────────────
     # 밴드별 주행시간 누적 (저속 decay 판정용: 실제로 그 속도대를 달렸는지 확인)
-    if engaged and v_ego_kph >= 1.0:
+    if apply_long and engaged and v_ego_kph >= 1.0:
       self._band_sec[_speed_band(v_ego_kph)] += _DT
 
     # 단순히 설정속도에 도달했는데 더 빨리 가고 싶어 밟는 경우는 제외 (설정속도 오버라이드)
     # 즉, 설정속도보다 충분히 낮은데도 가속이 답답할 때만 학습에 포함
-    if engaged and gas_pressed and v_ego_kph >= 1.0:
+    if apply_long and engaged and gas_pressed and v_ego_kph >= 1.0:
       # 선행차를 추종하며 간격을 좁히려는 가속(=차간거리 선호)은 '가속 능력 부족'이 아니므로
       # CruiseMaxVals(최대 가속도) 학습에서 제외한다. (선행차 거리·상대속도 동특성 반영)
       #   - 가까운 선행차(60m 이내)가 있고, 그 차가 나보다 크게 빠르지 않으면(멀어지지 않으면)
@@ -494,7 +502,7 @@ class CarrotLearner:
 
     # 가속 과다 학습 방지: 가속 중인데 브레이크를 밟는 경우 OR 자율 주행 중 과도한 가속
     # A/B안 적용: 과속방지턱 통과 중이거나 40km/h 미만에서는 가속 하향 패널티 수집 제외
-    if engaged and v_ego_kph < (v_cruise_kph - 3.0) and not is_speed_bump and v_ego_kph >= 40.0:
+    if apply_long and engaged and v_ego_kph < (v_cruise_kph - 3.0) and not is_speed_bump and v_ego_kph >= 40.0:
       idx = _speed_band(v_ego_kph)
       if brake_pressed:
         if (lead_drel == 0 or lead_drel > 120.0) and not exclude_brake_learning:
@@ -503,7 +511,7 @@ class CarrotLearner:
         self._gas_dec_auto_acc[idx] += _DT
 
     # ── Phase 2: 조향 패턴 (속도 20km/h 이상, 인게이지 상태) ──────────
-    if engaged and v_ego_kph >= 20.0:
+    if apply_lat and engaged and v_ego_kph >= 20.0:
       desired_angle = 0.0
       steer_err = 0.0
       if sm is not None:
@@ -563,7 +571,7 @@ class CarrotLearner:
     # Phase 3: 수동 제동 (선행차 근접 시) ────────────────────────
     is_auto_braking = False
     # A/B안 적용: 과속방지턱 통과 중이거나 40km/h 미만에서는 제동 학습(JLeadFactor) 수집 제외
-    if engaged and not gear_park and 0 < lead_drel < 100.0 and not is_speed_bump and v_ego_kph >= 40.0:
+    if apply_long and engaged and not gear_park and 0 < lead_drel < 100.0 and not is_speed_bump and v_ego_kph >= 40.0:
       # (1) 수동 제동 트리거
       if brake_pressed and not exclude_brake_learning:
         if not self._prev_brake:
@@ -595,13 +603,13 @@ class CarrotLearner:
     
     # 제동 과다 학습 방지: 강한 제동 중 가속 페달을 밟는 경우 (불필요한 제동 억제)
     # A/B안 적용: 과속방지턱 통과 중이거나 40km/h 미만에서는 가속 오버라이드 학습 수집 제외
-    if engaged and gas_pressed and a_ego < -0.8 and not is_speed_bump and v_ego_kph >= 40.0:
+    if apply_long and engaged and gas_pressed and a_ego < -0.8 and not is_speed_bump and v_ego_kph >= 40.0:
       if 0 < lead_drel < 150.0 and not exclude_gas_learning:
         self._jlead_gas_acc += _DT
 
     # ── Phase 5: DynamicTFollow / TFollowDecelBoost ──────────────────
     # A/B안 적용: 과속방지턱 통과 중이거나 40km/h 미만에서는 DynamicTFollow 학습 수집 제외
-    if engaged and brake_pressed and not self._prev_brake and not is_speed_bump and v_ego_kph >= 40.0 and not exclude_brake_learning:
+    if apply_long and engaged and brake_pressed and not self._prev_brake and not is_speed_bump and v_ego_kph >= 40.0 and not exclude_brake_learning:
       # DynamicTFollow: 앞차 급감속 중 브레이크 개입
       if lead_jlead < _DYN_JLEAD_THRESHOLD and lead_drel < 150.0:
         self._dyn_brake_count += 1
@@ -610,13 +618,13 @@ class CarrotLearner:
         self._decel_brake_count += 1
 
     # decay 누적 시간 업데이트
-    if engaged and not gear_park and not is_speed_bump and v_ego_kph >= 40.0:
+    if apply_long and engaged and not gear_park and not is_speed_bump and v_ego_kph >= 40.0:
       self._decel_sec += _DT
       if 0.0 < lead_drel < 100.0:
         self._jlead_sec += _DT
       if 0.0 < lead_drel < 150.0:
         self._dyn_sec += _DT
-    if engaged and v_ego_kph >= 80.0:
+    if apply_long and engaged and v_ego_kph >= 80.0:
       self._speed_factor_sec += _DT
 
     self._prev_brake = brake_pressed
@@ -624,7 +632,7 @@ class CarrotLearner:
     # ── Phase 4: TFollowGap (선행차 추종 중 가속/감속 개입) ──────────
     # 선행차가 잡힌 상태(0 < lead_drel < _TFOLLOW_MAX_LEAD_DREL)에서
     # 일정 속도 이상 주행 중 페달 개입을 분석합니다.
-    if engaged and v_ego_kph >= _TFOLLOW_MIN_V_KPH and 0.0 < lead_drel < _TFOLLOW_MAX_LEAD_DREL:
+    if apply_long and engaged and v_ego_kph >= _TFOLLOW_MIN_V_KPH and 0.0 < lead_drel < _TFOLLOW_MAX_LEAD_DREL:
       gap_idx = self._current_gap - 1  # 0-indexed
       
       # (1) 가속 페달 개입 시 -> 간격 좁히기 의도로 판단
@@ -652,7 +660,7 @@ class CarrotLearner:
             self._accel_swing_count = 0
 
     # ── Phase 6: 가변 곡선 감속 학습 ──────────────────────────────────────────
-    if engaged and sm is not None and sm.alive.get('modelV2', False) and v_ego_kph >= 20.0:
+    if apply_long and engaged and sm is not None and sm.alive.get('modelV2', False) and v_ego_kph >= 20.0:
       modelData = sm['modelV2']
       if len(modelData.position.x) >= 3:
         x_pts = np.array(modelData.position.x)
@@ -712,7 +720,7 @@ class CarrotLearner:
 
     # ── Phase 7: 정차/출발 데이터 수집 ───────────────────────────────
     # 자율 정차 접근(저속 + 자율 감속 + 가속페달 없음) 중 운전자 개입/정지 품질 수집
-    if engaged and not gear_park:
+    if apply_long and engaged and not gear_park:
       approaching = (v_ego_kph <= _STOP_APPROACH_V_KPH and a_ego < _STOP_DECEL_THRESHOLD
                      and not gas_pressed)
       if approaching:
@@ -745,7 +753,7 @@ class CarrotLearner:
 
     # ── Phase 8: 종방향 PID 추종 데이터 수집 ─────────────────────────
     # 자율 가감속(운전자 페달 미개입) 중 지령가속도 대비 실측가속도 추종 오차 분석
-    if (engaged and not gear_park and not gas_pressed and not brake_pressed
+    if (apply_long and engaged and not gear_park and not gas_pressed and not brake_pressed
         and v_ego_kph >= 20.0 and sm is not None and sm.alive.get('carControl', False)):
       try:
         cmd_accel = sm['carControl'].actuators.accel
@@ -780,7 +788,7 @@ class CarrotLearner:
     # openpilot 비인게이지(=사람이 직접 운전) 주행 중, 상황별 사람의 가감속·추종거리·
     # 페달상태를 통째로 누적한다. 핵심은 '무페달(코스팅)' 구간의 자연 감속을 측정해
     # 이 차/이 운전자의 회생제동 권한과 코스팅 선호를 직접 식별하는 것(역문제 없음).
-    if (not engaged) and not gear_park and v_ego_kph >= _MANUAL_MIN_V_KPH:
+    if apply_long and (not engaged) and not gear_park and v_ego_kph >= _MANUAL_MIN_V_KPH:
       band = _speed_band(v_ego_kph)
       if gas_pressed:
         # 사람이 선택한 가속(과도 가속은 학습 제외 기준 재사용)

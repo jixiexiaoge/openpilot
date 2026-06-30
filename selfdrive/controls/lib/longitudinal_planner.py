@@ -30,7 +30,13 @@ RESET_DECEL_RAMP_TIME = 2.0
 # 일정 jerk 상한은 onset에서 jerk가 0→상한으로 '계단'처럼 튀어(=jounce 스파이크)
 # 시작 jolt를 남긴다. 시작 직후 jerk를 점증시키면 가속도가 S자로 부드럽게 붙는다.
 JERK_EASE_TIME = 0.4        # 새 maneuver 시작 후 jerk를 100%로 키우는 시간(s)
-JERK_EASE_FLOOR = 0.3       # 시작 시 jerk 비율 하한(너무 굼뜨지 않게)
+JERK_EASE_FLOOR = 0.3       # 시작 시 jerk 비율 하한(감속 onset 등)
+# 가속은 선행차 추종 재가속(거리 좁히기)이 느리지 않게 시작 jerk를 더 높게 둔다.
+# (감속보다 높은 floor → 초중반 가속력↑, 단 0에서 시작하는 ease 자체는 유지해 급가속감 방지)
+JERK_EASE_FLOOR_ACCEL = 0.55
+# 가속 ease-out: 가속을 마무리하며(현재 가속 중, 양의 가속을 0 근처로 줄이는 구간) 목표
+# 차간거리에 살며시 도달하도록 부드러운 jerk를 쓴다(사용자 요청: 끝부분은 더 부드럽게).
+ACCEL_EASEOUT_JERK = 1.2
 # 고속 제동 안전 우회: 고속에서 선행차 접근 중이면 ease를 풀어(=즉응) 감지 초기부터
 # 충분한 제동이 미리 들어가게 한다(고속 늦은 감지로 인한 충돌 우려 대응).
 HIGH_SPEED_BRAKE_KPH = 70.0
@@ -275,38 +281,46 @@ class LongitudinalPlanner:
         # 급가속하는 문제를 막기 위해, 음수 가속도를 0으로 푸는 구간은 jerk를 크게 허용한다.
         max_positive_jerk = 3.0
       else:
-        # 진짜 가속 build-up만 부드럽게 제한 + onset jerk ease-in (살살→점점 강하게)
-        jerk_speed = float(np.interp(v_ego_kph, [0.0, 30.0, 80.0], [0.6, 1.0, 1.4]))
+        # 진짜 가속 build-up. 선행차 추종 재가속(거리 좁히기)이 느리지 않도록 저속 jerk를
+        # 올리고(0.6→0.8) 가속 전용 ease floor(0.5)로 초중반 가속력을 높인다(급가속감은 ease로 방지).
+        jerk_speed = float(np.interp(v_ego_kph, [0.0, 30.0, 80.0], [0.85, 1.15, 1.4]))
         jerk_accel = float(np.interp(a_prev, [0.0, 1.0], [1.0, 0.7]))
-        max_positive_jerk = jerk_speed * jerk_accel * ease
+        ease_acc = float(np.clip(self._jerk_ramp_t / JERK_EASE_TIME, JERK_EASE_FLOOR_ACCEL, 1.0))
+        max_positive_jerk = jerk_speed * jerk_accel * ease_acc
       a_target = min(a_target, a_prev + max_positive_jerk * self.dt)
     elif a_target < a_prev:
-      # 제동 진입(braking build-up) jerk 제한. 목표 감속이 깊을수록 한도를 키워 안전 확보.
-      #   -1.2m/s^2(완만): 2.0m/s^3 / -2.5: 5.0 / -4.0(긴급): 12.0 (사실상 무제한)
-      max_negative_jerk = float(np.interp(a_target, [-4.0, -2.5, -1.2], [12.0, 5.0, 2.0]))
-      # 제동 ease-in 비율: 기본은 가속과 같이 점증하되, 위급하면 풀어(=1.0) 즉응한다.
-      ease_dec = ease
-      # (1) 목표 감속이 깊으면(긴급) ease 해제: a_target -1.5→그대로, -3.0↓→1.0
-      ease_dec = max(ease_dec, float(np.interp(a_target, [-3.0, -1.5], [1.0, 0.0])))
-      # (2) 고속 + 선행차 접근(TTC 낮음): 늦은 감지 대비, 감지 초기부터 충분 제동이
-      #     미리 들어가도록 ease를 완전히 해제한다(고속 충돌 우려 대응).
-      if v_ego_kph >= HIGH_SPEED_BRAKE_KPH:
+      if a_prev > 0.1 and a_target > -0.4:
+        # 가속 ease-out: 가속 중 목표 차간거리에 가까워져 가속을 0 근처로 거두는 구간은
+        # 실제 제동이 아니므로 부드러운 jerk로 살며시 마무리(끝부분 부드럽게 — 사용자 요청).
+        max_negative_jerk = ACCEL_EASEOUT_JERK
+      else:
+        # 제동 진입(braking build-up) jerk 제한. 목표 감속이 깊을수록 한도를 키워 안전 확보.
+        #   -1.2m/s^2(완만): 2.0m/s^3 / -2.5: 5.0 / -4.0(긴급): 12.0 (사실상 무제한)
+        max_negative_jerk = float(np.interp(a_target, [-4.0, -2.5, -1.2], [12.0, 5.0, 2.0]))
+        ease_dec = ease
+        # (1) 깊은 감속 ease 해제 — 단 '고속에서만'. 저속(≤25km/h)은 운동에너지가 낮아
+        #     깊은 감속도 부드럽게(ease 유지)해 급브레이킹을 완화(뒤차 추돌 우려 대응).
+        deep = float(np.interp(a_target, [-3.0, -1.5], [1.0, 0.0]))
+        deep *= float(np.interp(v_ego_kph, [25.0, 50.0], [0.0, 1.0]))
+        ease_dec = max(ease_dec, deep)
+        # (2) 고속 + 선행차 접근(TTC 낮음): 감지 초기부터 충분 제동이 미리 들어가도록
+        #     ease를 완전히 해제(고속 충돌 우려 대응).
+        if v_ego_kph >= HIGH_SPEED_BRAKE_KPH:
+          try:
+            lead = sm['radarState'].leadOne
+            if lead.status and lead.dRel > 0.0 and lead.vRel < 0.0:
+              ttc = lead.dRel / -lead.vRel
+              if ttc < HIGH_SPEED_BRAKE_TTC:
+                ease_dec = 1.0
+          except Exception:
+            pass
+        # (3) 정지(신호등/모델 정지) 접근 시: 선행차 없어도 즉응 제동으로 정지선 초과 방지.
         try:
-          lead = sm['radarState'].leadOne
-          if lead.status and lead.dRel > 0.0 and lead.vRel < 0.0:
-            ttc = lead.dRel / -lead.vRel
-            if ttc < HIGH_SPEED_BRAKE_TTC:
-              ease_dec = 1.0
+          if carrot.xState.value == 3 or sm['modelV2'].action.shouldStop:
+            ease_dec = 1.0
         except Exception:
           pass
-      # (3) 정지(신호등/모델 정지) 접근 시: 선행차가 없어도 제동을 ease 없이 즉응시켜
-      #     정지선 초과를 막는다. (xState=3=e2eStop, 또는 모델 shouldStop)
-      try:
-        if carrot.xState.value == 3 or sm['modelV2'].action.shouldStop:
-          ease_dec = 1.0
-      except Exception:
-        pass
-      max_negative_jerk *= ease_dec
+        max_negative_jerk *= ease_dec
       a_target = max(a_target, a_prev - max_negative_jerk * self.dt)
     self.a_desired = a_target
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0

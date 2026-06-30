@@ -781,33 +781,24 @@ AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
   toggles_layout->setSpacing(10);
   toggles_layout->setContentsMargins(0, 10, 0, 0);
 
+  // 터치 면적을 키우기 위해 가로로 길던 버튼을 정사각형에 가깝게 바꾸고
+  // 두 개를 나란히(좌우) 배치한다. 글씨는 3줄로 표시.
   QPushButton *lat_toggle = new QPushButton(this);
-  lat_toggle->setFixedHeight(75);
+  lat_toggle->setFixedHeight(150);
 
   QPushButton *long_toggle = new QPushButton(this);
-  long_toggle->setFixedHeight(75);
+  long_toggle->setFixedHeight(150);
 
   auto updateToggles = [=]() {
     bool apply_lat = Params().getBool("CarrotTunerApplyLat");
     bool apply_long = Params().getBool("CarrotTunerApplyLong");
-    // 활성(ON)=초록, 비활성(OFF)=회색
-    QString on_style = "background-color: #178644; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;";
-    QString off_style = "background-color: #4a5568; font-size: 26px; font-weight: bold; border-radius: 10px; color: white;";
-    if (apply_lat) {
-      lat_toggle->setText(tr("Apply LAT (Steering): ON"));
-      lat_toggle->setStyleSheet(on_style);
-    } else {
-      lat_toggle->setText(tr("Apply LAT (Steering): OFF"));
-      lat_toggle->setStyleSheet(off_style);
-    }
-
-    if (apply_long) {
-      long_toggle->setText(tr("Apply LONG (Accel): ON"));
-      long_toggle->setStyleSheet(on_style);
-    } else {
-      long_toggle->setText(tr("Apply LONG (Accel): OFF"));
-      long_toggle->setStyleSheet(off_style);
-    }
+    // 활성(ON)=초록, 비활성(OFF)=회색. 3줄 텍스트가 박스를 넘지 않도록 폰트 축소.
+    QString on_style = "background-color: #178644; font-size: 22px; font-weight: bold; border-radius: 10px; color: white;";
+    QString off_style = "background-color: #4a5568; font-size: 22px; font-weight: bold; border-radius: 10px; color: white;";
+    lat_toggle->setText(tr("Apply LAT\n(Steering)\n%1").arg(apply_lat ? "ON" : "OFF"));
+    lat_toggle->setStyleSheet(apply_lat ? on_style : off_style);
+    long_toggle->setText(tr("Apply LONG\n(Accel/Brake)\n%1").arg(apply_long ? "ON" : "OFF"));
+    long_toggle->setStyleSheet(apply_long ? on_style : off_style);
   };
 
   updateToggles();
@@ -824,8 +815,12 @@ AutoTunerHistoryPanel::AutoTunerHistoryPanel(QWidget* parent) : QFrame(parent) {
     updateToggles();
   });
 
-  toggles_layout->addWidget(lat_toggle);
-  toggles_layout->addWidget(long_toggle);
+  // 두 토글을 좌우로 나란히 배치 (각각 정사각형에 가까운 형태)
+  QHBoxLayout *apply_row = new QHBoxLayout();
+  apply_row->setSpacing(10);
+  apply_row->addWidget(lat_toggle);
+  apply_row->addWidget(long_toggle);
+  toggles_layout->addLayout(apply_row);
 
   // 공장초기화: 좌측 하단(Apply LONG 아래)에 배치. 모든 튜너 파라미터를
   // params_keys.h 기본값으로 복원하고 학습 데이터/이력을 삭제한다.

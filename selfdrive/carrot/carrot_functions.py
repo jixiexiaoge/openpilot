@@ -14,6 +14,14 @@ from openpilot.common.swaglog import cloudlog
 EventName = log.OnroadEvent.EventName
 LaneChangeState = log.LaneChangeState
 
+# 속도-가변 차간거리: 고정 stop_distance가 저속 time-gap을 부풀려 'time-gap 역전'이 생긴다
+# (로그 f7: 5-15kph 3.4s vs 45kph+ 1.6s → 저속 과도하게 넓고 중고속은 좁음). 속도가 낮을수록
+# t_follow를 약간 줄여(≤30 좁게) 저속 간격을 당기고, 높을수록 늘려(≥30 넓게) time-gap을
+# 정상화한다(저속 좁게/고속 넓게 — 사용자 요청).
+_SPDTF_BP    = [20.0, 32.0, 50.0, 80.0]   # 속도 보간점(km/h)
+_SPDTF_DELTA = [-0.20, 0.0, 0.18, 0.28]   # 위 속도에서 t_follow 가감(초)
+_SPDTF_MIN   = 0.55                        # 보정 후 t_follow 안전 하한(초)
+
 class XState(Enum):
   lead = 0
   cruise = 1
@@ -298,6 +306,10 @@ class CarrotPlanner:
     tf_adjusted = self._apply_decel_hold_and_boost_t_follow(tf_target, a_ego)
     tf_safe = float(tf_adjusted * self.mySafeFactor)
     tf_final = self._clip_t_follow(tf_safe)
+    # 속도-가변 간격 보정 (clip 이후 적용 — clip 하한에 막히지 않게). 자체 안전 하한 유지.
+    # 저속(≤30): t_follow 약간↓(간격 좁힘) / 고속(≥30): ↑(간격 넓힘) → time-gap 역전 정상화.
+    v_kph = v_ego * CV.MS_TO_KPH
+    tf_final = max(tf_final + float(np.interp(v_kph, _SPDTF_BP, _SPDTF_DELTA)), _SPDTF_MIN)
     self._tf_applied = float(tf_final)
     return self.apply_t_follow(tf_final)
 
