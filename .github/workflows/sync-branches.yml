@@ -35,31 +35,15 @@ jobs:
 
           # Carrotpilot - c3-wip
           add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
-          git fetch carrotpilot c3-wip --no-tags || echo "carrotpilot c3-wip fetch failed"
-
-          # Carrot - c3
-          add_or_update_remote carrotc3 https://github.com/ajouatom/openpilot.git
-          git fetch carrotc3 c3 --no-tags || echo "carrot c3 fetch failed"
+          git fetch carrotpilot carrot-wip --no-tags || echo "carrotpilot carrot-wip fetch failed"
 
           # Carrot - hoya/c3-atune
           add_or_update_remote atune https://github.com/ajouatom/openpilot.git
           git fetch atune hoya/c3-atune --no-tags || echo "atune hoya/c3-atune fetch failed"
 
-          # IQpilot - release-new
-          add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
-          git fetch iqpilot release-new --no-tags || echo "iqpilot release-new fetch failed"
-
           # Dragonpilot - pre-build
           add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
           git fetch dragonpilot pre-build --no-tags || echo "dragonpilot pre-build fetch failed"
-
-          # Dragonpilot - 0.11.0-pre-build
-          add_or_update_remote dragonpilot011 https://github.com/dragonpilot/dragonpilot.git
-          git fetch dragonpilot011 0.11.0-pre-build --no-tags || echo "dragonpilot 0.11.0-pre-build fetch failed"
-
-          # XNOR - xnor-c3
-          add_or_update_remote xnor https://github.com/xnor-tech/openpilot.git
-          git fetch xnor xnor-c3 --no-tags || echo "xnor-c3 fetch failed"
 
       - name: Push branches to your repository force sync
         run: |
@@ -86,9 +70,8 @@ jobs:
 
           # ========= 分支同步 =========
 
-          sync_branch CP carrotpilot/c3-wip
+          sync_branch CP carrotpilot/carrot-wip
           sync_branch atune atune/hoya/c3-atune
-          sync_branch release-new iqpilot/release-new
           sync_branch DP dragonpilot/pre-build
 
       - name: Tag sync timestamp
