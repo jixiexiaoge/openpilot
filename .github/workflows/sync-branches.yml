@@ -43,19 +43,12 @@ jobs:
 
           # IQpilot
           add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
-          git fetch iqpilot release-new --no-tags || echo "⚠️ iqpilot fetch failed"
+          git fetch iqpilot release --no-tags || echo "⚠️ iqpilot fetch failed"
 
           # Dragonpilot
           add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
           git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
 
-          # opendbc-dragon
-          add_or_update_remote opendbc-dragon https://github.com/asiusai/opendbc.git
-          git fetch opendbc-dragon dragon --no-tags || echo "⚠️ opendbc dragon fetch failed"
-
-          # c3-ms
-          add_or_update_remote c3-ms https://github.com/happymaj11r/openpilot.git
-          git fetch c3-ms c3-ms --no-tags || echo "⚠️ c3-ms fetch failed"
 
       - name: Push branches to your repository (force sync)
         run: |
@@ -82,12 +75,9 @@ jobs:
 
           # ========= 分支同步 =========
 
-          sync_branch Carrotpilot carrotpilot/c3-wip
-          sync_branch carrot-wip carrotwip/carrot-wip
-          sync_branch release iqpilot/release-new
+          sync_branch Carrotpilot carrotpilot/carrot-wip
+          sync_branch release iqpilot/release
           sync_branch Dragonpilot dragonpilot/pre-build
-          sync_branch opendbc-dragon opendbc-dragon/dragon
-          sync_branch c3-ms c3-ms/c3-ms
 
       - name: Tag sync timestamp
         run: |
