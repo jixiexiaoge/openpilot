@@ -1,205 +1,97 @@
-```yaml
 name: Sync Branches
 
 on:
   schedule:
-    - cron: '0 18 * * *' # 每天 UTC 18:00，北京时间次日 02:00
+    - cron: '0 18 * * *'    # 每天 UTC 18 点（北京时间 02:00）
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
-    env:
-      # Checkout 时不自动下载 LFS 文件，由后续步骤按指定分支下载
-      GIT_LFS_SKIP_SMUDGE: "1"
-
     steps:
-      - name: Checkout target repository
+      - name: Checkout the target repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
-          lfs: false
-          persist-credentials: true
-
-      - name: Configure Git and Git LFS
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git lfs install --local
-
-          echo "Git version:"
-          git --version
-
-          echo "Git LFS version:"
-          git lfs version
 
       - name: Add upstream repositories and fetch branches
-        shell: bash
         run: |
-          set -euo pipefail
-
+          set -e
           echo "=== Fetching branches from upstream repositories ==="
 
-          add_or_update_remote() {
-            local remote_name="$1"
-            local remote_url="$2"
-
-            if git remote get-url "$remote_name" >/dev/null 2>&1; then
-              git remote set-url "$remote_name" "$remote_url"
+          add_or_update_remote () {
+            local name="$1"
+            local url="$2"
+            if git remote get-url "$name" >/dev/null 2>&1; then
+              git remote set-url "$name" "$url"
             else
-              git remote add "$remote_name" "$remote_url"
+              git remote add "$name" "$url"
             fi
           }
 
-          fetch_branch() {
-            local remote_name="$1"
-            local branch_name="$2"
-
-            echo "---- Fetching ${remote_name}/${branch_name} ----"
-
-            git fetch \
-              --no-tags \
-              --force \
-              "$remote_name" \
-              "refs/heads/${branch_name}:refs/remotes/${remote_name}/${branch_name}"
-          }
+          # ========= 上游仓库 =========
 
           # Carrotpilot
-          add_or_update_remote \
-            carrotpilot \
-            https://github.com/ajouatom/openpilot.git
+          add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
+          git fetch carrotpilot c3-wip --no-tags || echo "⚠️ carrotpilot c3-wip fetch failed"
 
-          fetch_branch carrotpilot carrot-wip
+          # Carrot-WIP
+          add_or_update_remote carrotwip https://github.com/ajouatom/openpilot.git
+          git fetch carrotwip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
 
-          # atune
-          add_or_update_remote \
-            atune \
-            https://github.com/ajouatom/openpilot.git
-
-          fetch_branch atune hoya/c3-atune
+          # IQpilot
+          add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
+          git fetch iqpilot release-new --no-tags || echo "⚠️ iqpilot fetch failed"
 
           # Dragonpilot
-          add_or_update_remote \
-            dragonpilot \
-            https://github.com/dragonpilot/dragonpilot.git
+          add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
+          git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
 
-          fetch_branch dragonpilot pre-build
+          # opendbc-dragon
+          add_or_update_remote opendbc-dragon https://github.com/asiusai/opendbc.git
+          git fetch opendbc-dragon dragon --no-tags || echo "⚠️ opendbc dragon fetch failed"
 
-      - name: Download Git LFS objects from upstream repositories
-        shell: bash
+          # c3-ms
+          add_or_update_remote c3-ms https://github.com/happymaj11r/openpilot.git
+          git fetch c3-ms c3-ms --no-tags || echo "⚠️ c3-ms fetch failed"
+
+      - name: Push branches to your repository (force sync)
         run: |
-          set -euo pipefail
-
-          echo "=== Downloading LFS objects from upstream repositories ==="
-
-          fetch_lfs_objects() {
-            local remote_name="$1"
-            local branch_name="$2"
-
-            echo "---- LFS fetch: ${remote_name}/${branch_name} ----"
-
-            git lfs fetch "$remote_name" "$branch_name"
-          }
-
-          fetch_lfs_objects carrotpilot carrot-wip
-          fetch_lfs_objects atune hoya/c3-atune
-          fetch_lfs_objects dragonpilot pre-build
-
-          echo "Downloaded LFS objects:"
-          git lfs fsck
-
-      - name: Upload Git LFS objects to target repository
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Uploading LFS objects to origin ==="
-
-          push_lfs_objects() {
-            local source_ref="$1"
-            local target_branch="$2"
-
-            echo "---- LFS push: ${source_ref} -> origin/${target_branch} ----"
-
-            if ! git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1; then
-              echo "::error::Source ref ${source_ref} does not exist"
-              return 1
-            fi
-
-            # 将该分支历史引用的全部 LFS 对象上传到目标仓库
-            git lfs push --all origin "$source_ref"
-          }
-
-          push_lfs_objects \
-            refs/remotes/carrotpilot/carrot-wip \
-            Carrotpilot
-
-          push_lfs_objects \
-            refs/remotes/atune/hoya/c3-atune \
-            atune
-
-          push_lfs_objects \
-            refs/remotes/dragonpilot/pre-build \
-            DP
-
-      - name: Force-sync branches to target repository
-        shell: bash
-        run: |
-          set -euo pipefail
-
+          set +e
           echo "=== Syncing branches to origin ==="
 
-          sync_branch() {
+          sync_branch () {
             local target_branch="$1"
             local source_ref="$2"
 
-            echo "---- Sync: ${source_ref} -> origin/${target_branch} ----"
+            echo "---- Sync: $source_ref -> $target_branch ----"
 
-            if ! git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1; then
-              echo "::error::Source ref ${source_ref} does not exist"
-              return 1
+            git rev-parse "$source_ref" >/dev/null 2>&1
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Source $source_ref not found, skipping"
+              return
             fi
 
-            git push \
-              origin \
-              "+${source_ref}:refs/heads/${target_branch}"
-
-            echo "Successfully synced origin/${target_branch}"
+            git checkout -B "$target_branch" "$source_ref" \
+              && git push origin "$target_branch" --force \
+              && echo "✅ Synced $target_branch" \
+              || echo "⚠️ Failed syncing $target_branch"
           }
 
-          # ajouatom/openpilot:carrot-wip
-          # 同步到 jixiexiaoge/openpilot:Carrotpilot
-          sync_branch \
-            Carrotpilot \
-            refs/remotes/carrotpilot/carrot-wip
+          # ========= 分支同步 =========
 
-          sync_branch \
-            atune \
-            refs/remotes/atune/hoya/c3-atune
-
-          sync_branch \
-            DP \
-            refs/remotes/dragonpilot/pre-build
+          sync_branch Carrotpilot carrotpilot/c3-wip
+          sync_branch carrot-wip carrotwip/carrot-wip
+          sync_branch release iqpilot/release-new
+          sync_branch Dragonpilot dragonpilot/pre-build
+          sync_branch opendbc-dragon opendbc-dragon/dragon
+          sync_branch c3-ms c3-ms/c3-ms
 
       - name: Tag sync timestamp
-        shell: bash
         run: |
-          set -euo pipefail
-
-          TAG_NAME="sync-$(date -u +'%Y%m%d-%H%M')"
-          SOURCE_REF="refs/remotes/carrotpilot/carrot-wip"
-
-          git tag --force "$TAG_NAME" "$SOURCE_REF"
-          git push origin "refs/tags/${TAG_NAME}" --force
-
-          echo "Created tag: ${TAG_NAME}"
-```
+          set +e
+          TAG_NAME="sync-$(date +%Y%m%d-%H%M)"
+          git tag -f $TAG_NAME
+          git push origin $TAG_NAME --force || echo "⚠️ tag push failed"
