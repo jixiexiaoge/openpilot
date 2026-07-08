@@ -1,3 +1,4 @@
+```yaml
 name: Sync Branches
 
 on:
@@ -12,17 +13,34 @@ jobs:
   sync:
     runs-on: ubuntu-latest
 
+    env:
+      # Checkout 时不自动下载 LFS 文件，由后续步骤按指定分支下载
+      GIT_LFS_SKIP_SMUDGE: "1"
+
     steps:
       - name: Checkout target repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
+          lfs: false
+          persist-credentials: true
 
-      - name: Configure Git
+      - name: Configure Git and Git LFS
+        shell: bash
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git lfs install --local
+
+          echo "Git version:"
+          git --version
+
+          echo "Git LFS version:"
+          git lfs version
 
       - name: Add upstream repositories and fetch branches
         shell: bash
@@ -46,7 +64,7 @@ jobs:
             local remote_name="$1"
             local branch_name="$2"
 
-            echo "Fetching ${remote_name}/${branch_name}"
+            echo "---- Fetching ${remote_name}/${branch_name} ----"
 
             git fetch \
               --no-tags \
@@ -55,26 +73,83 @@ jobs:
               "refs/heads/${branch_name}:refs/remotes/${remote_name}/${branch_name}"
           }
 
-          # Carrotpilot：上游 carrot-wip
+          # Carrotpilot
           add_or_update_remote \
             carrotpilot \
             https://github.com/ajouatom/openpilot.git
 
           fetch_branch carrotpilot carrot-wip
 
-          # atune：上游 hoya/c3-atune
+          # atune
           add_or_update_remote \
             atune \
             https://github.com/ajouatom/openpilot.git
 
           fetch_branch atune hoya/c3-atune
 
-          # Dragonpilot：上游 pre-build
+          # Dragonpilot
           add_or_update_remote \
             dragonpilot \
             https://github.com/dragonpilot/dragonpilot.git
 
           fetch_branch dragonpilot pre-build
+
+      - name: Download Git LFS objects from upstream repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Downloading LFS objects from upstream repositories ==="
+
+          fetch_lfs_objects() {
+            local remote_name="$1"
+            local branch_name="$2"
+
+            echo "---- LFS fetch: ${remote_name}/${branch_name} ----"
+
+            git lfs fetch "$remote_name" "$branch_name"
+          }
+
+          fetch_lfs_objects carrotpilot carrot-wip
+          fetch_lfs_objects atune hoya/c3-atune
+          fetch_lfs_objects dragonpilot pre-build
+
+          echo "Downloaded LFS objects:"
+          git lfs fsck
+
+      - name: Upload Git LFS objects to target repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Uploading LFS objects to origin ==="
+
+          push_lfs_objects() {
+            local source_ref="$1"
+            local target_branch="$2"
+
+            echo "---- LFS push: ${source_ref} -> origin/${target_branch} ----"
+
+            if ! git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1; then
+              echo "::error::Source ref ${source_ref} does not exist"
+              return 1
+            fi
+
+            # 将该分支历史引用的全部 LFS 对象上传到目标仓库
+            git lfs push --all origin "$source_ref"
+          }
+
+          push_lfs_objects \
+            refs/remotes/carrotpilot/carrot-wip \
+            Carrotpilot
+
+          push_lfs_objects \
+            refs/remotes/atune/hoya/c3-atune \
+            atune
+
+          push_lfs_objects \
+            refs/remotes/dragonpilot/pre-build \
+            DP
 
       - name: Force-sync branches to target repository
         shell: bash
@@ -98,15 +173,22 @@ jobs:
               origin \
               "+${source_ref}:refs/heads/${target_branch}"
 
-            echo "Synced origin/${target_branch}"
+            echo "Successfully synced origin/${target_branch}"
           }
 
-          # carrot-wip 同步到目标仓库的 Carrotpilot 分支
-          sync_branch Carrotpilot refs/remotes/carrotpilot/carrot-wip
+          # ajouatom/openpilot:carrot-wip
+          # 同步到 jixiexiaoge/openpilot:Carrotpilot
+          sync_branch \
+            Carrotpilot \
+            refs/remotes/carrotpilot/carrot-wip
 
-          # 其他分支
-          sync_branch atune refs/remotes/atune/hoya/c3-atune
-          sync_branch DP refs/remotes/dragonpilot/pre-build
+          sync_branch \
+            atune \
+            refs/remotes/atune/hoya/c3-atune
+
+          sync_branch \
+            DP \
+            refs/remotes/dragonpilot/pre-build
 
       - name: Tag sync timestamp
         shell: bash
@@ -114,9 +196,10 @@ jobs:
           set -euo pipefail
 
           TAG_NAME="sync-$(date -u +'%Y%m%d-%H%M')"
+          SOURCE_REF="refs/remotes/carrotpilot/carrot-wip"
 
-          # 标签指向本次同步后的 Carrotpilot 分支
-          git tag --force "$TAG_NAME" refs/remotes/carrotpilot/carrot-wip
+          git tag --force "$TAG_NAME" "$SOURCE_REF"
           git push origin "refs/tags/${TAG_NAME}" --force
 
           echo "Created tag: ${TAG_NAME}"
+```
