@@ -2,81 +2,121 @@ name: Sync Branches
 
 on:
   schedule:
-    - cron: '0 18 * * *'    # 每天 UTC 18 点（北京时间 02:00）
+    - cron: '0 18 * * *' # 每天 UTC 18:00，北京时间次日 02:00
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the target repository
+      - name: Checkout target repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Add upstream repositories and fetch branches
+      - name: Configure Git
         run: |
-          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream repositories and fetch branches
+        shell: bash
+        run: |
+          set -euo pipefail
+
           echo "=== Fetching branches from upstream repositories ==="
 
-          add_or_update_remote () {
-            local name="$1"
-            local url="$2"
-            if git remote get-url "$name" >/dev/null 2>&1; then
-              git remote set-url "$name" "$url"
+          add_or_update_remote() {
+            local remote_name="$1"
+            local remote_url="$2"
+
+            if git remote get-url "$remote_name" >/dev/null 2>&1; then
+              git remote set-url "$remote_name" "$remote_url"
             else
-              git remote add "$name" "$url"
+              git remote add "$remote_name" "$remote_url"
             fi
           }
 
-          # ========= 上游仓库 =========
+          fetch_branch() {
+            local remote_name="$1"
+            local branch_name="$2"
 
-          # Carrotpilot - c3-wip
-          add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
-          git fetch carrotpilot carrot-wip --no-tags || echo "carrotpilot carrot-wip fetch failed"
+            echo "Fetching ${remote_name}/${branch_name}"
 
-          # Carrot - hoya/c3-atune
-          add_or_update_remote atune https://github.com/ajouatom/openpilot.git
-          git fetch atune hoya/c3-atune --no-tags || echo "atune hoya/c3-atune fetch failed"
+            git fetch \
+              --no-tags \
+              --force \
+              "$remote_name" \
+              "refs/heads/${branch_name}:refs/remotes/${remote_name}/${branch_name}"
+          }
 
-          # Dragonpilot - pre-build
-          add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
-          git fetch dragonpilot pre-build --no-tags || echo "dragonpilot pre-build fetch failed"
+          # Carrotpilot：上游 carrot-wip
+          add_or_update_remote \
+            carrotpilot \
+            https://github.com/ajouatom/openpilot.git
 
-      - name: Push branches to your repository force sync
+          fetch_branch carrotpilot carrot-wip
+
+          # atune：上游 hoya/c3-atune
+          add_or_update_remote \
+            atune \
+            https://github.com/ajouatom/openpilot.git
+
+          fetch_branch atune hoya/c3-atune
+
+          # Dragonpilot：上游 pre-build
+          add_or_update_remote \
+            dragonpilot \
+            https://github.com/dragonpilot/dragonpilot.git
+
+          fetch_branch dragonpilot pre-build
+
+      - name: Force-sync branches to target repository
+        shell: bash
         run: |
-          set +e
+          set -euo pipefail
+
           echo "=== Syncing branches to origin ==="
 
-          sync_branch () {
+          sync_branch() {
             local target_branch="$1"
             local source_ref="$2"
 
-            echo "---- Sync: $source_ref -> $target_branch ----"
+            echo "---- Sync: ${source_ref} -> origin/${target_branch} ----"
 
-            git rev-parse "$source_ref" >/dev/null 2>&1
-            if [ $? -ne 0 ]; then
-              echo "Source $source_ref not found, skipping"
-              return
+            if ! git rev-parse --verify "${source_ref}^{commit}" >/dev/null 2>&1; then
+              echo "::error::Source ref ${source_ref} does not exist"
+              return 1
             fi
 
-            git checkout -B "$target_branch" "$source_ref" \
-              && git push origin "$target_branch" --force \
-              && echo "Synced $target_branch" \
-              || echo "Failed syncing $target_branch"
+            git push \
+              origin \
+              "+${source_ref}:refs/heads/${target_branch}"
+
+            echo "Synced origin/${target_branch}"
           }
 
-          # ========= 分支同步 =========
+          # carrot-wip 同步到目标仓库的 Carrotpilot 分支
+          sync_branch Carrotpilot refs/remotes/carrotpilot/carrot-wip
 
-          sync_branch CP carrotpilot/carrot-wip
-          sync_branch atune atune/hoya/c3-atune
-          sync_branch DP dragonpilot/pre-build
+          # 其他分支
+          sync_branch atune refs/remotes/atune/hoya/c3-atune
+          sync_branch DP refs/remotes/dragonpilot/pre-build
 
       - name: Tag sync timestamp
+        shell: bash
         run: |
-          set +e
-          TAG_NAME="sync-$(date +%Y%m%d-%H%M)"
-          git tag -f $TAG_NAME
-          git push origin $TAG_NAME --force || echo "tag push failed"
+          set -euo pipefail
+
+          TAG_NAME="sync-$(date -u +'%Y%m%d-%H%M')"
+
+          # 标签指向本次同步后的 Carrotpilot 分支
+          git tag --force "$TAG_NAME" refs/remotes/carrotpilot/carrot-wip
+          git push origin "refs/tags/${TAG_NAME}" --force
+
+          echo "Created tag: ${TAG_NAME}"
