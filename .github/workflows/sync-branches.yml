@@ -32,14 +32,9 @@ jobs:
           }
 
           # ========= 上游仓库 =========
-
-          # Carrotpilot
-          add_or_update_remote carrotpilot https://github.com/ajouatom/openpilot.git
-          git fetch carrotpilot c3-wip --no-tags || echo "⚠️ carrotpilot c3-wip fetch failed"
-
           # Carrot-WIP
           add_or_update_remote carrotwip https://github.com/ajouatom/openpilot.git
-          git fetch carrotwip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
+          git fetch carrot-wip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
 
           # IQpilot
           add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
