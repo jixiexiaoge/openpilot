@@ -1,0 +1,62 @@
+{
+  "displayName": "Default (CD210)",
+  "environment": "development",
+  "generation": 12,
+  "index": 56,
+  "internalName": "C210M",
+  "is20hz": true,
+  "minimumSelectorVersion": 14,
+  "models": [
+    {
+      "artifact": {
+        "downloadUri": {
+          "sha256": "ba5c459412310a8c65a11e02cb1f522fe439d515589754451561268f028f4fb0",
+          "uri": "https://git.konn3kt.com/teal/IQModels/raw/branch/main/models/recompiled16/model-CD210%20Model%20%28January%2031%2C%202026%29-101/driving_policy_c210m_tinygrad.pkl"
+        },
+        "fileName": "driving_policy_c210m_tinygrad.pkl"
+      },
+      "metadata": {
+        "downloadUri": {
+          "sha256": "15c8c1ad9073424ee1101b1f7170421140ed308ebaa7c917001130fb1760420b",
+          "uri": "https://git.konn3kt.com/teal/IQModels/raw/branch/main/models/recompiled16/model-CD210%20Model%20%28January%2031%2C%202026%29-101/driving_policy_c210m_metadata.pkl"
+        },
+        "fileName": "driving_policy_c210m_metadata.pkl"
+      },
+      "type": "policy"
+    },
+    {
+      "artifact": {
+        "downloadUri": {
+          "sha256": "c6c9cfba6c618a361d474d2fe11c4d8e7a249e9311dd9bcb42b287067ef75ae7",
+          "uri": "https://git.konn3kt.com/teal/IQModels/raw/branch/main/models/recompiled16/model-CD210%20Model%20%28January%2031%2C%202026%29-101/driving_vision_c210m_tinygrad.pkl"
+        },
+        "fileName": "driving_vision_c210m_tinygrad.pkl"
+      },
+      "metadata": {
+        "downloadUri": {
+          "sha256": "a2be39088d38550e818f5ac1c6300a64605ba0bd0676a27fe7bbea9fddae90a1",
+          "uri": "https://git.konn3kt.com/teal/IQModels/raw/branch/main/models/recompiled16/model-CD210%20Model%20%28January%2031%2C%202026%29-101/driving_vision_c210m_metadata.pkl"
+        },
+        "fileName": "driving_vision_c210m_metadata.pkl"
+      },
+      "type": "vision"
+    }
+  ],
+  "overrides": [
+    {
+      "key": "folder",
+      "value": "Master Models"
+    },
+    {
+      "key": "lat",
+      "value": ".0"
+    },
+    {
+      "key": "long",
+      "value": ".3"
+    }
+  ],
+  "ref": "default",
+  "runner": "tinygrad",
+  "status": "notDownloading"
+}

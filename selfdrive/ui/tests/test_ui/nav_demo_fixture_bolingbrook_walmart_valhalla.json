@@ -1,0 +1,148 @@
+{
+    "trip": {
+        "locations": [
+            {
+                "type": "break",
+                "lat": 41.701966,
+                "lon": -88.086597,
+                "original_index": 0
+            },
+            {
+                "type": "break",
+                "lat": 41.699213,
+                "lon": -88.102372,
+                "original_index": 1
+            }
+        ],
+        "legs": [
+            {
+                "maneuvers": [
+                    {
+                        "type": 1,
+                        "instruction": "Drive north on Brandon Court.",
+                        "verbal_succinct_transition_instruction": "Drive north. Then Turn left onto Blair Lane.",
+                        "verbal_pre_transition_instruction": "Drive north on Brandon Court. Then Turn left onto Blair Lane.",
+                        "verbal_post_transition_instruction": "Continue for 80 meters.",
+                        "street_names": [
+                            "Brandon Court"
+                        ],
+                        "bearing_after": 359,
+                        "time": 13.766,
+                        "length": 0.084,
+                        "cost": 14.791,
+                        "begin_shape_index": 0,
+                        "end_shape_index": 2,
+                        "verbal_multi_cue": true,
+                        "travel_mode": "drive",
+                        "travel_type": "car"
+                    },
+                    {
+                        "type": 15,
+                        "instruction": "Turn left onto Blair Lane.",
+                        "verbal_transition_alert_instruction": "Turn left onto Blair Lane.",
+                        "verbal_succinct_transition_instruction": "Turn left.",
+                        "verbal_pre_transition_instruction": "Turn left onto Blair Lane.",
+                        "verbal_post_transition_instruction": "Continue for 90 meters.",
+                        "street_names": [
+                            "Blair Lane"
+                        ],
+                        "bearing_before": 359,
+                        "bearing_after": 269,
+                        "time": 20.128,
+                        "length": 0.09,
+                        "cost": 32.463,
+                        "begin_shape_index": 2,
+                        "end_shape_index": 4,
+                        "travel_mode": "drive",
+                        "travel_type": "car"
+                    },
+                    {
+                        "type": 15,
+                        "instruction": "Turn left onto North Schmidt Road.",
+                        "verbal_transition_alert_instruction": "Turn left onto North Schmidt Road.",
+                        "verbal_succinct_transition_instruction": "Turn left.",
+                        "verbal_pre_transition_instruction": "Turn left onto North Schmidt Road.",
+                        "verbal_post_transition_instruction": "Continue for 500 meters.",
+                        "street_names": [
+                            "North Schmidt Road"
+                        ],
+                        "bearing_before": 269,
+                        "bearing_after": 179,
+                        "time": 48.162,
+                        "length": 0.522,
+                        "cost": 72.474,
+                        "begin_shape_index": 4,
+                        "end_shape_index": 11,
+                        "travel_mode": "drive",
+                        "travel_type": "car"
+                    },
+                    {
+                        "type": 10,
+                        "instruction": "Turn right onto West Briarcliff Road.",
+                        "verbal_transition_alert_instruction": "Turn right onto West Briarcliff Road.",
+                        "verbal_succinct_transition_instruction": "Turn right.",
+                        "verbal_pre_transition_instruction": "Turn right onto West Briarcliff Road.",
+                        "verbal_post_transition_instruction": "Continue for 1.5 kilometers.",
+                        "street_names": [
+                            "West Briarcliff Road"
+                        ],
+                        "bearing_before": 178,
+                        "bearing_after": 267,
+                        "time": 211.369,
+                        "length": 1.278,
+                        "cost": 252.521,
+                        "begin_shape_index": 11,
+                        "end_shape_index": 39,
+                        "travel_mode": "drive",
+                        "travel_type": "car"
+                    },
+                    {
+                        "type": 4,
+                        "instruction": "You have arrived at your destination.",
+                        "verbal_transition_alert_instruction": "You will arrive at your destination.",
+                        "verbal_pre_transition_instruction": "You have arrived at your destination.",
+                        "bearing_before": 274,
+                        "time": 0.0,
+                        "length": 0.0,
+                        "cost": 0.0,
+                        "begin_shape_index": 39,
+                        "end_shape_index": 39,
+                        "travel_mode": "drive",
+                        "travel_type": "car"
+                    }
+                ],
+                "summary": {
+                    "has_time_restrictions": false,
+                    "has_toll": false,
+                    "has_highway": false,
+                    "has_ferry": false,
+                    "min_lat": 41.697911,
+                    "min_lon": -88.102372,
+                    "max_lat": 41.702721,
+                    "max_lon": -88.086596,
+                    "time": 293.426,
+                    "length": 1.974,
+                    "cost": 372.251
+                },
+                "shape": "{chpnAhck_gDki@d@yCBR|z@@rF~vB_C|DCzGElfAq@r_@i@|PWbc@s@HxGhC~zBjA|aAuKf|@cGrl@K`IxE|jEj@rx@B~LNhm@x@bgALjKCfLiAdQwBbOaD|McDzIiElHiIbLcMtPmD~F_EnJoDlNeE|Vu@bF]nEe@`K@lD"
+            }
+        ],
+        "summary": {
+            "has_time_restrictions": false,
+            "has_toll": false,
+            "has_highway": false,
+            "has_ferry": false,
+            "min_lat": 41.697911,
+            "min_lon": -88.102372,
+            "max_lat": 41.702721,
+            "max_lon": -88.086596,
+            "time": 293.426,
+            "length": 1.974,
+            "cost": 372.251
+        },
+        "status_message": "Found route between points",
+        "status": 0,
+        "units": "kilometers",
+        "language": "en-US"
+    }
+}

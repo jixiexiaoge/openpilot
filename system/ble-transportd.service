@@ -1,0 +1,34 @@
+# Copyright © IQ.Lvbs, apart of Project Teal Lvbs, All Rights Reserved, licensed under https://konn3kt.com/tos
+
+[Unit]
+Description=Konn3kt BLE Device Settings Transport
+Documentation=https://gitlvb.teallvbs.xyz/teal/iqpilot
+After=bluetooth.service dbus.service
+Wants=bluetooth.service dbus.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=comma
+AmbientCapabilities=CAP_SYS_NICE
+Environment="IQPILOT_SOURCE_ROOT=/data/openpilot/openpilot"
+Environment="PYTHONPATH=/usr/libexec/iqpilot/python:/data/openpilot"
+Environment="PYTHONSAFEPATH=1"
+Environment="PATH=/usr/local/venv/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+WorkingDirectory=/data/openpilot
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 120); do if [ -x /usr/libexec/iqpilot/iqpilot_bundle_runner ]; then exit 0; fi; echo "Waiting for iqpilot_bundle_runner..."; sleep 5; done; exit 1'
+ExecStartPre=/bin/bash -c 'if [ -f /data/openpilot/artifacts/runtime/ensure_private_installed.sh ]; then bash /data/openpilot/artifacts/runtime/ensure_private_installed.sh || true; fi'
+ExecStart=/bin/bash -lc 'exec /usr/libexec/iqpilot/iqpilot_bundle_runner --bundle iqpilot_hephaestusd_private --mode python-module --entry iqpilot_private.konn3kt.hephaestus.ble_transportd --daemon-name ble_transportd'
+TimeoutStartSec=600
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=yes
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectHome=no
+
+[Install]
+WantedBy=multi-user.target

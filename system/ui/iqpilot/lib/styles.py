@@ -1,0 +1,142 @@
+"""
+Copyright © IQ.Lvbs, apart of Project Teal Lvbs, All Rights Reserved, licensed under https://konn3kt.com/tos
+"""
+import pyray as rl
+
+
+def _hex(rgb: int, alpha: int = 0xFF) -> rl.Color:
+  return rl.Color((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, alpha)
+
+
+class ink:
+  """IQ settings palette, grouped by role."""
+
+  # surfaces
+  PANEL = _hex(0x393939)
+  PANEL_MUTED = _hex(0x272727)
+  PANEL_PRESSED = _hex(0x151515)
+
+  # accent (selection / "on")
+  ACCENT = _hex(0x1C65BA)
+  ACCENT_PRESSED = _hex(0x114E96)
+  ACCENT_FADED = _hex(0x25466B)
+
+  # text
+  TITLE = rl.WHITE
+  READOUT = _hex(0xAAAAAA)
+  CAPTION = _hex(0x808080)
+  DISABLED = _hex(0x585858)
+
+  # toggle knob
+  KNOB = rl.WHITE
+  KNOB_DISABLED = _hex(0x585858)
+
+  # chips / segmented controls
+  CHIP_PRESSED = _hex(0x696868)
+  FAINT = rl.Color(255, 255, 255, 0x33)
+  CLEAR = rl.Color(255, 255, 255, 0)
+  VOID = rl.Color(0, 0, 0, 0)
+
+  # dialog key buttons
+  KEY_ACTION = _hex(0x465BEA)
+  KEY_NEUTRAL = _hex(0x333333)
+  KEY_SUNKEN = _hex(0x1E1E1E)
+  OUTLINE = _hex(0x969696, 200)
+
+  # status colours (vehicle fingerprint legend etc.)
+  STATUS_GOOD = _hex(0x129791)
+  STATUS_INFO = _hex(0x0086E9)
+  STATUS_WARN = _hex(0xFFD500)
+
+  # push buttons
+  PUSH = _hex(0x34373E)
+  PUSH_PRESSED = _hex(0x464A52)
+  PUSH_DISABLED = _hex(0x121212)
+  PUSH_TEXT_DISABLED = _hex(0x5C5C5C)
+
+
+class metrics:
+  """Row and control geometry for the IQ settings surfaces."""
+
+  ROW = 170
+  GUTTER = 20
+  TITLE_FS = 50
+  CAPTION_FS = 40
+  CAPTION_DY = 150
+  TEXT_PAD = 20
+  CLOSE_BTN = 160
+
+  TOGGLE_H = 120
+  TOGGLE_W = int(TOGGLE_H * 2.2)
+  TOGGLE_TRACK_H = TOGGLE_H - 20
+
+  ACTION_W = 300
+  ROW_BTN_H = 120
+  WIDE_BTN_W = 800
+  WIDE_BTN_H = 150
+
+
+class style:
+  """Transitional facade for panels not yet ported to ink/metrics; shrink as ports land."""
+
+  ITEM_BASE_HEIGHT = metrics.ROW
+  ITEM_PADDING = metrics.GUTTER
+  ITEM_TEXT_FONT_SIZE = metrics.TITLE_FS
+  ITEM_DESC_FONT_SIZE = metrics.CAPTION_FS
+  ITEM_DESC_V_OFFSET = metrics.CAPTION_DY
+  ITEM_TEXT_VALUE_COLOR = ink.READOUT
+  CLOSE_BTN_SIZE = metrics.CLOSE_BTN
+  TEXT_PADDING = metrics.TEXT_PAD
+  TOGGLE_HEIGHT = metrics.TOGGLE_H
+  TOGGLE_WIDTH = metrics.TOGGLE_W
+  TOGGLE_BG_HEIGHT = metrics.TOGGLE_TRACK_H
+  BUTTON_ACTION_WIDTH = metrics.ACTION_W
+  BUTTON_HEIGHT = metrics.ROW_BTN_H
+  SIMPLE_BUTTON_WIDTH = metrics.WIDE_BTN_W
+  SIMPLE_BUTTON_HEIGHT = metrics.WIDE_BTN_H
+
+  BASE_BG_COLOR = ink.PANEL
+  ON_BG_COLOR = ink.ACCENT
+  OFF_BG_COLOR = ink.PANEL
+  ON_HOVER_BG_COLOR = ink.ACCENT_PRESSED
+  OFF_HOVER_BG_COLOR = ink.PANEL_PRESSED
+  DISABLED_ON_BG_COLOR = ink.ACCENT_FADED
+  DISABLED_OFF_BG_COLOR = ink.PANEL_MUTED
+  ITEM_TEXT_COLOR = ink.TITLE
+  ITEM_DISABLED_TEXT_COLOR = ink.DISABLED
+  ITEM_DESC_TEXT_COLOR = ink.CAPTION
+
+  TOGGLE_ON_COLOR = ink.ACCENT
+  TOGGLE_OFF_COLOR = ink.PANEL
+  TOGGLE_KNOB_COLOR = ink.KNOB
+  TOGGLE_DISABLED_ON_COLOR = ink.ACCENT_FADED
+  TOGGLE_DISABLED_OFF_COLOR = ink.PANEL_MUTED
+  TOGGLE_DISABLED_KNOB_COLOR = ink.KNOB_DISABLED
+
+  MBC_TRANSPARENT = ink.CLEAR
+  MBC_BG_CHECKED_ENABLED = ink.CHIP_PRESSED
+  MBC_DISABLED = ink.FAINT
+
+  OPTION_CONTROL_CONTAINER_BG = ink.PANEL
+  OPTION_CONTROL_BTN_ENABLED = ink.KNOB_DISABLED
+  OPTION_CONTROL_BTN_PRESSED = ink.CHIP_PRESSED
+  OPTION_CONTROL_BTN_DISABLED = ink.PANEL_MUTED
+  OPTION_CONTROL_TEXT_ENABLED = ink.TITLE
+  OPTION_CONTROL_TEXT_PRESSED = ink.TITLE
+  OPTION_CONTROL_TEXT_DISABLED = ink.DISABLED
+
+  BUTTON_PRIMARY_COLOR = ink.KEY_ACTION
+  BUTTON_NEUTRAL_GRAY = ink.KEY_NEUTRAL
+  BUTTON_DISABLED_BG_COLOR = ink.KEY_SUNKEN
+  TREE_DIALOG_TRANSPARENT = ink.VOID
+  TREE_DIALOG_SEARCH_BUTTON_PRESSED = ink.CHIP_PRESSED
+  TREE_DIALOG_SEARCH_BUTTON_BORDER = ink.OUTLINE
+
+  GREEN = ink.STATUS_GOOD
+  BLUE = ink.STATUS_INFO
+  YELLOW = ink.STATUS_WARN
+
+  BUTTON_ENABLED_OFF = ink.PUSH
+  BUTTON_OFF_PRESSED = ink.PUSH_PRESSED
+  BUTTON_DISABLED = ink.PUSH_DISABLED
+  BUTTON_TEXT_DISABLED = ink.PUSH_TEXT_DISABLED

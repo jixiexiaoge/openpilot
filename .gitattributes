@@ -1,0 +1,57 @@
+* text=auto eol=lf
+
+# to move existing files into LFS:
+# git add --renormalize .
+selfdrive/assets/icons/iq/rotate-ccw.svg -filter -diff -merge -text
+selfdrive/assets/icons/iq/rotate-ccw.png -filter -diff -merge -text
+selfdrive/assets/icons/iq/rotate-cw.svg -filter -diff -merge -text
+selfdrive/assets/icons/iq/rotate-cw.png -filter -diff -merge -text
+selfdrive/assets/icons/iq/square-parking.svg -filter -diff -merge -text
+selfdrive/assets/icons/iq/square-parking.png -filter -diff -merge -text
+
+# Keep this icon in regular git (not LFS) for lightweight branding iteration.
+selfdrive/assets/icons_mici/experimental_mode_mici.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/experimental_mode_tizi.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/iqdynamic_mode_mici.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/iqdynamic_mode_tizi.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/iqstandard_mode_mici.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/iqstandard_mode_tizi.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/onroad/driver_monitoring/dm_center.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/onroad/driver_monitoring/dm_cone.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/konn3kt_icon.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/buttons/toggle_dot_enabled.png -filter -diff -merge -text
+iqpilot/selfdrive/assets -filter -diff -merge -text
+selfdrive/assets/icons_mici/buttons/toggle_pill_enabled.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/offroad_alerts/green_wheel.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/setup/green_button.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/setup/green_button_pressed.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/setup/green_dm.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/setup/green_info.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/setup/small_slider/slider_green_rounded_rectangle.png -filter -diff -merge -text
+selfdrive/assets/images/spinner_comma.png -filter -diff -merge -text
+selfdrive/assets/images/k3_spinner.png -filter -diff -merge -text
+selfdrive/assets/icons/camera.png -filter -diff -merge -text
+selfdrive/assets/fonts/Syncopate-Regular.ttf -filter -diff -merge -text
+selfdrive/assets/fonts/Tektur-Variable.ttf -filter -diff -merge -text
+tools/jotpluggler/assets/bootstrap-icons.ttf -filter -diff -merge -text
+
+
+
+# IQ assets, including icon_longitudinal.png, should stay in normal git (not LFS).
+iqpilot/selfdrive/assets/** -filter -diff -merge -text
+
+# mici UI icons stored as plain PNG — gitlab LFS server lacks these objects
+selfdrive/assets/icons_mici/buttons/button_circle_pressed.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/buttons/button_circle_red_pressed.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/models.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/brightness.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/camera.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/keyboard/enter.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/keyboard/enter_disabled.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/sd_card.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/software.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/trips.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/settings/vehicle.png -filter -diff -merge -text
+selfdrive/assets/icons_mici/speedometer.png -filter -diff -merge -text
+
+selfdrive/assets/icons/iq/*.png -filter -diff -merge -text

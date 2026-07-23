@@ -1,0 +1,217 @@
+"""
+Copyright © IQ.Lvbs, apart of Project Teal Lvbs, All Rights Reserved, licensed under https://konn3kt.com/tos/
+"""
+
+import pyray as rl
+import requests
+import threading
+import copy
+from collections.abc import Callable
+from enum import Enum
+
+from openpilot.common.params import Params
+from openpilot.common.swaglog import cloudlog
+from openpilot.system.ui.lib.application import gui_app, FontWeight
+from openpilot.system.ui.lib.multilang import tr, tr_noop
+from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.widgets import DialogResult
+from openpilot.system.ui.widgets.button import Button, ButtonStyle
+from openpilot.system.ui.widgets.confirm_dialog import alert_dialog
+from openpilot.system.ui.widgets.keyboard import Keyboard
+from openpilot.system.ui.widgets.list_view import (
+  ItemAction,
+  ListItem,
+  BUTTON_HEIGHT,
+  BUTTON_BORDER_RADIUS,
+  BUTTON_FONT_SIZE,
+  BUTTON_WIDTH,
+)
+
+VALUE_FONT_SIZE = 48
+
+
+class SshKeyFetcher:
+  HTTP_TIMEOUT = 15
+
+  def __init__(self, params: Params):
+    self._params = params
+    self._on_response: Callable[[str | None], None] | None = None
+    self._done: bool = False
+    self._error: str | None = None
+
+  def fetch(self, username: str, on_response: Callable[[str | None], None]):
+    self._error = None
+    self._on_response = on_response
+    threading.Thread(target=self._fetch_thread, args=(username,), daemon=True).start()
+
+  def update(self):
+    if not self._done:
+      return
+    self._done = False
+    if self._error is not None:
+      self.clear()
+    if self._on_response:
+      self._on_response(self._error)
+
+  def clear(self):
+    self._params.remove("GithubUsername")
+    self._params.remove("GithubSshKeys")
+
+  def _fetch_thread(self, username: str):
+    try:
+      response = requests.get(f"https://github.com/{username}.keys", timeout=self.HTTP_TIMEOUT)
+      response.raise_for_status()
+      keys = response.text.strip()
+      if not keys:
+        # Genuinely no public SSH keys on this GitHub account
+        self._error = tr("No SSH keys found for user '{}'").format(username)
+      else:
+        self._params.put("GithubUsername", username)
+        self._params.put("GithubSshKeys", keys)
+    except requests.exceptions.Timeout:
+      self._error = tr("Request timed out")
+    except requests.exceptions.HTTPError as e:
+      status = e.response.status_code if e.response is not None else None
+      if status == 404:
+        self._error = tr("No SSH keys found for user '{}'").format(username)
+      else:
+        cloudlog.exception("SSH key fetch HTTP error")
+        self._error = tr("GitHub error ({}) fetching keys").format(status or "?")
+    except requests.exceptions.SSLError:
+      # Almost always a wrong device clock (cert validity check) or stale CA bundle
+      cloudlog.exception("SSH key fetch SSL error")
+      self._error = tr("Couldn't verify GitHub - check device time")
+    except requests.exceptions.ConnectionError:
+      cloudlog.exception("SSH key fetch connection error")
+      self._error = tr("Couldn't reach GitHub - check connection")
+    except Exception:
+      cloudlog.exception("SSH key fetch failed")
+      self._error = tr("Couldn't fetch SSH keys - see logs")
+    finally:
+      self._done = True
+
+
+class SshKeyActionState(Enum):
+  LOADING = tr_noop("LOADING")
+  ADD = tr_noop("ADD")
+  REMOVE = tr_noop("REMOVE")
+
+
+class SshKeyAction(ItemAction):
+  HTTP_TIMEOUT = 15
+  MAX_WIDTH = 500
+
+  def __init__(self):
+    super().__init__(self.MAX_WIDTH, True)
+
+    self._keyboard = Keyboard(min_text_size=1)
+    self._params = Params()
+    self._error_message: str = ""
+    self._text_font = gui_app.font(FontWeight.NORMAL)
+    self._button = Button("", click_callback=self._handle_button_click, button_style=ButtonStyle.LIST_ACTION,
+                          border_radius=BUTTON_BORDER_RADIUS, font_size=BUTTON_FONT_SIZE)
+
+    self._refresh_state()
+
+  def set_touch_valid_callback(self, touch_callback: Callable[[], bool]) -> None:
+    super().set_touch_valid_callback(touch_callback)
+    self._button.set_touch_valid_callback(touch_callback)
+
+  def _refresh_state(self):
+    self._username = self._params.get("GithubUsername")
+    self._state = SshKeyActionState.REMOVE if self._params.get("GithubSshKeys") else SshKeyActionState.ADD
+
+  def _render(self, rect: rl.Rectangle) -> bool:
+    # Show error dialog if there's an error
+    if self._error_message:
+      message = copy.copy(self._error_message)
+      gui_app.set_modal_overlay(alert_dialog(message))
+      self._username = ""
+      self._error_message = ""
+
+    # Draw username if exists
+    if self._username:
+      text_size = measure_text_cached(self._text_font, self._username, VALUE_FONT_SIZE)
+      rl.draw_text_ex(
+        self._text_font,
+        self._username,
+        (rect.x + rect.width - BUTTON_WIDTH - text_size.x - 30, rect.y + (rect.height - text_size.y) / 2),
+        VALUE_FONT_SIZE,
+        1.0,
+        rl.Color(170, 170, 170, 255),
+      )
+
+    # Draw button
+    button_rect = rl.Rectangle(rect.x + rect.width - BUTTON_WIDTH, rect.y + (rect.height - BUTTON_HEIGHT) / 2, BUTTON_WIDTH, BUTTON_HEIGHT)
+    self._button.set_rect(button_rect)
+    self._button.set_text(tr(self._state.value))
+    self._button.set_enabled(self._state != SshKeyActionState.LOADING)
+    self._button.render(button_rect)
+    return False
+
+  def _handle_button_click(self):
+    if self._state == SshKeyActionState.ADD:
+      self._keyboard.reset()
+      self._keyboard.set_title(tr("Enter your GitHub username"))
+      gui_app.set_modal_overlay(self._keyboard, callback=self._on_username_submit)
+    elif self._state == SshKeyActionState.REMOVE:
+      self._params.remove("GithubUsername")
+      self._params.remove("GithubSshKeys")
+      self._refresh_state()
+
+  def _on_username_submit(self, result: DialogResult):
+    if result != DialogResult.CONFIRM:
+      return
+
+    username = self._keyboard.text.strip()
+    if not username:
+      return
+
+    self._state = SshKeyActionState.LOADING
+    threading.Thread(target=lambda: self._fetch_ssh_key(username), daemon=True).start()
+
+  def _fetch_ssh_key(self, username: str):
+    try:
+      url = f"https://github.com/{username}.keys"
+      response = requests.get(url, timeout=self.HTTP_TIMEOUT)
+      response.raise_for_status()
+      keys = response.text.strip()
+      if not keys:
+        # Genuinely no public SSH keys on this GitHub account
+        self._error_message = tr("No SSH keys found for user '{}'").format(username)
+        self._state = SshKeyActionState.ADD
+        return
+
+      # Success - save keys
+      self._params.put("GithubUsername", username)
+      self._params.put("GithubSshKeys", keys)
+      self._state = SshKeyActionState.REMOVE
+      self._username = username
+
+    except requests.exceptions.Timeout:
+      self._error_message = tr("Request timed out")
+      self._state = SshKeyActionState.ADD
+    except requests.exceptions.HTTPError as e:
+      status = e.response.status_code if e.response is not None else None
+      if status == 404:
+        self._error_message = tr("No SSH keys found for user '{}'").format(username)
+      else:
+        cloudlog.exception("SSH key fetch HTTP error")
+        self._error_message = tr("GitHub error ({}) fetching keys").format(status or "?")
+      self._state = SshKeyActionState.ADD
+    except requests.exceptions.SSLError:
+      cloudlog.exception("SSH key fetch SSL error")
+      self._error_message = tr("Couldn't verify GitHub - check device time")
+      self._state = SshKeyActionState.ADD
+    except requests.exceptions.ConnectionError:
+      cloudlog.exception("SSH key fetch connection error")
+      self._error_message = tr("Couldn't reach GitHub - check connection")
+      self._state = SshKeyActionState.ADD
+    except Exception:
+      cloudlog.exception("SSH key fetch failed")
+      self._error_message = tr("Couldn't fetch SSH keys - see logs")
+      self._state = SshKeyActionState.ADD
+
+
+def ssh_key_item(title: str | Callable[[], str], description: str | Callable[[], str]) -> ListItem:
+  return ListItem(title=title, description=description, action_item=SshKeyAction())

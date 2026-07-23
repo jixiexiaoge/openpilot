@@ -1,0 +1,49 @@
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:54: SyntaxWarning: invalid escape sequence '\d'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:60: SyntaxWarning: invalid escape sequence '\d'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:111: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:116: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:121: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:126: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:131: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_model.py:136: SyntaxWarning: invalid escape sequence '\p'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:119: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{\pi}` - dimension of the image of the inner nonlinear function in positive definite constraints.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:125: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{\pi}^e` - dimension of the image of the inner nonlinear function in positive definite constraints.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:143: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{\phi}` - number of convex-over-nonlinear constraints.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:149: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{\phi}^e` - number of convex-over-nonlinear constraints at terminal shooting node N.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:227: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{{s\phi}}` - number of soft convex-over-nonlinear constraints.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:233: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`n_{{s\phi}^e}` - number of soft convex-over-nonlinear constraints at terminal shooting node N.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:496: SyntaxWarning: invalid escape sequence '\D'
+  """
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1193: SyntaxWarning: invalid escape sequence '\,'
+  """:math:`C` - C matrix in :math:`\\underline{g} \\leq D \, u + C \, x \\leq \\bar{g}`
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1201: SyntaxWarning: invalid escape sequence '\,'
+  """:math:`D` - D matrix in :math:`\\underline{g} \\leq D \, u + C \, x \\leq \\bar{g}`
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1285: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`\\underline{\phi}` - lower bound for convex-over-nonlinear inequalities
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1293: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`\\bar{\phi}` - upper bound for convex-over-nonlinear inequalities
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1302: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`\\underline{\phi}^e` - lower bound on convex-over-nonlinear inequalities
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1310: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`\\bar{\phi}^e` - upper bound on convex-over-nonlinear inequalities
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1485: SyntaxWarning: invalid escape sequence '\p'
+  """:math:`J_{s, \phi}` - matrix coefficient for soft bounds on convex-over-nonlinear constraints.
+/data/openpilot/openpilot/third_party/acados/acados_template/acados_ocp.py:1572: SyntaxWarning: invalid escape sequence '\m'
+  """:math:`x_0 \\in \mathbb{R}^{n_x}` - initial state --
+Warning: Please note that the following versions of CasADi  are officially supported: 3.5.6 or 3.5.5 or 3.5.4 or 3.5.3 or 3.5.2 or 3.5.1 or 3.4.5 or 3.4.0.
+ If there is an incompatibility with the CasADi generated code, please consider changing your CasADi version.
+Version 3.7.2 currently in use.
