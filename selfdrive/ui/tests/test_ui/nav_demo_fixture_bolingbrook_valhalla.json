@@ -1,0 +1,206 @@
+{
+  "trip": {
+    "locations": [
+      {
+        "type": "break",
+        "lat": 41.701966,
+        "lon": -88.086597,
+        "original_index": 0
+      },
+      {
+        "type": "break",
+        "lat": 41.704616,
+        "lon": -88.067058,
+        "original_index": 1
+      }
+    ],
+    "legs": [
+      {
+        "maneuvers": [
+          {
+            "type": 1,
+            "instruction": "Drive north on Brandon Court.",
+            "verbal_succinct_transition_instruction": "Drive north. Then Turn left onto Blair Lane.",
+            "verbal_pre_transition_instruction": "Drive north on Brandon Court. Then Turn left onto Blair Lane.",
+            "verbal_post_transition_instruction": "Continue for 80 meters.",
+            "street_names": [
+              "Brandon Court"
+            ],
+            "bearing_after": 359,
+            "time": 10.107,
+            "length": 0.084,
+            "cost": 10.846,
+            "begin_shape_index": 0,
+            "end_shape_index": 2,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left onto Blair Lane.",
+            "verbal_transition_alert_instruction": "Turn left onto Blair Lane.",
+            "verbal_succinct_transition_instruction": "Turn left. Then Turn right onto North Schmidt Road.",
+            "verbal_pre_transition_instruction": "Turn left onto Blair Lane. Then Turn right onto North Schmidt Road.",
+            "verbal_post_transition_instruction": "Continue for 90 meters.",
+            "street_names": [
+              "Blair Lane"
+            ],
+            "bearing_before": 359,
+            "bearing_after": 269,
+            "time": 12.751,
+            "length": 0.09,
+            "cost": 20.96,
+            "begin_shape_index": 2,
+            "end_shape_index": 4,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 10,
+            "instruction": "Turn right onto North Schmidt Road.",
+            "verbal_transition_alert_instruction": "Turn right onto North Schmidt Road.",
+            "verbal_succinct_transition_instruction": "Turn right.",
+            "verbal_pre_transition_instruction": "Turn right onto North Schmidt Road.",
+            "verbal_post_transition_instruction": "Continue for 500 meters.",
+            "street_names": [
+              "North Schmidt Road"
+            ],
+            "bearing_before": 269,
+            "bearing_after": 358,
+            "time": 43.917,
+            "length": 0.533,
+            "cost": 77.944,
+            "begin_shape_index": 4,
+            "end_shape_index": 17,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 10,
+            "instruction": "Turn right onto West Boughton Road/CH 67.",
+            "verbal_transition_alert_instruction": "Turn right onto West Boughton Road.",
+            "verbal_succinct_transition_instruction": "Turn right.",
+            "verbal_pre_transition_instruction": "Turn right onto West Boughton Road, CH 67.",
+            "verbal_post_transition_instruction": "Continue for 1.5 kilometers.",
+            "street_names": [
+              "West Boughton Road",
+              "CH 67"
+            ],
+            "bearing_before": 359,
+            "bearing_after": 80,
+            "time": 104.058,
+            "length": 1.628,
+            "cost": 143.853,
+            "begin_shape_index": 17,
+            "end_shape_index": 48,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 10,
+            "instruction": "Turn right onto North Bolingbrook Drive/IL 53.",
+            "verbal_transition_alert_instruction": "Turn right onto North Bolingbrook Drive.",
+            "verbal_succinct_transition_instruction": "Turn right.",
+            "verbal_pre_transition_instruction": "Turn right onto North Bolingbrook Drive, IL 53.",
+            "verbal_post_transition_instruction": "Continue for 700 meters.",
+            "street_names": [
+              "North Bolingbrook Drive",
+              "IL 53"
+            ],
+            "bearing_before": 67,
+            "bearing_after": 178,
+            "time": 51.743,
+            "length": 0.723,
+            "cost": 70.552,
+            "begin_shape_index": 48,
+            "end_shape_index": 62,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left.",
+            "verbal_transition_alert_instruction": "Turn left.",
+            "verbal_succinct_transition_instruction": "Turn left.",
+            "verbal_pre_transition_instruction": "Turn left.",
+            "verbal_post_transition_instruction": "Continue for 100 meters.",
+            "bearing_before": 178,
+            "bearing_after": 89,
+            "time": 24.024,
+            "length": 0.126,
+            "cost": 146.206,
+            "begin_shape_index": 62,
+            "end_shape_index": 66,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 15,
+            "instruction": "Turn left.",
+            "verbal_transition_alert_instruction": "Turn left.",
+            "verbal_succinct_transition_instruction": "Turn left. Then You will arrive at your destination.",
+            "verbal_pre_transition_instruction": "Turn left. Then You will arrive at your destination.",
+            "verbal_post_transition_instruction": "Continue for 30 meters.",
+            "bearing_before": 88,
+            "bearing_after": 359,
+            "time": 7.643,
+            "length": 0.031,
+            "cost": 14.839,
+            "begin_shape_index": 66,
+            "end_shape_index": 68,
+            "verbal_multi_cue": true,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          },
+          {
+            "type": 4,
+            "instruction": "You have arrived at your destination.",
+            "verbal_transition_alert_instruction": "You will arrive at your destination.",
+            "verbal_pre_transition_instruction": "You have arrived at your destination.",
+            "bearing_before": 359,
+            "time": 0.0,
+            "length": 0.0,
+            "cost": 0.0,
+            "begin_shape_index": 68,
+            "end_shape_index": 68,
+            "travel_mode": "drive",
+            "travel_type": "car"
+          }
+        ],
+        "summary": {
+          "has_time_restrictions": false,
+          "has_toll": false,
+          "has_highway": false,
+          "has_ferry": false,
+          "min_lat": 41.701966,
+          "min_lon": -88.087852,
+          "max_lat": 41.710795,
+          "max_lon": -88.06705,
+          "time": 254.245,
+          "length": 3.216,
+          "cost": 485.201
+        },
+        "shape": "{chpnAhck_gDki@d@yCBR|z@@rFyc@n@yn@j@yo@`AgCDwDDoo@h@gEDaZTue@`@sLJiDDkIFsEDg@wHoBsYyD_k@uBq[gCo`@iB}XQoCWqDaBaWkBeXkBmZsCy_@{D_i@gFsw@gSe~CcEer@e\\mxEyDy^gGge@wIqf@}Nsz@eGm]cA_GaDwQaBqJy@_F{I}g@sB}KqByKqLwi@qE{S~S_@hQ[jS]dIOlJQpHMvo@o@f^]bmAsApSW~j@s@pY_@jMQvr@{@G}GKyUUo_@W_^{IHcFD"
+      }
+    ],
+    "summary": {
+      "has_time_restrictions": false,
+      "has_toll": false,
+      "has_highway": false,
+      "has_ferry": false,
+      "min_lat": 41.701966,
+      "min_lon": -88.087852,
+      "max_lat": 41.710795,
+      "max_lon": -88.06705,
+      "time": 254.245,
+      "length": 3.216,
+      "cost": 485.201
+    },
+    "status_message": "Found route between points",
+    "status": 0,
+    "units": "kilometers",
+    "language": "en-US"
+  }
+}

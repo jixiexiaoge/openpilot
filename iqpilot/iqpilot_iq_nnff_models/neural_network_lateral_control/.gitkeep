@@ -1,0 +1,2 @@
+# NNFF models removed pending retraining on user data.
+# latcontrol_torque skips NNFF entirely when this dir has no matching model.

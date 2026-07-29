@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Copyright © IQ.Lvbs, apart of Project Teal Lvbs, All Rights Reserved, licensed under https://konn3kt.com/tos/
+
+set -euo pipefail
+
+script_home() {
+  cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd
+}
+
+main() {
+  local here
+  here="$(script_home)"
+  exec "$here/daemon.py" "$@"
+}
+
+main "$@"
