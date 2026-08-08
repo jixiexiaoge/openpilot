@@ -2,81 +2,355 @@ name: Sync Branches
 
 on:
   schedule:
-    - cron: '0 18 * * *'    # 每天 UTC 18 点（北京时间 02:00）
+    - cron: '0 18 * * *' # UTC 18:00，北京时间次日 02:00
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the target repository
+      # ============================================================
+      # 1. 检出目标仓库
+      # ============================================================
+      - name: Checkout target repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: false
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Add upstream repositories and fetch branches
+      # ============================================================
+      # 2. 配置 Git 和 Git LFS
+      # ============================================================
+      - name: Configure Git and Git LFS
         run: |
           set -e
-          echo "=== Fetching branches from upstream repositories ==="
 
-          add_or_update_remote () {
-            local name="$1"
-            local url="$2"
-            if git remote get-url "$name" >/dev/null 2>&1; then
-              git remote set-url "$name" "$url"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git lfs install --local
+
+          echo "=== Git version ==="
+          git --version
+
+          echo "=== Git LFS version ==="
+          git lfs version
+
+      # ============================================================
+      # 3. 配置上游仓库
+      # ============================================================
+      - name: Configure upstream repositories
+        run: |
+          set -e
+
+          add_or_update_remote() {
+            local remote_name="$1"
+            local remote_url="$2"
+
+            if git remote get-url "$remote_name" >/dev/null 2>&1; then
+              git remote set-url "$remote_name" "$remote_url"
             else
-              git remote add "$name" "$url"
+              git remote add "$remote_name" "$remote_url"
             fi
           }
 
-          # ========= 上游仓库 =========
-          # Carrot-WIP
-          add_or_update_remote carrotwip https://github.com/ajouatom/openpilot.git
-          git fetch carrot-wip carrot-wip --no-tags || echo "⚠️ carrot-wip fetch failed"
+          add_or_update_remote \
+            carrot \
+            https://github.com/ajouatom/openpilot.git
 
-          # IQpilot
-          add_or_update_remote iqpilot https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
-          git fetch iqpilot release --no-tags || echo "⚠️ iqpilot fetch failed"
+          add_or_update_remote \
+            iqpilot \
+            https://gitlvb.teallvbs.xyz/IQ.Lvbs/IQ.Pilot.git
 
-          # Dragonpilot
-          add_or_update_remote dragonpilot https://github.com/dragonpilot/dragonpilot.git
-          git fetch dragonpilot pre-build --no-tags || echo "⚠️ dragonpilot pre-build fetch failed"
+          add_or_update_remote \
+            dragon \
+            https://github.com/dragonpilot/dragonpilot.git
 
+          add_or_update_remote \
+            starpilot \
+            https://github.com/firestar5683/StarPilot.git
 
-      - name: Push branches to your repository (force sync)
+          echo "=== Configured remotes ==="
+          git remote -v
+
+      # ============================================================
+      # 4. 获取上游 Git 分支
+      # ============================================================
+      - name: Fetch upstream branches
         run: |
-          set +e
-          echo "=== Syncing branches to origin ==="
+          set -e
 
-          sync_branch () {
-            local target_branch="$1"
-            local source_ref="$2"
+          echo "=== Fetching Carrot branch ==="
+          git fetch carrot \
+            +refs/heads/carrot-wip:refs/remotes/carrot/carrot-wip \
+            --no-tags
 
-            echo "---- Sync: $source_ref -> $target_branch ----"
+          echo "=== Fetching IQ.Pilot release branch ==="
+          git fetch iqpilot \
+            +refs/heads/release:refs/remotes/iqpilot/release \
+            --no-tags
 
-            git rev-parse "$source_ref" >/dev/null 2>&1
-            if [ $? -ne 0 ]; then
-              echo "⚠️ Source $source_ref not found, skipping"
-              return
-            fi
+          echo "=== Fetching Dragonpilot pre-build branch ==="
+          git fetch dragon \
+            +refs/heads/pre-build:refs/remotes/dragon/pre-build \
+            --no-tags
 
-            git checkout -B "$target_branch" "$source_ref" \
-              && git push origin "$target_branch" --force \
-              && echo "✅ Synced $target_branch" \
-              || echo "⚠️ Failed syncing $target_branch"
-          }
+          echo "=== Fetching StarPilot branch ==="
+          git fetch starpilot \
+            +refs/heads/StarPilot:refs/remotes/starpilot/StarPilot \
+            --no-tags
 
-          # ========= 分支同步 =========
-
-          sync_branch Carrotpilot carrotpilot/carrot-wip
-          sync_branch release iqpilot/release
-          sync_branch Dragonpilot dragonpilot/pre-build
-
-      - name: Tag sync timestamp
+      # ============================================================
+      # 5. 创建本地临时同步分支
+      # ============================================================
+      - name: Create local synchronization branches
         run: |
-          set +e
-          TAG_NAME="sync-$(date +%Y%m%d-%H%M)"
-          git tag -f $TAG_NAME
-          git push origin $TAG_NAME --force || echo "⚠️ tag push failed"
+          set -e
+
+          git branch --no-track -f \
+            sync-carrot \
+            refs/remotes/carrot/carrot-wip
+
+          git branch --no-track -f \
+            sync-release \
+            refs/remotes/iqpilot/release
+
+          git branch --no-track -f \
+            sync-dragon \
+            refs/remotes/dragon/pre-build
+
+          git branch --no-track -f \
+            sync-starpilot \
+            refs/remotes/starpilot/StarPilot
+
+          echo "=== Local synchronization branches ==="
+
+          git show-ref \
+            refs/heads/sync-carrot \
+            refs/heads/sync-release \
+            refs/heads/sync-dragon \
+            refs/heads/sync-starpilot
+
+      # ============================================================
+      # 6. 同步 Carrot
+      # ============================================================
+      - name: Fetch all Carrot Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all Carrot historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            carrot \
+            sync-carrot
+
+      - name: Push Carrot Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all Carrot LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-carrot
+
+      - name: Push Carrot branch
+        run: |
+          set -e
+
+          echo "=== Pushing Carrot branch ==="
+
+          git push origin \
+            refs/heads/sync-carrot:refs/heads/Carrot \
+            --force
+
+      # ============================================================
+      # 7. 同步 IQ.Pilot release
+      # ============================================================
+      - name: Fetch all release Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all release historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            iqpilot \
+            sync-release
+
+      - name: Push release Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all release LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-release
+
+      - name: Push release branch
+        run: |
+          set -e
+
+          echo "=== Pushing release branch ==="
+
+          git push origin \
+            refs/heads/sync-release:refs/heads/release \
+            --force
+
+      # ============================================================
+      # 8. 同步 Dragonpilot
+      # ============================================================
+      - name: Fetch all Dragon Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all Dragon historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            dragon \
+            sync-dragon
+
+      - name: Push Dragon Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all Dragon LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-dragon
+
+      - name: Push Dragon branch
+        run: |
+          set -e
+
+          echo "=== Pushing Dragon branch ==="
+
+          git push origin \
+            refs/heads/sync-dragon:refs/heads/Dragon \
+            --force
+
+      # ============================================================
+      # 9. 同步 StarPilot
+      #
+      # 来源：
+      # https://github.com/firestar5683/StarPilot
+      # branch: StarPilot
+      #
+      # 目标：
+      # StarPilot
+      # ============================================================
+      - name: Fetch all StarPilot Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all StarPilot historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            starpilot \
+            sync-starpilot
+
+      - name: Push StarPilot Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all StarPilot LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-starpilot
+
+      - name: Push StarPilot branch
+        run: |
+          set -e
+
+          echo "=== Pushing StarPilot branch ==="
+
+          git push origin \
+            refs/heads/sync-starpilot:refs/heads/StarPilot \
+            --force
+
+      # ============================================================
+      # 10. 删除其他远程分支
+      #
+      # 最终仅保留：
+      # master
+      # Carrot
+      # release
+      # Dragon
+      # StarPilot
+      #
+      # zoompilot 如果之前已经创建，也会在这里自动删除
+      # ============================================================
+      - name: Delete unwanted remote branches
+        run: |
+          set -e
+
+          echo "=== Reading remote branches ==="
+
+          git fetch origin --prune
+
+          git ls-remote --heads origin \
+            | awk '{print $2}' \
+            | sed 's#refs/heads/##' \
+            | while read -r branch; do
+
+                case "$branch" in
+                  master|Carrot|release|Dragon|StarPilot)
+                    echo "Keeping branch: $branch"
+                    ;;
+
+                  *)
+                    echo "Deleting branch: $branch"
+
+                    if git push origin --delete "$branch"; then
+                      echo "Deleted branch: $branch"
+                    else
+                      echo "Failed to delete branch: $branch"
+                    fi
+                    ;;
+                esac
+              done
+
+      # ============================================================
+      # 11. 输出最终同步结果
+      # ============================================================
+      - name: Show synchronization result
+        if: always()
+        run: |
+          echo "=============================================="
+          echo "=== Current remote branches ==="
+          echo "=============================================="
+
+          git ls-remote --heads origin || true
+
+          echo ""
+          echo "=============================================="
+          echo "=== Git LFS environment ==="
+          echo "=============================================="
+
+          git lfs env || true
+
+          echo ""
+          echo "=============================================="
+          echo "=== Local LFS object count ==="
+          echo "=============================================="
+
+          if [ -d ".git/lfs/objects" ]; then
+            find .git/lfs/objects -type f | wc -l
+          else
+            echo "No local LFS object directory found."
+          fi
