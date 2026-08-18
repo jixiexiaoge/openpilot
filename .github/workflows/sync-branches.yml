@@ -75,6 +75,14 @@ jobs:
             starpilot \
             https://github.com/firestar5683/StarPilot.git
 
+          add_or_update_remote \
+            dzid \
+            https://github.com/dzid26/sunnypilot.git
+
+          add_or_update_remote \
+            amy \
+            https://github.com/AmyJeanes/sunnypilot.git
+
           echo "=== Configured remotes ==="
           git remote -v
 
@@ -105,6 +113,16 @@ jobs:
             +refs/heads/StarPilot:refs/remotes/starpilot/StarPilot \
             --no-tags
 
+          echo "=== Fetching dzid sunnypilot dev branch ==="
+          git fetch dzid \
+            +refs/heads/dev:refs/remotes/dzid/dev \
+            --no-tags
+
+          echo "=== Fetching Amy sunnypilot dev branch ==="
+          git fetch amy \
+            +refs/heads/dev:refs/remotes/amy/dev \
+            --no-tags
+
       # ============================================================
       # 5. 创建本地临时同步分支
       # ============================================================
@@ -128,13 +146,23 @@ jobs:
             sync-starpilot \
             refs/remotes/starpilot/StarPilot
 
+          git branch --no-track -f \
+            sync-dzid \
+            refs/remotes/dzid/dev
+
+          git branch --no-track -f \
+            sync-Amy \
+            refs/remotes/amy/dev
+
           echo "=== Local synchronization branches ==="
 
           git show-ref \
             refs/heads/sync-carrot \
             refs/heads/sync-release \
             refs/heads/sync-dragon \
-            refs/heads/sync-starpilot
+            refs/heads/sync-starpilot \
+            refs/heads/sync-dzid \
+            refs/heads/sync-Amy
 
       # ============================================================
       # 6. 同步 Carrot
@@ -284,7 +312,91 @@ jobs:
             --force
 
       # ============================================================
-      # 10. 删除其他远程分支
+      # 10. 同步 dzid sunnypilot dev
+      #
+      # 来源：
+      # https://github.com/dzid26/sunnypilot
+      # branch: dev
+      #
+      # 目标：
+      # dzid
+      # ============================================================
+      - name: Fetch all dzid Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all dzid historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            dzid \
+            sync-dzid
+
+      - name: Push dzid Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all dzid LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-dzid
+
+      - name: Push dzid branch
+        run: |
+          set -e
+
+          echo "=== Pushing dzid branch ==="
+
+          git push origin \
+            refs/heads/sync-dzid:refs/heads/dzid \
+            --force
+
+      # ============================================================
+      # 11. 同步 Amy sunnypilot dev
+      #
+      # 来源：
+      # https://github.com/AmyJeanes/sunnypilot
+      # branch: dev
+      #
+      # 目标：
+      # Amy
+      # ============================================================
+      - name: Fetch all Amy Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Fetching all Amy historical LFS objects ==="
+
+          git lfs fetch \
+            --all \
+            amy \
+            sync-Amy
+
+      - name: Push Amy Git LFS objects
+        run: |
+          set -e
+
+          echo "=== Uploading all Amy LFS objects ==="
+
+          git lfs push \
+            --all \
+            origin \
+            sync-Amy
+
+      - name: Push Amy branch
+        run: |
+          set -e
+
+          echo "=== Pushing Amy branch ==="
+
+          git push origin \
+            refs/heads/sync-Amy:refs/heads/Amy \
+            --force
+
+      # ============================================================
+      # 12. 删除其他远程分支
       #
       # 最终仅保留：
       # master
@@ -292,6 +404,8 @@ jobs:
       # release
       # Dragon
       # StarPilot
+      # dzid
+      # Amy
       #
       # zoompilot 如果之前已经创建，也会在这里自动删除
       # ============================================================
@@ -309,7 +423,7 @@ jobs:
             | while read -r branch; do
 
                 case "$branch" in
-                  master|Carrot|release|Dragon|StarPilot)
+                  master|Carrot|release|Dragon|StarPilot|dzid|Amy)
                     echo "Keeping branch: $branch"
                     ;;
 
@@ -326,7 +440,7 @@ jobs:
               done
 
       # ============================================================
-      # 11. 输出最终同步结果
+      # 13. 输出最终同步结果
       # ============================================================
       - name: Show synchronization result
         if: always()
