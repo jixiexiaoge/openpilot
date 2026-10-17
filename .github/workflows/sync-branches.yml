@@ -32,6 +32,9 @@ jobs:
           git remote add carrot https://github.com/ajouatom/openpilot.git
           git remote remove starpilot 2>/dev/null || true
           git remote add starpilot https://github.com/firestar5683/StarPilot.git
+          # Public upstreams must not use the origin repository's checkout token.
+          git config --local http.https://github.com/ajouatom/openpilot.git.extraheader ""
+          git config --local http.https://github.com/firestar5683/StarPilot.git.extraheader ""
 
       - name: Sync Carrot
         run: |
