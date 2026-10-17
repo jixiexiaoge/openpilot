@@ -1,100 +1,74 @@
-name: Sync All Navipilot Branches
+name: Sync Branches
 
 on:
   schedule:
-    - cron: '0 18 * * *' # UTC 18:00 = Beijing 02:00 next day
+    - cron: '0 18 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sync-navipilot-branches
+  group: sync-branches
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+
     steps:
-      - name: Checkout destination repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           lfs: false
-          persist-credentials: true
-          token: ${{ secrets.GH_TOKEN || github.token }}
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Configure Git and upstream
-        shell: bash
+      - name: Configure
         run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -e
           git lfs install --local
-          git remote add upstream https://github.com/navipilot/openpilot.git
-          git remote -v
+          git remote remove carrot 2>/dev/null || true
+          git remote add carrot https://github.com/ajouatom/openpilot.git
+          git remote remove starpilot 2>/dev/null || true
+          git remote add starpilot https://github.com/firestar5683/StarPilot.git
 
-      - name: Fetch all upstream branches
-        shell: bash
+      - name: Sync Carrot
         run: |
-          set -euo pipefail
-          git fetch --no-tags --prune upstream '+refs/heads/*:refs/remotes/upstream/*'
-          echo "Upstream branches:"
-          git for-each-ref --format='%(refname)' refs/remotes/upstream/
+          set -e
 
-      - name: Sync all branches and their Git LFS objects
-        shell: bash
-        env:
-          GIT_TERMINAL_PROMPT: '0'
+          git fetch carrot \
+            +refs/heads/carrot-wip:refs/remotes/carrot/carrot-wip \
+            --no-tags
+
+          git branch -f sync-carrot refs/remotes/carrot/carrot-wip
+
+          git lfs fetch --all carrot sync-carrot
+          git lfs push --all origin sync-carrot
+
+          git push origin \
+            refs/heads/sync-carrot:refs/heads/Carrot \
+            --force
+
+      - name: Sync StarPilot
         run: |
-          set -euo pipefail
-          count=0
-          failed=0
-          while IFS= read -r upstream_ref; do
-            [ -n "$upstream_ref" ] || continue
-            source_branch="${upstream_ref#refs/remotes/upstream/}"
-            dest_branch="$source_branch"
+          set -e
 
-            # Preserve the default branch that contains this scheduled workflow.
-            if [ "$source_branch" = "master" ]; then
-              dest_branch="navipilot/master"
-            fi
+          git fetch starpilot \
+            +refs/heads/StarPilot:refs/remotes/starpilot/StarPilot \
+            --no-tags
 
-            echo "::group::Sync $source_branch -> $dest_branch"
-            echo "Fetching historical Git LFS objects..."
-            if ! git lfs fetch --all upstream "$upstream_ref"; then
-              echo "::error::LFS fetch failed for $source_branch; branch will not be updated"
-              failed=$((failed + 1))
-              echo "::endgroup::"
-              continue
-            fi
+          git branch -f sync-starpilot refs/remotes/starpilot/StarPilot
 
-            if ! git lfs push --all origin "$upstream_ref"; then
-              echo "::error::LFS push failed for $source_branch; branch will not be updated"
-              failed=$((failed + 1))
-              echo "::endgroup::"
-              continue
-            fi
+          git lfs fetch --all starpilot sync-starpilot
+          git lfs push --all origin sync-starpilot
 
-            if ! git push --force origin "$upstream_ref:refs/heads/$dest_branch"; then
-              echo "::error::Git push failed for $source_branch"
-              failed=$((failed + 1))
-            else
-              count=$((count + 1))
-              echo "Synced: $source_branch -> $dest_branch"
-            fi
-            echo "::endgroup::"
-          done < <(git for-each-ref --format='%(refname)' refs/remotes/upstream/)
+          git push origin \
+            refs/heads/sync-starpilot:refs/heads/StarPilot \
+            --force
 
-          echo "Successfully synced branches: $count"
-          echo "Failed branches: $failed"
-          if [ "$failed" -ne 0 ]; then
-            exit 1
-          fi
-
-      - name: Show remote branches
+      - name: Show Result
         if: always()
-        shell: bash
         run: |
-          git ls-remote --heads origin
+          git ls-remote --heads origin refs/heads/Carrot
+          git ls-remote --heads origin refs/heads/StarPilot
