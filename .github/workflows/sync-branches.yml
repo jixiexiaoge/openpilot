@@ -21,6 +21,18 @@ jobs:
     timeout-minutes: 360
 
     steps:
+      - name: Validate Sync Token
+        shell: bash
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$SYNC_TOKEN" ]]; then
+            echo "::error::Set the SYNC_TOKEN repository secret with Contents and Workflows write permissions (classic PAT: repo and workflow scopes)."
+            exit 1
+          fi
+
       - name: Checkout Master
         uses: actions/checkout@v4
         with:
@@ -28,6 +40,7 @@ jobs:
           fetch-depth: 1
           lfs: false
           persist-credentials: true
+          token: ${{ secrets.SYNC_TOKEN }}
 
       - name: Configure Git
         shell: bash
