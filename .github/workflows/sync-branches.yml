@@ -1,8 +1,11 @@
+
 name: Sync Branches
 
 on:
   schedule:
+    # UTC 18:00 = 北京时间次日 02:00
     - cron: '0 18 * * *'
+
   workflow_dispatch:
 
 permissions:
@@ -15,63 +18,232 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
-      - name: Checkout
+      - name: Checkout Main
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: main
+          fetch-depth: 1
           lfs: false
-          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: true
 
       - name: Configure
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           git lfs install --local
-          git remote remove carrot 2>/dev/null || true
-          git remote add carrot https://github.com/ajouatom/openpilot.git
-          git remote remove starpilot 2>/dev/null || true
-          git remote add starpilot https://github.com/firestar5683/StarPilot.git
-          # Public upstreams must not use the origin repository's checkout token.
-          git config --local http.https://github.com/ajouatom/openpilot.git.extraheader ""
-          git config --local http.https://github.com/firestar5683/StarPilot.git.extraheader ""
 
-      - name: Sync Carrot
+          git remote remove upstream 2>/dev/null || true
+
+          git remote add upstream \
+            https://github.com/navipilot/openpilot.git
+
+          echo "Origin:"
+          git remote get-url origin
+
+          echo "Upstream:"
+          git remote get-url upstream
+
+      - name: Validate Repositories
+        shell: bash
+        env:
+          TARGET_REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          set -e
+          set -euo pipefail
 
-          git fetch carrot \
-            +refs/heads/carrot-wip:refs/remotes/carrot/carrot-wip \
-            --no-tags
+          if [[ "$DEFAULT_BRANCH" != "main" ]]; then
+            echo "::error::Target default branch must be main"
+            exit 1
+          fi
 
-          git branch -f sync-carrot refs/remotes/carrot/carrot-wip
+          if [[ "$TARGET_REPO" == "navipilot/openpilot" ]]; then
+            echo "::error::Source and target cannot be the same"
+            exit 1
+          fi
 
-          git lfs fetch --all carrot sync-carrot
-          git lfs push --all origin sync-carrot
+          echo "Repository validation passed."
 
-          git push origin \
-            refs/heads/sync-carrot:refs/heads/Carrot \
-            --force
-
-      - name: Sync StarPilot
+      - name: Fetch All Upstream Branches
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          git fetch starpilot \
-            +refs/heads/StarPilot:refs/remotes/starpilot/StarPilot \
-            --no-tags
+          git fetch --prune --no-tags upstream \
+            '+refs/heads/*:refs/remotes/upstream/*'
 
-          git branch -f sync-starpilot refs/remotes/starpilot/StarPilot
+          echo "Source branches:"
 
-          git lfs fetch --all starpilot sync-starpilot
-          git lfs push --all origin sync-starpilot
+          git for-each-ref \
+            --format='%(refname:strip=3)' \
+            refs/remotes/upstream
 
-          git push origin \
-            refs/heads/sync-starpilot:refs/heads/StarPilot \
-            --force
+      - name: Prepare Git LFS Objects
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Show Result
+          mapfile -t branches < <(
+            git for-each-ref \
+              --format='%(refname:strip=3)' \
+              refs/remotes/upstream
+          )
+
+          refs=()
+
+          for branch in "${branches[@]}"; do
+            [[ "$branch" == "main" ]] && continue
+
+            refs+=("refs/remotes/upstream/$branch")
+          done
+
+          if (( ${#refs[@]} == 0 )); then
+            echo "::error::No source branches found"
+            exit 1
+          fi
+
+          echo "Downloading LFS objects..."
+
+          git lfs fetch --all upstream "${refs[@]}"
+
+          echo "Uploading LFS objects..."
+
+          for ref in "${refs[@]}"; do
+            git lfs push --all origin "$ref"
+          done
+
+          echo "LFS preparation completed."
+
+      - name: Delete All Target Branches Except Main
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "================================"
+          echo "Deleting old target branches..."
+          echo "================================"
+
+          mapfile -t target_branches < <(
+            git ls-remote --heads origin |
+              awk '{print $2}' |
+              sed 's#^refs/heads/##'
+          )
+
+          for branch in "${target_branches[@]}"; do
+
+            if [[ "$branch" == "main" ]]; then
+              echo "Protected: main"
+              continue
+            fi
+
+            echo "Deleting: $branch"
+
+            git push origin \
+              ":refs/heads/$branch"
+
+          done
+
+          echo "Old branches deleted."
+
+      - name: Sync All Upstream Branches Except Main
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "================================"
+          echo "Recreating upstream branches..."
+          echo "================================"
+
+          mapfile -t branches < <(
+            git for-each-ref \
+              --format='%(refname:strip=3)' \
+              refs/remotes/upstream
+          )
+
+          count=0
+
+          for branch in "${branches[@]}"; do
+
+            if [[ "$branch" == "main" ]]; then
+              echo "Skipping source main"
+              continue
+            fi
+
+            source_ref="refs/remotes/upstream/$branch"
+            target_ref="refs/heads/$branch"
+
+            source_sha=$(git rev-parse "$source_ref")
+
+            echo "--------------------------------"
+            echo "Syncing: $branch"
+            echo "Source SHA: $source_sha"
+
+            git push origin \
+              "$source_sha:$target_ref"
+
+            target_sha=$(
+              git ls-remote --heads origin "$target_ref" |
+              awk '{print $1}'
+            )
+
+            if [[ "$source_sha" != "$target_sha" ]]; then
+              echo "::error::SHA mismatch: $branch"
+              exit 1
+            fi
+
+            echo "SUCCESS: $branch"
+            count=$((count + 1))
+
+          done
+
+          echo "================================"
+          echo "Synced branches: $count"
+          echo "================================"
+
+      - name: Verify Final Branch List
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Verifying target branches..."
+
+          source_list=$(mktemp)
+          target_list=$(mktemp)
+
+          git for-each-ref \
+            --format='%(refname:strip=3)' \
+            refs/remotes/upstream |
+            grep -vx 'main' |
+            sort > "$source_list"
+
+          git ls-remote --heads origin |
+            awk '{print $2}' |
+            sed 's#^refs/heads/##' |
+            grep -vx 'main' |
+            sort > "$target_list"
+
+          echo "Expected branches:"
+          cat "$source_list"
+
+          echo "Actual branches:"
+          cat "$target_list"
+
+          if ! diff -u "$source_list" "$target_list"; then
+            echo "::error::Branch list mismatch"
+            exit 1
+          fi
+
+          echo "All branches match successfully."
+
+      - name: Show Final Result
         if: always()
+        shell: bash
         run: |
-          git ls-remote --heads origin refs/heads/Carrot
-          git ls-remote --heads origin refs/heads/StarPilot
+          echo "================================"
+          echo "Final target repository branches"
+          echo "================================"
+
+          git ls-remote --heads origin
