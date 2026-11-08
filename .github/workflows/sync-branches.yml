@@ -3,7 +3,7 @@ name: Sync Branches
 
 on:
   schedule:
-    # UTC 18:00 = 北京时间次日 02:00
+    # 每天北京时间 02:00
     - cron: '0 18 * * *'
 
   workflow_dispatch:
@@ -21,15 +21,15 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Checkout Main
+      - name: Checkout Master
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: master
           fetch-depth: 1
           lfs: false
           persist-credentials: true
 
-      - name: Configure
+      - name: Configure Git
         shell: bash
         run: |
           set -euo pipefail
@@ -37,15 +37,8 @@ jobs:
           git lfs install --local
 
           git remote remove upstream 2>/dev/null || true
-
           git remote add upstream \
             https://github.com/navipilot/openpilot.git
-
-          echo "Origin:"
-          git remote get-url origin
-
-          echo "Upstream:"
-          git remote get-url upstream
 
       - name: Validate Repositories
         shell: bash
@@ -55,19 +48,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "$DEFAULT_BRANCH" != "main" ]]; then
-            echo "::error::Target default branch must be main"
+          if [[ "$DEFAULT_BRANCH" != "master" ]]; then
+            echo "::error::Default branch must be master"
             exit 1
           fi
 
           if [[ "$TARGET_REPO" == "navipilot/openpilot" ]]; then
-            echo "::error::Source and target cannot be the same"
+            echo "::error::Source and target cannot be identical"
             exit 1
           fi
 
-          echo "Repository validation passed."
-
-      - name: Fetch All Upstream Branches
+      - name: Fetch Source Branches
         shell: bash
         run: |
           set -euo pipefail
@@ -75,13 +66,11 @@ jobs:
           git fetch --prune --no-tags upstream \
             '+refs/heads/*:refs/remotes/upstream/*'
 
-          echo "Source branches:"
-
           git for-each-ref \
             --format='%(refname:strip=3)' \
             refs/remotes/upstream
 
-      - name: Prepare Git LFS Objects
+      - name: Sync LFS Objects
         shell: bash
         run: |
           set -euo pipefail
@@ -92,50 +81,33 @@ jobs:
               refs/remotes/upstream
           )
 
-          refs=()
-
           for branch in "${branches[@]}"; do
-            [[ "$branch" == "main" ]] && continue
+            [[ "$branch" == "master" ]] && continue
 
-            refs+=("refs/remotes/upstream/$branch")
+            echo "Syncing LFS: $branch"
+
+            git lfs fetch --all upstream \
+              "refs/remotes/upstream/$branch"
+
+            git lfs push --all origin \
+              "refs/remotes/upstream/$branch"
           done
 
-          if (( ${#refs[@]} == 0 )); then
-            echo "::error::No source branches found"
-            exit 1
-          fi
-
-          echo "Downloading LFS objects..."
-
-          git lfs fetch --all upstream "${refs[@]}"
-
-          echo "Uploading LFS objects..."
-
-          for ref in "${refs[@]}"; do
-            git lfs push --all origin "$ref"
-          done
-
-          echo "LFS preparation completed."
-
-      - name: Delete All Target Branches Except Main
+      - name: Delete Target Branches Except Master
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "================================"
-          echo "Deleting old target branches..."
-          echo "================================"
-
-          mapfile -t target_branches < <(
+          mapfile -t branches < <(
             git ls-remote --heads origin |
               awk '{print $2}' |
               sed 's#^refs/heads/##'
           )
 
-          for branch in "${target_branches[@]}"; do
+          for branch in "${branches[@]}"; do
 
-            if [[ "$branch" == "main" ]]; then
-              echo "Protected: main"
+            if [[ "$branch" == "master" ]]; then
+              echo "Keeping master unchanged"
               continue
             fi
 
@@ -146,16 +118,10 @@ jobs:
 
           done
 
-          echo "Old branches deleted."
-
-      - name: Sync All Upstream Branches Except Main
+      - name: Recreate Source Branches Except Master
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "================================"
-          echo "Recreating upstream branches..."
-          echo "================================"
 
           mapfile -t branches < <(
             git for-each-ref \
@@ -163,23 +129,16 @@ jobs:
               refs/remotes/upstream
           )
 
-          count=0
-
           for branch in "${branches[@]}"; do
 
-            if [[ "$branch" == "main" ]]; then
-              echo "Skipping source main"
-              continue
-            fi
+            [[ "$branch" == "master" ]] && continue
 
             source_ref="refs/remotes/upstream/$branch"
             target_ref="refs/heads/$branch"
 
             source_sha=$(git rev-parse "$source_ref")
 
-            echo "--------------------------------"
-            echo "Syncing: $branch"
-            echo "Source SHA: $source_sha"
+            echo "Creating: $branch"
 
             git push origin \
               "$source_sha:$target_ref"
@@ -190,25 +149,17 @@ jobs:
             )
 
             if [[ "$source_sha" != "$target_sha" ]]; then
-              echo "::error::SHA mismatch: $branch"
+              echo "::error::Sync failed: $branch"
               exit 1
             fi
 
-            echo "SUCCESS: $branch"
-            count=$((count + 1))
-
+            echo "Synced: $branch"
           done
 
-          echo "================================"
-          echo "Synced branches: $count"
-          echo "================================"
-
-      - name: Verify Final Branch List
+      - name: Verify Branches
         shell: bash
         run: |
           set -euo pipefail
-
-          echo "Verifying target branches..."
 
           source_list=$(mktemp)
           target_list=$(mktemp)
@@ -216,34 +167,21 @@ jobs:
           git for-each-ref \
             --format='%(refname:strip=3)' \
             refs/remotes/upstream |
-            grep -vx 'main' |
+            grep -vx 'master' |
             sort > "$source_list"
 
           git ls-remote --heads origin |
             awk '{print $2}' |
             sed 's#^refs/heads/##' |
-            grep -vx 'main' |
+            grep -vx 'master' |
             sort > "$target_list"
 
-          echo "Expected branches:"
-          cat "$source_list"
+          diff -u "$source_list" "$target_list"
 
-          echo "Actual branches:"
-          cat "$target_list"
-
-          if ! diff -u "$source_list" "$target_list"; then
-            echo "::error::Branch list mismatch"
-            exit 1
-          fi
-
-          echo "All branches match successfully."
+          echo "All branches synchronized."
 
       - name: Show Final Result
         if: always()
         shell: bash
         run: |
-          echo "================================"
-          echo "Final target repository branches"
-          echo "================================"
-
           git ls-remote --heads origin
