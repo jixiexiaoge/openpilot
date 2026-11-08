@@ -86,8 +86,28 @@ jobs:
 
             echo "Syncing LFS: $branch"
 
-            git lfs fetch --all upstream \
-              "refs/remotes/upstream/$branch"
+            fetch_log=$(mktemp)
+            if ! git lfs fetch --all upstream \
+              "refs/remotes/upstream/$branch" 2>&1 | tee "$fetch_log"; then
+              # This upstream test fixture is a pointer to a public model, not an uploaded LFS object.
+              fixture_oid=a086d5249fc308bb73993d1e64630c669d4c7df5bde85f42ad61902543648525
+              if ! grep -Fq "[$fixture_oid] Object does not exist on the server: [404]" "$fetch_log"; then
+                exit 1
+              fi
+
+              if ! git lfs fetch --all origin "refs/remotes/upstream/$branch"; then
+                fixture=$(mktemp)
+                trap 'rm -f "$fetch_log" "$fixture"' EXIT
+                curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
+                  --output "$fixture" \
+                  https://github.com/happymaj11r/openpilot-models/releases/download/big-remove-avgpool-a086d524/big_driving_supercombo.onnx
+                echo "$fixture_oid  $fixture" | sha256sum --check
+                git lfs clean < "$fixture" > /dev/null
+                rm -f "$fixture"
+              fi
+              git lfs fetch --all upstream "refs/remotes/upstream/$branch"
+            fi
+            rm -f "$fetch_log"
 
             git lfs push --all origin \
               "refs/remotes/upstream/$branch"
