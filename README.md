@@ -23,6 +23,14 @@
 - **Carrotpilot (CP)**：CP 最新分支，供 C3 使用。
 - **carrotZ6**：长安 Z6 专用，基于旧版本 CP。
 
+### 分支同步工作流配置
+
+`Sync Branches` 工作流需要在目标仓库的 **Settings → Secrets and variables → Actions** 中配置仓库 Secret `SYNC_TOKEN`：
+
+- 推荐使用仅授权目标仓库的 fine-grained PAT，授予 **Contents: Read and write** 和 **Workflows: Read and write** 权限。
+- 若使用 classic PAT，需要 `repo` 和 `workflow` scopes。Token 所属账号也必须拥有目标仓库的写入权限，并满足仓库的分支规则。
+- 默认 `GITHUB_TOKEN` 无法推送包含工作流文件变更的分支，不能用于此同步任务；缺少 `SYNC_TOKEN` 时，工作流会在删除目标分支之前停止。
+
 ---
 
 ## 📢 开源公告与分支选择
